@@ -90,6 +90,7 @@ src/
 
 ## Roadmap
 
+### 🔧 Backend & Core Features
 - [ ] **Supabase backend** — auth, database, real-time
 - [ ] **User authentication** — login, sessions, protected routes
 - [ ] **Persistent posts & comments** — stored in database
@@ -97,7 +98,12 @@ src/
 - [ ] **Notifications** — updates, mentions, meetup reminders
 - [ ] **Search** — full-text search across posts and channels
 - [ ] **Local feed** — location-based filtering
+
+### 📱 Mobile
 - [ ] **Mobile layout** — responsive design pass
+- [ ] **PWA support** — installable on iOS and Android directly from the browser (no App Store needed)
+- [ ] **Capacitor app** — wrap the web app for App Store & Google Play release (initial native app)
+- [ ] **React Native app** — fully native iOS/Android rebuild for a polished, high-performance mobile experience (long-term)
 
 ---
 
