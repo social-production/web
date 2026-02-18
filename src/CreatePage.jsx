@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { channels } from "./data";
 import FundingForm from "./FundingForm";
+import MeetupForm from "./MeetupForm";
 
 export default function CreatePage() {
   const navigate = useNavigate();
@@ -16,6 +17,8 @@ export default function CreatePage() {
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [fundingData, setFundingData] = useState({ enabled: false });
+  const [meetups, setMeetups] = useState([]);
+  const [showMeetupForm, setShowMeetupForm] = useState(false);
   const [errors, setErrors] = useState({});
 
   const toggleChannel = (name) => {
@@ -149,6 +152,90 @@ export default function CreatePage() {
             {selectedChannels.length > 0 && <div style={{ fontSize: "12px", color: "#52b788", marginTop: "8px", fontWeight: 500 }}>{selectedChannels.length}/5 selected: {selectedChannels.join(", ")}</div>}
           </div>
         </div>
+
+        {/* Meetups - Only for Projects */}
+        {type === "project" && (
+          <div style={{ marginBottom: "16px" }}>
+            <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "20px 24px" }}>
+              <div style={{ fontSize: "14px", fontWeight: 700, color: "#374151", marginBottom: "12px" }}>
+                📅 Schedule Meetups (Optional)
+              </div>
+              <div style={{ fontSize: "13px", color: "#6b7280", marginBottom: "16px" }}>
+                Add in-person or online gatherings for your project
+              </div>
+
+              {meetups.length > 0 && (
+                <div style={{ marginBottom: "14px" }}>
+                  {meetups.map((m, i) => (
+                    <div key={i} style={{
+                      background: "#f9fafb",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      padding: "12px",
+                      marginBottom: "8px"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: "13px", fontWeight: 600, color: "#111827", marginBottom: "4px" }}>
+                            {m.title}
+                          </div>
+                          <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                            📆 {m.date} · {m.time}
+                          </div>
+                          <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                            📍 {m.location}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setMeetups(prev => prev.filter((_, idx) => idx !== i))}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#ef4444",
+                            cursor: "pointer",
+                            fontSize: "18px",
+                            padding: "0 4px",
+                            lineHeight: 1
+                          }}>
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {showMeetupForm ? (
+                <MeetupForm
+                  onSave={(meetup) => {
+                    setMeetups(prev => [...prev, meetup]);
+                    setShowMeetupForm(false);
+                  }}
+                  onCancel={() => setShowMeetupForm(false)}
+                />
+              ) : (
+                <button
+                  onClick={() => setShowMeetupForm(true)}
+                  style={{
+                    width: "100%",
+                    background: "none",
+                    border: "1px dashed #bbdec8",
+                    color: "#2d6a4f",
+                    padding: "10px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "Inter,sans-serif"
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = "#2d6a4f"}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = "#bbdec8"}>
+                  + Add Meetup
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Funding Form - Only for Projects */}
         {type === "project" && (

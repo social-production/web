@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { mockThreads, mockComments, STATUS } from "./data";
+import MeetupForm from "./MeetupForm";
 
 const INDENT_COLORS = ["#2d6a4f","#52b788","#74c69d","#95d5b2","#b7e4c7"];
 
@@ -128,6 +129,7 @@ export default function PostPage() {
   const [meetupGoing, setMeetupGoing] = useState({});
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updateText, setUpdateText] = useState("");
+  const [showMeetupForm, setShowMeetupForm] = useState(false);
 
   // Mock: assume current user is the creator for demo purposes
   const isCreator = true; // In real app: currentUser?.username === post.author
@@ -274,11 +276,39 @@ export default function PostPage() {
                     </div>
                   </div>
                 ))}
-                <button style={{ marginTop: "4px", background: "none", border: "1px dashed #bbdec8", color: "#52b788", padding: "6px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, cursor: "pointer", fontFamily: "Inter,sans-serif", width: "100%" }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = "#2d6a4f"}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = "#bbdec8"}>
-                  + Schedule Meetup
-                </button>
+                {isCreator && (
+                  showMeetupForm ? (
+                    <div style={{ marginTop: "12px" }}>
+                      <MeetupForm
+                        onSave={(meetup) => {
+                          alert("Meetup scheduled! (Will save to database once backend is connected)");
+                          setShowMeetupForm(false);
+                        }}
+                        onCancel={() => setShowMeetupForm(false)}
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowMeetupForm(true)}
+                      style={{
+                        marginTop: "4px",
+                        background: "none",
+                        border: "1px dashed #bbdec8",
+                        color: "#52b788",
+                        padding: "6px 14px",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        fontFamily: "Inter,sans-serif",
+                        width: "100%"
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = "#2d6a4f"}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = "#bbdec8"}>
+                      + Schedule Meetup
+                    </button>
+                  )
+                )}
               </div>
             </div>
           )}

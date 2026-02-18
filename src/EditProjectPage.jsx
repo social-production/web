@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { mockThreads, channels } from "./data";
 import FundingForm from "./FundingForm";
+import MeetupForm from "./MeetupForm";
 
 export default function EditProjectPage() {
   const navigate = useNavigate();
@@ -20,6 +21,8 @@ export default function EditProjectPage() {
   const [body, setBody] = useState(project.body);
   const [selectedChannels, setSelectedChannels] = useState(project.channels || []);
   const [status, setStatus] = useState(project.status);
+  const [meetups, setMeetups] = useState(project.meetups || []);
+  const [showMeetupForm, setShowMeetupForm] = useState(false);
   const [fundingData, setFundingData] = useState(project.fund ? {
     enabled: true,
     goal: project.fund.goal,
@@ -145,6 +148,86 @@ export default function EditProjectPage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Meetups Management */}
+          <div style={{ marginBottom: "18px" }}>
+            <label style={{ fontSize: "13px", fontWeight: 600, color: "#374151", display: "block", marginBottom: "8px" }}>Meetups</label>
+            
+            {meetups.length > 0 && (
+              <div style={{ marginBottom: "12px" }}>
+                {meetups.map((m, i) => (
+                  <div key={i} style={{
+                    background: "#f9fafb",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                    padding: "12px",
+                    marginBottom: "8px"
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: "13px", fontWeight: 600, color: "#111827", marginBottom: "4px" }}>
+                          {m.title}
+                        </div>
+                        <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                          📆 {m.date} · {m.time}
+                        </div>
+                        <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                          📍 {m.location}
+                        </div>
+                        {m.going > 0 && (
+                          <div style={{ fontSize: "11px", color: "#52b788", marginTop: "4px", fontWeight: 500 }}>
+                            {m.going} going
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setMeetups(prev => prev.filter((_, idx) => idx !== i))}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#ef4444",
+                          cursor: "pointer",
+                          fontSize: "18px",
+                          padding: "0 4px",
+                          lineHeight: 1
+                        }}>
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showMeetupForm ? (
+              <MeetupForm
+                onSave={(meetup) => {
+                  setMeetups(prev => [...prev, meetup]);
+                  setShowMeetupForm(false);
+                }}
+                onCancel={() => setShowMeetupForm(false)}
+              />
+            ) : (
+              <button
+                onClick={() => setShowMeetupForm(true)}
+                style={{
+                  width: "100%",
+                  background: "none",
+                  border: "1px dashed #bbdec8",
+                  color: "#2d6a4f",
+                  padding: "8px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "Inter,sans-serif"
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = "#2d6a4f"}
+                onMouseLeave={e => e.currentTarget.style.borderColor = "#bbdec8"}>
+                + Add Meetup
+              </button>
+            )}
           </div>
 
           {/* Funding Form */}
