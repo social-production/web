@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { mockThreads, mockComments, STATUS } from "./data";
+// STATUS is imported from data.js — no local redefinition needed
 import MeetupForm from "./MeetupForm";
 
 const INDENT_COLORS = ["#2d6a4f","#52b788","#74c69d","#95d5b2","#b7e4c7"];
@@ -130,6 +131,7 @@ export default function PostPage() {
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updateText, setUpdateText] = useState("");
   const [showMeetupForm, setShowMeetupForm] = useState(false);
+  const [localMeetups, setLocalMeetups] = useState(null); // null = use post.meetups from data
 
   // Mock: assume current user is the creator for demo purposes
   const isCreator = true; // In real app: currentUser?.username === post.author
@@ -149,6 +151,7 @@ export default function PostPage() {
     return list.reduce((acc, c) => acc + 1 + countAllComments(c.replies || []), 0);
   }
   const totalComments = countAllComments(comments);
+  const displayMeetups = localMeetups ?? post.meetups ?? [];
 
   return (
     <div style={{ fontFamily: "Inter,sans-serif", background: "#f6f7f8", minHeight: "100vh", color: "#1c1c1c" }}>
@@ -254,10 +257,10 @@ export default function PostPage() {
                   onMouseLeave={e => e.currentTarget.style.background = "#2d6a4f"}>Join Project</button>
               </div>
               <div style={{ padding: "20px 24px" }}>
-                <div style={{ fontSize: "12px", fontWeight: 700, color: "#374151", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "12px" }}>📅 Meetups ({post.meetups?.length || 0})</div>
-                {post.meetups?.length === 0 && <div style={{ fontSize: "13px", color: "#9ca3af" }}>No meetups scheduled yet.</div>}
-                {post.meetups?.map((m, i) => (
-                  <div key={i} style={{ marginBottom: "12px", paddingBottom: "12px", borderBottom: i < post.meetups.length - 1 ? "1px solid #e8f5ee" : "none" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "#374151", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "12px" }}>📅 Meetups ({displayMeetups.length})</div>
+                {displayMeetups.length === 0 && <div style={{ fontSize: "13px", color: "#9ca3af" }}>No meetups scheduled yet.</div>}
+                {displayMeetups.map((m, i) => (
+                  <div key={i} style={{ marginBottom: "12px", paddingBottom: "12px", borderBottom: i < displayMeetups.length - 1 ? "1px solid #e8f5ee" : "none" }}>
                     <div style={{ fontSize: "13px", fontWeight: 600, color: "#111827", marginBottom: "3px" }}>{m.title}</div>
                     <div style={{ fontSize: "12px", color: "#6b7280" }}>📆 {m.date} · {m.time}</div>
                     <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "6px" }}>📍 {m.location}</div>
@@ -281,7 +284,7 @@ export default function PostPage() {
                     <div style={{ marginTop: "12px" }}>
                       <MeetupForm
                         onSave={(meetup) => {
-                          alert("Meetup scheduled! (Will save to database once backend is connected)");
+                          setLocalMeetups(prev => [...(prev ?? post.meetups ?? []), meetup]);
                           setShowMeetupForm(false);
                         }}
                         onCancel={() => setShowMeetupForm(false)}

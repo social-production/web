@@ -1,12 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { mockThreads, channels, CARD } from "./data";
-
-const STATUS = {
-  Active:    { bg:"#dcfce7", text:"#166534", dot:"#22c55e" },
-  Proposed:  { bg:"#fef9c3", text:"#854d0e", dot:"#eab308" },
-  Completed: { bg:"#f1f5f9", text:"#475569", dot:"#94a3b8" },
-};
+import { mockThreads, channels, CARD, STATUS } from "./data";
 
 const CHANNEL_INFO = {
   "Meta":                 { description:"Discuss the platform itself — suggest features, report issues, share feedback.", color:"#6366f1" },
@@ -181,7 +175,13 @@ export default function ChannelPage() {
                   <div style={{fontSize:"15px",fontWeight:600,color:"#111827",marginBottom:"5px",lineHeight:"1.45",letterSpacing:"-0.1px"}}>{item.title}</div>
                   <div style={{fontSize:"13px",color:"#6b7280",marginBottom:"10px",lineHeight:"1.6"}}>{item.description}</div>
                   <div style={{display:"flex",gap:"14px",fontSize:"12px",color:"#9ca3af",alignItems:"center",flexWrap:"wrap"}}>
-                    <span style={{fontWeight:500,color:"#6b7280"}}>u/{item.author}</span>
+                    <span
+                      onClick={e=>{e.stopPropagation();navigate(`/user/${item.author}`);}}
+                      style={{fontWeight:500,color:"#2d6a4f",cursor:"pointer"}}
+                      onMouseEnter={e=>e.currentTarget.style.textDecoration="underline"}
+                      onMouseLeave={e=>e.currentTarget.style.textDecoration="none"}>
+                      u/{item.author}
+                    </span>
                     <span>{item.time}</span>
                     <span style={{display:"flex",alignItems:"center",gap:"4px"}}>
                       <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>

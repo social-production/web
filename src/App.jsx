@@ -1,19 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { mockThreads, channels, CARD } from "./data";
+import { mockThreads, channels, CARD, STATUS } from "./data";
 import "./App.css";
-
-const STATUS = {
-  Active:    { bg:"#dcfce7", text:"#166534", dot:"#22c55e" },
-  Proposed:  { bg:"#fef9c3", text:"#854d0e", dot:"#eab308" },
-  Completed: { bg:"#f1f5f9", text:"#475569", dot:"#94a3b8" },
-};
-
-const meetups = [
-  { title:"Garden Planning Session", project:"East Village Garden", date:"Sat Feb 21", location:"East Village, NY" },
-  { title:"Tool Library Launch", project:"Brooklyn Tool Library", date:"Sun Feb 22", location:"Brooklyn, NY" },
-  { title:"Housing Rights Workshop", project:"Tenant Network NYC", date:"Wed Feb 25", location:"Online" },
-];
 
 function Badge({ type, status }) {
   if (type === "thread") return (
@@ -91,6 +79,48 @@ function ChannelTag({ name, onClick }) {
       onMouseLeave={e=>e.currentTarget.style.background="#f0faf3"}>
       {name}
     </span>
+  );
+}
+
+function HappeningSoon() {
+  const navigate = useNavigate();
+  const [going, setGoing] = useState({});
+  const allMeetups = mockThreads
+    .filter(t => t.type === "project" && t.meetups?.length)
+    .flatMap(t => t.meetups.map(m => ({ ...m, project: t.title, projectId: t.id })))
+    .slice(0, 5);
+
+  return (
+    <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:"12px",padding:"16px",marginBottom:"12px"}}>
+      <div style={{fontSize:"12px",fontWeight:700,color:"#374151",letterSpacing:"0.5px",textTransform:"uppercase",marginBottom:"14px"}}>🌟 Happening Soon</div>
+      {allMeetups.map((m, i) => (
+        <div key={i} style={{paddingBottom: i < allMeetups.length - 1 ? "14px" : "0", marginBottom: i < allMeetups.length - 1 ? "14px" : "0", borderBottom: i < allMeetups.length - 1 ? "1px solid #f3f4f6" : "none"}}>
+          <div style={{fontSize:"13px",fontWeight:600,color:"#111827",marginBottom:"2px",lineHeight:"1.4"}}>{m.title}</div>
+          <div style={{fontSize:"11px",color:"#9ca3af",marginBottom:"6px",cursor:"pointer"}} onClick={()=>navigate(`/post/${m.projectId}`)}
+            onMouseEnter={e=>e.currentTarget.style.color="#2d6a4f"}
+            onMouseLeave={e=>e.currentTarget.style.color="#9ca3af"}>
+            {m.project}
+          </div>
+          <div style={{fontSize:"12px",color:"#6b7280",marginBottom:"8px"}}>
+            <div>📆 {m.date} · {m.time}</div>
+            <div>📍 {m.location}</div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+            <span style={{fontSize:"12px",color:"#9ca3af",fontWeight:500}}>{m.going} going</span>
+            <button
+              onClick={() => setGoing(prev => ({ ...prev, [i]: !prev[i] }))}
+              style={{
+                fontSize: "11px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px",
+                cursor: "pointer", fontFamily: "Inter,sans-serif", border: "none",
+                background: going[i] ? "#2d6a4f" : "#f0faf3",
+                color: going[i] ? "#fff" : "#2d6a4f",
+              }}>
+              {going[i] ? "✓ Going" : "+ Going"}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -334,44 +364,7 @@ export default function App() {
           </div>
 
           {/* Happening Soon */}
-          <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:"12px",padding:"16px",marginBottom:"12px"}}>
-            <div style={{fontSize:"12px",fontWeight:700,color:"#374151",letterSpacing:"0.5px",textTransform:"uppercase",marginBottom:"14px"}}>🌟 Happening Soon</div>
-            {(() => {
-              const [going, setGoing] = useState({});
-              const allMeetups = mockThreads
-                .filter(t => t.type === "project" && t.meetups?.length)
-                .flatMap(t => t.meetups.map(m => ({ ...m, project: t.title, projectId: t.id })))
-                .slice(0, 5);
-              
-              return allMeetups.map((m, i) => (
-                <div key={i} style={{paddingBottom: i < allMeetups.length - 1 ? "14px" : "0", marginBottom: i < allMeetups.length - 1 ? "14px" : "0", borderBottom: i < allMeetups.length - 1 ? "1px solid #f3f4f6" : "none"}}>
-                  <div style={{fontSize:"13px",fontWeight:600,color:"#111827",marginBottom:"2px",lineHeight:"1.4"}}>{m.title}</div>
-                  <div style={{fontSize:"11px",color:"#9ca3af",marginBottom:"6px",cursor:"pointer"}} onClick={()=>navigate(`/post/${m.projectId}`)}
-                    onMouseEnter={e=>e.currentTarget.style.color="#2d6a4f"}
-                    onMouseLeave={e=>e.currentTarget.style.color="#9ca3af"}>
-                    {m.project}
-                  </div>
-                  <div style={{fontSize:"12px",color:"#6b7280",marginBottom:"8px"}}>
-                    <div>📆 {m.date} · {m.time}</div>
-                    <div>📍 {m.location}</div>
-                  </div>
-                  <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                    <span style={{fontSize:"12px",color:"#9ca3af",fontWeight:500}}>{m.going} going</span>
-                    <button
-                      onClick={() => setGoing(prev => ({ ...prev, [i]: !prev[i] }))}
-                      style={{
-                        fontSize: "11px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px",
-                        cursor: "pointer", fontFamily: "Inter,sans-serif", border: "none",
-                        background: going[i] ? "#2d6a4f" : "#f0faf3",
-                        color: going[i] ? "#fff" : "#2d6a4f",
-                      }}>
-                      {going[i] ? "✓ Going" : "+ Going"}
-                    </button>
-                  </div>
-                </div>
-              ));
-            })()}
-          </div>
+          <HappeningSoon />
           <div style={{background:"linear-gradient(135deg,#1a3a2a,#2d6a4f)",borderRadius:"12px",padding:"16px",marginBottom:"12px"}}>
             <div style={{fontSize:"12px",fontWeight:700,color:"#a7f3d0",letterSpacing:"0.5px",textTransform:"uppercase",marginBottom:"14px"}}>🌱 Platform Activity</div>
             {[["Members","1,247"],["Active Projects","83"],["Meetups This Month","21"],["Pooled Funds","$4,820"]].map(([l,v])=>(

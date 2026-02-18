@@ -30,7 +30,6 @@ export default function CreateChannelPage() {
     const e = {};
     if (!name.trim()) e.name = "Channel name is required";
     else if (name.length < 2) e.name = "Name must be at least 2 characters";
-    else if (/\s/.test(name)) e.name = "Channel name cannot contain spaces";
     if (!description.trim()) e.description = "Description is required";
     setErrors(e);
     return Object.keys(e).length === 0;

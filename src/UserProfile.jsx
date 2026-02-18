@@ -1,12 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { mockThreads, mockComments, CARD } from "./data";
-
-const STATUS = {
-  Active:    { bg:"#dcfce7", text:"#166534", dot:"#22c55e" },
-  Proposed:  { bg:"#fef9c3", text:"#854d0e", dot:"#eab308" },
-  Completed: { bg:"#f1f5f9", text:"#475569", dot:"#94a3b8" },
-};
+import { mockThreads, mockComments, CARD, STATUS } from "./data";
 
 const DARK_GREEN = "#1a3d2b";
 
