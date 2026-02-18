@@ -121,4 +121,6 @@ Please keep PRs focused on a single feature or fix. If you're planning something
 
 ## License
 
-MIT
+[AGPL-3.0](LICENSE) — GNU Affero General Public License v3.0
+
+This means anyone can use, modify, and distribute this code — but if you run a modified version as a web service, you **must** make your source code publicly available. This prevents corporations from taking the code, closing it up, and profiting from it without giving back to the community.
