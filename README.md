@@ -1,16 +1,118 @@
-# React + Vite
+# 🌱 Social Production
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A community platform for organising collective projects, pooling resources, and building things together — neighbourhood by neighbourhood.
 
-Currently, two official plugins are available:
+Think Reddit meets a cooperative organiser: people post project ideas, recruit members, schedule meetups, and collectively fund shared goals.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## What is this?
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Social Production is built around the idea that communities can produce things together — gardens, tool libraries, murals, classes, housing campaigns — when they have the right tools to coordinate.
 
-## Expanding the ESLint configuration
+The platform lets users:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **Post projects** with status tracking (Proposed → Active → Completed)
+- **Post threads** for discussion and debate
+- **Join projects** and collaborate with members
+- **Schedule meetups** — in-person or online
+- **Collectively fundraise** toward shared goals
+- **Subscribe to channels** organised by topic or geography (e.g. Brooklyn, Food & Agriculture, Housing)
+- **Follow updates** as projects evolve
+
+---
+
+## Current State (Frontend)
+
+The frontend is fully built as a working prototype with mock data. All pages are navigable and interactive.
+
+| Page | Description |
+|---|---|
+| `/` | Main feed — filter, sort, vote on posts |
+| `/post/:id` | Full post view with comments, meetups, funding widget, updates feed |
+| `/create` | Create a thread or project (with meetup scheduling + funding form) |
+| `/edit-project/:id` | Edit an existing project |
+| `/channel/:name` | Channel page with filtered feed |
+| `/create-channel` | Create a new community channel |
+| `/user/:username` | User profile with threads, projects, comments tabs |
+| `/auth` | Login / signup forms |
+
+**No backend yet** — all data is mock data in `src/data.js`. Backend integration (Supabase) is the next phase.
+
+---
+
+## Tech Stack
+
+- **React 18** with hooks
+- **Vite** for dev server and bundling
+- **React Router v6** for client-side routing
+- All styling is inline CSS (no CSS framework)
+
+---
+
+## Running Locally
+
+```bash
+# Clone the repo
+git clone https://github.com/YMSVZ/social_production.git
+cd social_production
+
+# Install dependencies
+npm install
+
+# Start the dev server
+npm run dev
+```
+
+Then open [http://localhost:5173](http://localhost:5173) in your browser.
+
+---
+
+## Project Structure
+
+```
+src/
+├── App.jsx              # Main feed page
+├── PostPage.jsx         # Individual post / project view
+├── CreatePage.jsx       # Create thread or project
+├── EditProjectPage.jsx  # Edit an existing project
+├── ChannelPage.jsx      # Channel feed
+├── CreateChannelPage.jsx# Create a new channel
+├── UserProfile.jsx      # User profile page
+├── AuthPage.jsx         # Login / signup
+├── FundingForm.jsx      # Reusable collective funding form
+├── MeetupForm.jsx       # Reusable meetup scheduling form
+├── data.js              # Mock data (threads, comments, channels)
+└── main.jsx             # Router setup
+```
+
+---
+
+## Roadmap
+
+- [ ] **Supabase backend** — auth, database, real-time
+- [ ] **User authentication** — login, sessions, protected routes
+- [ ] **Persistent posts & comments** — stored in database
+- [ ] **Real funding** — Stripe integration for collective contributions
+- [ ] **Notifications** — updates, mentions, meetup reminders
+- [ ] **Search** — full-text search across posts and channels
+- [ ] **Local feed** — location-based filtering
+- [ ] **Mobile layout** — responsive design pass
+
+---
+
+## Contributing
+
+1. Fork the repo
+2. Create a branch: `git checkout -b your-feature-name`
+3. Make your changes and commit: `git commit -m "Add: description of change"`
+4. Push to your fork: `git push origin your-feature-name`
+5. Open a Pull Request — describe what you changed and why
+
+Please keep PRs focused on a single feature or fix. If you're planning something large, open an issue first to discuss.
+
+---
+
+## License
+
+MIT
