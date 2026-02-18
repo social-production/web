@@ -37,16 +37,23 @@ The frontend is fully built as a working prototype with mock data. All pages are
 | `/user/:username` | User profile with threads, projects, comments tabs |
 | `/auth` | Login / signup forms |
 
-**No backend yet** — all data is mock data in `src/data.js`. Backend integration (Supabase) is the next phase.
+**No backend yet** — all data is mock data in `src/data.js`. Backend integration (PostgreSQL + Docker) is in active development.
 
 ---
 
 ## Tech Stack
 
+**Frontend (current)**
 - **React 18** with hooks
 - **Vite** for dev server and bundling
 - **React Router v6** for client-side routing
 - All styling is inline CSS (no CSS framework)
+- **PWA support** via `vite-plugin-pwa` — installable on iOS and Android from the browser
+
+**Backend (in development)**
+- **PostgreSQL** — direct, no third-party wrappers
+- **Docker** — containerized for easy self-hosting
+- **REST API** — connecting frontend to persistent data
 
 ---
 
@@ -88,16 +95,33 @@ src/
 
 ---
 
+## Architecture & Hosting Philosophy
+
+Social Production is designed to be **self-hosted and community-owned** — no dependency on any third-party service or corporation.
+
+- **Self-hostable:** The backend is a Docker container. Any community can run their own instance on their own server with a single command.
+- **No lock-in:** Direct PostgreSQL — no proprietary wrappers, no vendor dependency.
+- **Federated (long-term goal):** Communities run local nodes (e.g. a Brooklyn node, a London node) that connect to the wider network. Users have a home node but can interact across the whole platform — post to any channel, join any project, move between nodes if they relocate. Local roots, global network.
+- **Open source (AGPL-3.0):** The code is public and forkable. Corporations cannot take it, close it, and profit from it.
+
+---
+
 ## Roadmap
 
 ### 🔧 Backend & Core Features
-- [ ] **Supabase backend** — auth, database, real-time
+- [ ] **PostgreSQL backend** — auth, database, REST API
 - [ ] **User authentication** — login, sessions, protected routes
 - [ ] **Persistent posts & comments** — stored in database
-- [ ] **Real funding** — Stripe integration for collective contributions
+- [ ] **Real funding** — payment processing for collective contributions
 - [ ] **Notifications** — updates, mentions, meetup reminders
 - [ ] **Search** — full-text search across posts and channels
 - [ ] **Local feed** — location-based filtering
+
+### 🌐 Federation
+- [ ] **Self-hosting guide** — Docker deployment documentation
+- [ ] **Multi-node support** — communities can run their own local instance
+- [ ] **Cross-node interaction** — users on different nodes can interact, post to shared channels, join projects across nodes
+- [ ] **Account portability** — move your account between nodes without losing history
 
 ### 📱 Mobile
 - [ ] **Mobile layout** — responsive design pass
