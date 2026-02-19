@@ -22,6 +22,57 @@ The platform lets users:
 
 ---
 
+## Features
+
+### Accounts
+- Log in from any network federated server (including the local one)
+- Sign up with the local network federated server
+
+### Federation
+- Link to other network federated servers
+- Sync all channels, posts, tags, events, funds, and users with other network federated servers
+
+### Channels
+- Create channels
+- View all posts in a channel
+- Post in a channel
+
+### Tags
+- Create tags
+- View all posts by tag
+- Tag posts in channels
+
+### Posts
+- Create a project
+- Create a thread
+
+### Funds
+- Create a fund
+- View all funds
+
+### Events
+- Create events through a project
+- RSVP to an event
+- View all events
+
+---
+
+## Wireframes
+
+Design specifications and visual wireframes for every screen in the app.
+
+| Document | Description |
+|---|---|
+| [Overview & Index](docs/wireframes/00-index.md) | Document map, auth state summary, layout system |
+| [Shared Layout](docs/wireframes/01-layout.md) | Top Bar, Content Wrapper, Global Actions |
+| [Front Page — Logged Out](docs/wireframes/02-front-page-logged-out.md) | Public landing page with feeds and activities |
+| [Front Page — Logged In](docs/wireframes/03-front-page-logged-in.md) | Authenticated dashboard with personal feeds and actions |
+| [Post Page — Thread](docs/wireframes/04-post-page-thread.md) | Thread detail view with nested comments |
+| [Post Page — Project](docs/wireframes/05-post-page-project.md) | Project detail with members, events, and updates |
+| [Reusable Components](docs/wireframes/06-components.md) | Feed Post, Event, Comment, Fund specs |
+
+---
+
 ## Current State (Frontend)
 
 The frontend is fully built as a working prototype with mock data. All pages are navigable and interactive.
