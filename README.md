@@ -1,8 +1,14 @@
 # 🌱 Social Production
 
-A community platform for organising collective projects, pooling resources, and building things together — neighbourhood by neighbourhood.
+A community platform for organising collective projects, pooling resources, and building things together.
 
-Think Reddit meets a cooperative organiser: people post project ideas, recruit members, schedule meetups, and collectively fund shared goals.
+Post ideas, recruit members, schedule meetups, organize labor and collectively fund shared goals, with collective ownership of the results.
+
+---
+
+## Collective Funding, Collective Ownership
+
+When a project is funded, what's purchased belongs to the entire community, not just the contributors. You're not buying shares; you're provisioning shared infrastructure for the commons.
 
 ---
 
