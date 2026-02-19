@@ -10,6 +10,10 @@ import ChannelPage from './ChannelPage.jsx'
 import UserProfile from './UserProfile.jsx'
 import CreateChannelPage from './CreateChannelPage.jsx'
 import EditProjectPage from './EditProjectPage.jsx'
+// New TypeScript pages
+import EditProfilePage from './EditProfilePage'
+import NetworkSettingsPage from './NetworkSettingsPage'
+import ModeratorDashboard from './ModeratorDashboard'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -23,6 +27,10 @@ createRoot(document.getElementById('root')).render(
         <Route path="/user/:username" element={<UserProfile />} />
         <Route path="/create-channel" element={<CreateChannelPage />} />
         <Route path="/edit-project/:id" element={<EditProjectPage />} />
+        {/* New TypeScript pages */}
+        <Route path="/settings/profile" element={<EditProfilePage />} />
+        <Route path="/settings/network" element={<NetworkSettingsPage />} />
+        <Route path="/moderation" element={<ModeratorDashboard />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

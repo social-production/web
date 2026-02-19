@@ -124,6 +124,47 @@ function HappeningSoon() {
   );
 }
 
+function SettingsDropdown({ navigate }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const options = [
+    { label: "Profile", icon: "👤", path: "/settings/profile" },
+    { label: "Network Settings", icon: "🌐", path: "/settings/network" },
+    { label: "Moderator Dashboard", icon: "🛡️", path: "/moderation" },
+  ];
+
+  return (
+    <div ref={ref} style={{position:"relative",userSelect:"none"}}>
+      <button onClick={()=>setOpen(o=>!o)}
+        style={{background:"none",border:"none",cursor:"pointer",color:"#6b7280",fontSize:"18px",padding:"4px 6px",borderRadius:"6px"}}
+        onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"}
+        onMouseLeave={e=>{ if(!open) e.currentTarget.style.background="none"; }}>
+        ⚙️
+      </button>
+      {open && (
+        <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,zIndex:200,background:"#fff",border:"1px solid #e5e7eb",borderRadius:"10px",boxShadow:"0 4px 16px rgba(0,0,0,0.10)",minWidth:"180px",overflow:"hidden"}}>
+          {options.map(opt=>(
+            <div key={opt.path} onClick={()=>{navigate(opt.path);setOpen(false);}}
+              style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",cursor:"pointer",fontSize:"13px",fontWeight:400,color:"#374151",background:"transparent"}}
+              onMouseEnter={e=>e.currentTarget.style.background="#f9fafb"}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <span>{opt.icon}</span>
+              {opt.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FilterDropdown({ value, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -223,6 +264,7 @@ export default function App() {
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
           <button style={{background:"none",border:"none",cursor:"pointer",color:"#6b7280",fontSize:"18px",padding:"4px 6px",borderRadius:"6px"}} onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🔔</button>
           <button style={{background:"none",border:"none",cursor:"pointer",color:"#6b7280",fontSize:"18px",padding:"4px 6px",borderRadius:"6px"}} onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>✉️</button>
+          <SettingsDropdown navigate={navigate} />
           <button onClick={()=>navigate("/auth?mode=login")} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",color:"#374151",padding:"6px 14px",borderRadius:"8px",fontSize:"13px",fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif"}} onMouseEnter={e=>e.currentTarget.style.background="#e5e7eb"} onMouseLeave={e=>e.currentTarget.style.background="#f3f4f6"}>Log in</button>
           <button onClick={()=>navigate("/auth?mode=signup")} style={{background:"#2d6a4f",border:"none",color:"#fff",padding:"6px 16px",borderRadius:"8px",fontSize:"13px",fontWeight:600,cursor:"pointer",fontFamily:"Inter,sans-serif"}} onMouseEnter={e=>e.currentTarget.style.background="#1f4f3a"} onMouseLeave={e=>e.currentTarget.style.background="#2d6a4f"}>Sign up</button>
         </div>
