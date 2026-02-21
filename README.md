@@ -12,6 +12,14 @@ When a project is funded, what's purchased belongs to the entire community, not 
 
 ---
 
+## Notice
+
+This is an archived repository. All new work is being done under [the social-production org](https://github.com/social-production).
+
+The [new url](https://github.com/social-production/web) for this repo is: https://github.com/social-production/web
+
+---
+
 ## What is this?
 
 Social Production is built around the idea that communities can produce things together — gardens, tool libraries, murals, classes, housing campaigns — when they have the right tools to coordinate.
