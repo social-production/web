@@ -6,6 +6,18 @@ Post ideas, recruit members, schedule meetups, organize labor and collectively f
 
 ---
 
+## Notice
+
+This is an archived repo. We have moved to a [new org](https://github.com/social-production). The new repo is: https://github.com/social-production/web
+
+To update your repo type this in the terminal:
+
+```shell
+git remote set-url origin git@github.com:social-production/web
+```
+
+---
+
 ## Collective Funding, Collective Ownership
 
 When a project is funded, what's purchased belongs to the entire community, not just the contributors. You're not buying shares; you're provisioning shared infrastructure for the commons.
