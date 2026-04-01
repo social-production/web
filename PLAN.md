@@ -1,262 +1,48 @@
-# Social Production
+# Social Production Web Plan
 
-A federated system for localized production management
+Audience: AI agents and implementation tooling.
 
-## Tech Stack
+Human readers should start with [README.md](README.md).
 
-- Vite
-- ReactJs
-- TypeScript
-- GRPC
+## Repo Role
 
-## Server Communication
+This repo is an older React prototype and reference workspace.
 
-Uses GRPC to make calls to the backend.
+It is not the lead product implementation track.
 
-## Layout
+## Source Of Truth
 
-The layout uses a flex based layout.
+When this repo conflicts with current planning, prefer:
 
-```ascii
-+--------------------------+
-| Top Bar (flex 1)         |
-+--------------------------+
-| Content Wrapper (flex 3) |
-+--------------------------+
-```
+- [planning/README.md](https://github.com/social-production/planning/blob/main/README.md)
+- [planning/CONTRIBUTOR_GUIDE.md](https://github.com/social-production/planning/blob/main/CONTRIBUTOR_GUIDE.md)
+- [planning/APPLICATION/README.md](https://github.com/social-production/planning/blob/main/APPLICATION/README.md)
+- [planning/ARCHITECTURE/TECH_ARCHITECTURE.md](https://github.com/social-production/planning/blob/main/ARCHITECTURE/TECH_ARCHITECTURE.md)
+- [app/README.md](https://github.com/social-production/app/blob/main/README.md)
 
-### Top Bar
+## Agent Guidance
 
-The top bar has a maximum height of 48 px.
+- Treat this repo as reference material, not as the active product track.
+- Do not revive old backend assumptions from earlier prototype plans without checking the planning repo first.
+- Do not treat older web-only flows as evidence of current phase scope.
+- Prefer extracting useful ideas into the planning repo or Flutter app rather than expanding this prototype by default.
 
-```ascii
-+---------------+-----------------------+-------------------------+
-| Logo (flex 1) | Page Actions (flex 3) | Global Actions (flex 1) |
-+---------------+-----------------------+-------------------------+
-```
+## Useful Areas
 
-#### Global Actions
+- [docs/wireframes](docs/wireframes): older screen references
+- [src](src): mock-data implementation and copy ideas
+- [src/components](src/components): reusable prototype components and interaction ideas
 
-**Logged Out**:
+## Avoid These Assumptions
 
-```ascii
-+---------------+----------------+
-| Log in Button | Sign up Button |
-+---------------+----------------+
-```
+- do not assume a PostgreSQL plus REST backend path is current
+- do not assume this repo is the main mobile or desktop path
+- do not assume older session notes represent the current workspace structure
 
-**Logged In**:
+## Commands
 
-```ascii
-+--------------------+---------------------------+----------------+
-| Alerts Icon Button | Notifications Icon Button | Log out Button |
-+--------------------+---------------------------+----------------+
-```
-
-### Content Wrapper
-
-```ascii
-+-----------------+------------------+-----------------+
-|Padding (flex 1) | Content (flex 3) | Padding (flex1) |
-+-----------------+------------------+-----------------+
-```
-
-### Front Page
-
-#### Page Actions
-
-**Logged Out**:
-
-```ascii
-+---+
-|   |
-+---+
-```
-
-**Logged In**:
-
-```ascii
-+------------+
-| Search Bar |
-+------------+
-```
-
-#### Content
-
-```ascii
-+---------------+----------------+---------------------+
-| Menu (flex 1) | Feeds (flex 3) | Activities (flex 1) |
-+---------------+----------------+---------------------+
-```
-
-##### Menu
-
-```ascii
-+---------------------+
-| Home Menu Item      |
-| My Feed Menu Item   | <--- (only when logged in)
-| Local Menu Item     |
-+---------------------+
-| Channels Header     |
-+---------------------+
-| Channels            |
-+---------------------+
-| Tags Header         |
-+---------------------+
-| Tags                |
-+---------------------+
-| New Channel Button  | <--- (only when logged in)
-+---------------------+
-```
-
-#### Feeds
-
-```ascii
-+------------------------------------------+
-| Feeds Tabs (flex 3) | Actions (flex 1)   |
-+------------------------------------------+
-| Filters (flex 3)    | Feed Count (flex 1)|
-+------------------------------------------+
-| Feed                                     |
-+------------------------------------------+
-```
-
-##### Feed Tabs
-
-```ascii
-+----------------+------------------------------------+-----------------+
-| Home Feed Item | My Feed Item (only when logged in) | Local Feed Item |
-+----------------+------------------------------------+-----------------+
-```
-
-##### Actions
-
-Only when logged in:
-
-```ascii
-+-------------------+--------------------+
-| Add Thread Button | Add Project Button |
-+-------------------+--------------------+
-```
-
-##### Filters
-
-```ascii
-+------------------+----------------+
-| Filter Drop Down | Sort Drop Down |
-+------------------+----------------+
-```
-
-#### Feed
-
-```ascii
-+------------+
-| Feed Posts |
-+------------+
-```
-
-##### Feed Post
-
-```ascii
-+----------------------+-----------------------+
-| Vote Button (flex 1) | Post Details (flex 3) |
-+----------------------+-----------------------+
-```
-
-###### Post Details
-
-```ascii
-+-------------------------------------------------+
-| Type | Status | Tags                            |
-+-------------------------------------------------+
-| Title                                           |
-| Text                                            |
-| Media                                           |
-+-------------------------------------------------+
-| User | Time Ago | Comment Count | Members Count |
-+-------------------------------------------------+
-```
-
-#### Events
-
-```ascii
-+------------------------------+
-| My Events Header             | <--- (only if logged in)
-| My Events                    | <--- (only if logged in)
-+------------------------------+
-| Events Happening Soon Header |
-| Events Happening Soon        |
-+------------------------------+
-| Platform Activity Header     |
-| Platform Activities          |
-+------------------------------+
-| Collective Fund Header       |
-| Collective Funds             |
-+------------------------------+
-```
-
-##### Event
-
-```ascii
-+-----------------------------------------------+
-| Title                                         |
-| Description                                   |
-| Date and Time                                 |
-| Location                                      |
-+-----------------------------------------------+
-| Going Count | RSVP Status (only if logged in) |
-+-----------------------------------------------+
-```
-
-##### Platform Activity
-
-```ascii
-+-------+---------+------+
-| Title | Spacing | Count|
-+-------+---------+------+
-```
-
-##### Collective Fund
-
-```ascii
-+--------+
-| Header |
-| Pitch  |
-| Funds  |
-+--------+
-```
-
-###### Fund
-
-```ascii
-+------------------------+
-| Title | Percent Funded |
-+------------------------+
-| Progress Bar           |
-| Amount Raised          |
-| Contribute Button      | <--- (only if logged in)
-+------------------------+
-```
-
-### Post Page
-
-#### Page Actions
-
-```ascii
-+-------------+
-| Back Button |
-+-------------+
-```
-
-#### Content Wrapper
-
-```ascii
-+------------------+------------------+------------------+
-| Padding (flex 1) | Content (flex 3) | Padding (flex 1) |
-+------------------+------------------+------------------+
-```
-
-##### Content
+- `npm install`
+- `npm run dev`
 
 ```ascii
 +-----------------+
