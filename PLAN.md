@@ -1,199 +1,93 @@
 # Social Production Web Plan
 
-Audience: AI agents and implementation tooling.
+## Purpose
 
-Human readers should start with [README.md](README.md).
+Phase 1 exists to test whether Social Production works as a simpler web platform with a conventional backend before moving into legal asset holding, platform funding, and a future p2p backend.
 
-## Repo Role
+The point is not to abandon the p2p direction. The point is to learn faster with a cleaner, usable web product now while p2p research can continue in parallel.
 
-This repo is an older React prototype and reference workspace.
+## Development Roadmap
 
-It is not the lead product implementation track.
+### Phase 1 — Web Prototype
 
-## Source Of Truth
+- conventional backend path
+- FastAPI backend
+- SvelteKit frontend
+- PWA-first UX
+- funding and legal asset-holding modules designed to be optional and off by default
+- facilitation and coordination only
 
-When this repo conflicts with current planning, prefer:
+If this phase proves useful and productive, move to Phase 2.
 
-- [planning/README.md](https://github.com/social-production/planning/blob/main/README.md)
-- [planning/CONTRIBUTOR_GUIDE.md](https://github.com/social-production/planning/blob/main/CONTRIBUTOR_GUIDE.md)
-- [planning/APPLICATION/README.md](https://github.com/social-production/planning/blob/main/APPLICATION/README.md)
-- [planning/ARCHITECTURE/TECH_ARCHITECTURE.md](https://github.com/social-production/planning/blob/main/ARCHITECTURE/TECH_ARCHITECTURE.md)
-- [app/README.md](https://github.com/social-production/app/blob/main/README.md)
+### Phase 2 — Legal Entity And Funding
 
-## Agent Guidance
+- nonprofit foundation formed
+- community funding inside Social Production activated
+- legal asset-holding layer comes online
+- physical asset network becomes operational
 
-- Treat this repo as reference material, not as the active product track.
-- Do not revive old backend assumptions from earlier prototype plans without checking the planning repo first.
-- Do not treat older web-only flows as evidence of current phase scope.
-- Prefer extracting useful ideas into the planning repo or Flutter app rather than expanding this prototype by default.
+### Phase 3 — P2P Backend
 
-## Useful Areas
+- ongoing R&D around Holochain, p2panda, or another viable path
+- gradual migration away from the conventional backend
+- frontend kept compatible through an adapter boundary rather than a full rewrite
 
-- [docs/wireframes](docs/wireframes): older screen references
-- [src](src): mock-data implementation and copy ideas
-- [src/components](src/components): reusable prototype components and interaction ideas
+### Phase 4 — Full Model
 
-## Avoid These Assumptions
+- shutdown-resistant infrastructure live
+- broader non-market coordination at scale
 
-- do not assume a PostgreSQL plus REST backend path is current
-- do not assume this repo is the main mobile or desktop path
-- do not assume older session notes represent the current workspace structure
+## Phase 1 Frontend Goals
 
-## Commands
+- make the product understandable and usable as a real web app
+- keep the frontend clean enough that each major surface has its own file ownership
+- preserve the product model already worked out in the mock app
+- work especially well as a PWA on mobile while still being strong on desktop through a responsive shell rather than one fixed desktop layout
+- separate settled phase-one features from later-phase features so the UI does not imply things that are not shipping yet
+- allow funding and asset-holding UI modules to be designed now but hidden cleanly behind feature flags until the organization is ready
 
-- `npm install`
-- `npm run dev`
+## Phase 1 Shipping Focus
 
-```ascii
-+-----------------+
-| Post Wrapper    |
-+-----------------+
-| Comment Form    |
-+-----------------+
-| Comment Count   |
-+-----------------+
-| Nested Comments |
-+-----------------+
-```
+This first web version should focus on:
 
-###### Post Wrapper
-
-```ascii
-+--------------------------------------+
-| Vote Button (flex 1) | Post (flex 3) |
-+--------------------------------------+
-| Members (flex 1) | Events (flex 1)   | <--- (if post is a project)
-+--------------------------------------+
-| Post Actions (aligned right)         | <--- (if logged in, post is a project, and you are a moderator)
-+--------------------------------------+
-| Post Update Button                   | <--- (if logged in, post is a project, and you are a moderator)
-+--------------------------------------+
-| Post Updates                         |
-+--------------------------------------+
-```
-
-####### Post
-
-```ascii
-+--------------------------------------+
-| Type and Status | Tags               | <--- (left aligned)
-+--------------------------------------+
-| Title                                |
-+--------------------------------------+
-| Posted By | Time Ago | Comment Count | <--- (left aligned)
-+--------------------------------------+
-| Media                                |
-| Text                                 |
-+--------------------------------------+
-```
-
-####### Members
-
-```ascii
-+---------------------------+
-| Header with Members Count |
-| Members                   |
-| Join Project Button       | <--- (if logged in)
-+---------------------------+
-```
-
-####### Events
-
-```ascii
-+--------------------------+
-| Header with Events Count |
-| Events                   |
-| Schedule Event Button    | <--- (if logged in)
-+--------------------------+
-```
-
-######## Event
-
-````ascii
-+-----------------------------------------------+
-| Title                                         |
-| Description                                   |
-| Date and Time                                 |
-| Location                                      |
-+-----------------------------------------------+
-| Going Count | RSVP Status (only if logged in) |
-+-----------------------------------------------+
-```
-
-####### Post Actions
-
-```ascii
-+-------------+
-| Edit Button |
-+-------------+
-```
-
-####### Post Updates
-
-```ascii
-+---------------------------+
-| Header with Updates Count |
-| Updates                   |
-+---------------------------+
-```
-
-######## Update
-
-```ascii
-+-------------------+
-| Status | Time Ago |
-| text              |
-| Posted By User    |
-+-------------------+
-```
-
-###### Comment Form
-
-```ascii
-+-----------------+
-| Leave a comment |
-| Input           |
-| Comment Button  | <--- (right aligned)
-+-----------------+
-```
-
-###### Nested Comment
-
-```ascii
-+-----------------------------------------------------------------+
-| User | Time Ago | Expand/Collapse Button                        |
-+-----------------------------------------------------------------+
-| Text                                                            |
-+-----------------------------------------------------------------+
-| Vote Count Button | Reply Button (if logged in) | Replies Count |
-+-----------------------------------------------------------------+
-| Nested Comments                                                 |
-+-----------------------------------------------------------------+
-```
-````
-
-## Features
-
-- Accounts
-  - Log in from any network federated server (including the local one)
-  - Sign up with the local network federated server
-- Link to other network federated servers
-  - Sync all channels, posts, tags, events, funds, and users with other network federated servers
+- Public feed
+- Personal feed
+- Projects
+- Threads
+- Standalone events
 - Channels
-  - Create
-  - View all posts
-  - Post in channel
-- Tags
-  - Create
-  - View all posts
-  - Post in channel
-- Posts
-  - Create a project
-  - Create a thread
-- Funds
-  - Create
-  - View all funds
-- Events
-  - Created through a project
-  - RSVP to an event
-  - View all events
+- Communities
+- Platform
+- Assets
+- Search
+- Notifications
+- Messages
+- Profiles
+- Settings
+- Roadmap tab
+- Create flows for the main content families
+
+## Phase 1 Explicit Exclusions
+
+Do not treat these as launch requirements for the first web build:
+
+- p2p runtime or p2p-specific UX assumptions
+- full collective asset network operations
+
+Community funding and legal asset-holding surfaces may still be designed in the frontend, but they should be off by default and the rest of the product must work cleanly without them.
+
+## Implementation Order
+
+1. Lock documentation and build rules.
+2. Build the shell and route map.
+3. Build Public and Personal feed composition.
+4. Build detail surfaces for projects, threads, events, posts, channels, and communities.
+5. Build search, notifications, messages, profile, settings, and roadmap.
+6. Add creation flows.
+7. Add PWA polish and responsive refinement.
+
+## Core Constraint
+
+The frontend must be written so it can speak to a normal backend now and a future p2p backend later through a replaceable adapter layer.
+
+That means one frontend codebase, one product model, and one route system, with responsive layout changes between desktop and PWA/mobile rather than separate frontend products.

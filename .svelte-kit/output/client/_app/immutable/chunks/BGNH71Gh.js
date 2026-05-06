@@ -1,0 +1,1 @@
+import{c as t}from"./BUhjs0ca.js";function r(){return t.getOnboarding()}function a(){return t.getSettings()}function i(e){return t.updateSettings(e)}function g(){return t.hydrateClientState?t.hydrateClientState():Promise.resolve(!1)}function o(e){return t.getProfile(e)}export{o as a,a as b,r as g,g as h,i as u};

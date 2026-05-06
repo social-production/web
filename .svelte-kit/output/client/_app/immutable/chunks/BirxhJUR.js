@@ -1,0 +1,1 @@
+import{c as a}from"./BUhjs0ca.js";function n(){return a.getNotifications()}function r(){return a.getMessages()}function i(e){return a.markNotificationRead(e)}function o(){return a.markAllNotificationsRead()}function c(e){return a.markMessageThreadRead(e)}function f(e,t){return a.sendMessage(e,t)}export{n as a,i as b,o as c,r as g,c as m,f as s};
