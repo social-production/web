@@ -1,0 +1,1 @@
+.tag-list.svelte-akog2a{display:flex;gap:.4rem;flex-wrap:wrap}.tag-list.grid-layout.svelte-akog2a{display:grid;grid-template-columns:repeat(var(--tag-columns),max-content);justify-content:end}@media (max-width: 760px){.tag-list.grid-layout.svelte-akog2a{justify-content:start}}

@@ -1,0 +1,88 @@
+{
+	"/": [
+		"src/routes/+page.ts",
+		"src/routes/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/channels/[slug]": [
+		"src/routes/channels/[slug]/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/communities/[slug]": [
+		"src/routes/communities/[slug]/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/create/channel": [
+		"src/routes/+layout.ts"
+	],
+	"/create/community": [
+		"src/routes/+layout.ts"
+	],
+	"/create/event": [
+		"src/routes/+layout.ts"
+	],
+	"/create/post": [
+		"src/routes/+layout.ts"
+	],
+	"/create/project": [
+		"src/routes/+layout.ts"
+	],
+	"/create/thread": [
+		"src/routes/+layout.ts"
+	],
+	"/events/[slug]": [
+		"src/routes/events/[slug]/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/messages": [
+		"src/routes/messages/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/notifications": [
+		"src/routes/notifications/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/onboarding": [
+		"src/routes/onboarding/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/personal": [
+		"src/routes/personal/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/platform": [
+		"src/routes/platform/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/posts/[id]": [
+		"src/routes/posts/[id]/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/profile/[username]": [
+		"src/routes/profile/[username]/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/projects/[slug]": [
+		"src/routes/projects/[slug]/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/roadmap": [
+		"src/routes/+layout.ts"
+	],
+	"/search": [
+		"src/routes/search/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/settings": [
+		"src/routes/settings/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/stewardship": [
+		"src/routes/stewardship/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/threads/[slug]": [
+		"src/routes/threads/[slug]/+page.ts",
+		"src/routes/+layout.ts"
+	]
+}

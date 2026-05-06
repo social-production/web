@@ -1,0 +1,1 @@
+import{a as o,f as p}from"./CTP_sk8P.js";import"./kQDwlutK.js";import{ae as l,ag as m,ah as f}from"./BaheMG_i.js";import{s as i}from"./CKFfB9eO.js";import{p as n}from"./DC4PtBbO.js";var c=p('<span class="pill svelte-12f0d6y"> </span>');function _(t,e){let r=n(e,"label",8);var a=c(),s=m(a,!0);f(a),l(()=>i(s,r())),o(t,a)}export{_ as C};
