@@ -6,14 +6,14 @@
 
   function completionCopy() {
     if (isPersonalServiceProject(projectMode)) {
-      return 'This phase closes the current personal service or converts it into a collective service or productive project when the work grows beyond one person.';
+      return 'This phase records the service as closed, while still leaving room to point people toward a future collective service or productive project if the work grows beyond one person.';
     }
 
     if (isCollectiveServiceProject(projectMode)) {
       return 'This phase closes the service while keeping its history visible. If related work continues later, it should either move back into planning or link to a new project.';
     }
 
-    return 'This phase marks the project as completed or converted into an ongoing service. The history above stays visible either way.';
+    return 'This phase records the project as closed or converted into an ongoing service. The history above stays visible either way.';
   }
 </script>
 

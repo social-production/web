@@ -8,40 +8,25 @@
 
   export let item: NotificationItem;
 
+  $: orderedTags = [...item.channelTags, ...item.communityTags];
+
   const dispatch = createEventDispatcher<{ read: void }>();
 </script>
 
 <FeedSurface href={item.href} tone={item.surface === 'personal' ? 'personal' : 'public'}>
   <div class:unread={item.isUnread} class="notification-card">
     <div class="topline">
-      {#if item.surface === 'personal'}
-        <div class="identity-row">
-          <div class="kind-row">
-            {#if item.isUnread}
-              <span class="unread-dot"></span>
-            {/if}
-            {#if item.actorUsername}
-              <a class="actor-link" href={`/profile/${item.actorUsername}`}>{item.actorUsername}</a>
-            {/if}
-            {#if item.actionLabel}
-              <span class="action">- {item.actionLabel}</span>
-            {/if}
-            <SubjectTablet kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
-          </div>
-        </div>
-      {:else}
-        <div class="kind-row">
-          {#if item.isUnread}
-            <span class="unread-dot"></span>
-          {/if}
-          <SubjectTablet kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
-        </div>
-      {/if}
-
-      <div class="tag-stack">
-        <TagList tags={item.channelTags} />
-        <TagList tags={item.communityTags} />
+      <div class="kind-row">
+        {#if item.isUnread}
+          <span class="unread-dot"></span>
+        {/if}
+        <SubjectTablet kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
+        {#if item.actionLabel}
+          <span class="action">- {item.actionLabel}</span>
+        {/if}
       </div>
+
+      <TagList tags={orderedTags} />
     </div>
 
     {#if item.title}
@@ -53,17 +38,22 @@
     {/if}
 
     <div class="footer">
-      <span class="time">{formatRelativeTime(item.createdAt)}</span>
       {#if item.isUnread}
         <button class="mark-read" type="button" on:click={() => dispatch('read')}>Mark read</button>
       {/if}
+      <div class="footer-meta">
+        {#if item.actorUsername}
+          <a class="actor-link" href={`/profile/${item.actorUsername}`}>{item.actorUsername}</a>
+        {/if}
+        <span class="time">{formatRelativeTime(item.createdAt)}</span>
+      </div>
     </div>
   </div>
 </FeedSurface>
 
 <style>
   .notification-card,
-  .tag-stack {
+  .footer-meta {
     display: grid;
     gap: 12px;
   }
@@ -85,7 +75,8 @@
 
   .topline,
   .kind-row,
-  .footer {
+  .footer,
+  .footer-meta {
     display: flex;
     gap: 10px;
     align-items: center;
@@ -99,10 +90,6 @@
 
   .topline {
     align-items: flex-start;
-  }
-
-  .identity-row {
-    min-width: 0;
   }
 
   .unread-dot {
@@ -143,6 +130,18 @@
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
     color: var(--text-soft);
+    transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+  }
+
+  .mark-read:hover {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .footer-meta {
+    margin-left: auto;
+    justify-content: flex-end;
   }
 
   @media (max-width: 760px) {
@@ -150,8 +149,9 @@
       left: -12px;
     }
 
-    .tag-stack {
-      justify-items: start;
+    .footer-meta {
+      margin-left: 0;
+      justify-content: flex-start;
     }
   }
 </style>

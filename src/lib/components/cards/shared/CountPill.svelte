@@ -16,5 +16,12 @@
     color: var(--text-soft);
     font-size: 12px;
     font-weight: 700;
+    transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+  }
+
+  .pill:hover {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand-soft) 78%, var(--panel-strong));
+    color: var(--brand-strong);
   }
 </style>

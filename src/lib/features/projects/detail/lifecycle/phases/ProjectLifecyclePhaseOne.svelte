@@ -18,7 +18,6 @@
     endsAt: string;
     locationLabel: string;
     roleRequirements: ProjectActivityRoleInput[];
-    maximumParticipants: number;
     linkedPlanPhaseId: string | null;
     note: string;
   };
@@ -27,8 +26,16 @@
   export let draftValue = '';
   export let showValueComposer = false;
   export let showPersonalActivityComposer = false;
-  export let serviceRequestForm: { title: string; body: string };
-  export let activityForm: ActivityForm;
+  export let serviceRequestForm: { title: string; body: string } = { title: '', body: '' };
+  export let activityForm: ActivityForm = {
+    title: '',
+    scheduledAt: '',
+    endsAt: '',
+    locationLabel: '',
+    roleRequirements: [{ label: '', requiredCount: 1 }],
+    linkedPlanPhaseId: null,
+    note: ''
+  };
   export let activityComposerElement: HTMLElement | null = null;
   export let activityStartInputElement: HTMLInputElement | null = null;
   export let activityEndInputElement: HTMLInputElement | null = null;
@@ -165,22 +172,14 @@
 
           <ProjectActivityRolesEditor bind:roles={activityForm.roleRequirements} />
 
-          <div class="number-grid">
-            <div class="count-field">
-              <span class="count-field-label">
-                <span class="field-inline-label">Minimum people:</span>
-                <span class="count-note">Calculated from the role counts above.</span>
-              </span>
-              <div class="count-readout">
-                <strong>{minimumParticipants}</strong>
-              </div>
+          <div class="count-field">
+            <span class="count-field-label">
+              <span class="field-inline-label">Minimum people:</span>
+              <span class="count-note">Calculated from the role minimums above. Leave a role max blank if it has no cap.</span>
+            </span>
+            <div class="count-readout">
+              <strong>{minimumParticipants}</strong>
             </div>
-            <label class="count-field">
-              <span class="count-field-label">
-                <span class="field-inline-label">Maximum people:</span>
-              </span>
-              <input class="count-input" bind:value={activityForm.maximumParticipants} min={minimumParticipants} type="number" />
-            </label>
           </div>
           <textarea bind:value={activityForm.note} rows="3" placeholder="What needs to happen and why?"></textarea>
           <div class="composer-actions">
@@ -196,11 +195,13 @@
         <div class="empty-card">No activity scheduled yet.</div>
       {:else}
         {#each data.lifecycle.phaseFive.activities as activity (activity.id)}
-          <CollapsibleActivityCard
-            activity={activity}
-            highlighted={highlightedActivityId === activity.id}
-            changecommitment={changecommitment}
-          />
+          <div id={`activity-card-${activity.id}`}>
+            <CollapsibleActivityCard
+              activity={activity}
+              highlighted={highlightedActivityId === activity.id}
+              changecommitment={changecommitment}
+            />
+          </div>
         {/each}
       {/if}
     </div>
@@ -284,8 +285,7 @@
     font-weight: 400;
   }
 
-  .count-readout,
-  .count-input {
+  .count-readout {
     width: 100%;
     min-height: 48px;
     padding: 12px;
@@ -309,6 +309,10 @@
 
   .single-column {
     grid-template-columns: 1fr;
+  }
+
+  [id^='activity-card-'] {
+    scroll-margin-top: 92px;
   }
 
   .request-header-row {

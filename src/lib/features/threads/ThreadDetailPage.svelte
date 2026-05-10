@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import ThreadDiscussionPanel from '$lib/features/threads/detail/ThreadDiscussionPanel.svelte';
+  import DiscussionPanel from '$lib/components/discussion/DiscussionPanel.svelte';
   import ThreadOverviewPanel from '$lib/features/threads/detail/ThreadOverviewPanel.svelte';
   import type { ThreadPageData } from '$lib/types/detail';
 
@@ -26,7 +26,7 @@
     </section>
 
     <section class="section-card">
-      <ThreadDiscussionPanel {data} {highlightedCommentId} />
+      <DiscussionPanel {data} {highlightedCommentId} />
     </section>
   </section>
 </section>

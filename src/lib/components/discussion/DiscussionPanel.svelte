@@ -1,11 +1,11 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import DiscussionComment from '$lib/components/discussion/DiscussionComment.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
-  import ThreadedComment from '$lib/components/comments/ThreadedComment.svelte';
   import { addComment } from '$lib/services/queries/details';
   import type { PostPageData, ThreadPageData } from '$lib/types/detail';
 
-  export let data: Pick<ThreadPageData | PostPageData, 'id' | 'discussion'>;
+  export let data: Pick<PostPageData | ThreadPageData, 'id' | 'discussion'>;
   export let highlightedCommentId: string | null = null;
 
   let draftComment = '';
@@ -27,7 +27,7 @@
   }
 </script>
 
-<section class="discussion-shell">
+<section class="discussion-shell" id="comments">
   <div class="composer-toggle-row">
     <RoundPlusButton active={showComposer} ariaLabel="Add comment" action={toggleComposer} />
   </div>
@@ -51,7 +51,7 @@
       </div>
     {:else}
       {#each data.discussion as comment}
-        <ThreadedComment {comment} subjectId={data.id} {highlightedCommentId} />
+        <DiscussionComment {comment} subjectId={data.id} {highlightedCommentId} />
       {/each}
     {/if}
   </div>

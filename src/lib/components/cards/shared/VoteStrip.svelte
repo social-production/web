@@ -49,6 +49,12 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
+    transition: border-color 120ms ease, background-color 120ms ease;
+  }
+
+  .vote-strip:hover {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand-soft) 78%, var(--panel-strong));
   }
 
   .vote-button {
@@ -61,6 +67,13 @@
     color: var(--text-soft);
     font-size: 11px;
     line-height: 1;
+    border-radius: 999px;
+    transition: color 120ms ease, background-color 120ms ease;
+  }
+
+  .vote-button:hover {
+    background: color-mix(in srgb, var(--brand-soft) 88%, transparent);
+    color: var(--brand-strong);
   }
 
   .vote-count {

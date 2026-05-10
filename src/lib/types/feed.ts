@@ -11,6 +11,58 @@ export interface TagRef {
   kind: TagKind;
 }
 
+export interface CreateResult {
+  ok: boolean;
+  slug?: string;
+  id?: string;
+  error?: string;
+}
+
+export interface CreateProjectInput {
+  title: string;
+  summary: string;
+  locationLabel: string;
+  projectMode: ProjectMode;
+  channelTags: TagRef[];
+  communityTags: TagRef[];
+  note?: string;
+  serviceRequestMode?: 'calendar' | 'direct' | 'both';
+}
+
+export interface CreateThreadInput {
+  title: string;
+  body: string;
+  channelTags: TagRef[];
+  communityTags: TagRef[];
+}
+
+export interface CreateEventInput {
+  title: string;
+  description: string;
+  startTimeLabel: string;
+  finishTimeLabel: string;
+  locationLabel: string;
+  channelTags: TagRef[];
+  communityTags: TagRef[];
+  invitedUsernames: string[];
+}
+
+export interface CreatePostInput {
+  body: string;
+  audience: 'followers' | 'public';
+}
+
+export interface CreateChannelInput {
+  name: string;
+  description: string;
+}
+
+export interface CreateCommunityInput {
+  name: string;
+  description: string;
+  joinPolicy: 'open' | 'invite_only';
+}
+
 export interface PublicProjectItem {
   kind: 'project';
   id: string;

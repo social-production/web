@@ -1,15 +1,24 @@
 <script lang="ts">
+  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import PersonalPostCard from '$lib/components/cards/personal-feed/PersonalPostCard.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
+  import { createPost } from '$lib/services/queries/create';
   import type { PersonalPostItem } from '$lib/types/feed';
 
-  let body =
-    'Use this space for direct personal posting that should not start inside Public.';
+  let body = '';
+  let audience: 'followers' | 'public' = 'followers';
   let statusMessage = '';
+  let isSubmitting = false;
+  let hasAppliedPrefill = false;
 
   $: viewer = $page.data.bootstrap?.viewer ?? null;
+  $: prefillBody = $page.url.searchParams.get('prefill')?.trim() ?? '';
+  $: if (!hasAppliedPrefill && prefillBody && !body.trim()) {
+    body = prefillBody;
+    hasAppliedPrefill = true;
+  }
 
   $: previewItem = viewer
     ? ({
@@ -17,7 +26,7 @@
         id: 'post-preview',
         href: '#',
         author: viewer,
-        audience: 'followers',
+        audience,
         voteTargetId: 'post-preview',
         body: body.trim() || 'Share a direct post to your personal timeline...',
         voteCount: 0,
@@ -29,9 +38,26 @@
 
   $: canSubmit = body.trim().length > 0;
 
-  function handleCreate() {
-    statusMessage =
-      'Frontend preview only for now. Personal posting will be wired into adapter state next.';
+  async function handleCreate() {
+    isSubmitting = true;
+    statusMessage = '';
+
+    try {
+      const result = await createPost({
+        body,
+        audience
+      });
+
+      if (!result.ok || !result.id) {
+        statusMessage = result.error ?? 'The post could not be created.';
+        return;
+      }
+
+      await invalidateAll();
+      await goto(`/posts/${result.id}`);
+    } finally {
+      isSubmitting = false;
+    }
   }
 
   function handleDraft() {
@@ -47,12 +73,22 @@
     >
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
         <label>
+          <span class="field-label">Audience</span>
+          <select bind:value={audience}>
+            <option value="followers">Followers</option>
+            <option value="public">Public</option>
+          </select>
+        </label>
+
+        <label>
           <span class="field-label">Post body</span>
           <textarea bind:value={body} rows="8" placeholder="Share a direct post to your personal timeline..."></textarea>
         </label>
 
         <div class="button-row">
-          <button class="button-primary" disabled={!canSubmit} type="submit">Post</button>
+          <button class="button-primary" disabled={!canSubmit || isSubmitting} type="submit">
+            {isSubmitting ? 'Posting...' : 'Post'}
+          </button>
           <button class="button-ghost" type="button" on:click={handleDraft}>Save Draft</button>
         </div>
 

@@ -4,6 +4,7 @@
 
   export let activities: ProjectActivityItem[] = [];
   export let selectedDayIso = '';
+  export let selectedActivityId = '';
   export let canCreate = false;
   export let createActive = false;
   export let daySelect: (isoDay: string) => void = () => {};
@@ -31,6 +32,7 @@
   const minutesPerDay = 24 * 60;
   let calendarDays: DayCell[] = [];
   let hoveredDayIso = '';
+  let hoveredActivityId = '';
   let visibleMonthLabel = '';
   let visibleMonthStart = defaultVisibleMonthStart(activities, selectedDayIso);
   let lastSelectedDayIso = selectedDayIso;
@@ -267,8 +269,14 @@
           {#each day.items as item}
             <button
               class={`timeline-item tone-${item.statusTone}`}
+              class:hovered-activity={hoveredActivityId === item.id}
+              class:selected-activity={selectedActivityId === item.id}
               style={`top:${item.topPercent}%;height:${item.heightPercent}%;left:${item.leftPercent}%;width:${item.widthPercent}%;`}
               type="button"
+              on:mouseenter={() => (hoveredActivityId = item.id)}
+              on:mouseleave={() => (hoveredActivityId = '')}
+              on:focus={() => (hoveredActivityId = item.id)}
+              on:blur={() => (hoveredActivityId = '')}
               on:click|stopPropagation={() => activitySelect(item.id)}
             >
               <span class="band-label band-start">{item.startTimeLabel}</span>
@@ -417,7 +425,23 @@
     text-align: left;
     display: block;
     white-space: nowrap;
-    min-height: 6px;
+    min-height: 10px;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+  }
+
+  .calendar-cell:hover .timeline-item,
+  .hovered-day .timeline-item {
+    border-color: color-mix(in srgb, var(--brand) 38%, var(--panel-border));
+  }
+
+  .timeline-item:hover,
+  .timeline-item:focus-visible,
+  .hovered-activity,
+  .selected-activity {
+    border-color: color-mix(in srgb, var(--brand) 60%, var(--panel-border));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 28%, transparent);
+    transform: scale(1.01);
+    z-index: 2;
   }
 
   .band-label,

@@ -1,23 +1,28 @@
 <script lang="ts">
+  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import ThreadCard from '$lib/components/cards/public-feed/ThreadCard.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
+  import { createThread } from '$lib/services/queries/create';
   import {
+    channelOptions,
     communityOptions,
     makeTagRef,
     splitCommaValues
   } from '$lib/features/create/shared/options';
   import type { PublicThreadItem } from '$lib/types/feed';
 
-  let title = 'How should we coordinate first-round retrofit walkthroughs?';
-  let body =
-    'Looking for a discussion space that stays separate from the project logistics view so people can compare options without cluttering the project page.';
+  const platformTagSlug = 'platform';
+
+  let title = '';
+  let body = '';
   let primaryTagType: 'Channel' | 'Community' = 'Channel';
-  let primaryTagValue = 'Housing & Build';
+  let primaryTagValue = '';
   let additionalChannels = '';
   let taggedCommunities = '';
   let statusMessage = '';
+  let isSubmitting = false;
 
   $: viewer = $page.data.bootstrap?.viewer ?? null;
 
@@ -50,11 +55,34 @@
       } satisfies PublicThreadItem)
     : null;
 
-  $: canSubmit = title.trim().length > 0 && primaryTagValue.trim().length > 0;
+  $: canSubmit =
+    title.trim().length > 0 && body.trim().length > 0 && primaryTagValue.trim().length > 0;
+  $: usesPlatformTag =
+    (primaryTagType === 'Channel' && primaryTagValue.trim().toLowerCase() === platformTagSlug) ||
+    splitCommaValues(additionalChannels).some((value) => value.trim().toLowerCase() === platformTagSlug);
 
-  function handleCreate() {
-    statusMessage =
-      'Frontend preview only for now. The thread form is modular and ready for adapter-backed creation next.';
+  async function handleCreate() {
+    isSubmitting = true;
+    statusMessage = '';
+
+    try {
+      const result = await createThread({
+        title,
+        body,
+        channelTags: previewItem?.channelTags ?? [],
+        communityTags: previewItem?.communityTags ?? []
+      });
+
+      if (!result.ok || !result.slug) {
+        statusMessage = result.error ?? 'The thread could not be created.';
+        return;
+      }
+
+      await invalidateAll();
+      await goto(`/threads/${result.slug}`);
+    } finally {
+      isSubmitting = false;
+    }
   }
 
   function handleDraft() {
@@ -91,8 +119,8 @@
             list={primaryTagType === 'Community' ? 'thread-communities' : 'thread-channels'}
           />
           <datalist id="thread-channels">
-            {#each ['Housing & Build', 'Mutual Aid', 'Energy Retrofit'] as option}
-              <option value={option}></option>
+            {#each channelOptions as option}
+              <option value={option.label}></option>
             {/each}
           </datalist>
           <datalist id="thread-communities">
@@ -118,7 +146,9 @@
         </label>
 
         <div class="button-row">
-          <button class="button-primary" disabled={!canSubmit} type="submit">Create Thread</button>
+          <button class="button-primary" disabled={!canSubmit || isSubmitting} type="submit">
+            {isSubmitting ? 'Creating...' : 'Create Thread'}
+          </button>
           <button class="button-ghost" type="button" on:click={handleDraft}>Save Draft</button>
         </div>
 
@@ -145,7 +175,9 @@
       description="How the tag choice affects discovery."
     >
       <p class="helper-text">
-        Threads keep lightweight public discussion and idea comparison outside the project logistics view.
+        {usesPlatformTag
+          ? 'Platform keeps public discussion open to regular users. Only platform-tagged projects are board-restricted.'
+          : 'Threads keep lightweight public discussion and idea comparison outside the project logistics view.'}
       </p>
     </CreatePanel>
   </svelte:fragment>

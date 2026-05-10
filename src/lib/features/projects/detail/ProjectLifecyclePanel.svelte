@@ -1,13 +1,11 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import { invalidateAll } from '$app/navigation';
   import { tick } from 'svelte';
-  import ProjectLifecyclePhaseFive from './lifecycle/phases/ProjectLifecyclePhaseFive.svelte';
-  import ProjectLifecyclePhaseFour from './lifecycle/phases/ProjectLifecyclePhaseFour.svelte';
-  import ProjectLifecyclePhaseOne from './lifecycle/phases/ProjectLifecyclePhaseOne.svelte';
-  import ProjectLifecyclePhaseSix from './lifecycle/phases/ProjectLifecyclePhaseSix.svelte';
-  import ProjectLifecyclePhaseThree from './lifecycle/phases/ProjectLifecyclePhaseThree.svelte';
-  import ProjectLifecyclePhaseTwo from './lifecycle/phases/ProjectLifecyclePhaseTwo.svelte';
+  import ProductiveLifecycleContent from './lifecycle/productive/ProductiveLifecycleContent.svelte';
+  import CollectiveServiceLifecycleContent from './lifecycle/collective-service/CollectiveServiceLifecycleContent.svelte';
+  import IndividualServiceLifecycleContent from './lifecycle/individual-service/IndividualServiceLifecycleContent.svelte';
   import {
     isCollectiveServiceProject,
     isPersonalServiceProject
@@ -28,6 +26,7 @@
   } from '$lib/services/queries/details';
   import type {
     ProjectActivityRoleInput,
+    ProjectApprovalVote,
     ProjectImportanceVoteValue,
     ProjectLifecyclePhase,
     ProjectLifecyclePhaseId,
@@ -96,7 +95,9 @@
     description: '',
     totalCostLabel: fundingPhaseCopy,
     planPhases: [createDraftPlanPhase()],
-    requestSystemEnabled: false
+    requestSystemEnabled: false,
+    requestMode: 'both' as const,
+    allowOffScheduleRequests: false
   };
   let activityForm = {
     title: '',
@@ -104,20 +105,23 @@
     endsAt: '',
     locationLabel: '',
     roleRequirements: [createDraftActivityRole()],
-    maximumParticipants: 1,
     linkedPlanPhaseId: null as string | null,
     note: ''
   };
   let serviceRequestForm = {
     title: '',
-    body: ''
+    body: '',
+    scheduledAt: '',
+    endsAt: ''
   };
   let showPhaseTwoComposer = false;
   let showPhaseThreeComposer = false;
   let showPhaseOneComposer = false;
   let showPersonalActivityComposer = false;
+  let showPersonalServiceRequestComposer = false;
   let showPhaseFiveComposer = false;
   let showRevertComposer = false;
+  let showCloseComposer = false;
   let expandedPhaseTwoPlanIds: string[] = [];
   let expandedPhaseThreePlanIds: string[] = [];
   let expandedActivityIds: string[] = [];
@@ -125,10 +129,14 @@
   let activityHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let lastActivityTargetId: string | null = null;
   let activityComposerElement: HTMLElement | null = null;
+  let serviceRequestComposerElement: HTMLElement | null = null;
   let activityStartInputElement: HTMLInputElement | null = null;
   let activityEndInputElement: HTMLInputElement | null = null;
   let revertTargetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'> = 'phase-2';
   let revertReason = '';
+  let closeReason = '';
+  let showHowItWorks = false;
+  let lastHowItWorksPhaseId = activePhaseId;
 
   function phaseOrder(phaseId: ProjectLifecyclePhaseId) {
     return data.lifecycle.phases.find((phase) => phase.id === phaseId)?.order ?? 1;
@@ -153,9 +161,12 @@
     activePhaseId = data.lifecycle.currentPhaseId;
     showPhaseOneComposer = false;
     showPersonalActivityComposer = false;
+    showPersonalServiceRequestComposer = false;
     showPhaseTwoComposer = false;
     showPhaseThreeComposer = false;
     showPhaseFiveComposer = false;
+    showCloseComposer = false;
+    closeReason = '';
     expandedPhaseTwoPlanIds = [];
     expandedPhaseThreePlanIds = [];
     expandedActivityIds = [];
@@ -170,6 +181,11 @@
     data.lifecycle.phases.find((phase) => phase.id === activePhaseId) ??
     data.lifecycle.phases.find((phase) => phase.id === data.lifecycle.currentPhaseId) ??
     data.lifecycle.phases[0];
+
+  $: if (lastHowItWorksPhaseId !== activePhaseId) {
+    lastHowItWorksPhaseId = activePhaseId;
+    showHowItWorks = false;
+  }
 
   $: if (!data.lifecycle.revertablePhaseIds.includes(revertTargetPhaseId)) {
     revertTargetPhaseId = data.lifecycle.revertablePhaseIds[0] ?? 'phase-2';
@@ -220,7 +236,7 @@
         case 'phase-1':
           return 'Activity';
         case 'phase-2':
-          return 'Complete';
+          return 'Closed';
         default:
           return phase.shortLabel;
       }
@@ -233,7 +249,7 @@
         case 'phase-3':
           return 'Access';
         case 'phase-6':
-          return 'Completed';
+          return 'Closed';
       }
     }
 
@@ -249,8 +265,16 @@
       case 'phase-5':
         return 'Activity';
       case 'phase-6':
-        return 'Completed';
+        return 'Closed';
     }
+  }
+
+  function closePhaseId() {
+    return isPersonalServiceProject(data.projectMode) ? 'phase-2' : 'phase-6';
+  }
+
+  function isClosingTransition() {
+    return data.lifecycle.nextPhaseId === closePhaseId();
   }
 
   function revertTargetLabel(phaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>) {
@@ -270,6 +294,10 @@
       return null;
     }
 
+    if (isClosingTransition()) {
+      return 'Close with note';
+    }
+
     if (data.lifecycle.currentPhaseId === 'phase-3') {
       return `Skip locked acquisition and move to ${data.lifecycle.nextPhaseLabel}`;
     }
@@ -280,6 +308,34 @@
   async function refreshAfter(action: () => Promise<void>) {
     await action();
     await invalidateAll();
+  }
+
+  function handleProjectValueVote(valueId: string, voteValue: ProjectImportanceVoteValue) {
+    return refreshAfter(() => setProjectValueImportance(data.slug, valueId, voteValue));
+  }
+
+  function handlePhaseTwoPlanValueVote(
+    planId: string,
+    valueId: string,
+    vote: ProjectApprovalVote | null
+  ) {
+    return refreshAfter(() => setProjectPlanValueVote(data.slug, 'phase-2', planId, valueId, vote));
+  }
+
+  function handlePhaseTwoPlanOverallVote(planId: string, vote: ProjectApprovalVote | null) {
+    return refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-2', planId, vote));
+  }
+
+  function handlePhaseThreePlanValueVote(
+    planId: string,
+    valueId: string,
+    vote: ProjectApprovalVote | null
+  ) {
+    return refreshAfter(() => setProjectPlanValueVote(data.slug, 'phase-3', planId, valueId, vote));
+  }
+
+  function handlePhaseThreePlanOverallVote(planId: string, vote: ProjectApprovalVote | null) {
+    return refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-3', planId, vote));
   }
 
   async function submitValue() {
@@ -343,7 +399,9 @@
         description: distributionForm.description,
         totalCostLabel: distributionForm.totalCostLabel,
         planPhases,
-        requestSystemEnabled: distributionForm.requestSystemEnabled
+        requestSystemEnabled: distributionForm.requestSystemEnabled,
+        requestMode: distributionForm.requestMode,
+        allowOffScheduleRequests: distributionForm.allowOffScheduleRequests
       })
     );
     distributionForm = {
@@ -351,7 +409,9 @@
       description: '',
       totalCostLabel: fundingPhaseCopy,
       planPhases: [createDraftPlanPhase()],
-      requestSystemEnabled: false
+      requestSystemEnabled: false,
+      requestMode: 'both',
+      allowOffScheduleRequests: false
     };
     showPhaseThreeComposer = false;
   }
@@ -359,13 +419,53 @@
   async function submitActivity() {
     const scheduledAtValue = activityStartInputElement?.value || activityForm.scheduledAt;
     const endsAtValue = activityEndInputElement?.value || activityForm.endsAt;
+
+    if (isPersonalServiceProject(data.projectMode)) {
+      if (!scheduledAtValue || !endsAtValue || new Date(endsAtValue).getTime() <= new Date(scheduledAtValue).getTime()) {
+        return;
+      }
+
+      activityForm.scheduledAt = scheduledAtValue;
+      activityForm.endsAt = endsAtValue;
+
+      await refreshAfter(() =>
+        addProjectActivity(data.slug, {
+          title: 'Available',
+          scheduledAt: new Date(scheduledAtValue).toISOString(),
+          endsAt: new Date(endsAtValue).toISOString(),
+          locationLabel: data.locationLabel,
+          roleRequirements: [{ label: 'Service lead', requiredCount: 1 }],
+          linkedPlanPhaseId: null,
+          note: 'Availability shared by the service creator.'
+        })
+      );
+      activityForm = {
+        title: '',
+        scheduledAt: '',
+        endsAt: '',
+        locationLabel: '',
+        roleRequirements: [createDraftActivityRole()],
+        linkedPlanPhaseId: null,
+        note: ''
+      };
+      showPersonalActivityComposer = false;
+      return;
+    }
+
     const roleRequirements = activityForm.roleRequirements
-      .map((role) => ({
-        label: role.label.trim(),
-        requiredCount: Math.max(1, Number(role.requiredCount) || 1)
-      }))
+      .map((role) => {
+        const requiredCount = Math.max(1, Number(role.requiredCount) || 1);
+        const parsedMaximumCount = Number(role.maximumCount);
+
+        return {
+          label: role.label.trim(),
+          requiredCount,
+          maximumCount: Number.isFinite(parsedMaximumCount)
+            ? Math.max(requiredCount, Math.floor(parsedMaximumCount))
+            : undefined
+        };
+      })
       .filter((role) => role.label);
-    const minimumParticipants = minimumParticipantsFromRoles(roleRequirements);
 
     if (
       !activityForm.title.trim() ||
@@ -374,7 +474,6 @@
       !activityForm.locationLabel.trim() ||
       !activityForm.note.trim() ||
       roleRequirements.length === 0 ||
-      activityForm.maximumParticipants < minimumParticipants ||
       new Date(endsAtValue).getTime() <= new Date(scheduledAtValue).getTime()
     ) {
       return;
@@ -390,7 +489,6 @@
         endsAt: new Date(endsAtValue).toISOString(),
         locationLabel: activityForm.locationLabel,
         roleRequirements,
-        maximumParticipants: activityForm.maximumParticipants,
         linkedPlanPhaseId: activityForm.linkedPlanPhaseId || null,
         note: activityForm.note
       })
@@ -401,7 +499,6 @@
       endsAt: '',
       locationLabel: '',
       roleRequirements: [createDraftActivityRole()],
-      maximumParticipants: 1,
       linkedPlanPhaseId: null,
       note: ''
     };
@@ -410,17 +507,33 @@
   }
 
   async function submitServiceRequest() {
+    const scheduledAtValue = serviceRequestForm.scheduledAt;
+    const endsAtValue = serviceRequestForm.endsAt;
+    const requiresSchedule = data.lifecycle.requestSystem?.requiresSchedule ?? false;
+
     if (!serviceRequestForm.title.trim() || !serviceRequestForm.body.trim()) {
       return;
     }
 
+    if (requiresSchedule && (!scheduledAtValue || !endsAtValue || new Date(endsAtValue).getTime() <= new Date(scheduledAtValue).getTime())) {
+      return;
+    }
+
     await refreshAfter(() =>
-      addProjectServiceRequest(data.slug, serviceRequestForm.title, serviceRequestForm.body)
+      addProjectServiceRequest(data.slug, {
+        title: serviceRequestForm.title,
+        body: serviceRequestForm.body,
+        scheduledAt: scheduledAtValue ? new Date(scheduledAtValue).toISOString() : undefined,
+        endsAt: endsAtValue ? new Date(endsAtValue).toISOString() : undefined
+      })
     );
     serviceRequestForm = {
       title: '',
-      body: ''
+      body: '',
+      scheduledAt: '',
+      endsAt: ''
     };
+    showPersonalServiceRequestComposer = false;
   }
 
   async function updateRequestStatus(requestId: string, status: ProjectServiceRequestStatus) {
@@ -491,6 +604,38 @@
     }
   }
 
+  function setDefaultServiceRequestTimes(isoDay?: string) {
+    if (!(data.lifecycle.requestSystem?.requiresSchedule ?? false)) {
+      serviceRequestForm.scheduledAt = '';
+      serviceRequestForm.endsAt = '';
+      return;
+    }
+
+    if (isoDay) {
+      serviceRequestForm.scheduledAt = `${isoDay}T18:00`;
+      serviceRequestForm.endsAt = `${isoDay}T19:00`;
+      return;
+    }
+
+    if (!serviceRequestForm.scheduledAt || !serviceRequestForm.endsAt) {
+      const now = new Date();
+      now.setMinutes(0, 0, 0);
+      now.setHours(now.getHours() + 1);
+      const end = new Date(now.getTime() + 60 * 60 * 1000);
+      const localValue = (date: Date) => {
+        const year = date.getFullYear();
+        const month = `${date.getMonth() + 1}`.padStart(2, '0');
+        const day = `${date.getDate()}`.padStart(2, '0');
+        const hours = `${date.getHours()}`.padStart(2, '0');
+        const minutes = `${date.getMinutes()}`.padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      };
+
+      serviceRequestForm.scheduledAt = localValue(now);
+      serviceRequestForm.endsAt = localValue(end);
+    }
+  }
+
   function selectCalendarDay(isoDay: string) {
     setDefaultActivityTimes(isoDay);
   }
@@ -516,6 +661,20 @@
     activityComposerElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  async function openPersonalServiceRequestComposerForDay(isoDay: string) {
+    setDefaultServiceRequestTimes(isoDay);
+    showPersonalServiceRequestComposer = true;
+    await tick();
+    serviceRequestComposerElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function openPersonalServiceRequestComposer() {
+    setDefaultServiceRequestTimes();
+    showPersonalServiceRequestComposer = true;
+    await tick();
+    serviceRequestComposerElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function toggleExpandedActivity(activityId: string) {
     expandedActivityIds = expandedActivityIds.includes(activityId)
       ? expandedActivityIds.filter((id) => id !== activityId)
@@ -526,13 +685,33 @@
     return expandedActivityIds.includes(activityId);
   }
 
+  function scrollActivityCardIntoView(activityId: string) {
+    if (!browser) {
+      return;
+    }
+
+    document.getElementById(`activity-card-${activityId}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
+
   async function focusActivityCard(activityId: string) {
     if (activityHighlightResetHandle) {
       clearTimeout(activityHighlightResetHandle);
     }
     highlightedActivityId = activityId;
     await tick();
-    document.getElementById(`activity-card-${activityId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scrollActivityCardIntoView(activityId);
+
+    if (browser) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollActivityCardIntoView(activityId);
+        });
+      });
+    }
+
     activityHighlightResetHandle = setTimeout(() => {
       if (highlightedActivityId === activityId) {
         highlightedActivityId = null;
@@ -549,6 +728,16 @@
     await refreshAfter(() => revertProjectPhase(data.slug, revertTargetPhaseId, revertReason));
     showRevertComposer = false;
     revertReason = '';
+  }
+
+  async function submitClose() {
+    if (!closeReason.trim()) {
+      return;
+    }
+
+    await refreshAfter(() => advanceProjectPhase(data.slug, closeReason));
+    showCloseComposer = false;
+    closeReason = '';
   }
 </script>
 
@@ -584,93 +773,132 @@
       </div>
 
       <div class="phase-copy">
-        <h2>{activePhase.title}</h2>
-        <p>{activePhase.summary}</p>
-        {#if activePhase.note}
-          <p class:locked-copy={activePhase.progressState === 'locked'} class="phase-note">{activePhase.note}</p>
-        {/if}
+        <div class="phase-title-row">
+          <h2>{activePhase.title}</h2>
+          <button
+            class="phase-help-button"
+            type="button"
+            aria-label={showHowItWorks ? 'Hide how it works' : 'Show how it works'}
+            aria-expanded={showHowItWorks}
+            on:click={() => (showHowItWorks = !showHowItWorks)}
+          >
+            ?
+          </button>
+        </div>
       </div>
     </div>
 
     <div class="mechanics-card">
-      <h3>How it works</h3>
-      <ul class="phase-list">
-        {#each activePhase.mechanics as mechanic}
-          <li>{mechanic}</li>
-        {/each}
-      </ul>
+      {#if showHowItWorks}
+        <div class="mechanics-body">
+          <p>{activePhase.summary}</p>
+          {#if activePhase.note}
+            <p class:locked-copy={activePhase.progressState === 'locked'} class="phase-note">{activePhase.note}</p>
+          {/if}
+          <ul class="phase-list">
+            {#each activePhase.mechanics as mechanic}
+              <li>{mechanic}</li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
     </div>
 
-    {#if activePhase.id === 'phase-1'}
-      <ProjectLifecyclePhaseOne
+    {#if isPersonalServiceProject(data.projectMode)}
+      <IndividualServiceLifecycleContent
         data={data}
-        bind:activityComposerElement
-        bind:activityEndInputElement
-        bind:activityStartInputElement
-        bind:draftValue
-        bind:showValueComposer={showPhaseOneComposer}
+        activePhaseId={activePhase.id}
+        activityForm={activityForm}
+        serviceRequestForm={serviceRequestForm}
         bind:showPersonalActivityComposer
-        activityForm={activityForm}
-        {highlightedActivityId}
-        {importanceOptions}
-        openPersonalActivityComposer={openPersonalActivityComposer}
-        serviceRequestForm={serviceRequestForm}
-        submitActivity={submitActivity}
-        submitServiceRequest={submitServiceRequest}
-        submitValue={submitValue}
-        changecommitment={updateActivityCommitment}
-        updateRequestStatus={updateRequestStatus}
-        vote={(valueId, voteValue) => refreshAfter(() => setProjectValueImportance(data.slug, valueId, voteValue))}
-      />
-    {:else if activePhase.id === 'phase-2'}
-      <ProjectLifecyclePhaseTwo
-        data={data}
-        form={productionForm}
-        bind:showComposer={showPhaseTwoComposer}
-        addPlanPhase={addProductionPlanPhase}
-        removePlanPhase={removeProductionPlanPhase}
-        submitPlan={submitProductionPlan}
-        isExpandedPlan={(planId) => isExpandedPlan('phase-2', planId)}
-        valuevote={(planId, valueId, vote) =>
-          refreshAfter(() => setProjectPlanValueVote(data.slug, 'phase-2', planId, valueId, vote))}
-        overallvote={(planId, vote) =>
-          refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-2', planId, vote))}
-      />
-    {:else if activePhase.id === 'phase-3'}
-      <ProjectLifecyclePhaseThree
-        data={data}
-        form={distributionForm}
-        bind:showComposer={showPhaseThreeComposer}
-        addPlanPhase={addDistributionPlanPhase}
-        removePlanPhase={removeDistributionPlanPhase}
-        submitPlan={submitDistributionPlan}
-        isExpandedPlan={(planId) => isExpandedPlan('phase-3', planId)}
-        valuevote={(planId, valueId, vote) =>
-          refreshAfter(() => setProjectPlanValueVote(data.slug, 'phase-3', planId, valueId, vote))}
-        overallvote={(planId, vote) =>
-          refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-3', planId, vote))}
-      />
-    {:else if activePhase.id === 'phase-4'}
-      <ProjectLifecyclePhaseFour />
-    {:else if activePhase.id === 'phase-5'}
-      <ProjectLifecyclePhaseFive
-        data={data}
+        bind:showPersonalServiceRequestComposer
         bind:activityComposerElement
-        bind:activityEndInputElement
+        bind:serviceRequestComposerElement
         bind:activityStartInputElement
-        activityForm={activityForm}
-        {highlightedActivityId}
-        openComposer={openActivityComposer}
-        openComposerForDay={openActivityComposerForDay}
-        focusActivityCard={focusActivityCard}
-        serviceRequestForm={serviceRequestForm}
-        bind:showComposer={showPhaseFiveComposer}
+        bind:activityEndInputElement
+        openPersonalActivityComposer={openPersonalActivityComposer}
+        openPersonalServiceRequestComposer={openPersonalServiceRequestComposer}
+        openPersonalServiceRequestComposerForDay={openPersonalServiceRequestComposerForDay}
         submitActivity={submitActivity}
         submitServiceRequest={submitServiceRequest}
-        changecommitment={updateActivityCommitment}
+        updateRequestStatus={updateRequestStatus}
+      />
+    {:else if isCollectiveServiceProject(data.projectMode)}
+      <CollectiveServiceLifecycleContent
+        data={data}
+        activePhaseId={activePhase.id}
+        {importanceOptions}
+        bind:draftValue
+        bind:showPhaseOneComposer
+        bind:showPhaseTwoComposer
+        bind:showPhaseThreeComposer
+        bind:showPhaseFiveComposer
+        productionForm={productionForm}
+        distributionForm={distributionForm}
+        activityForm={activityForm}
+        serviceRequestForm={serviceRequestForm}
+        {highlightedActivityId}
+        bind:activityComposerElement
+        bind:activityStartInputElement
+        bind:activityEndInputElement
+        submitValue={submitValue}
+        setProjectValueVote={handleProjectValueVote}
+        addProductionPlanPhase={addProductionPlanPhase}
+        removeProductionPlanPhase={removeProductionPlanPhase}
+        submitProductionPlan={submitProductionPlan}
+        setPhaseTwoPlanValueVote={handlePhaseTwoPlanValueVote}
+        setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
+        addDistributionPlanPhase={addDistributionPlanPhase}
+        removeDistributionPlanPhase={removeDistributionPlanPhase}
+        submitDistributionPlan={submitDistributionPlan}
+        setPhaseThreePlanValueVote={handlePhaseThreePlanValueVote}
+        setPhaseThreePlanOverallVote={handlePhaseThreePlanOverallVote}
+        isExpandedPlan={isExpandedPlan}
+        openActivityComposer={openActivityComposer}
+        openActivityComposerForDay={openActivityComposerForDay}
+        focusActivityCard={focusActivityCard}
+        submitActivity={submitActivity}
+        submitServiceRequest={submitServiceRequest}
+        updateActivityCommitment={updateActivityCommitment}
       />
     {:else}
-      <ProjectLifecyclePhaseSix projectMode={data.projectMode} />
+      <ProductiveLifecycleContent
+        data={data}
+        activePhaseId={activePhase.id}
+        {importanceOptions}
+        bind:draftValue
+        bind:showPhaseOneComposer
+        bind:showPhaseTwoComposer
+        bind:showPhaseThreeComposer
+        bind:showPhaseFiveComposer
+        productionForm={productionForm}
+        distributionForm={distributionForm}
+        activityForm={activityForm}
+        serviceRequestForm={serviceRequestForm}
+        {highlightedActivityId}
+        bind:activityComposerElement
+        bind:activityStartInputElement
+        bind:activityEndInputElement
+        submitValue={submitValue}
+        setProjectValueVote={handleProjectValueVote}
+        addProductionPlanPhase={addProductionPlanPhase}
+        removeProductionPlanPhase={removeProductionPlanPhase}
+        submitProductionPlan={submitProductionPlan}
+        setPhaseTwoPlanValueVote={handlePhaseTwoPlanValueVote}
+        setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
+        addDistributionPlanPhase={addDistributionPlanPhase}
+        removeDistributionPlanPhase={removeDistributionPlanPhase}
+        submitDistributionPlan={submitDistributionPlan}
+        setPhaseThreePlanValueVote={handlePhaseThreePlanValueVote}
+        setPhaseThreePlanOverallVote={handlePhaseThreePlanOverallVote}
+        isExpandedPlan={isExpandedPlan}
+        openActivityComposer={openActivityComposer}
+        openActivityComposerForDay={openActivityComposerForDay}
+        focusActivityCard={focusActivityCard}
+        submitActivity={submitActivity}
+        submitServiceRequest={submitServiceRequest}
+        updateActivityCommitment={updateActivityCommitment}
+      />
     {/if}
 
     {#if data.lifecycle.viewerCanRevertPhase && activePhase.id === data.lifecycle.currentPhaseId}
@@ -724,11 +952,37 @@
     {/if}
 
     {#if data.lifecycle.viewerCanAdvancePhase && activePhase.id === data.lifecycle.currentPhaseId && advanceLabel()}
-      <div class="advance-row">
-        <button class="primary-button" type="button" on:click={() => refreshAfter(() => advanceProjectPhase(data.slug))}>
-          {advanceLabel()}
-        </button>
-      </div>
+      {#if isClosingTransition()}
+        <div class="mechanics-card close-card-shell">
+          <div class="request-header-row">
+            <div>
+              <h3>Close project</h3>
+              <p>Managers must leave a short note explaining why this is closing or where the work moved.</p>
+            </div>
+            <button class="secondary-button" type="button" on:click={() => (showCloseComposer = !showCloseComposer)}>
+              {showCloseComposer ? 'Hide close form' : 'Close with note'}
+            </button>
+          </div>
+
+          {#if showCloseComposer}
+            <div class="composer-card">
+              <label>
+                <span class="field-inline-label">Closure note</span>
+                <textarea bind:value={closeReason} rows="3" placeholder="State why the project is closing or where the work is continuing."></textarea>
+              </label>
+              <div class="composer-actions">
+                <button class="primary-button" type="button" on:click={submitClose}>Close project</button>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {:else}
+        <div class="advance-row">
+          <button class="primary-button" type="button" on:click={() => refreshAfter(() => advanceProjectPhase(data.slug))}>
+            {advanceLabel()}
+          </button>
+        </div>
+      {/if}
     {/if}
   </section>
 </section>
@@ -787,6 +1041,7 @@
   .request-header-row,
   .value-header,
   .overall-row,
+  .phase-title-row,
   .plan-header {
     justify-content: space-between;
   }
@@ -859,6 +1114,26 @@
     text-transform: uppercase;
   }
 
+  .phase-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .phase-help-button {
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+  }
+
   h2,
   h3,
   strong {
@@ -926,6 +1201,11 @@
     padding-left: 18px;
     display: grid;
     gap: 10px;
+  }
+
+  .mechanics-body {
+    display: grid;
+    gap: 12px;
   }
 
   .composer-toggle-row {

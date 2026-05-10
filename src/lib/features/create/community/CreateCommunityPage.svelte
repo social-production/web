@@ -1,19 +1,39 @@
 <script lang="ts">
+  import { goto, invalidateAll } from '$app/navigation';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import PreviewTile from '$lib/features/create/shared/PreviewTile.svelte';
+  import { createCommunity } from '$lib/services/queries/create';
 
-  let name = 'East Market Retrofit Circle';
-  let openness = 'Open';
-  let description =
-    'Residents, installers, and planners connecting retrofit work across the east side.';
+  let name = '';
+  let openness: 'open' | 'invite_only' = 'open';
+  let description = '';
   let statusMessage = '';
+  let isSubmitting = false;
 
   $: canSubmit = name.trim().length > 0 && description.trim().length > 0;
 
-  function handleCreate() {
-    statusMessage =
-      'Frontend preview only for now. Community persistence will come later, but the modular page structure is ready.';
+  async function handleCreate() {
+    isSubmitting = true;
+    statusMessage = '';
+
+    try {
+      const result = await createCommunity({
+        name,
+        description,
+        joinPolicy: openness
+      });
+
+      if (!result.ok || !result.slug) {
+        statusMessage = result.error ?? 'The community could not be created.';
+        return;
+      }
+
+      await invalidateAll();
+      await goto(`/communities/${result.slug}`);
+    } finally {
+      isSubmitting = false;
+    }
   }
 
   function handleDraft() {
@@ -36,8 +56,8 @@
         <label>
           <span class="field-label">Openness</span>
           <select bind:value={openness}>
-            <option value="Open">Open</option>
-            <option value="Private">Private</option>
+            <option value="open">Open</option>
+            <option value="invite_only">Private</option>
           </select>
         </label>
 
@@ -47,7 +67,9 @@
         </label>
 
         <div class="button-row">
-          <button class="button-primary" disabled={!canSubmit} type="submit">Create Community</button>
+          <button class="button-primary" disabled={!canSubmit || isSubmitting} type="submit">
+            {isSubmitting ? 'Creating...' : 'Create Community'}
+          </button>
           <button class="button-ghost" type="button" on:click={handleDraft}>Save Draft</button>
         </div>
 
@@ -64,7 +86,11 @@
       description="How the new community row will read in discovery."
       surface="transparent"
     >
-      <PreviewTile title={name} body={description} meta={`${openness} community`} />
+      <PreviewTile
+        title={name.trim() || 'Untitled community'}
+        body={description.trim() || 'Describe who this community is for and why people gather here.'}
+        meta={openness === 'invite_only' ? 'Invite-only community' : 'Open community'}
+      />
     </CreatePanel>
 
     <CreatePanel title="Discovery note" description="What this surface is meant to do.">

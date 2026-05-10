@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
-  import { updateSettings } from '$lib/services/queries/account';
+  import { goto, invalidateAll } from '$app/navigation';
+  import { signOut, updateSettings } from '$lib/services/queries/account';
   import type {
     AppearanceThemeMode,
     DefaultFeedMode,
@@ -34,6 +34,10 @@
     return applySettings('theme', { appearanceThemeMode: theme });
   }
 
+  function toggleTheme() {
+    return setTheme(data.appearanceThemeMode === 'dark' ? 'light' : 'dark');
+  }
+
   function setDefaultFeed(feed: DefaultFeedMode) {
     return applySettings('default-feed', { defaultFeed: feed });
   }
@@ -58,12 +62,24 @@
       requireFollowApproval: nextValue
     });
   }
+
+  async function handleSignOut() {
+    pendingKey = 'sign-out';
+
+    try {
+      await signOut();
+      await invalidateAll();
+      await goto('/onboarding');
+    } finally {
+      pendingKey = '';
+    }
+  }
 </script>
 
 <section class="page">
   <section class="hero-card">
     <h1>Settings</h1>
-    <p>Theme, feed visibility, and privacy preferences stay here instead of hiding behind the shell.</p>
+    <p>Manage appearance, feed defaults, and privacy in one place.</p>
   </section>
 
   <section class="grid">
@@ -82,36 +98,29 @@
 
       <div class="button-row">
         <button class="button-primary" disabled={pendingKey === 'bio'} type="button" on:click={saveBio}>Save bio</button>
+        <button class="button-ghost" disabled={pendingKey === 'sign-out'} type="button" on:click={handleSignOut}>
+          {pendingKey === 'sign-out' ? 'Signing out...' : 'Sign out'}
+        </button>
       </div>
     </section>
 
     <section class="panel">
-      <h2>Appearance</h2>
+      <h2>Appearance & Feed</h2>
       <div class="setting-row">
         <div>
           <strong>Theme</strong>
-          <p>Switch the app shell between the darker work surface and a lighter paper-like surface.</p>
+          <p>{data.appearanceThemeMode === 'dark' ? 'Dark mode is active.' : 'Light mode is active.'}</p>
         </div>
-        <div class="choice-row">
-          <button
-            class:active={data.appearanceThemeMode === 'dark'}
-            class="toggle-chip"
-            disabled={pendingKey === 'theme'}
-            type="button"
-            on:click={() => setTheme('dark')}
-          >
-            Dark
-          </button>
-          <button
-            class:active={data.appearanceThemeMode === 'light'}
-            class="toggle-chip"
-            disabled={pendingKey === 'theme'}
-            type="button"
-            on:click={() => setTheme('light')}
-          >
-            Light
-          </button>
-        </div>
+        <button
+          class="theme-toggle"
+          class:light-active={data.appearanceThemeMode === 'light'}
+          disabled={pendingKey === 'theme'}
+          type="button"
+          on:click={toggleTheme}
+        >
+          <span class="toggle-pill"></span>
+          <span class="toggle-label">{data.appearanceThemeMode === 'dark' ? 'Switch to light' : 'Switch to dark'}</span>
+        </button>
       </div>
 
       <div class="setting-row">
@@ -197,10 +206,14 @@
 
   .hero-card,
   .panel {
-    padding: 16px;
+    padding: 18px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
+  }
+
+  .hero-card {
+    background: color-mix(in srgb, var(--brand-soft) 16%, var(--panel));
   }
 
   h1 {
@@ -222,9 +235,15 @@
 
   .account-summary,
   .field-stack,
-  .setting-row {
+  .setting-row,
+  .button-row {
     display: grid;
     gap: 8px;
+  }
+
+  .button-row {
+    display: flex;
+    flex-wrap: wrap;
   }
 
   .field-label {
@@ -261,6 +280,48 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+  }
+
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .toggle-pill {
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    background: color-mix(in srgb, var(--brand-soft) 56%, var(--panel));
+    position: relative;
+  }
+
+  .toggle-pill::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--brand);
+    transition: transform 0.12s ease;
+  }
+
+  .theme-toggle.light-active .toggle-pill::after {
+    transform: translateX(14px);
+  }
+
+  .toggle-label {
+    color: var(--text-soft);
   }
 
   @media (max-width: 760px) {

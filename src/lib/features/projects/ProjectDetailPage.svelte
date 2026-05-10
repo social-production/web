@@ -7,6 +7,7 @@
   import ProjectMembersPanel from '$lib/features/projects/detail/ProjectMembersPanel.svelte';
   import ProjectOverviewHeader from '$lib/features/projects/detail/ProjectOverviewHeader.svelte';
   import ProjectUpdatesSection from '$lib/features/projects/detail/ProjectUpdatesSection.svelte';
+  import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import type { ProjectPageData } from '$lib/types/detail';
 
   export let data: ProjectPageData;
@@ -65,6 +66,10 @@
       activeTab = $page.url.searchParams.get('tab') === 'chat' || !!highlightedCommentId ? 'chat' : 'overview';
     }
   }
+
+  $: if (isPersonalServiceProject(data.projectMode) && showMembersPanel) {
+    showMembersPanel = false;
+  }
 </script>
 
 <section class="page">
@@ -98,7 +103,7 @@
         {showMembersPanel}
         on:togglemembers={() => (showMembersPanel = !showMembersPanel)}
       />
-      {#if showMembersPanel}
+      {#if showMembersPanel && !isPersonalServiceProject(data.projectMode)}
         <ProjectMembersPanel {data} />
       {/if}
       <ProjectLifecyclePanel {data} />
@@ -119,7 +124,7 @@
     display: grid;
     gap: 0;
     padding: 28px 16px 16px;
-    margin-top: 22px;
+    margin-top: 32px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
@@ -130,7 +135,6 @@
     display: inline-flex;
     gap: 6px;
     padding: 2px;
-    margin-bottom: 10px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);

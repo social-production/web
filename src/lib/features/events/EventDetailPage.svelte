@@ -125,7 +125,7 @@
     display: grid;
     gap: 0;
     padding: 28px 16px 16px;
-    margin-top: 22px;
+    margin-top: 32px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
@@ -136,7 +136,6 @@
     display: inline-flex;
     gap: 6px;
     padding: 2px;
-    margin-bottom: 10px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);

@@ -1,7 +1,10 @@
 import type { BootstrapPayload } from '$lib/types/bootstrap';
 import type {
+  AuthResult,
   OnboardingPageData,
   ProfilePageData,
+  SignInInput,
+  SignUpInput,
   SettingsPageData,
   SettingsUpdateInput
 } from '$lib/types/account';
@@ -15,11 +18,29 @@ import type {
   ProjectLifecyclePhaseId,
   ProjectPageData,
   ProjectProductionPlanInput,
+  ProjectServiceRequestInput,
+  ShareTargetResult,
   ProjectServiceRequestStatus,
   ThreadPageData
 } from '$lib/types/detail';
-import type { MessagesPageData, NotificationsPageData } from '$lib/types/inbox';
-import type { PersonalFeedItem, PublicFeedItem, VoteDirection } from '$lib/types/feed';
+import type {
+  CreateGroupMessageInput,
+  MessageConversationResult,
+  MessagesPageData,
+  NotificationsPageData
+} from '$lib/types/inbox';
+import type {
+  CreateChannelInput,
+  CreateCommunityInput,
+  CreateEventInput,
+  CreatePostInput,
+  CreateProjectInput,
+  CreateResult,
+  CreateThreadInput,
+  PersonalFeedItem,
+  PublicFeedItem,
+  VoteDirection
+} from '$lib/types/feed';
 import type { SearchPageData } from '$lib/types/search';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
 
@@ -32,6 +53,9 @@ export interface AppAdapter {
   getCommunity(slug: string): Promise<ScopePageData | null>;
   getPlatform(): Promise<ScopePageData | null>;
   getOnboarding(): Promise<OnboardingPageData>;
+  signIn(input: SignInInput): Promise<AuthResult>;
+  signOut(): Promise<void>;
+  signUp(input: SignUpInput): Promise<AuthResult>;
   getSettings(): Promise<SettingsPageData | null>;
   updateSettings(input: SettingsUpdateInput): Promise<void>;
   getProfile(username: string): Promise<ProfilePageData | null>;
@@ -40,6 +64,12 @@ export interface AppAdapter {
   getSearch(query: string): Promise<SearchPageData>;
   getProject(slug: string): Promise<ProjectPageData | null>;
   getThread(slug: string): Promise<ThreadPageData | null>;
+  createProject(input: CreateProjectInput): Promise<CreateResult>;
+  createThread(input: CreateThreadInput): Promise<CreateResult>;
+  createEvent(input: CreateEventInput): Promise<CreateResult>;
+  createPost(input: CreatePostInput): Promise<CreateResult>;
+  createChannel(input: CreateChannelInput): Promise<CreateResult>;
+  createCommunity(input: CreateCommunityInput): Promise<CreateResult>;
   getPost(id: string): Promise<PostPageData | null>;
   getEvent(slug: string): Promise<EventPageData | null>;
   toggleEventGoing(eventId: string): Promise<void>;
@@ -72,13 +102,13 @@ export interface AppAdapter {
     activityId: string,
     roleLabel: string | null
   ): Promise<void>;
-  addProjectServiceRequest(projectSlug: string, title: string, body: string): Promise<void>;
+  addProjectServiceRequest(projectSlug: string, input: ProjectServiceRequestInput): Promise<void>;
   setProjectServiceRequestStatus(
     projectSlug: string,
     requestId: string,
     status: ProjectServiceRequestStatus
   ): Promise<void>;
-  advanceProjectPhase(projectSlug: string): Promise<void>;
+  advanceProjectPhase(projectSlug: string, closeNote?: string): Promise<void>;
   revertProjectPhase(
     projectSlug: string,
     targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>,
@@ -93,9 +123,21 @@ export interface AppAdapter {
   addComment(subjectId: string, body: string, parentId?: string): Promise<void>;
   addProjectUpdate(projectSlug: string, title: string, body: string): Promise<void>;
   addEventUpdate(eventSlug: string, title: string, body: string): Promise<void>;
+  shareProjectWithUser(projectSlug: string, username: string): Promise<ShareTargetResult>;
+  shareEventWithUser(eventSlug: string, username: string): Promise<ShareTargetResult>;
   markNotificationRead(notificationId: string): Promise<void>;
   markAllNotificationsRead(): Promise<void>;
-  markMessageThreadRead(threadId: string): Promise<void>;
-  sendMessage(threadId: string, body: string): Promise<void>;
-  startMessageThread(participantUsername: string, body: string): Promise<string | null>;
+  markConversationRead(conversationId: string): Promise<void>;
+  sendMessage(conversationId: string, body: string): Promise<void>;
+  startDirectMessage(participantUsername: string, body: string): Promise<MessageConversationResult>;
+  createGroupConversation(input: CreateGroupMessageInput): Promise<MessageConversationResult>;
+  renameGroupConversation(conversationId: string, title: string): Promise<MessageConversationResult>;
+  addGroupConversationMember(
+    conversationId: string,
+    username: string
+  ): Promise<MessageConversationResult>;
+  removeGroupConversationMember(
+    conversationId: string,
+    username: string
+  ): Promise<MessageConversationResult>;
 }

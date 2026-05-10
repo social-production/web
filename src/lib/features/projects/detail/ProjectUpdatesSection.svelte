@@ -3,6 +3,7 @@
   import { invalidateAll } from '$app/navigation';
   import DetailUpdateCard from '$lib/components/cards/details/DetailUpdateCard.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
+  import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { addProjectUpdate } from '$lib/services/queries/details';
   import { setVote } from '$lib/services/queries/feeds';
@@ -52,6 +53,7 @@
     showUpdateComposer = !showUpdateComposer;
   }
 
+  $: showMembershipButton = !isPersonalServiceProject(data.projectMode);
   $: updateActionLabel = draftUpdateTitle.trim() || draftUpdateBody.trim() ? 'Post update' : 'Post update';
 </script>
 
@@ -92,15 +94,17 @@
 
   <div class="overview-footer-row">
     <VoteStrip activeVote={data.activeVote} count={data.voteCount} on:vote={handleVote} />
-    <button
-      aria-expanded={showMembersPanel}
-      class:active-toggle={showMembersPanel}
-      class="secondary-button member-toggle-button"
-      type="button"
-      on:click={toggleMembersPanel}
-    >
-      Members / Managers
-    </button>
+    {#if showMembershipButton}
+      <button
+        aria-expanded={showMembersPanel}
+        class:active-toggle={showMembersPanel}
+        class="secondary-button member-toggle-button"
+        type="button"
+        on:click={toggleMembersPanel}
+      >
+        Members / Managers
+      </button>
+    {/if}
     <span class="footer-author-row">
       <a class="inline-link" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>
       · {formatRelativeTime(data.createdAt)}

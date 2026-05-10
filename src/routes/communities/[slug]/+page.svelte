@@ -1,8 +1,8 @@
 <script lang="ts">
-  import ScopePage from '$lib/features/scopes/ScopePage.svelte';
+  import CommunityPage from '$lib/features/communities/CommunityPage.svelte';
   import type { PageData } from './$types';
 
   export let data: PageData;
 </script>
 
-<ScopePage scope={data.scope} />
+<CommunityPage scope={data.scope} />

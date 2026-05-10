@@ -33,28 +33,20 @@
     return `${formatDayDate(start)}, ${formatTime(start)} - ${formatDayDate(end)}, ${formatTime(end)}`;
   }
 
-  function commitmentTarget() {
-    return activity.maximumParticipants > activity.minimumParticipants
-      ? activity.maximumParticipants
-      : activity.minimumParticipants;
-  }
-
   function requiredRoleCommitmentCount() {
-    return activity.roles
-      .filter((role) => !role.isExtraSlot)
-      .reduce((total, role) => total + Math.min(role.filledCount, role.requiredCount), 0);
+    return activity.roles.reduce((total, role) => total + Math.min(role.filledCount, role.requiredCount), 0);
   }
 
-  function extrasRole() {
-    return activity.roles.find((role) => role.isExtraSlot) ?? null;
+  function roleHasOpenCapacity(role: ProjectActivityRole) {
+    return role.maximumCount == null || role.filledCount < role.maximumCount;
   }
 
   function commitmentButtonLabel(role: ProjectActivityRole) {
     if (role.isViewerAssigned) {
-      return role.isExtraSlot ? 'Leave extra slot' : 'Leave role';
+      return 'Leave role';
     }
 
-    return role.isExtraSlot ? 'Take extra slot' : 'Take role';
+    return roleHasOpenCapacity(role) ? 'Take role' : 'Role full';
   }
 
   let open = expanded;
@@ -85,8 +77,8 @@
       <span>{activity.locationLabel}</span>
       <span class="commitment-summary">
         <span>{requiredRoleCommitmentCount()}/{activity.minimumParticipants} committed</span>
-        {#if extrasRole()}
-          <span>{extrasRole()?.filledCount}/{extrasRole()?.requiredCount} extras</span>
+        {#if activity.maximumParticipants && activity.maximumParticipants > activity.minimumParticipants}
+          <span>Up to {activity.maximumParticipants} total</span>
         {/if}
         {#if !open}
           <span class="creator-tag">{activity.authorUsername}</span>
@@ -100,7 +92,7 @@
       <p>{activity.note}</p>
       <div class="activity-footer low-key">
         <span>Minimum {activity.minimumParticipants} needed</span>
-        {#if activity.maximumParticipants > activity.minimumParticipants}
+        {#if activity.maximumParticipants && activity.maximumParticipants > activity.minimumParticipants}
           <span>Up to {activity.maximumParticipants} total</span>
         {/if}
         {#if activity.linkedPlanPhaseLabel}
@@ -111,13 +103,17 @@
         {#each activity.roles as role}
           <div class="role-card">
             <strong>{role.label}</strong>
-            {#if role.isExtraSlot}
-              <span>Optional extra capacity</span>
-            {/if}
-            <span>{role.filledCount}/{role.requiredCount} filled</span>
+            <span>{role.filledCount} joined</span>
+            <span>
+              Minimum {role.requiredCount}
+              {#if role.maximumCount != null}
+                · Maximum {role.maximumCount}
+              {/if}
+            </span>
             <button
               class:selected={activity.viewerAssignedRoleLabel === role.label}
               class="vote-chip"
+              disabled={!role.isViewerAssigned && !roleHasOpenCapacity(role)}
               type="button"
               on:click={() =>
                 changecommitment(

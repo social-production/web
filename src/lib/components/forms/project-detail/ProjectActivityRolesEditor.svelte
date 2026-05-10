@@ -9,6 +9,18 @@
     return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 1;
   }
 
+  function normalizeMaximumCount(value: string, requiredCount: number) {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const parsed = Number(trimmed);
+
+    return Number.isFinite(parsed) ? Math.max(requiredCount, Math.floor(parsed)) : undefined;
+  }
+
   function emptyRole(): ProjectActivityRoleInput {
     return { label: '', requiredCount: 1 };
   }
@@ -24,9 +36,27 @@
   }
 
   function updateRoleCount(index: number, requiredCount: number) {
+    const nextRequiredCount = normalizeRequiredCount(requiredCount);
+
     roles = roles.map((role, roleIndex) =>
       roleIndex === index
-        ? { ...role, requiredCount: normalizeRequiredCount(requiredCount) }
+        ? {
+            ...role,
+            requiredCount: nextRequiredCount,
+            maximumCount:
+              role.maximumCount != null ? Math.max(role.maximumCount, nextRequiredCount) : undefined
+          }
+        : role
+    );
+  }
+
+  function updateRoleMaximum(index: number, maximumCount: string) {
+    roles = roles.map((role, roleIndex) =>
+      roleIndex === index
+        ? {
+            ...role,
+            maximumCount: normalizeMaximumCount(maximumCount, role.requiredCount)
+          }
         : role
     );
   }
@@ -44,7 +74,7 @@
   <div class="role-editor-header">
     <div>
       <span class="field-inline-label">{title}</span>
-      <p class="role-editor-note">Add one row per role and set how many people are needed for that role.</p>
+      <p class="role-editor-note">Add one row per role. Set the minimum needed, and leave max blank if that role has no cap.</p>
     </div>
   </div>
 
@@ -64,13 +94,25 @@
         </label>
 
         <label class="role-field role-count-field">
-          <span class="field-inline-label">Needed</span>
+          <span class="field-inline-label">Minimum</span>
           <input
             min="1"
             type="number"
             value={role.requiredCount}
             on:input={(event) =>
               updateRoleCount(index, (event.currentTarget as HTMLInputElement).valueAsNumber)}
+          />
+        </label>
+
+        <label class="role-field role-count-field">
+          <span class="field-inline-label">Maximum</span>
+          <input
+            min={role.requiredCount}
+            placeholder="No cap"
+            type="number"
+            value={role.maximumCount ?? ''}
+            on:input={(event) =>
+              updateRoleMaximum(index, (event.currentTarget as HTMLInputElement).value)}
           />
         </label>
 
@@ -105,7 +147,7 @@
 
   .role-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 132px auto;
+    grid-template-columns: minmax(0, 1fr) 132px 132px auto;
     gap: 12px;
     align-items: end;
   }

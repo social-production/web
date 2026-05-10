@@ -56,6 +56,22 @@
           <span>Request system</span>
           <span>{plan.requestSystemEnabled ? 'Enabled in Phase 5' : 'Disabled'}</span>
         </div>
+        {#if plan.requestSystemEnabled}
+          <div class="plan-footer-meta total-cost-row">
+            <span>Request mode</span>
+            <span>
+              {plan.requestMode === 'calendar'
+                ? 'Calendar only'
+                : plan.requestMode === 'direct'
+                  ? 'Direct only'
+                  : 'Calendar and direct'}
+            </span>
+          </div>
+          <div class="plan-footer-meta total-cost-row">
+            <span>Off-schedule requests</span>
+            <span>{plan.allowOffScheduleRequests ? 'Allowed' : 'Slot-bound only'}</span>
+          </div>
+        {/if}
       {/if}
     </div>
 
@@ -69,7 +85,8 @@
         <div class="assessment-row">
           <div class="assessment-copy">
             <strong>{assessment.valueLabel}</strong>
-            <span>{assessment.approvalPercent}% yes · {assessment.yesCount} yes / {assessment.noCount} no</span>
+            <span class="assessment-votes">{assessment.yesCount} yes · {assessment.noCount} no</span>
+            <span class="assessment-approval">{assessment.approvalPercent}% yes</span>
           </div>
           <div class="assessment-actions">
             <button
@@ -215,7 +232,7 @@
 
   .evaluation-divider strong {
     color: var(--text-main);
-    font-size: 13px;
+    font-size: 17px;
     letter-spacing: 0.02em;
   }
 
@@ -230,6 +247,12 @@
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
+  }
+
+  .assessment-votes,
+  .assessment-approval {
+    color: var(--text-soft);
+    font-size: 12px;
   }
 
   .overall-actions {
