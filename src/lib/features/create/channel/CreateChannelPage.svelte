@@ -1,18 +1,37 @@
 <script lang="ts">
+  import { goto, invalidateAll } from '$app/navigation';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import PreviewTile from '$lib/features/create/shared/PreviewTile.svelte';
+  import { createChannel } from '$lib/services/queries/create';
 
-  let name = 'Energy Retrofit';
-  let description =
-    'Discussion and discovery for retrofit planning, installation, and maintenance work.';
+  let name = '';
+  let description = '';
   let statusMessage = '';
+  let isSubmitting = false;
 
   $: canSubmit = name.trim().length > 0 && description.trim().length > 0;
 
-  function handleCreate() {
-    statusMessage =
-      'Frontend preview only for now. Channel persistence will come later, but the modular page structure is ready.';
+  async function handleCreate() {
+    isSubmitting = true;
+    statusMessage = '';
+
+    try {
+      const result = await createChannel({
+        name,
+        description
+      });
+
+      if (!result.ok || !result.slug) {
+        statusMessage = result.error ?? 'The channel could not be created.';
+        return;
+      }
+
+      await invalidateAll();
+      await goto(`/channels/${result.slug}`);
+    } finally {
+      isSubmitting = false;
+    }
   }
 
   function handleDraft() {
@@ -38,7 +57,9 @@
         </label>
 
         <div class="button-row">
-          <button class="button-primary" disabled={!canSubmit} type="submit">Create Channel</button>
+          <button class="button-primary" disabled={!canSubmit || isSubmitting} type="submit">
+            {isSubmitting ? 'Creating...' : 'Create Channel'}
+          </button>
           <button class="button-ghost" type="button" on:click={handleDraft}>Save Draft</button>
         </div>
 
@@ -55,7 +76,11 @@
       description="How the new topic surface will appear in lists."
       surface="transparent"
     >
-      <PreviewTile title={name} body={description} meta="Topic channel" />
+      <PreviewTile
+        title={name.trim() || 'Untitled channel'}
+        body={description.trim() || 'Describe the topic this channel gathers without turning it into a social group.'}
+        meta="Topic channel"
+      />
     </CreatePanel>
 
     <CreatePanel title="Discovery note" description="What makes a channel different from a community.">

@@ -11,7 +11,6 @@
     endsAt: string;
     locationLabel: string;
     roleRequirements: ProjectActivityRoleInput[];
-    maximumParticipants: number;
     linkedPlanPhaseId: string | null;
     note: string;
   };
@@ -128,22 +127,14 @@
 
       <ProjectActivityRolesEditor bind:roles={activityForm.roleRequirements} />
 
-      <div class="number-grid">
-        <div class="count-field">
-          <span class="count-field-label">
-            <span class="field-inline-label">Minimum people:</span>
-            <span class="count-note">Calculated from the role counts above.</span>
-          </span>
-          <div class="count-readout">
-            <strong>{minimumParticipants}</strong>
-          </div>
+      <div class="count-field">
+        <span class="count-field-label">
+          <span class="field-inline-label">Minimum people:</span>
+          <span class="count-note">Calculated from the role minimums above. Leave a role max blank if it has no cap.</span>
+        </span>
+        <div class="count-readout">
+          <strong>{minimumParticipants}</strong>
         </div>
-        <label class="count-field">
-          <span class="count-field-label">
-            <span class="field-inline-label">Maximum people:</span>
-          </span>
-          <input class="count-input" bind:value={activityForm.maximumParticipants} min={minimumParticipants} type="number" />
-        </label>
       </div>
       <textarea bind:value={activityForm.note} rows="3" placeholder="What should happen in this activity?"></textarea>
       <div class="composer-actions">
@@ -263,8 +254,7 @@
     font-weight: 400;
   }
 
-  .count-readout,
-  .count-input {
+  .count-readout {
     width: 100%;
     min-height: 48px;
     padding: 12px;
@@ -295,6 +285,10 @@
     border-radius: var(--radius-sm);
     background: var(--panel);
     color: var(--text-main);
+  }
+
+  [id^='activity-card-'] {
+    scroll-margin-top: 92px;
   }
 
   textarea {

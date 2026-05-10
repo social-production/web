@@ -1,35 +1,17 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import brandIcon from '$lib/assets/brand/app-icon-no-background-full-white.png';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
-  import { setProjectActivityCommitment, toggleEventGoing } from '$lib/services/queries/details';
-  import { formatCalendarTime } from '$lib/utils/time';
+  import LeftRailPanel from '$lib/features/left-rail/LeftRailPanel.svelte';
+  import RightRailPanel from '$lib/features/right-rail/RightRailPanel.svelte';
   import { onMount } from 'svelte';
-  import type { BootstrapPayload, RightRailActivityItem } from '$lib/types/bootstrap';
+  import type { BootstrapPayload } from '$lib/types/bootstrap';
 
   export let bootstrap: BootstrapPayload;
-
-  const createLinks = [
-    { href: '/create/post', label: 'Post' },
-    { href: '/create/thread', label: 'Thread' },
-    { href: '/create/project', label: 'Project' },
-    { href: '/create/event', label: 'Event' },
-    { href: '/create/community', label: 'Community' },
-    { href: '/create/channel', label: 'Channel' }
-  ];
-
-  const railDescriptions = {
-    create: 'Start a new production, service, or discussion surface.',
-    collective: 'Shared governance and common platform work.',
-    channels: 'Topic-based discovery across projects, threads, and events.',
-    communities: 'Social coordination spaces around shared work.'
-  };
 
   let isCompact = true;
   let leftRailOpen = false;
   let rightRailOpen = false;
-  let pendingSubjectId = '';
   let toolbarQuery = '';
   let topbarElement: HTMLElement | null = null;
   let contentGridElement: HTMLDivElement | null = null;
@@ -120,67 +102,17 @@
     }
   }
 
-  function isRailActionActive(item: RightRailActivityItem) {
-    if (item.kind === 'project') {
-      return !!item.viewerAssignedRoleLabel;
-    }
-
-    return !!item.viewerIsParticipating;
-  }
-
-  function isRailActionDisabled(item: RightRailActivityItem) {
-    return item.kind === 'project' && !item.viewerAssignedRoleLabel && item.projectHasOpenRole === false;
-  }
-
   async function submitToolbarSearch(event: SubmitEvent) {
     event.preventDefault();
     const query = toolbarQuery.trim();
     await goto(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
   }
 
-  async function handleRailParticipation(item: RightRailActivityItem) {
-    if (item.kind === 'project') {
-      if (!item.projectSlug || !item.activityId) {
-        return;
-      }
-
-      if (!item.viewerAssignedRoleLabel && item.projectHasOpenRole === false) {
-        return;
-      }
-
-      if (item.viewerAssignedRoleLabel) {
-        pendingSubjectId = item.subjectId;
-
-        try {
-          await setProjectActivityCommitment(item.projectSlug, item.activityId, null);
-          await invalidateAll();
-        } finally {
-          pendingSubjectId = '';
-        }
-
-        return;
-      }
-
-      closeCompactPanels();
-      await goto(item.href);
-      return;
-    }
-
-    pendingSubjectId = item.subjectId;
-
-    try {
-      await toggleEventGoing(item.subjectId);
-
-      await invalidateAll();
-    } finally {
-      pendingSubjectId = '';
-    }
-  }
 </script>
 
 <div
   class="shell"
-  style={`--left-width: ${leftRailOpen && !isCompact ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact ? '292px' : '0px'}; --topbar-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px;`}
+  style={`--left-width: ${leftRailOpen && !isCompact ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact ? '292px' : '0px'}; --topbar-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --main-frame-max-width: ${!isCompact && !leftRailOpen && !rightRailOpen ? '1280px' : !isCompact && (!leftRailOpen || !rightRailOpen) ? '1480px' : 'none'};`}
 >
   <header bind:this={topbarElement} class="topbar">
     <a class="brand" href="/">
@@ -194,7 +126,7 @@
 
     <div class="panel-controls">
       <button
-        aria-label="Toggle scope panel"
+        aria-label="Toggle left rail"
         aria-expanded={leftRailOpen}
         class="panel-toggle"
         data-active={leftRailOpen}
@@ -204,7 +136,7 @@
         <span aria-hidden="true" class="panel-toggle-icon">|&lt;</span>
       </button>
       <button
-        aria-label="Toggle activity and events panel"
+        aria-label="Toggle right rail"
         aria-expanded={rightRailOpen}
         class="panel-toggle"
         data-active={rightRailOpen}
@@ -241,7 +173,9 @@
           href={bootstrap.viewer ? '/notifications' : '/onboarding'}
         >
           Notifications
-          <span>{bootstrap.unreadCounts.notifications}</span>
+          {#if bootstrap.unreadCounts.notifications > 0}
+            <span>{bootstrap.unreadCounts.notifications}</span>
+          {/if}
         </a>
         <a
           class:active-link={isActive('/messages')}
@@ -249,13 +183,15 @@
           href={bootstrap.viewer ? '/messages' : '/onboarding'}
         >
           Messages
-          <span>{bootstrap.unreadCounts.messages}</span>
+          {#if bootstrap.unreadCounts.messages > 0}
+            <span>{bootstrap.unreadCounts.messages}</span>
+          {/if}
         </a>
       </nav>
     </div>
 
     <nav class="utility-nav" aria-label="Utilities">
-      <a class:active-link={isActive('/roadmap')} class="utility-link" href="/roadmap">Roadmap</a>
+      <a class:active-link={isActive('/about') || isActive('/roadmap')} class="utility-link" href="/about">About</a>
       {#if bootstrap.viewer}
         <a
           class:active-link={isActive(`/profile/${bootstrap.viewer.username}`)}
@@ -284,79 +220,12 @@
 
   <div bind:this={contentGridElement} class="content-grid">
     <aside class="rail left-rail" data-open={leftRailOpen}>
-      <div class="compact-rail-header">
-        <h2>Scope</h2>
-        <button class="close-rail" type="button" on:click={closeCompactPanels}>Close</button>
-      </div>
-
-      <section class="rail-panel">
-        <h2>Create</h2>
-        <p class="section-subtitle">{railDescriptions.create}</p>
-        <div class="stack-links">
-          {#each createLinks as link}
-            <a
-              class:active-link={isActive(link.href)}
-              class="rail-link create-link"
-              href={bootstrap.viewer ? link.href : '/onboarding'}
-              on:click={closeCompactPanels}
-            >
-              <span class="create-plus">+</span>
-              {link.label}
-            </a>
-          {/each}
-        </div>
-      </section>
-
-      {#if bootstrap.directory.platform}
-        <section class="rail-panel">
-          <h2>Collective</h2>
-          <p class="section-subtitle">{railDescriptions.collective}</p>
-          <div class="stack-links">
-            <a
-              class:active-link={isActive(bootstrap.directory.platform.href)}
-              class="rail-link"
-              href={bootstrap.directory.platform.href}
-              on:click={closeCompactPanels}
-            >
-              {bootstrap.directory.platform.label}
-            </a>
-          </div>
-        </section>
-      {/if}
-
-      <section class="rail-panel">
-        <h2>Channels</h2>
-        <p class="section-subtitle">{railDescriptions.channels}</p>
-        <div class="stack-links">
-          {#each bootstrap.directory.channels as link}
-            <a
-              class:active-link={isActive(link.href)}
-              class="rail-link"
-              href={link.href}
-              on:click={closeCompactPanels}
-            >
-              {link.label}
-            </a>
-          {/each}
-        </div>
-      </section>
-
-      <section class="rail-panel">
-        <h2>Communities</h2>
-        <p class="section-subtitle">{railDescriptions.communities}</p>
-        <div class="stack-links">
-          {#each bootstrap.directory.communities as link}
-            <a
-              class:active-link={isActive(link.href)}
-              class="rail-link"
-              href={link.href}
-              on:click={closeCompactPanels}
-            >
-              {link.label}
-            </a>
-          {/each}
-        </div>
-      </section>
+      <LeftRailPanel
+        {bootstrap}
+        compact={isCompact}
+        {isActive}
+        closePanels={closeCompactPanels}
+      />
     </aside>
 
     <main class="main-content">
@@ -366,70 +235,7 @@
     </main>
 
     <aside class="rail right-rail" data-open={rightRailOpen}>
-      <div class="compact-rail-header">
-        <h2>Activity and Events</h2>
-        <button class="close-rail" type="button" on:click={closeCompactPanels}>Close</button>
-      </div>
-
-      <section class="rail-panel">
-        <h2>Activity and Events</h2>
-        <p class="section-subtitle">This rail is only for projects you belong to and events you are going to. Other updates belong in Notifications.</p>
-        <div class="snapshot-stack">
-          {#if bootstrap.activityRail.length === 0}
-            <div class="snapshot-row">
-              <strong>No activity yet</strong>
-              <span>Project activity for your memberships and events you are going to will appear here. Other updates go to Notifications.</span>
-            </div>
-          {:else}
-            {#each bootstrap.activityRail as item}
-              <div class="snapshot-row activity-row">
-                <a class="activity-link" href={item.href} on:click={closeCompactPanels}>
-                  <div class="activity-topline">
-                    <SubjectTablet kind={item.kind} projectMode={item.projectMode ?? 'productive'} />
-                    <span class="snapshot-time">
-                      {item.kind === 'event' && item.timeLabel ? item.timeLabel : formatCalendarTime(item.createdAt)}
-                    </span>
-                  </div>
-                  <strong>{item.title}</strong>
-                  <span>{item.meta}</span>
-                </a>
-
-                <div class="event-footer">
-                  <span class="event-going">{item.countLabel}</span>
-                  <button
-                    aria-label={
-                      item.kind === 'project'
-                        ? item.viewerAssignedRoleLabel
-                          ? `Leave ${item.title}`
-                          : `Open ${item.title}`
-                        : item.viewerIsParticipating
-                          ? `Leave ${item.title}`
-                          : `Join ${item.title}`
-                    }
-                    class:attendance-state={isRailActionActive(item)}
-                    class="attendance-button"
-                    disabled={pendingSubjectId === item.subjectId || isRailActionDisabled(item)}
-                    type="button"
-                    on:click={() => handleRailParticipation(item)}
-                  >
-                    {#if item.kind === 'project'}
-                      {#if item.viewerAssignedRoleLabel}
-                        Going
-                      {:else if item.projectHasOpenRole === false}
-                        Full
-                      {:else}
-                        +
-                      {/if}
-                    {:else}
-                      {item.viewerIsParticipating ? 'Going' : '+'}
-                    {/if}
-                  </button>
-                </div>
-              </div>
-            {/each}
-          {/if}
-        </div>
-      </section>
+      <RightRailPanel compact={isCompact} items={bootstrap.activityRail} on:close={closeCompactPanels} />
     </aside>
   </div>
 </div>
@@ -494,8 +300,7 @@
     flex-wrap: wrap;
   }
 
-  .panel-toggle,
-  .close-rail {
+  .panel-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -520,8 +325,7 @@
     font-weight: 800;
   }
 
-  .panel-toggle:hover,
-  .close-rail:hover {
+  .panel-toggle:hover {
     border-color: var(--brand);
     color: var(--brand-strong);
     background: var(--brand-soft);
@@ -580,8 +384,7 @@
   }
 
   .nav-link,
-  .utility-link,
-  .rail-link {
+  .utility-link {
     display: inline-flex;
     gap: 6px;
     align-items: center;
@@ -596,8 +399,7 @@
 
   .active-link,
   .nav-link:hover,
-  .utility-link:hover,
-  .rail-link:hover {
+  .utility-link:hover {
     background: var(--brand-soft);
     color: var(--brand-strong);
   }
@@ -684,156 +486,6 @@
     border: none;
   }
 
-  .compact-rail-header {
-    display: none;
-  }
-
-  .rail-panel {
-    padding: 0 0 12px;
-    border-bottom: 1px solid var(--panel-border);
-  }
-
-  .rail-panel h2 {
-    font-size: 14px;
-    color: var(--text-main);
-  }
-
-  .section-subtitle {
-    margin: 4px 0 10px;
-    color: var(--text-soft);
-    font-size: 12px;
-    line-height: 1.45;
-  }
-
-  .stack-links,
-  .snapshot-stack {
-    display: grid;
-    gap: 6px;
-  }
-
-  .rail-link {
-    justify-content: flex-start;
-    width: 100%;
-    background: transparent;
-  }
-
-  .create-link {
-    gap: 8px;
-  }
-
-  .create-plus {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 999px;
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-    font-size: 13px;
-    font-weight: 800;
-    line-height: 1;
-  }
-
-  .snapshot-row {
-    display: grid;
-    gap: 4px;
-    padding: 10px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
-    transition: border-color 0.16s ease, background-color 0.16s ease;
-  }
-
-  .activity-row:hover {
-    border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand-soft) 42%, var(--panel-soft));
-  }
-
-  .snapshot-row strong {
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .snapshot-row span {
-    color: var(--text-soft);
-    font-size: 12px;
-    line-height: 1.45;
-  }
-
-  .activity-row {
-    gap: 8px;
-  }
-
-  .activity-link {
-    display: grid;
-    gap: 8px;
-    color: inherit;
-  }
-
-  .activity-topline {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .snapshot-time {
-    white-space: nowrap;
-  }
-
-  .event-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .event-going {
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .attendance-button,
-  .attendance-button.attendance-state {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 32px;
-    min-height: 30px;
-    padding: 0 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 800;
-  }
-
-  .attendance-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--brand-strong);
-    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
-  }
-
-  .attendance-button:hover:not(:disabled) {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .attendance-button.attendance-state {
-    border: 1px solid var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .attendance-button.attendance-state:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--brand-soft) 66%, white 8%);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 50%, transparent);
-  }
-
   .main-content {
     min-width: 0;
     padding: 16px 20px 20px;
@@ -842,6 +494,7 @@
 
   .main-frame {
     width: 100%;
+    max-width: var(--main-frame-max-width);
     margin: 0 auto;
   }
 
@@ -920,15 +573,6 @@
     .left-rail[data-open='false'],
     .right-rail[data-open='false'] {
       pointer-events: none;
-    }
-
-    .compact-rail-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--panel-border);
     }
 
     .main-content {

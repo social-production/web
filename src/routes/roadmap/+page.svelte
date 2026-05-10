@@ -1,5 +1,5 @@
 <script lang="ts">
-  import RoadmapPage from '$lib/features/roadmap/RoadmapPage.svelte';
+  import AboutPage from '$lib/features/about/AboutPage.svelte';
 </script>
 
-<RoadmapPage />
+<AboutPage />

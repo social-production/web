@@ -11,6 +11,15 @@
 
   export let item: PersonalPostItem;
 
+  function buildCommentHref(href: string) {
+    const url = new URL(href, 'https://socialproduction.local');
+    url.searchParams.delete('comment');
+    url.hash = 'comments';
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+
+  $: commentHref = buildCommentHref(item.href);
+
   async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
     await setVote(item.voteTargetId, event.detail.vote);
     await invalidateAll();
@@ -35,7 +44,9 @@
   <div class="footer">
     <div class="engagement-row">
       <VoteStrip activeVote={item.activeVote} count={item.voteCount} on:vote={handleVote} />
-      <CountPill label={`${item.commentCount} comments`} />
+      <a class="comment-link" href={commentHref}>
+        <CountPill label={`${item.commentCount} comments`} />
+      </a>
     </div>
     <span>{formatRelativeTime(item.createdAt)}</span>
   </div>
@@ -97,5 +108,11 @@
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
+  }
+
+  .comment-link {
+    text-decoration: none;
+    color: inherit;
+    border-radius: var(--radius-sm);
   }
 </style>

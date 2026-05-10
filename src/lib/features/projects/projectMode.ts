@@ -44,11 +44,22 @@ export function projectCreateTitle(mode: ProjectMode) {
 }
 
 export function projectFeedPhaseLabel(mode: ProjectMode, phaseId: ProjectLifecyclePhaseId) {
+  if (mode === 'personal-service') {
+    switch (phaseId) {
+      case 'phase-1':
+        return 'Calendar';
+      case 'phase-2':
+        return 'Closed';
+      default:
+        return 'Calendar';
+    }
+  }
+
   switch (phaseId) {
     case 'phase-1':
       return 'Proposal';
     case 'phase-2':
-      return mode === 'personal-service' ? 'Completed' : 'Planning';
+      return 'Planning';
     case 'phase-3':
       return 'Planning';
     case 'phase-4':
@@ -56,6 +67,6 @@ export function projectFeedPhaseLabel(mode: ProjectMode, phaseId: ProjectLifecyc
     case 'phase-5':
       return 'Activity';
     case 'phase-6':
-      return 'Completed';
+      return 'Closed';
   }
 }

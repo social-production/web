@@ -6,6 +6,7 @@ import type {
   ProjectImportanceVoteValue,
   ProjectLifecyclePhaseId,
   ProjectProductionPlanInput,
+  ProjectServiceRequestInput,
   ProjectServiceRequestStatus
 } from '$lib/types/detail';
 
@@ -88,8 +89,8 @@ export function setProjectActivityCommitment(
   return currentAdapter.setProjectActivityCommitment(projectSlug, activityId, roleLabel);
 }
 
-export function addProjectServiceRequest(projectSlug: string, title: string, body: string) {
-  return currentAdapter.addProjectServiceRequest(projectSlug, title, body);
+export function addProjectServiceRequest(projectSlug: string, input: ProjectServiceRequestInput) {
+  return currentAdapter.addProjectServiceRequest(projectSlug, input);
 }
 
 export function setProjectServiceRequestStatus(
@@ -100,8 +101,8 @@ export function setProjectServiceRequestStatus(
   return currentAdapter.setProjectServiceRequestStatus(projectSlug, requestId, status);
 }
 
-export function advanceProjectPhase(projectSlug: string) {
-  return currentAdapter.advanceProjectPhase(projectSlug);
+export function advanceProjectPhase(projectSlug: string, closeNote?: string) {
+  return currentAdapter.advanceProjectPhase(projectSlug, closeNote);
 }
 
 export function revertProjectPhase(
@@ -134,4 +135,12 @@ export function addProjectUpdate(projectSlug: string, title: string, body: strin
 
 export function addEventUpdate(eventSlug: string, title: string, body: string) {
   return currentAdapter.addEventUpdate(eventSlug, title, body);
+}
+
+export function shareProjectWithUser(projectSlug: string, username: string) {
+  return currentAdapter.shareProjectWithUser(projectSlug, username);
+}
+
+export function shareEventWithUser(eventSlug: string, username: string) {
+  return currentAdapter.shareEventWithUser(eventSlug, username);
 }

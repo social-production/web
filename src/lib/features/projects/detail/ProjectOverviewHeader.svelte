@@ -1,16 +1,24 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
+  import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
-  import { supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
-  import { toggleProjectDemandSignal, toggleProjectMembership } from '$lib/services/queries/details';
+  import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
+  import {
+    shareProjectWithUser,
+    toggleProjectDemandSignal,
+    toggleProjectMembership
+  } from '$lib/services/queries/details';
   import type { ProjectPageData } from '$lib/types/detail';
 
   export let data: ProjectPageData;
 
   $: combinedTags = [...data.channelTags, ...data.communityTags];
   $: demandButtonLabel = `${data.signalCount}`;
-  $: membershipButtonLabel = `${data.memberCount}`;
+  $: membershipMetaLabel = 'Members';
+  $: membershipButtonLabel = isPersonalServiceProject(data.projectMode)
+    ? `${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`
+    : `${data.memberCount}`;
 
   async function handleDemandToggle() {
     await toggleProjectDemandSignal(data.slug);
@@ -20,6 +28,24 @@
   async function handleMembershipToggle() {
     await toggleProjectMembership(data.slug);
     await invalidateAll();
+  }
+
+  async function handleProjectShare(username: string) {
+    const result = await shareProjectWithUser(data.slug, username);
+
+    if (result.ok) {
+      await invalidateAll();
+    }
+
+    return result;
+  }
+
+  async function handleCreatePostFromProject() {
+    const mention = `[${data.title}](/projects/${data.slug})`;
+    const params = new URLSearchParams({
+      prefill: `Sharing context from ${mention}: `
+    });
+    await goto(`/create/post?${params.toString()}`);
   }
 </script>
 
@@ -58,11 +84,6 @@
         <strong>Threshold</strong>
         <span>{data.lifecycle.quorumThresholdPercent}% approval</span>
       </li>
-    {:else if data.lifecycle.personalService}
-      <li class="meta-item">
-        <strong>Availability</strong>
-        <span>{data.lifecycle.personalService.availabilitySummary}</span>
-      </li>
     {/if}
 
     <li class="meta-item">
@@ -78,20 +99,35 @@
     {/if}
 
     <li class="meta-item">
-      <strong>Members</strong>
-      {#if data.viewerCanToggleMembership}
-        <button
-          aria-pressed={data.viewerIsMember}
-          class:active-demand={data.viewerIsMember}
-          class="demand-button"
-          type="button"
-          on:click={handleMembershipToggle}
-        >
-          {membershipButtonLabel}
-        </button>
-      {:else}
-        <span>{data.memberCount}</span>
-      {/if}
+      <strong>{membershipMetaLabel}</strong>
+      <div class="meta-button-row">
+        {#if data.viewerCanToggleMembership}
+          <button
+            aria-pressed={data.viewerIsMember}
+            class:active-demand={data.viewerIsMember}
+            class="demand-button"
+            type="button"
+            on:click={handleMembershipToggle}
+          >
+            {membershipButtonLabel}
+          </button>
+        {:else}
+          <span>{data.memberCount}</span>
+        {/if}
+
+        {#if data.viewerCanShare}
+          <ShareUserMenu
+            buttonLabel="Share +"
+            contacts={data.shareContacts}
+            menuTitle="Share project"
+            placeholder="Type a username"
+            submitLabel="Share"
+            submitShare={handleProjectShare}
+            createPost={handleCreatePostFromProject}
+            createPostLabel="Create post"
+          />
+        {/if}
+      </div>
     </li>
   </ul>
 </section>
@@ -156,6 +192,13 @@
   .meta-item span {
     color: var(--text-soft);
     line-height: 1.45;
+  }
+
+  .meta-button-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
   .demand-button {

@@ -156,7 +156,15 @@
   .feed-stack,
   .people-list {
     display: grid;
+  }
+
+  .page,
+  .people-list {
     gap: 12px;
+  }
+
+  .feed-stack {
+    gap: 0;
   }
 
   .hero-card,
@@ -249,6 +257,13 @@
 
   .toolbar-button.active {
     border-color: var(--brand);
+    color: var(--brand-strong);
+  }
+
+  .toolbar-button:hover,
+  .stat-chip:hover {
+    border-color: var(--brand);
+    background: var(--brand-soft);
     color: var(--brand-strong);
   }
 

@@ -3,6 +3,12 @@ import {
   addMockProjectActivity,
   setMockProjectActivityCommitment,
   addMockComment,
+  createMockChannel,
+  createMockCommunity,
+  createMockEvent,
+  createMockPost,
+  createMockProject,
+  createMockThread,
   addMockProjectDistributionPlan,
   addMockProjectProductionPlan,
   addMockProjectServiceRequest,
@@ -25,12 +31,21 @@ import {
   getSettingsFixture,
   getPlatformScopeFixture,
   markAllMockNotificationsRead,
-  markMockMessageThreadRead,
+  markMockConversationRead,
   markMockNotificationRead,
   onboardingFixture,
+  signInMockAccount,
+  signOutMockAccount,
+  signUpMockAccount,
   redeemMockScopeInvite,
+  addMockGroupConversationMember,
+  createMockGroupConversation,
+  renameMockGroupConversation,
+  removeMockGroupConversationMember,
+  shareMockEventWithUser,
+  shareMockProjectWithUser,
   sendMockMessage,
-  startMockMessageThread,
+  startMockDirectMessage,
   addMockProjectUpdate,
   addMockEventUpdate,
   inviteMockEventManager,
@@ -82,6 +97,18 @@ export const devAdapter: AppAdapter = {
     return structuredClone(onboardingFixture);
   },
 
+  async signIn(input) {
+    return structuredClone(signInMockAccount(input));
+  },
+
+  async signOut() {
+    signOutMockAccount();
+  },
+
+  async signUp(input) {
+    return structuredClone(signUpMockAccount(input));
+  },
+
   async getSettings() {
     return structuredClone(getSettingsFixture());
   },
@@ -112,6 +139,30 @@ export const devAdapter: AppAdapter = {
 
   async getThread(slug) {
     return structuredClone(findThreadFixture(slug));
+  },
+
+  async createProject(input) {
+    return structuredClone(createMockProject(input));
+  },
+
+  async createThread(input) {
+    return structuredClone(createMockThread(input));
+  },
+
+  async createEvent(input) {
+    return structuredClone(createMockEvent(input));
+  },
+
+  async createPost(input) {
+    return structuredClone(createMockPost(input));
+  },
+
+  async createChannel(input) {
+    return structuredClone(createMockChannel(input));
+  },
+
+  async createCommunity(input) {
+    return structuredClone(createMockCommunity(input));
   },
 
   async getPost(id) {
@@ -166,16 +217,16 @@ export const devAdapter: AppAdapter = {
     setMockProjectActivityCommitment(projectSlug, activityId, roleLabel);
   },
 
-  async addProjectServiceRequest(projectSlug, title, body) {
-    addMockProjectServiceRequest(projectSlug, title, body);
+  async addProjectServiceRequest(projectSlug, input) {
+    addMockProjectServiceRequest(projectSlug, input);
   },
 
   async setProjectServiceRequestStatus(projectSlug, requestId, status) {
     setMockProjectServiceRequestStatus(projectSlug, requestId, status);
   },
 
-  async advanceProjectPhase(projectSlug) {
-    advanceMockProjectPhase(projectSlug);
+  async advanceProjectPhase(projectSlug, closeNote) {
+    advanceMockProjectPhase(projectSlug, closeNote);
   },
 
   async revertProjectPhase(projectSlug, targetPhaseId, reason) {
@@ -218,6 +269,14 @@ export const devAdapter: AppAdapter = {
     addMockEventUpdate(eventSlug, title, body);
   },
 
+  async shareProjectWithUser(projectSlug, username) {
+    return structuredClone(shareMockProjectWithUser(projectSlug, username));
+  },
+
+  async shareEventWithUser(eventSlug, username) {
+    return structuredClone(shareMockEventWithUser(eventSlug, username));
+  },
+
   async markNotificationRead(notificationId) {
     markMockNotificationRead(notificationId);
   },
@@ -226,15 +285,31 @@ export const devAdapter: AppAdapter = {
     markAllMockNotificationsRead();
   },
 
-  async markMessageThreadRead(threadId) {
-    markMockMessageThreadRead(threadId);
+  async markConversationRead(conversationId) {
+    markMockConversationRead(conversationId);
   },
 
-  async sendMessage(threadId, body) {
-    sendMockMessage(threadId, body);
+  async sendMessage(conversationId, body) {
+    sendMockMessage(conversationId, body);
   },
 
-  async startMessageThread(participantUsername, body) {
-    return startMockMessageThread(participantUsername, body);
+  async startDirectMessage(participantUsername, body) {
+    return structuredClone(startMockDirectMessage(participantUsername, body));
+  },
+
+  async createGroupConversation(input) {
+    return structuredClone(createMockGroupConversation(input));
+  },
+
+  async renameGroupConversation(conversationId, title) {
+    return structuredClone(renameMockGroupConversation(conversationId, title));
+  },
+
+  async addGroupConversationMember(conversationId, username) {
+    return structuredClone(addMockGroupConversationMember(conversationId, username));
+  },
+
+  async removeGroupConversationMember(conversationId, username) {
+    return structuredClone(removeMockGroupConversationMember(conversationId, username));
   }
 };

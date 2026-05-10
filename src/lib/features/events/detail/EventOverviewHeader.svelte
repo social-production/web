@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
+  import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import Tablet from '$lib/components/cards/shared/Tablet.svelte';
-  import { toggleEventGoing } from '$lib/services/queries/details';
+  import { shareEventWithUser, toggleEventGoing } from '$lib/services/queries/details';
   import type { EventPageData } from '$lib/types/detail';
 
   export let data: EventPageData;
@@ -14,6 +15,24 @@
   async function handleGoingToggle() {
     await toggleEventGoing(data.id);
     await invalidateAll();
+  }
+
+  async function handleEventShare(username: string) {
+    const result = await shareEventWithUser(data.slug, username);
+
+    if (result.ok) {
+      await invalidateAll();
+    }
+
+    return result;
+  }
+
+  async function handleCreatePostFromEvent() {
+    const mention = `[${data.title}](/events/${data.slug})`;
+    const params = new URLSearchParams({
+      prefill: `Sharing context from ${mention}: `
+    });
+    await goto(`/create/post?${params.toString()}`);
   }
 </script>
 
@@ -43,19 +62,34 @@
     </li>
     <li class="meta-item">
       <strong>Going</strong>
-      {#if data.viewerCanToggleGoing}
-        <button
-          aria-pressed={data.viewerIsGoing}
-          class:active-demand={data.viewerIsGoing}
-          class="demand-button"
-          type="button"
-          on:click={handleGoingToggle}
-        >
-          {membershipButtonLabel}
-        </button>
-      {:else}
-        <span>{data.memberCount}</span>
-      {/if}
+      <div class="meta-button-row">
+        {#if data.viewerCanToggleGoing}
+          <button
+            aria-pressed={data.viewerIsGoing}
+            class:active-demand={data.viewerIsGoing}
+            class="demand-button"
+            type="button"
+            on:click={handleGoingToggle}
+          >
+            {membershipButtonLabel}
+          </button>
+        {:else}
+          <span>{data.memberCount}</span>
+        {/if}
+
+        {#if data.viewerCanShare}
+          <ShareUserMenu
+            buttonLabel={data.isPrivate ? 'Invite +' : 'Share +'}
+            contacts={data.shareContacts}
+            menuTitle={data.isPrivate ? 'Invite to event' : 'Share event'}
+            placeholder="Type a username"
+            submitLabel={data.isPrivate ? 'Invite' : 'Share'}
+            submitShare={handleEventShare}
+            createPost={handleCreatePostFromEvent}
+            createPostLabel="Create post"
+          />
+        {/if}
+      </div>
     </li>
   </ul>
 </section>
@@ -138,6 +172,13 @@
   .meta-item span {
     color: var(--text-soft);
     line-height: 1.45;
+  }
+
+  .meta-button-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
   @media (max-width: 760px) {

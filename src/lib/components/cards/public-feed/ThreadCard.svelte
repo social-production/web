@@ -34,7 +34,9 @@
   <div class="footer">
     <div class="engagement-row">
       <VoteStrip activeVote={item.activeVote} count={item.voteCount} on:vote={handleVote} />
-      <CountPill label={`${item.commentCount} comments`} />
+      <a class="comment-link" href={item.href}>
+        <CountPill label={`${item.commentCount} comments`} />
+      </a>
     </div>
     <div class="footer-meta">
       <span>
@@ -97,6 +99,12 @@
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
+  }
+
+  .comment-link {
+    text-decoration: none;
+    color: inherit;
+    border-radius: var(--radius-sm);
   }
 
   .footer-meta {

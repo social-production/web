@@ -49,6 +49,12 @@ export type ProjectLifecycleProgressState = 'complete' | 'current' | 'upcoming' 
 export type ProjectImportanceVoteValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export type ProjectApprovalVote = 'yes' | 'no';
 export type ProjectServiceRequestStatus = 'open' | 'accepted' | 'declined';
+export type ProjectServiceRequestMode = 'calendar' | 'direct' | 'both';
+
+export interface ShareTargetResult {
+  ok: boolean;
+  error?: string;
+}
 
 export interface ProjectPlanPhaseInput {
   title: string;
@@ -104,11 +110,14 @@ export interface ProjectDistributionPlanInput {
   accessSummary?: string;
   reserveSummary?: string;
   requestSystemEnabled?: boolean;
+  requestMode?: ProjectServiceRequestMode;
+  allowOffScheduleRequests?: boolean;
 }
 
 export interface ProjectActivityRoleInput {
   label: string;
   requiredCount: number;
+  maximumCount?: number;
 }
 
 export interface ProjectProductionPlan {
@@ -139,6 +148,8 @@ export interface ProjectDistributionPlan {
   accessSummary: string;
   reserveSummary: string;
   requestSystemEnabled: boolean;
+  requestMode?: ProjectServiceRequestMode;
+  allowOffScheduleRequests?: boolean;
   valueAssessments: ProjectPlanValueAssessment[];
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
@@ -150,7 +161,6 @@ export interface ProjectActivityInput {
   endsAt: string;
   locationLabel: string;
   roleRequirements: ProjectActivityRoleInput[];
-  maximumParticipants: number;
   linkedPlanPhaseId?: string | null;
   note: string;
 }
@@ -159,8 +169,8 @@ export interface ProjectActivityRole {
   label: string;
   filledCount: number;
   requiredCount: number;
+  maximumCount?: number;
   isViewerAssigned: boolean;
-  isExtraSlot: boolean;
 }
 
 export interface ProjectActivityItem {
@@ -172,7 +182,7 @@ export interface ProjectActivityItem {
   endAt: string;
   locationLabel: string;
   minimumParticipants: number;
-  maximumParticipants: number;
+  maximumParticipants?: number;
   committedCount: number;
   viewerAssignedRoleLabel: string | null;
   linkedPlanPhaseLabel: string | null;
@@ -187,12 +197,22 @@ export interface ProjectActivityPlanPhaseOption {
   label: string;
 }
 
+export interface ProjectServiceRequestInput {
+  title: string;
+  body: string;
+  scheduledAt?: string;
+  endsAt?: string;
+}
+
 export interface ProjectServiceRequestItem {
   id: string;
   title: string;
   body: string;
+  requesterUsername: string;
   createdAt: string;
   status: ProjectServiceRequestStatus;
+  scheduledAt?: string;
+  endsAt?: string;
 }
 
 export interface ProjectLifecycleRevertEntry {
@@ -240,11 +260,14 @@ export interface ProjectServiceRequestState {
   requests: ProjectServiceRequestItem[];
   viewerCanSubmitRequests: boolean;
   viewerCanReviewRequests: boolean;
+  requiresSchedule: boolean;
 }
 
 export interface PersonalServiceLifecycleData {
   availabilitySummary: string;
   travelRadiusLabel?: string;
+  usesCalendar: boolean;
+  requestMode?: 'calendar' | 'direct' | 'both';
 }
 
 export interface ProjectLifecyclePhase {
@@ -312,9 +335,11 @@ export interface ProjectPageData {
   members: ProjectRoleMember[];
   viewerIsMember: boolean;
   viewerCanToggleMembership: boolean;
+  viewerCanShare: boolean;
   viewerCanToggleManagerNomination: boolean;
   viewerIsManagerCandidate: boolean;
   viewerIsProjectManager: boolean;
+  shareContacts: DetailMember[];
   discussionNote: string;
   discussion: DetailComment[];
 }
@@ -376,11 +401,13 @@ export interface EventPageData {
   members: EventRoleMember[];
   viewerIsGoing: boolean;
   viewerCanToggleGoing: boolean;
+  viewerCanShare: boolean;
   viewerCanToggleManagerNomination: boolean;
   viewerIsManagerCandidate: boolean;
   viewerIsEventManager: boolean;
   viewerCanInviteEventManagers: boolean;
   availableManagerInvitees: DetailMember[];
+  shareContacts: DetailMember[];
   discussionNote: string;
   discussion: DetailComment[];
 }

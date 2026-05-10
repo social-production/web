@@ -25,35 +25,37 @@ export const nodes = [
 	() => import('./nodes/21'),
 	() => import('./nodes/22'),
 	() => import('./nodes/23'),
-	() => import('./nodes/24')
+	() => import('./nodes/24'),
+	() => import('./nodes/25')
 ];
 
 export const server_loads = [];
 
 export const dictionary = {
 		"/": [2],
-		"/channels/[slug]": [3],
-		"/communities/[slug]": [4],
-		"/create/channel": [5],
-		"/create/community": [6],
-		"/create/event": [7],
-		"/create/post": [8],
-		"/create/project": [9],
-		"/create/thread": [10],
-		"/events/[slug]": [11],
-		"/messages": [12],
-		"/notifications": [13],
-		"/onboarding": [14],
-		"/personal": [15],
-		"/platform": [16],
-		"/posts/[id]": [17],
-		"/profile/[username]": [18],
-		"/projects/[slug]": [19],
-		"/roadmap": [20],
-		"/search": [21],
-		"/settings": [22],
-		"/stewardship": [23],
-		"/threads/[slug]": [24]
+		"/about": [3],
+		"/channels/[slug]": [4],
+		"/communities/[slug]": [5],
+		"/create/channel": [6],
+		"/create/community": [7],
+		"/create/event": [8],
+		"/create/post": [9],
+		"/create/project": [10],
+		"/create/thread": [11],
+		"/events/[slug]": [12],
+		"/messages": [13],
+		"/notifications": [14],
+		"/onboarding": [15],
+		"/personal": [16],
+		"/platform": [17],
+		"/posts/[id]": [18],
+		"/profile/[username]": [19],
+		"/projects/[slug]": [20],
+		"/roadmap": [21],
+		"/search": [22],
+		"/settings": [23],
+		"/stewardship": [24],
+		"/threads/[slug]": [25]
 	};
 
 export const hooks = {

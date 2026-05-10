@@ -6,6 +6,7 @@
   import Tablet from '$lib/components/cards/shared/Tablet.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import { setVote } from '$lib/services/queries/feeds';
   import type { PublicProjectItem, VoteDirection } from '$lib/types/feed';
   import { describeActivityTime } from '$lib/utils/time';
@@ -13,6 +14,13 @@
   export let item: PublicProjectItem;
 
   $: orderedTags = [...item.channelTags, ...item.communityTags];
+  $: participantLabel = isPersonalServiceProject(item.projectMode)
+    ? item.memberCount === 1
+      ? 'follower'
+      : 'followers'
+    : item.memberCount === 1
+      ? 'member'
+      : 'members';
 
   async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
     await setVote(item.id, event.detail.vote);
@@ -49,7 +57,7 @@
     <div class="footer-meta">
       <span>
         <a class="inline-link" href={`/profile/${item.authorUsername}`}>{item.authorUsername}</a>
-        · {item.memberCount} members · <span class="activity-stamp">{describeActivityTime(item.createdAt, item.lastActivityAt)}</span>
+        · {item.memberCount} {participantLabel} · <span class="activity-stamp">{describeActivityTime(item.createdAt, item.lastActivityAt)}</span>
       </span>
     </div>
   </div>
@@ -131,12 +139,11 @@
     text-decoration: none;
     border-radius: var(--radius-sm);
     outline: none;
-    transition: opacity 0.1s;
   }
 
   .comment-link:hover,
   .comment-link:focus-visible {
-    opacity: 0.75;
+    color: inherit;
   }
 
   .footer-meta {

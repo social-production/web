@@ -43,6 +43,10 @@
     gap: 12px;
   }
 
+  .stack {
+    gap: 0;
+  }
+
   .hero-card {
     padding: 16px;
     border: 1px solid var(--panel-border);

@@ -12,17 +12,23 @@
     authorUsername: string;
     body: string;
     createdAt: string;
-    depth: number;
+    isOwn?: boolean;
+    showAuthor?: boolean;
   };
 
   export let comments: DetailComment[] = [];
-  export let subjectId: string;
+  export let messages: ChatMessage[] = [];
+  export let subjectId = '';
   export let highlightedCommentId: string | null = null;
   export let title = 'Discussion';
   export let description = '';
   export let placeholder = 'Write a message...';
   export let submitLabel = 'Send message';
   export let emptyCopy = 'No chat messages yet.';
+  export let showHeader = true;
+  export let embedded = false;
+  export let variant: 'chat' | 'message' = 'chat';
+  export let onSubmitMessage: ((body: string) => Promise<void> | void) | null = null;
 
   let draftMessage = '';
   let chatLogElement: HTMLDivElement | null = null;
@@ -30,7 +36,7 @@
   let hasAutoScrolled = false;
   let lastAutoScrollKey = '';
 
-  function flattenComments(items: DetailComment[], depth = 0): ChatMessage[] {
+  function flattenComments(items: DetailComment[]): ChatMessage[] {
     const flattened: ChatMessage[] = [];
 
     for (const item of items) {
@@ -38,18 +44,21 @@
         id: item.id,
         authorUsername: item.authorUsername,
         body: item.body,
-        createdAt: item.createdAt,
-        depth
+        createdAt: item.createdAt
       });
-      flattened.push(...flattenComments(item.replies, depth + 1));
+      flattened.push(...flattenComments(item.replies));
     }
 
     return flattened;
   }
 
-  $: messages = flattenComments(comments).sort(
+  $: flattenedComments = flattenComments(comments).sort(
     (left, right) => +new Date(left.createdAt) - +new Date(right.createdAt)
   );
+  $: visibleMessages =
+    messages.length > 0
+      ? messages.slice().sort((left, right) => +new Date(left.createdAt) - +new Date(right.createdAt))
+      : flattenedComments;
   $: viewerUsername = $page.data.bootstrap?.viewer?.username ?? null;
 
   $: if (!highlightedCommentId) {
@@ -67,7 +76,7 @@
     }
   }
 
-  $: autoScrollKey = `${subjectId}:${messages.length}`;
+  $: autoScrollKey = `${subjectId || title}:${visibleMessages.length}`;
 
   $: if (browser && !highlightedCommentId && autoScrollKey !== lastAutoScrollKey) {
     lastAutoScrollKey = autoScrollKey;
@@ -77,11 +86,20 @@
   }
 
   async function submitMessage() {
-    if (!draftMessage.trim()) {
+    const body = draftMessage.trim();
+
+    if (!body) {
       return;
     }
 
-    await addComment(subjectId, draftMessage);
+    if (onSubmitMessage) {
+      await onSubmitMessage(body);
+    } else if (subjectId) {
+      await addComment(subjectId, body);
+    } else {
+      return;
+    }
+
     draftMessage = '';
     await invalidateAll();
   }
@@ -113,36 +131,42 @@
   }
 </script>
 
-<section class="chat-panel">
-  <div class="chat-header">
-    <div>
-      <h2>{title}</h2>
-      {#if description}
-        <p>{description}</p>
-      {/if}
+<section class:embedded class:headerless={!showHeader} class:message-variant={variant === 'message'} class="chat-panel">
+  {#if showHeader}
+    <div class="chat-header">
+      <div>
+        <h2>{title}</h2>
+        {#if description}
+          <p>{description}</p>
+        {/if}
+      </div>
     </div>
-  </div>
+  {/if}
 
   <div bind:this={chatLogElement} class="chat-log">
-    {#if messages.length === 0}
-      <div class="empty-state">{emptyCopy}</div>
-    {:else}
-      {#each messages as message}
-        <article
-          id={`comment-${message.id}`}
-          class:highlighted={highlightedCommentId === message.id}
-          class:own={viewerUsername === message.authorUsername}
-          class="chat-message"
-          use:registerMessageElement={message.id}
-        >
-          <div class="message-copy">
-            <a class="author-link" href={`/profile/${message.authorUsername}`}>{message.authorUsername}</a>
-            <p>{message.body}</p>
-          </div>
-          <span class="message-time">{formatRelativeTime(message.createdAt)}</span>
-        </article>
-      {/each}
-    {/if}
+    <div class="chat-log-stack">
+      {#if visibleMessages.length === 0}
+        <div class="empty-state">{emptyCopy}</div>
+      {:else}
+        {#each visibleMessages as message}
+          <article
+            id={`comment-${message.id}`}
+            class:highlighted={highlightedCommentId === message.id}
+            class:own={message.isOwn ?? viewerUsername === message.authorUsername}
+            class="chat-message"
+            use:registerMessageElement={message.id}
+          >
+            <div class="message-copy">
+              {#if message.showAuthor ?? true}
+                <a class="author-link" href={`/profile/${message.authorUsername}`}>{message.authorUsername}</a>
+              {/if}
+              <p>{message.body}</p>
+            </div>
+            <span class="message-time">{formatRelativeTime(message.createdAt)}</span>
+          </article>
+        {/each}
+      {/if}
+    </div>
   </div>
 
   <div class="composer-card">
@@ -176,43 +200,81 @@
     background: var(--panel);
   }
 
+  .chat-panel.embedded {
+    height: 100%;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+  }
+
+  .chat-panel.headerless {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
   .chat-header {
     display: grid;
     gap: 4px;
     padding: 16px;
     background: var(--panel);
+    border-bottom: 1px solid var(--panel-border);
   }
 
   .chat-log {
     min-height: 0;
-    display: grid;
-    gap: 6px;
     overflow-y: auto;
     background: var(--panel);
-    padding: 12px 16px;
+    padding: 12px 16px 8px;
+  }
+
+  .chat-log-stack {
+    min-height: 100%;
+    display: grid;
+    gap: 4px;
+    align-content: end;
   }
 
   .chat-message {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) 86px;
+    gap: 6px;
     align-items: end;
-    padding: 6px 0;
+    padding: 0;
     border: none;
     border-radius: 0;
     scroll-margin-top: 84px;
     transition: background 140ms ease, box-shadow 140ms ease;
   }
 
-  .chat-message.highlighted {
-    background: var(--brand-soft);
-    box-shadow: inset 0 0 0 1px var(--brand);
-    padding: 8px 10px;
+  .message-copy {
+    gap: 2px;
+    width: fit-content;
+    max-width: min(80%, 52rem);
+    justify-self: start;
+    padding: 8px 11px;
+    border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
     border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--panel-strong) 84%, white 16%);
+  }
+
+  .chat-message.own .message-copy {
+    justify-self: end;
+    background: color-mix(in srgb, var(--brand-soft) 72%, white 28%);
+    border-color: color-mix(in srgb, var(--brand) 52%, var(--panel-border));
+  }
+
+  .chat-message.highlighted .message-copy {
+    box-shadow: inset 0 0 0 1px var(--brand);
   }
 
   .chat-message.own .message-copy {
     text-align: right;
+  }
+
+  .chat-panel.message-variant .author-link {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 0;
+    text-decoration: none;
   }
 
   h2,
@@ -232,26 +294,41 @@
 
   .author-link {
     display: inline-block;
+    font-size: 12px;
     font-weight: 800;
-    margin-bottom: 2px;
+    margin-bottom: 0;
+  }
+
+  .message-copy p {
+    color: var(--text-main);
+  }
+
+  .composer-card {
+    border-top: 1px solid var(--panel-border);
   }
 
   .message-time {
     color: var(--text-soft);
     font-size: 11px;
     line-height: 1.2;
+    width: 86px;
+    min-width: 86px;
+    align-self: end;
+    padding-bottom: 8px;
     white-space: nowrap;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
   }
 
   textarea {
     width: 100%;
-    min-height: 92px;
+    min-height: 104px;
     padding: 12px 90px 12px 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
     color: var(--text-main);
-    resize: vertical;
+    resize: none;
   }
 
   .composer-input-shell {
@@ -259,7 +336,7 @@
   }
 
   .composer-card {
-    padding: 0 16px 16px;
+    padding: 12px 16px 16px;
     background: var(--panel);
   }
 

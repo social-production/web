@@ -16,6 +16,8 @@
     totalCostLabel: string;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;
+    requestMode?: 'calendar' | 'direct' | 'both';
+    allowOffScheduleRequests?: boolean;
   };
 
   export let data: ProjectPageData;

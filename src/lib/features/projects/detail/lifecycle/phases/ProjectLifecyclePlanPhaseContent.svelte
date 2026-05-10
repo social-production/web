@@ -17,6 +17,8 @@
     totalCostLabel: string;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;
+    requestMode?: 'calendar' | 'direct' | 'both';
+    allowOffScheduleRequests?: boolean;
   };
 
   export let data: ProjectPageData;
@@ -103,6 +105,20 @@
             <input bind:checked={form.requestSystemEnabled} type="checkbox" />
             <span>Allow users to request the service in Phase 5</span>
           </label>
+          {#if form.requestSystemEnabled}
+            <label>
+              <span class="field-inline-label">Request mode</span>
+              <select bind:value={form.requestMode}>
+                <option value="calendar">Calendar only</option>
+                <option value="direct">Direct requests only</option>
+                <option value="both">Both calendar and direct</option>
+              </select>
+            </label>
+            <label class="checkbox-row">
+              <input bind:checked={form.allowOffScheduleRequests} type="checkbox" />
+              <span>Allow requests outside already scheduled slots</span>
+            </label>
+          {/if}
         {/if}
         <div class="composer-actions">
           <button class="secondary-button" type="button" on:click={addPlanPhase}>Add stage</button>
@@ -220,7 +236,15 @@
   }
 
   .checkbox-row span,
+  .field-inline-label,
   strong {
     color: var(--text-main);
+  }
+
+  .field-inline-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
   }
 </style>

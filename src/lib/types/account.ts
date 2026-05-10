@@ -11,9 +11,24 @@ export interface OnboardingPageData {
   title: string;
   intro: string;
   accountModes: AccountOption[];
-  visibilityOptions: AccountOption[];
   starterChannels: string[];
   starterCommunities: string[];
+}
+
+export interface AuthResult {
+  ok: boolean;
+  error?: string;
+}
+
+export interface SignInInput {
+  username: string;
+  password: string;
+}
+
+export interface SignUpInput {
+  username: string;
+  password: string;
+  profileBio?: string;
 }
 
 export interface ProfilePageData {

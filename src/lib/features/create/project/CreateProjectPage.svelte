@@ -1,33 +1,41 @@
 <script lang="ts">
+  import { goto, invalidateAll } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { onMount } from 'svelte';
   import ProjectCard from '$lib/components/cards/public-feed/ProjectCard.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
+  import { getPlatform } from '$lib/services/queries/scopes';
+  import { createProject } from '$lib/services/queries/create';
   import {
     isCollectiveServiceProject,
     isPersonalServiceProject
   } from '$lib/features/projects/projectMode';
   import {
+    channelOptions,
     communityOptions,
     makeTagRef,
     splitCommaValues
   } from '$lib/features/create/shared/options';
   import type { ProjectMode, PublicProjectItem } from '$lib/types/feed';
 
+  const platformTagSlug = 'platform';
+
   let selectedType: ProjectMode = 'productive';
-  let title = 'Neighborhood Heat Pump Retrofit Pilot';
-  let summary =
-    'Research a small retrofit round before moving into full planning and procurement.';
-  let locationLabel = 'Block 2 Retrofit Cluster, East Market, Riverbend';
-  let district = 'East Market';
-  let primaryChannel = 'Housing & Build';
+  let title = '';
+  let summary = '';
+  let locationLabel = '';
+  let district = '';
+  let primaryChannel = '';
   let additionalChannels = '';
   let taggedCommunities = '';
-  let notes =
-    'Looking for visible demand, likely participant count, and similar project overlap before the planning stage.';
-  let serviceCadence = 'Scheduled';
-  let serviceFlow =
-    'Weekly evening service slots with direct request intake and lightweight triage.';
+  let notes = '';
+  let serviceRequestMode: 'calendar' | 'direct' | 'both' = 'both';
   let statusMessage = '';
+  let platformBoardMemberIds: string[] = [];
+  let isSubmitting = false;
+
+  $: viewer = $page.data.bootstrap?.viewer ?? null;
 
   $: projectPreview = {
     kind: 'project',
@@ -36,7 +44,7 @@
     href: '#',
     createdAt: new Date().toISOString(),
     title: title.trim() || 'Untitled project',
-    authorUsername: 'patchbay',
+    authorUsername: viewer?.username ?? 'patchbay',
     projectMode: selectedType,
     summary:
       summary.trim() ||
@@ -48,7 +56,13 @@
     communityTags: splitCommaValues(taggedCommunities).map((value) =>
       makeTagRef(value, 'community')
     ),
-    stage: isPersonalServiceProject(selectedType) ? 'Activity' : 'Proposal',
+    stage: isPersonalServiceProject(selectedType)
+      ? serviceRequestMode === 'direct'
+        ? 'Requests'
+        : serviceRequestMode === 'both'
+          ? 'Calendar + Requests'
+        : 'Calendar'
+      : 'Proposal',
     locationLabel: `${locationLabel}${district.trim() ? ` · ${district.trim()}` : ''}`,
     voteCount: 0,
     activeVote: 0,
@@ -58,12 +72,54 @@
     lastActivityAt: new Date().toISOString()
   } satisfies PublicProjectItem;
 
-  $: canSubmit =
-    title.trim().length > 0 && summary.trim().length > 0 && primaryChannel.trim().length > 0;
+  $: usesPlatformTag = projectPreview.channelTags.some((tag) => tag.slug === platformTagSlug);
+  $: viewerCanCreatePlatformProject =
+    !usesPlatformTag || (!!viewer && platformBoardMemberIds.includes(viewer.id));
 
-  function handleCreate() {
-    statusMessage =
-      'Frontend preview only for now. This form is now real, but saving into adapter state comes in the next slice.';
+  $: canSubmit =
+    title.trim().length > 0 &&
+    summary.trim().length > 0 &&
+    primaryChannel.trim().length > 0 &&
+    viewerCanCreatePlatformProject;
+
+  onMount(async () => {
+    const scope = await getPlatform();
+
+    platformBoardMemberIds = scope?.moderators.map((member) => member.id) ?? [];
+  });
+
+  async function handleCreate() {
+    if (usesPlatformTag && !viewerCanCreatePlatformProject) {
+      statusMessage =
+        'Only current board members can create platform-tagged projects. Regular users can still create threads in Platform.';
+      return;
+    }
+
+    isSubmitting = true;
+    statusMessage = '';
+
+    try {
+      const result = await createProject({
+        title,
+        summary,
+        locationLabel: `${locationLabel}${district.trim() ? ` · ${district.trim()}` : ''}`,
+        projectMode: selectedType,
+        channelTags: projectPreview.channelTags,
+        communityTags: projectPreview.communityTags,
+        note: notes,
+        serviceRequestMode
+      });
+
+      if (!result.ok || !result.slug) {
+        statusMessage = result.error ?? 'The project could not be created.';
+        return;
+      }
+
+      await invalidateAll();
+      await goto(`/projects/${result.slug}`);
+    } finally {
+      isSubmitting = false;
+    }
   }
 
   function handleDraft() {
@@ -146,8 +202,8 @@
           <span class="field-label">Primary channel tag</span>
           <input bind:value={primaryChannel} list="project-channels" />
           <datalist id="project-channels">
-            {#each ['Housing & Build', 'Mutual Aid', 'Energy Retrofit'] as option}
-              <option value={option}></option>
+            {#each channelOptions as option}
+              <option value={option.label}></option>
             {/each}
           </datalist>
         </label>
@@ -173,22 +229,53 @@
             <textarea bind:value={notes} rows="4"></textarea>
           </label>
         {:else}
-          <label>
-            <span class="field-label">Service cadence</span>
-            <select bind:value={serviceCadence}>
-              <option value="One-time">One-time</option>
-              <option value="Scheduled">Scheduled</option>
-            </select>
-          </label>
+          {#if isPersonalServiceProject(selectedType)}
+            <div class="section-block">
+              <span class="field-label">Service request mode</span>
+              <div class="type-grid">
+                <button
+                  type="button"
+                  class:active={serviceRequestMode === 'calendar'}
+                  class="type-card"
+                  on:click={() => (serviceRequestMode = 'calendar')}
+                >
+                  <span class="type-title">Calendar booking</span>
+                  <span class="type-body">
+                    Show availability on the calendar and let people request a visible slot.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class:active={serviceRequestMode === 'direct'}
+                  class="type-card"
+                  on:click={() => (serviceRequestMode = 'direct')}
+                >
+                  <span class="type-title">Direct requests</span>
+                  <span class="type-body">
+                    Skip the calendar and let people send written requests for work that does not need booking.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class:active={serviceRequestMode === 'both'}
+                  class="type-card"
+                  on:click={() => (serviceRequestMode = 'both')}
+                >
+                  <span class="type-title">Calendar + direct</span>
+                  <span class="type-body">
+                    Keep slot booking on the calendar and allow standalone written requests too.
+                  </span>
+                </button>
+              </div>
+            </div>
+          {/if}
 
-          <label>
-            <span class="field-label">Request pattern</span>
-            <textarea bind:value={serviceFlow} rows="3"></textarea>
-          </label>
         {/if}
 
         <div class="button-row">
-          <button class="button-primary" disabled={!canSubmit} type="submit">Create Project</button>
+          <button class="button-primary" disabled={!canSubmit || isSubmitting} type="submit">
+            {isSubmitting ? 'Creating...' : 'Create Project'}
+          </button>
           <button class="button-ghost" type="button" on:click={handleDraft}>Save Draft</button>
         </div>
 
@@ -213,11 +300,21 @@
       description="What happens immediately after creation in this frontend slice."
     >
       <p class="helper-text">
-        {selectedType === 'productive'
-          ? 'New productive projects start in Proposal. Planning stays public because at least one channel tag is required.'
-          : isCollectiveServiceProject(selectedType)
-            ? 'New collective service projects also start in Proposal so members can shape operations and access before scheduling begins.'
-            : 'Personal services skip planning and open directly into availability, requests, and scheduling.'}
+        {#if usesPlatformTag}
+          {viewerCanCreatePlatformProject
+            ? 'Platform-tagged projects are board-created, and their manager list stays tied to the current board.'
+            : 'Only current board members can create platform-tagged projects. Regular users can still create Platform threads.'}
+        {:else}
+          {selectedType === 'productive'
+            ? 'New productive projects start in Proposal. Planning stays public because at least one channel tag is required.'
+            : isCollectiveServiceProject(selectedType)
+              ? 'New collective service projects also start in Proposal so members can shape operations and access before scheduling begins.'
+              : serviceRequestMode === 'direct'
+                ? 'Personal services can open directly into written requests when the work does not need calendar booking.'
+                : serviceRequestMode === 'both'
+                  ? 'Personal services can open with both slot booking and direct written requests.'
+                  : 'Personal services skip planning and open directly into availability, requests, and scheduling.'}
+        {/if}
       </p>
     </CreatePanel>
   </svelte:fragment>

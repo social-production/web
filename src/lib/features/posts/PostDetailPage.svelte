@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { invalidateAll } from '$app/navigation';
-  import ThreadDiscussionPanel from '$lib/features/threads/detail/ThreadDiscussionPanel.svelte';
+  import DiscussionPanel from '$lib/components/discussion/DiscussionPanel.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
@@ -52,7 +52,7 @@
   </section>
 
   <section class="panel">
-    <ThreadDiscussionPanel {data} {highlightedCommentId} />
+    <DiscussionPanel {data} {highlightedCommentId} />
   </section>
 </section>
 

@@ -12,8 +12,11 @@ import type {
   ViewerSummary
 } from '$lib/types/bootstrap';
 import type {
+  AuthResult,
   OnboardingPageData,
   ProfilePageData,
+  SignInInput,
+  SignUpInput,
   SettingsPageData,
   SettingsUpdateInput
 } from '$lib/types/account';
@@ -41,18 +44,30 @@ import type {
   ProjectProductionPlan,
   ProjectProductionPlanInput,
   ProjectRoleMember,
+  ProjectServiceRequestInput,
   ProjectServiceRequestItem,
   ProjectServiceRequestStatus,
+  ShareTargetResult,
   ProjectValueItem,
   ThreadPageData
 } from '$lib/types/detail';
 import type {
-  MessageThread,
+  CreateGroupMessageInput,
+  MessageConversation,
+  MessageLinkedChat,
+  MessageConversationResult,
   MessagesPageData,
   NotificationItem,
   NotificationsPageData
 } from '$lib/types/inbox';
 import type {
+  CreateChannelInput,
+  CreateCommunityInput,
+  CreateEventInput,
+  CreatePostInput,
+  CreateProjectInput,
+  CreateResult,
+  CreateThreadInput,
   ProjectMode,
   PersonalFeedItem,
   PersonalPostItem,
@@ -102,8 +117,24 @@ const users: ViewerSummary[] = [
   }
 ];
 
-const usersById = new Map(users.map((user) => [user.id, user]));
-const usersByUsername = new Map(users.map((user) => [user.username, user]));
+const usersById = new Map<string, ViewerSummary>();
+const usersByUsername = new Map<string, ViewerSummary>();
+
+function rebuildUserIndexes() {
+  usersById.clear();
+  usersByUsername.clear();
+
+  for (const user of users) {
+    usersById.set(user.id, user);
+    usersByUsername.set(user.username.trim().toLowerCase(), user);
+  }
+}
+
+rebuildUserIndexes();
+
+let credentialsByUserId: Record<string, string> = {
+  'viewer-1': 'patchbay123'
+};
 
 export const mockSessionFixture = {
   currentViewerId: 'viewer-1' as string | null
@@ -153,7 +184,7 @@ function shouldHidePublicActivityFromPersonalFeeds(userId: string) {
   return settingsForUser(userId)?.hidePublicActivityFromPersonalFeeds ?? false;
 }
 
-const followsByUserId: Record<string, string[]> = {
+let followsByUserId: Record<string, string[]> = {
   'viewer-1': ['user-rowan', 'user-tool', 'user-mika'],
   'user-rowan': ['viewer-1', 'user-mika'],
   'user-tool': ['viewer-1'],
@@ -223,77 +254,164 @@ const communityDirectory: ScopeDirectoryItem[] = [
   }
 ];
 
-const settingsStorageKey = 'social-production.web.settings';
+type DynamicScopePageMeta = {
+  description: string;
+  note?: string;
+  badges: string[];
+  moderationLabel: string;
+  membersNote: string;
+  moderatorsNote: string;
+  emptyFeedText: string;
+  moderatorUserIds: string[];
+  moderatorConfidenceTargetIdsByUserId?: Record<string, string>;
+};
 
-let settingsState: SettingsPageData | null = currentViewer()
+const createdChannelScopeMetaBySlug: Record<string, DynamicScopePageMeta> = {};
+const createdCommunityScopeMetaBySlug: Record<string, DynamicScopePageMeta> = {};
+
+const clientStateStorageKey = 'social-production.web.client-state';
+
+function createDefaultSettingsState(
+  viewer: ViewerSummary
+): SettingsPageData {
+  return {
+    profileUsername: viewer.username,
+    profileBio: viewer.bio ?? '',
+    appearanceThemeMode: 'dark',
+    defaultFeed: 'public',
+    hidePublicActivityFromPersonalFeeds: false,
+    hidePersonalFeedFromNonFollowers: false,
+    requireFollowApproval: false
+  };
+}
+
+let settingsByUserId: Record<string, SettingsPageData> = currentViewer()
   ? {
-      profileUsername: activeViewer().username,
-      profileBio: activeViewer().bio ?? '',
-      appearanceThemeMode: 'dark',
-      defaultFeed: 'public',
-      hidePublicActivityFromPersonalFeeds: false,
-      hidePersonalFeedFromNonFollowers: false,
-      requireFollowApproval: false
+      [activeViewer().id]: createDefaultSettingsState(activeViewer())
     }
-  : null;
+  : {};
 
-function settingsForUser(userId: string) {
+function currentSettingsState() {
   const viewer = currentViewer();
 
-  if (!settingsState || !viewer || viewer.id !== userId) {
+  if (!viewer) {
     return null;
   }
 
-  return settingsState;
+  const existing = settingsByUserId[viewer.id];
+
+  if (existing) {
+    existing.profileUsername = viewer.username;
+    return existing;
+  }
+
+  const created = createDefaultSettingsState(viewer);
+  settingsByUserId[viewer.id] = created;
+  return created;
 }
 
-function syncViewerProfileFromSettings() {
-  const viewer = currentViewer();
+function settingsForUser(userId: string) {
+  return settingsByUserId[userId] ?? null;
+}
 
-  if (!viewer || !settingsState) {
+function syncViewerProfileFromSettings(userId?: string | null) {
+  const viewer = userById(userId ?? mockSessionFixture.currentViewerId);
+  const settings = viewer ? settingsByUserId[viewer.id] : null;
+
+  if (!viewer || !settings) {
     return;
   }
 
-  viewer.bio = settingsState.profileBio.trim() ? settingsState.profileBio.trim() : undefined;
+  viewer.bio = settings.profileBio.trim() ? settings.profileBio.trim() : undefined;
 }
 
-function persistSettingsState() {
+function persistClientState() {
   if (!browser) {
     return;
   }
 
   try {
-    if (!settingsState) {
-      window.localStorage.removeItem(settingsStorageKey);
-      return;
-    }
-
-    window.localStorage.setItem(settingsStorageKey, JSON.stringify(settingsState));
+    window.localStorage.setItem(
+      clientStateStorageKey,
+      JSON.stringify({
+        currentViewerId: mockSessionFixture.currentViewerId,
+        users,
+        credentialsByUserId,
+        followsByUserId,
+        settingsByUserId
+      })
+    );
   } catch {
     return;
   }
 }
 
-function hydratePersistedSettingsState() {
-  if (!browser || !settingsState) {
+function hydratePersistedClientState() {
+  if (!browser) {
     return false;
   }
 
   try {
-    const raw = window.localStorage.getItem(settingsStorageKey);
+    const raw = window.localStorage.getItem(clientStateStorageKey);
 
     if (!raw) {
       return false;
     }
 
-    const persisted = JSON.parse(raw) as Partial<SettingsPageData>;
-    settingsState = {
-      ...settingsState,
-      ...persisted,
-      profileBio: typeof persisted.profileBio === 'string' ? persisted.profileBio : settingsState.profileBio
+    const persisted = JSON.parse(raw) as {
+      currentViewerId?: string | null;
+      users?: ViewerSummary[];
+      credentialsByUserId?: Record<string, string>;
+      followsByUserId?: Record<string, string[]>;
+      settingsByUserId?: Record<string, SettingsPageData>;
     };
-    settingsState.requireFollowApproval = settingsState.hidePersonalFeedFromNonFollowers;
-    syncViewerProfileFromSettings();
+
+    if (Array.isArray(persisted.users)) {
+      users.splice(0, users.length, ...persisted.users);
+      rebuildUserIndexes();
+    }
+
+    if (persisted.credentialsByUserId && typeof persisted.credentialsByUserId === 'object') {
+      credentialsByUserId = {
+        ...credentialsByUserId,
+        ...persisted.credentialsByUserId
+      };
+    }
+
+    if (persisted.followsByUserId && typeof persisted.followsByUserId === 'object') {
+      followsByUserId = Object.fromEntries(
+        Object.entries(persisted.followsByUserId).map(([userId, followedIds]) => [
+          userId,
+          Array.isArray(followedIds) ? followedIds.filter((value): value is string => typeof value === 'string') : []
+        ])
+      );
+    }
+
+    if (persisted.settingsByUserId && typeof persisted.settingsByUserId === 'object') {
+      settingsByUserId = Object.fromEntries(
+        Object.entries(persisted.settingsByUserId).map(([userId, settings]) => [
+          userId,
+          {
+            ...createDefaultSettingsState(userById(userId) ?? patchbayUser),
+            ...settings,
+            requireFollowApproval:
+              settings?.hidePersonalFeedFromNonFollowers ?? false
+          }
+        ])
+      );
+    }
+
+    mockSessionFixture.currentViewerId =
+      typeof persisted.currentViewerId === 'string' || persisted.currentViewerId === null
+        ? persisted.currentViewerId
+        : mockSessionFixture.currentViewerId;
+
+    if (mockSessionFixture.currentViewerId && !userById(mockSessionFixture.currentViewerId)) {
+      mockSessionFixture.currentViewerId = null;
+    }
+
+    Object.keys(settingsByUserId).forEach((userId) => syncViewerProfileFromSettings(userId));
+    currentSettingsState();
 
     return true;
   } catch {
@@ -389,228 +507,13 @@ const publicFeedBase: PublicFeedItem[] = [
     channelTags: [platform],
     communityTags: [],
     stage: 'Planning',
-    locationLabel: 'Collective software and release coordination',
-    voteCount: 28,
-    activeVote: 0,
-    signalCount: 28,
-    commentCount: 0,
-    memberCount: 0,
-    lastActivityAt: '2026-04-30T10:10:00Z'
-  },
-  {
-    kind: 'thread',
-    id: 'thread-release-notes',
-    slug: 'should-platform-publish-weekly-release-notes',
-    href: '/threads/should-platform-publish-weekly-release-notes',
-    createdAt: '2026-04-30T11:05:00Z',
-    title: 'Should platform publish weekly release notes?',
-    body:
-      'A lightweight public note each week might make platform changes less opaque without turning updates into marketing copy.',
-    authorUsername: 'mika',
-    channelTags: [platform],
-    communityTags: [],
-    voteCount: 19,
-    activeVote: -1,
-    commentCount: 0,
-    lastActivityAt: '2026-04-30T11:05:00Z'
-  },
-  {
-    kind: 'event',
-    id: 'event-retrofit-walk',
-    slug: 'retrofit-night-walk',
-    href: '/events/retrofit-night-walk',
-    createdAt: '2026-04-29T19:10:00Z',
-    title: 'Retrofit Night Walk',
-    description:
-      'Walk the first retrofit block, mark building quirks, and confirm which doors are ready for the pilot round.',
-    isPrivate: true,
-    scheduledAt: '2026-05-03T18:30:00Z',
-    channelTags: [housingBuild],
-    communityTags: [eastMarket],
-    createdByUsername: 'mika',
-    timeLabel: 'Sat 6:30 PM to 8:30 PM',
-    locationLabel: 'East Market corner survey',
-    voteCount: 9,
-    activeVote: 0,
-    commentCount: 0,
-    goingCount: 0,
-    lastActivityAt: '2026-04-30T08:40:00Z'
-  },
-  {
-    kind: 'project',
-    id: 'project-fridge-restock-route',
-    slug: 'community-fridge-restock-route',
-    href: '/projects/community-fridge-restock-route',
-    createdAt: '2026-04-30T07:50:00Z',
-    title: 'Community Fridge Restock Route',
-    authorUsername: 'rowanloop',
-    projectMode: 'collective-service',
-    summary:
-      'The route is past initial planning and is now deciding how neighborhood access and weekly restock distribution should work.',
-    channelTags: [mutualAid],
-    communityTags: [eastMarket],
-    stage: 'Planning',
-    locationLabel: 'East Market fridge network',
-    voteCount: 31,
-    activeVote: 1,
-    signalCount: 47,
-    commentCount: 0,
-    memberCount: 0,
-    lastActivityAt: '2026-04-30T11:20:00Z'
-  },
-  {
-    kind: 'project',
-    id: 'project-repair-cafe-shift-grid',
-    slug: 'repair-cafe-shift-grid',
-    href: '/projects/repair-cafe-shift-grid',
-    createdAt: '2026-04-29T14:40:00Z',
-    title: 'Repair Cafe Shift Grid',
-    authorUsername: 'toolorbit',
-    projectMode: 'collective-service',
-    summary:
-      'The repair cafe has approved its working plan and is now scheduling roles, shifts, and room setup through contingent activities.',
-    channelTags: [mutualAid],
-    communityTags: [toolLibrary],
-    stage: 'Activity',
-    locationLabel: 'Tool Library workshop floor',
-    voteCount: 26,
-    activeVote: 1,
-    signalCount: 36,
-    commentCount: 0,
-    memberCount: 0,
-    lastActivityAt: '2026-04-30T13:05:00Z'
-  },
-  {
-    kind: 'project',
-    id: 'project-blade-sharpening-service',
-    slug: 'tool-library-blade-sharpening-service',
-    href: '/projects/tool-library-blade-sharpening-service',
-    createdAt: '2026-04-27T16:10:00Z',
-    title: 'Tool Library Blade Sharpening Service',
-    authorUsername: 'toolorbit',
-    projectMode: 'collective-service',
-    summary:
-      'The first sharpening pilot finished and converted into an ongoing service with recurring intake, sharpening, and pickup coordination.',
-    channelTags: [mutualAid],
-    communityTags: [toolLibrary],
-    stage: 'Completed',
-    locationLabel: 'Tool Library bench room',
-    voteCount: 42,
-    activeVote: 1,
-    signalCount: 52,
-    commentCount: 0,
-    memberCount: 0,
-    lastActivityAt: '2026-04-30T15:10:00Z'
-  },
-  {
-    kind: 'project',
-    id: 'project-insulation-kit-round',
-    slug: 'neighborhood-insulation-kit-round',
-    href: '/projects/neighborhood-insulation-kit-round',
-    createdAt: '2026-04-30T16:20:00Z',
-    title: 'Neighborhood Insulation Kit Round',
-    authorUsername: 'patchbay',
-    projectMode: 'productive',
-    summary:
-      'Demand and values are complete. Members are now voting on the production plan for a first insulation-kit build run.',
-    channelTags: [housingBuild],
-    communityTags: [eastMarket],
-    stage: 'Planning',
-    locationLabel: 'East Market community hall',
-    voteCount: 33,
-    activeVote: 1,
-    signalCount: 61,
-    commentCount: 0,
-    memberCount: 0,
-    lastActivityAt: '2026-04-30T16:20:00Z'
-  },
-  {
-    kind: 'project',
-    id: 'project-solar-battery-share',
-    slug: 'community-solar-battery-share',
-    href: '/projects/community-solar-battery-share',
-    createdAt: '2026-04-30T16:45:00Z',
-    title: 'Community Solar Battery Share',
-    authorUsername: 'rowanloop',
-    projectMode: 'productive',
-    summary:
-      'The production plan is set and the team is voting on fair distribution windows for battery access during outage season.',
-    channelTags: [housingBuild],
-    communityTags: [eastMarket],
-    stage: 'Planning',
-    locationLabel: 'East Market resilience cluster',
+    locationLabel: 'Platform coordination room',
     voteCount: 29,
-    activeVote: 0,
-    signalCount: 54,
-    commentCount: 0,
-    memberCount: 0,
-    lastActivityAt: '2026-04-30T16:45:00Z'
-  },
-  {
-    kind: 'project',
-    id: 'project-air-sealing-build-day',
-    slug: 'hallway-air-sealing-build-day',
-    href: '/projects/hallway-air-sealing-build-day',
-    createdAt: '2026-04-30T17:05:00Z',
-    title: 'Hallway Air Sealing Build Day',
-    authorUsername: 'toolorbit',
-    projectMode: 'productive',
-    summary:
-      'Planning is approved and the project is now in role-based scheduling, only activating each work block when every role is filled.',
-    channelTags: [housingBuild],
-    communityTags: [toolLibrary],
-    stage: 'Activity',
-    locationLabel: 'Tool Library annex workshop',
-    voteCount: 24,
     activeVote: 1,
-    signalCount: 39,
-    commentCount: 0,
-    memberCount: 0,
-    lastActivityAt: '2026-04-30T17:05:00Z'
-  },
-  {
-    kind: 'project',
-    id: 'project-weatherization-pilot-wrap',
-    slug: 'block-weatherization-pilot-wrap',
-    href: '/projects/block-weatherization-pilot-wrap',
-    createdAt: '2026-04-30T17:30:00Z',
-    title: 'Block Weatherization Pilot Wrap',
-    authorUsername: 'mika',
-    projectMode: 'productive',
-    summary:
-      'The weatherization pilot closed its active work and is now in completion review, with conversion notes logged for follow-on rounds.',
-    channelTags: [housingBuild],
-    communityTags: [eastMarket],
-    stage: 'Completed',
-    locationLabel: 'East Market retrofit blocks',
-    voteCount: 37,
-    activeVote: 1,
-    signalCount: 66,
-    commentCount: 0,
-    memberCount: 0,
-    lastActivityAt: '2026-04-30T17:30:00Z'
-  },
-  {
-    kind: 'project',
-    id: 'project-ride-request-desk',
-    slug: 'mutual-aid-ride-request-desk',
-    href: '/projects/mutual-aid-ride-request-desk',
-    createdAt: '2026-04-30T18:00:00Z',
-    title: 'Mutual Aid Ride Request Desk',
-    authorUsername: 'quietember',
-    projectMode: 'collective-service',
-    summary:
-      'This collective service is in demand signalling and value ranking before opening plan votes for dispatch and rider access.',
-    channelTags: [mutualAid],
-    communityTags: [eastMarket],
-    stage: 'Demand Signalling',
-    locationLabel: 'East Market neighborhood rides',
-    voteCount: 22,
-    activeVote: 0,
     signalCount: 41,
     commentCount: 0,
     memberCount: 0,
-    lastActivityAt: '2026-04-30T18:00:00Z'
+    lastActivityAt: '2026-04-30T11:10:00Z'
   },
   {
     kind: 'project',
@@ -618,7 +521,7 @@ const publicFeedBase: PublicFeedItem[] = [
     slug: 'patchbay-bike-light-tuneups',
     href: '/projects/patchbay-bike-light-tuneups',
     createdAt: '2026-04-30T18:25:00Z',
-    title: 'Patchbay Bike Light Tuneups',
+    title: 'Patchbay Evening Bike-Light Tuneups',
     authorUsername: 'patchbay',
     projectMode: 'personal-service',
     summary:
@@ -644,10 +547,10 @@ const publicFeedBase: PublicFeedItem[] = [
     authorUsername: 'rowanloop',
     projectMode: 'personal-service',
     summary:
-      'This personal service wrapped and is marked complete; request history remains visible but no new scheduling is active.',
+      'This personal service wrapped and is now marked closed; request history remains visible but no new scheduling is active.',
     channelTags: [mutualAid],
     communityTags: [eastMarket],
-    stage: 'Completed',
+    stage: 'Closed',
     locationLabel: 'East Market school commons',
     voteCount: 21,
     activeVote: 0,
@@ -655,6 +558,226 @@ const publicFeedBase: PublicFeedItem[] = [
     commentCount: 0,
     memberCount: 0,
     lastActivityAt: '2026-04-30T18:50:00Z'
+  },
+  {
+    kind: 'project',
+    id: 'project-fridge-route',
+    slug: 'community-fridge-restock-route',
+    href: '/projects/community-fridge-restock-route',
+    createdAt: '2026-04-27T14:10:00Z',
+    title: 'Community Fridge Restock Route',
+    authorUsername: 'rowanloop',
+    projectMode: 'collective-service',
+    summary:
+      'A neighborhood restock service that already settled its operating model and is now voting on route priorities, handoff windows, and request coverage.',
+    channelTags: [mutualAid],
+    communityTags: [eastMarket],
+    stage: 'Planning',
+    locationLabel: 'East Market fridge loop',
+    voteCount: 38,
+    activeVote: 1,
+    signalCount: 48,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T14:40:00Z'
+  },
+  {
+    kind: 'project',
+    id: 'project-repair-cafe',
+    slug: 'repair-cafe-shift-grid',
+    href: '/projects/repair-cafe-shift-grid',
+    createdAt: '2026-04-27T16:00:00Z',
+    title: 'Repair Cafe Shift Grid',
+    authorUsername: 'toolorbit',
+    projectMode: 'collective-service',
+    summary:
+      'A live repair-cafe service with approved operating and access plans, now coordinating concrete shift blocks and contingent volunteer roles.',
+    channelTags: [mutualAid],
+    communityTags: [toolLibrary],
+    stage: 'Activity',
+    locationLabel: 'Tool Library repair floor',
+    voteCount: 44,
+    activeVote: 1,
+    signalCount: 63,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T16:55:00Z'
+  },
+  {
+    kind: 'project',
+    id: 'project-neighborhood-ride-coordination',
+    slug: 'neighborhood-ride-coordination-service',
+    href: '/projects/neighborhood-ride-coordination-service',
+    createdAt: '2026-04-30T12:20:00Z',
+    title: 'Neighborhood Ride Coordination Service',
+    authorUsername: 'quietember',
+    projectMode: 'collective-service',
+    summary:
+      'A collective service in activity phase using direct requests without calendar slot booking so members can submit needs as they arise.',
+    channelTags: [mutualAid],
+    communityTags: [eastMarket],
+    stage: 'Activity',
+    locationLabel: 'East Market dispatch desk',
+    voteCount: 31,
+    activeVote: 1,
+    signalCount: 44,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T19:10:00Z'
+  },
+  {
+    kind: 'project',
+    id: 'project-childcare-checkin-desk',
+    slug: 'childcare-checkin-desk-service',
+    href: '/projects/childcare-checkin-desk-service',
+    createdAt: '2026-04-30T12:45:00Z',
+    title: 'Childcare Check-in Desk Service',
+    authorUsername: 'toolorbit',
+    projectMode: 'collective-service',
+    summary:
+      'A collective service in activity phase with both calendar booking and direct requests enabled for testing blended request flow.',
+    channelTags: [mutualAid],
+    communityTags: [toolLibrary],
+    stage: 'Activity',
+    locationLabel: 'Tool Library front room',
+    voteCount: 36,
+    activeVote: 1,
+    signalCount: 52,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T19:30:00Z'
+  },
+  {
+    kind: 'project',
+    id: 'project-blade-sharpening',
+    slug: 'tool-library-blade-sharpening-service',
+    href: '/projects/tool-library-blade-sharpening-service',
+    createdAt: '2026-04-26T19:25:00Z',
+    title: 'Tool Library Blade Sharpening Service',
+    authorUsername: 'toolorbit',
+    projectMode: 'collective-service',
+    summary:
+      'A completed pilot that converted into an ongoing sharpening service, with recurring intake and pickup still coordinated through the project surface.',
+    channelTags: [mutualAid],
+    communityTags: [toolLibrary],
+    stage: 'Closed',
+    locationLabel: 'Tool Library intake shelf',
+    voteCount: 32,
+    activeVote: 1,
+    signalCount: 36,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T15:10:00Z'
+  },
+  {
+    kind: 'project',
+    id: 'project-insulation-kits',
+    slug: 'neighborhood-insulation-kit-round',
+    href: '/projects/neighborhood-insulation-kit-round',
+    createdAt: '2026-04-28T11:30:00Z',
+    title: 'Neighborhood Insulation Kit Round',
+    authorUsername: 'patchbay',
+    projectMode: 'productive',
+    summary:
+      'A productive build round that completed demand ranking and is now choosing the final production model for the first kit batch.',
+    channelTags: [housingBuild],
+    communityTags: [eastMarket],
+    stage: 'Planning',
+    locationLabel: 'East Market staging table',
+    voteCount: 47,
+    activeVote: 1,
+    signalCount: 69,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T16:20:00Z'
+  },
+  {
+    kind: 'project',
+    id: 'project-battery-share',
+    slug: 'community-solar-battery-share',
+    href: '/projects/community-solar-battery-share',
+    createdAt: '2026-04-27T10:20:00Z',
+    title: 'Community Solar Battery Share',
+    authorUsername: 'rowanloop',
+    projectMode: 'productive',
+    summary:
+      'A productive energy project that already picked its build model and is now deciding reserve rules, overflow windows, and shared access priorities.',
+    channelTags: [housingBuild],
+    communityTags: [eastMarket],
+    stage: 'Planning',
+    locationLabel: 'Community energy shed',
+    voteCount: 41,
+    activeVote: 1,
+    signalCount: 54,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T16:45:00Z'
+  },
+  {
+    kind: 'project',
+    id: 'project-air-sealing',
+    slug: 'hallway-air-sealing-build-day',
+    href: '/projects/hallway-air-sealing-build-day',
+    createdAt: '2026-04-28T15:45:00Z',
+    title: 'Hallway Air-Sealing Build Day',
+    authorUsername: 'toolorbit',
+    projectMode: 'productive',
+    summary:
+      'A productive project already in contingent scheduling, where each build block only activates once every required role is filled.',
+    channelTags: [housingBuild],
+    communityTags: [eastMarket],
+    stage: 'Activity',
+    locationLabel: 'North hall stairwell',
+    voteCount: 35,
+    activeVote: 1,
+    signalCount: 46,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T17:05:00Z'
+  },
+  {
+    kind: 'project',
+    id: 'project-weatherization-wrap',
+    slug: 'block-weatherization-pilot-wrap',
+    href: '/projects/block-weatherization-pilot-wrap',
+    createdAt: '2026-04-26T14:35:00Z',
+    title: 'Block Weatherization Pilot Wrap',
+    authorUsername: 'mika',
+    projectMode: 'productive',
+    summary:
+      'A completed productive pilot that is now documenting completion notes, carry-forward lessons, and possible conversion paths for the next round.',
+    channelTags: [housingBuild],
+    communityTags: [eastMarket],
+    stage: 'Closed',
+    locationLabel: 'East Market retrofit block',
+    voteCount: 28,
+    activeVote: 0,
+    signalCount: 31,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T17:30:00Z'
+  },
+  {
+    kind: 'project',
+    id: 'project-ride-desk',
+    slug: 'mutual-aid-ride-request-desk',
+    href: '/projects/mutual-aid-ride-request-desk',
+    createdAt: '2026-04-28T09:15:00Z',
+    title: 'Mutual Aid Ride Request Desk',
+    authorUsername: 'quietember',
+    projectMode: 'collective-service',
+    summary:
+      'A collective service still in demand signalling, collecting route demand and value priorities before operations and access planning open.',
+    channelTags: [mutualAid],
+    communityTags: [eastMarket],
+    stage: 'Proposal',
+    locationLabel: 'Clinic and school pickup lanes',
+    voteCount: 24,
+    activeVote: 1,
+    signalCount: 39,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T18:00:00Z'
   }
 ];
 
@@ -721,6 +844,8 @@ const projectMembersBySlug: Record<string, string[]> = {
   'platform-release-governance-round': ['user-mika', 'user-ember'],
   'community-fridge-restock-route': ['viewer-1', 'user-rowan', 'user-tool'],
   'repair-cafe-shift-grid': ['viewer-1', 'user-tool', 'user-rowan', 'user-mika'],
+  'neighborhood-ride-coordination-service': ['viewer-1', 'user-rowan', 'user-ember'],
+  'childcare-checkin-desk-service': ['viewer-1', 'user-tool', 'user-rowan'],
   'tool-library-blade-sharpening-service': ['viewer-1', 'user-tool', 'user-mika'],
   'neighborhood-insulation-kit-round': ['viewer-1', 'user-rowan', 'user-mika'],
   'community-solar-battery-share': ['viewer-1', 'user-rowan', 'user-mika'],
@@ -730,6 +855,22 @@ const projectMembersBySlug: Record<string, string[]> = {
   'patchbay-bike-light-tuneups': ['viewer-1', 'user-tool'],
   'rowan-after-school-device-checks': ['viewer-1', 'user-rowan', 'user-mika']
 };
+
+function seedMembershipSinceBySlug(
+  membersBySlug: Record<string, string[]>,
+  seededAt = '2026-01-01T00:00:00Z'
+) {
+  return Object.fromEntries(
+    Object.entries(membersBySlug).map(([slug, memberIds]) => [
+      slug,
+      Object.fromEntries(memberIds.map((userId) => [userId, seededAt]))
+    ])
+  ) as Record<string, Record<string, string>>;
+}
+
+const projectMembershipSinceBySlug: Record<string, Record<string, string>> = seedMembershipSinceBySlug(
+  projectMembersBySlug
+);
 
 type ScopeMembershipConfig = {
   memberIds: string[];
@@ -778,20 +919,22 @@ const projectManagersBySlug: Record<string, RoleConfig> = {
       'user-rowan': 'confidence-project-manager-neighborhood-heat-pump-pilot-user-rowan'
     }
   },
-  'platform-release-governance-round': {
-    managerIds: ['user-ember'],
-    candidateIds: ['user-mika'],
-    confidenceTargetIdsByUserId: {
-      'user-mika': 'confidence-project-manager-platform-release-governance-round-user-mika',
-      'user-ember': 'confidence-project-manager-platform-release-governance-round-user-ember'
-    }
-  },
   'community-fridge-restock-route': {
     managerIds: ['user-rowan'],
     candidateIds: [],
     confidenceTargetIdsByUserId: {}
   },
   'repair-cafe-shift-grid': {
+    managerIds: ['user-tool'],
+    candidateIds: [],
+    confidenceTargetIdsByUserId: {}
+  },
+  'neighborhood-ride-coordination-service': {
+    managerIds: ['user-ember'],
+    candidateIds: [],
+    confidenceTargetIdsByUserId: {}
+  },
+  'childcare-checkin-desk-service': {
     managerIds: ['user-tool'],
     candidateIds: [],
     confidenceTargetIdsByUserId: {}
@@ -924,7 +1067,7 @@ const productiveProjectPhaseBlueprints: Array<
     id: 'phase-6',
     order: 6,
     shortLabel: 'Phase 6',
-    title: 'Completion or Conversion',
+    title: 'Closed or Converted',
     summary:
       'A finished project can close cleanly or convert into a new ongoing project type without losing its planning history.',
     mechanics: [
@@ -1008,7 +1151,7 @@ const collectiveServicePhaseBlueprints: Array<
     id: 'phase-6',
     order: 6,
     shortLabel: 'Phase 6',
-    title: 'Completion',
+    title: 'Closed',
     summary:
       'A collective service can close here, or return to planning if the current approach needs revision.',
     mechanics: [
@@ -1026,29 +1169,60 @@ const personalServicePhaseBlueprints: Array<
     id: 'phase-1',
     order: 1,
     shortLabel: 'Phase 1',
-    title: 'Activity Scheduling & Requests',
+    title: 'Activity',
     summary:
-      'A personal service opens directly into availability, requests, and scheduled service activity for the creator.',
+      'A personal service opens directly into a visible calendar where the creator posts availability and other people request a slot.',
     mechanics: [
-      'The creator sets their availability, operating range, and any direct scheduling notes.',
-      'Users can submit service requests immediately without a separate planning or quorum phase.',
-      'The creator can schedule work directly and accept or decline requests as they come in.'
+      'The creator adds availability blocks to the calendar instead of repeating the full service description again here.',
+      'Other users can click an available date on the calendar to request a specific time, title, and message.',
+      'Accepted requests remove the matching availability from the calendar so the remaining open time stays legible.'
     ]
   },
   {
     id: 'phase-2',
     order: 2,
     shortLabel: 'Phase 2',
-    title: 'Complete or Convert',
+    title: 'Closed',
     summary:
-      'The personal service can close cleanly or convert into a collective or productive project when the work outgrows one person.',
+      'The personal service can close cleanly here, while still leaving a note about why it closed or where the work moved next.',
     mechanics: [
-      'The creator can mark the service complete when they are no longer offering it.',
+      'The creator must leave a closure note when the service closes so the history still explains what happened.',
       'If the service needs more people or formal planning, it can convert into a collective service or productive project.',
       'There is no quorum or planning vote in this personal service path.'
     ]
   }
 ];
+
+function personalServicePhaseBlueprintsForRequestMode(mode: 'calendar' | 'direct' | 'both') {
+  if (mode === 'calendar') {
+    return personalServicePhaseBlueprints;
+  }
+
+  return personalServicePhaseBlueprints.map((phase) =>
+    phase.id === 'phase-1'
+      ? {
+          ...phase,
+          title: 'Activity',
+          summary:
+            mode === 'both'
+              ? 'A personal service can keep calendar slot booking and direct written requests open at the same time.'
+              : 'A personal service can open directly into written requests when the work does not need bookable calendar slots.',
+          mechanics:
+            mode === 'both'
+              ? [
+                  'The creator can post availability on the calendar while also accepting unscheduled direct requests.',
+                  'Requesters can either click a calendar slot for a time-bound request or send a direct written request.',
+                  'Accepted slot-based requests still remove matching availability so open time remains legible.'
+                ]
+              : [
+                  'People use the request button to describe what they need and what they expect from the service.',
+                  'The creator reviews incoming requests, replies in messages, and accepts or declines each request privately.',
+                  'The service description carries expectations in this mode, so there is no public availability calendar.'
+                ]
+        }
+      : phase
+  );
+}
 
 function projectLifecyclePhaseBlueprintsForMode(projectMode: ProjectMode) {
   if (projectMode === 'collective-service') {
@@ -1197,6 +1371,60 @@ const projectLifecycleBySlug: Record<string, ProjectLifecycleConfig> = {
       'phase-6': {
         projectStatus:
           'If the shift grid keeps working, the project can either close after the pilot month or convert into an ongoing service.'
+      }
+    }
+  },
+  'neighborhood-ride-coordination-service': {
+    currentPhaseId: 'phase-5',
+    phases: {
+      'phase-1': {
+        progressState: 'complete',
+        projectStatus: 'Demand and value ranking are complete for this service.'
+      },
+      'phase-2': {
+        progressState: 'complete',
+        projectStatus: 'Operations planning is complete.'
+      },
+      'phase-3': {
+        progressState: 'complete',
+        projectStatus: 'Access planning approved direct request intake without calendar booking.'
+      },
+      'phase-4': {
+        betaLocked: true,
+        projectStatus: 'Acquisition remains locked in beta.'
+      },
+      'phase-5': {
+        projectStatus: 'The service is active with direct request intake and no calendar slot requirement.'
+      },
+      'phase-6': {
+        projectStatus: 'Managers can close this service after the current run completes.'
+      }
+    }
+  },
+  'childcare-checkin-desk-service': {
+    currentPhaseId: 'phase-5',
+    phases: {
+      'phase-1': {
+        progressState: 'complete',
+        projectStatus: 'Demand and value ranking are complete for this service.'
+      },
+      'phase-2': {
+        progressState: 'complete',
+        projectStatus: 'Operations planning is complete.'
+      },
+      'phase-3': {
+        progressState: 'complete',
+        projectStatus: 'Access planning approved both calendar booking and direct request intake.'
+      },
+      'phase-4': {
+        betaLocked: true,
+        projectStatus: 'Acquisition remains locked in beta.'
+      },
+      'phase-5': {
+        projectStatus: 'The service is active with both calendar availability and direct requests enabled.'
+      },
+      'phase-6': {
+        projectStatus: 'Managers can close this service after the current run completes.'
       }
     }
   },
@@ -1372,7 +1600,7 @@ const projectLifecycleBySlug: Record<string, ProjectLifecycleConfig> = {
         projectStatus: 'This personal service is active with open requests and direct scheduling by the creator.'
       },
       'phase-2': {
-        projectStatus: 'When the creator stops running this service, it can be marked complete or converted.'
+        projectStatus: 'When the creator stops running this service, it can be marked closed or converted.'
       }
     }
   },
@@ -1389,6 +1617,56 @@ const projectLifecycleBySlug: Record<string, ProjectLifecycleConfig> = {
     }
   }
 };
+
+function createProjectLifecycleConfig(projectMode: ProjectMode): ProjectLifecycleConfig {
+  if (projectMode === 'personal-service') {
+    return {
+      currentPhaseId: 'phase-1',
+      phases: {
+        'phase-1': {
+          projectStatus:
+            'This personal service is active with calendar-based availability and direct request intake managed by the creator.'
+        },
+        'phase-2': {
+          projectStatus:
+            'When this service stops running, the creator closes it here with a note for the historical record.'
+        }
+      }
+    };
+  }
+
+  return {
+    currentPhaseId: 'phase-1',
+    phases: {
+      'phase-1': {
+        projectStatus:
+          'This project is still collecting demand, ranked values, and early member interest before planning opens.'
+      },
+      'phase-2': {
+        projectStatus:
+          projectMode === 'collective-service'
+            ? 'Operations planning opens here once the proposal has enough shared direction to define how the service should run.'
+            : 'Production planning opens here once the proposal has enough shared direction to define the work concretely.'
+      },
+      'phase-3': {
+        projectStatus:
+          projectMode === 'collective-service'
+            ? 'Access planning opens after an operations plan wins quorum and members need to define how requests and access should work.'
+            : 'Distribution planning opens after a production plan wins quorum.'
+      },
+      'phase-4': {
+        betaLocked: true,
+        projectStatus: 'Acquisition remains visible in the lifecycle but stays unavailable in this beta.'
+      },
+      'phase-5': {
+        projectStatus: 'Scheduling and role-based activities open after planning resolves.'
+      },
+      'phase-6': {
+        projectStatus: 'The project can close after the first round or convert into an ongoing service.'
+      }
+    }
+  };
+}
 
 type RawProjectValue = {
   id: string;
@@ -1431,14 +1709,19 @@ type RawDistributionPlan = RawProjectPlanBase & {
   accessSummary: string;
   reserveSummary: string;
   requestSystemEnabled?: boolean;
+  requestMode?: 'calendar' | 'direct' | 'both';
+  allowOffScheduleRequests?: boolean;
 };
 
 type RawProjectServiceRequest = {
   id: string;
   title: string;
   body: string;
+  requesterUsername: string;
   createdAt: string;
   status: ProjectServiceRequestStatus;
+  scheduledAt?: string;
+  endsAt?: string;
 };
 
 type RawProjectRevertEntry = {
@@ -1457,14 +1740,13 @@ type RawProjectActivity = {
   endsAt?: string;
   locationLabel: string;
   minimumParticipants: number;
-  maximumParticipants?: number;
   linkedPlanPhaseId?: string | null;
   roles: Array<{
     label: string;
     requiredCount: number;
+    maximumCount?: number;
     assignedUsernames: string[];
   }>;
-  extraAssignedUsernames?: string[];
   note: string;
 };
 
@@ -1479,6 +1761,7 @@ type ProjectWorkflowState = {
   revertHistory?: RawProjectRevertEntry[];
   availabilitySummary?: string;
   travelRadiusLabel?: string;
+  serviceRequestMode?: 'calendar' | 'direct' | 'both';
 };
 
 const importanceVoteLabels: Record<ProjectImportanceVoteValue, string> = {
@@ -1801,6 +2084,9 @@ const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
         accessSummary:
           'Every arrival can join the queue, but the board shows repair categories so quick fixes are not buried under larger jobs.',
         reserveSummary: 'Keep one overflow slot open for urgent mobility or safety-related repairs.',
+        requestSystemEnabled: true,
+        requestMode: 'both',
+        allowOffScheduleRequests: true,
         overallVotesByUserId: {
           'viewer-1': 'yes',
           'user-tool': 'yes',
@@ -1849,6 +2135,184 @@ const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
           }
         ],
         note: 'This shift only goes live once all three floor roles are covered.'
+      }
+    ]
+  },
+  'neighborhood-ride-coordination-service': {
+    signalCount: 44,
+    signalUserIds: ['viewer-1', 'user-rowan', 'user-ember'],
+    values: [
+      {
+        id: 'value-ride-coordination-1',
+        label: 'Keep urgent ride support requestable without waiting for fixed slots.',
+        authorUsername: 'quietember',
+        votesByUserId: {
+          'viewer-1': 4,
+          'user-rowan': 4,
+          'user-ember': 4
+        }
+      }
+    ],
+    phaseTwoPlans: [
+      {
+        id: 'production-plan-ride-coordination-1',
+        title: 'Dispatch desk with rotating coordinator',
+        authorUsername: 'quietember',
+        createdAt: '2026-04-30T12:25:00Z',
+        outputSummary: 'Keep one dispatcher on rotation and assign rides by request urgency and route overlap.',
+        materialsSummary: 'Needs one dispatch lead and one backup contact each day.',
+        totalCostLabel: '$0 direct spend',
+        acquisitionsSummary: 'Uses existing volunteer time and local transport capacity.',
+        overallVotesByUserId: {
+          'viewer-1': 'yes',
+          'user-rowan': 'yes',
+          'user-ember': 'yes'
+        },
+        valueVotesByValueId: {
+          'value-ride-coordination-1': {
+            'viewer-1': 'yes',
+            'user-rowan': 'yes',
+            'user-ember': 'yes'
+          }
+        }
+      }
+    ],
+    phaseThreePlans: [
+      {
+        id: 'distribution-plan-ride-coordination-1',
+        title: 'Direct intake only',
+        authorUsername: 'rowanloop',
+        createdAt: '2026-04-30T12:35:00Z',
+        distributionSummary: 'Take requests directly and dispatch by urgency without public slot booking.',
+        accessSummary: 'Members submit written requests any time and coordinators match available drivers.',
+        reserveSummary: 'Keep a small reserve for urgent medical and safety rides.',
+        requestSystemEnabled: true,
+        requestMode: 'direct',
+        allowOffScheduleRequests: true,
+        overallVotesByUserId: {
+          'viewer-1': 'yes',
+          'user-rowan': 'yes',
+          'user-ember': 'yes'
+        },
+        valueVotesByValueId: {
+          'value-ride-coordination-1': {
+            'viewer-1': 'yes',
+            'user-rowan': 'yes',
+            'user-ember': 'yes'
+          }
+        }
+      }
+    ],
+    phaseFiveActivities: [],
+    serviceRequests: [
+      {
+        id: 'service-request-ride-coordination-1',
+        title: 'Clinic pickup support',
+        body: 'Need a one-way ride for a 3 PM clinic appointment with short notice.',
+        requesterUsername: 'patchbay',
+        createdAt: '2026-04-30T19:05:00Z',
+        status: 'open'
+      }
+    ]
+  },
+  'childcare-checkin-desk-service': {
+    signalCount: 52,
+    signalUserIds: ['viewer-1', 'user-tool', 'user-rowan'],
+    values: [
+      {
+        id: 'value-childcare-checkin-1',
+        label: 'Support both planned booking and last-minute help requests.',
+        authorUsername: 'toolorbit',
+        votesByUserId: {
+          'viewer-1': 4,
+          'user-tool': 4,
+          'user-rowan': 4
+        }
+      }
+    ],
+    phaseTwoPlans: [
+      {
+        id: 'production-plan-childcare-checkin-1',
+        title: 'Check-in desk with rotating greeter',
+        authorUsername: 'toolorbit',
+        createdAt: '2026-04-30T12:50:00Z',
+        outputSummary: 'Run a visible check-in desk with one greeter and one support backup each block.',
+        materialsSummary: 'Needs one check-in lead plus rotating support.',
+        totalCostLabel: '$0 direct spend',
+        acquisitionsSummary: 'Uses existing shared room and volunteer rotation.',
+        overallVotesByUserId: {
+          'viewer-1': 'yes',
+          'user-tool': 'yes',
+          'user-rowan': 'yes'
+        },
+        valueVotesByValueId: {
+          'value-childcare-checkin-1': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          }
+        }
+      }
+    ],
+    phaseThreePlans: [
+      {
+        id: 'distribution-plan-childcare-checkin-1',
+        title: 'Calendar and direct requests',
+        authorUsername: 'rowanloop',
+        createdAt: '2026-04-30T13:00:00Z',
+        distributionSummary: 'Keep bookable check-in blocks while allowing direct written requests.',
+        accessSummary: 'Users can book listed slots or send direct requests when plans change.',
+        reserveSummary: 'Leave one reserve slot per block for urgent childcare coverage.',
+        requestSystemEnabled: true,
+        requestMode: 'both',
+        allowOffScheduleRequests: true,
+        overallVotesByUserId: {
+          'viewer-1': 'yes',
+          'user-tool': 'yes',
+          'user-rowan': 'yes'
+        },
+        valueVotesByValueId: {
+          'value-childcare-checkin-1': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          }
+        }
+      }
+    ],
+    phaseFiveActivities: [
+      {
+        id: 'project-activity-childcare-checkin-1',
+        title: 'Morning check-in desk',
+        authorUsername: 'toolorbit',
+        scheduledAt: '2026-05-04T08:30:00Z',
+        locationLabel: 'Tool Library front room',
+        minimumParticipants: 2,
+        roles: [
+          {
+            label: 'Desk lead',
+            requiredCount: 1,
+            assignedUsernames: ['toolorbit']
+          },
+          {
+            label: 'Family support runner',
+            requiredCount: 1,
+            assignedUsernames: ['patchbay']
+          }
+        ],
+        note: 'Open block with one reserve slot for urgent requests.'
+      }
+    ],
+    serviceRequests: [
+      {
+        id: 'service-request-childcare-checkin-1',
+        title: 'Friday morning drop-in support',
+        body: 'Need coverage for a short early shift and can confirm details in chat.',
+        requesterUsername: 'rowanloop',
+        createdAt: '2026-04-30T19:25:00Z',
+        status: 'open',
+        scheduledAt: '2026-05-04T08:30:00Z',
+        endsAt: '2026-05-04T09:00:00Z'
       }
     ]
   },
@@ -2221,7 +2685,7 @@ const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
     phaseFiveActivities: [
       {
         id: 'project-activity-bike-light-1',
-        title: 'Tuesday bike light tuneup block',
+        title: 'Available',
         authorUsername: 'patchbay',
         scheduledAt: '2026-05-03T18:30:00Z',
         locationLabel: 'Tool Library side bench',
@@ -2241,10 +2705,14 @@ const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
         id: 'service-request-bike-light-1',
         title: 'Rear light wiring check',
         body: 'Need a quick wiring check before early-morning commute shifts.',
+        requesterUsername: 'toolorbit',
         createdAt: '2026-04-30T18:30:00Z',
-        status: 'open'
+        status: 'open',
+        scheduledAt: '2026-05-03T18:30:00Z',
+        endsAt: '2026-05-03T19:00:00Z'
       }
     ],
+    serviceRequestMode: 'both',
     availabilitySummary: 'Weeknights after 6 PM, plus Saturday mornings by request.',
     travelRadiusLabel: 'Within 2 km of Tool Library'
   },
@@ -2271,15 +2739,21 @@ const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
         id: 'service-request-device-checks-1',
         title: 'Screen cable reseat',
         body: 'Closed with successful fix during the final service week.',
+        requesterUsername: 'patchbay',
         createdAt: '2026-04-26T16:10:00Z',
-        status: 'accepted'
+        status: 'accepted',
+        scheduledAt: '2026-04-27T15:00:00Z',
+        endsAt: '2026-04-27T15:30:00Z'
       },
       {
         id: 'service-request-device-checks-2',
         title: 'Charging-port replacement',
         body: 'Declined because replacement part was not available in the closing week.',
+        requesterUsername: 'mika',
         createdAt: '2026-04-26T16:50:00Z',
-        status: 'declined'
+        status: 'declined',
+        scheduledAt: '2026-04-27T16:00:00Z',
+        endsAt: '2026-04-27T17:00:00Z'
       }
     ],
     availabilitySummary: 'Service concluded after spring session.',
@@ -2299,6 +2773,84 @@ function summarizeOverviewForFeed(overview: string, maxLength = 170) {
   return `${trimmed.slice(0, maxLength).trimEnd()}...`;
 }
 
+function normalizeUsernameInput(username: string) {
+  return username.trim().replace(/^@+/, '').toLowerCase();
+}
+
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function uniqueSlug(baseValue: string) {
+  const fallback = 'new-surface';
+  const baseSlug = slugify(baseValue) || fallback;
+  let candidate = baseSlug;
+  let suffix = 2;
+
+  while (publicFeedBase.some((item) => item.slug === candidate)) {
+    candidate = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}
+
+function uniqueScopeSlug(baseValue: string, kind: Extract<ScopeKind, 'channel' | 'community'>) {
+  const fallback = kind === 'channel' ? 'new-channel' : 'new-community';
+  const baseSlug = slugify(baseValue) || fallback;
+  const directory = kind === 'channel' ? channelDirectory : communityDirectory;
+  let candidate = baseSlug;
+  let suffix = 2;
+
+  while (
+    directory.some((item) => item.slug === candidate) ||
+    (kind === 'channel' && platform.slug === candidate)
+  ) {
+    candidate = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}
+
+function uniquePostId(baseValue: string) {
+  const fallback = 'post';
+  const baseId = `post-${slugify(baseValue) || fallback}`;
+  let candidate = baseId;
+  let suffix = 2;
+
+  while (socialPostsBase.some((post) => post.id === candidate)) {
+    candidate = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}
+
+function uniqueUserId(baseValue: string) {
+  const fallback = 'member';
+  const baseId = `user-${slugify(baseValue) || fallback}`;
+  let candidate = baseId;
+  let suffix = 2;
+
+  while (usersById.has(candidate)) {
+    candidate = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}
+
+function projectLocationLabel(locationLabel: string) {
+  const trimmed = locationLabel.trim();
+
+  return trimmed || 'Location to be confirmed';
+}
+
 function summarizeProjectCardCopy(text: string, maxLength = 108) {
   const trimmed = text.trim();
 
@@ -2316,7 +2868,42 @@ function stageLabelForProject(slug: string, fallback: string, projectMode: Proje
     return fallback;
   }
 
+  if (projectMode === 'personal-service') {
+    if (currentPhaseId === 'phase-2') {
+      return 'Closed';
+    }
+
+    const requestMode = personalServiceRequestMode(slug);
+
+    if (requestMode === 'both') {
+      return 'Calendar + Requests';
+    }
+
+    return requestMode === 'direct' ? 'Requests' : 'Calendar';
+  }
+
   return projectFeedPhaseLabel(projectMode, currentPhaseId) ?? fallback;
+}
+
+function projectAuthorForSlug(slug: string) {
+  const project = publicFeedBase.find(
+    (item): item is PublicProjectItem => item.kind === 'project' && item.slug === slug
+  );
+
+  return project ? userByUsername(project.authorUsername) : null;
+}
+
+function isProjectCreator(slug: string, userId?: string | null) {
+  const authorId = projectAuthorForSlug(slug)?.id;
+
+  return !!userId && !!authorId && userId === authorId;
+}
+
+function personalServiceFollowerCount(slug: string) {
+  const authorId = projectAuthorForSlug(slug)?.id;
+  const memberIds = projectMembersBySlug[slug] ?? [];
+
+  return authorId ? memberIds.filter((userId) => userId !== authorId).length : memberIds.length;
 }
 
 function readProjectWorkflowState(slug: string) {
@@ -2502,6 +3089,8 @@ function buildDistributionPlans(
     accessSummary: plan.accessSummary,
     reserveSummary: plan.reserveSummary,
     requestSystemEnabled: plan.requestSystemEnabled ?? false,
+    requestMode: plan.requestMode ?? 'both',
+    allowOffScheduleRequests: plan.allowOffScheduleRequests ?? false,
     valueAssessments: buildProjectValueAssessments(values, plan.valueVotesByValueId, quorumThresholdPercent, memberCount),
     overallApproval: buildProjectVoteSummary(plan.overallVotesByUserId, quorumThresholdPercent, memberCount),
     isLeading: false
@@ -2539,48 +3128,41 @@ function buildProjectActivities(slug: string, selectablePlanPhases: ProjectActiv
     return [] as ProjectActivityItem[];
   }
 
-  return [...workflow.phaseFiveActivities]
+  const scheduledActivities = [...workflow.phaseFiveActivities]
     .sort(
       (left, right) =>
         new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
     )
     .map((activity) => {
-    const extraAssignedUsernames = activity.extraAssignedUsernames ?? [];
-    const maximumParticipants = Math.max(activity.maximumParticipants ?? 0, activity.minimumParticipants, 1);
-    const extraCapacity = Math.max(maximumParticipants - activity.minimumParticipants, 0);
+    const minimumParticipants = activity.roles.reduce(
+      (total, role) => total + role.requiredCount,
+      0
+    );
+    const normalizedMaximumCounts = activity.roles.map((role) =>
+      role.maximumCount != null ? Math.max(role.maximumCount, role.requiredCount) : undefined
+    );
+    const maximumParticipants = normalizedMaximumCounts.every((count) => count != null)
+      ? normalizedMaximumCounts.reduce((total, count) => total + (count ?? 0), 0)
+      : undefined;
     const startAt = activity.scheduledAt;
     const endAt =
       activity.endsAt ??
       new Date(new Date(activity.scheduledAt).getTime() + 60 * 60 * 1000).toISOString();
     const viewerAssignedRoleLabel =
-      activity.roles.find((role) => viewer && role.assignedUsernames.includes(viewer.username))?.label ??
-      (viewer && extraAssignedUsernames.includes(viewer.username) ? 'Extras' : null);
-    const roles = [
-      ...activity.roles.map((role) => ({
+      activity.roles.find((role) => viewer && role.assignedUsernames.includes(viewer.username))?.label ?? null;
+    const roles = activity.roles.map((role) => ({
         label: role.label,
         filledCount: role.assignedUsernames.length,
         requiredCount: role.requiredCount,
-        isViewerAssigned: !!viewer && role.assignedUsernames.includes(viewer.username),
-        isExtraSlot: false
-      })),
-      ...(extraCapacity > 0
-        ? [{
-            label: 'Extras',
-            filledCount: extraAssignedUsernames.length,
-            requiredCount: extraCapacity,
-            isViewerAssigned: !!viewer && extraAssignedUsernames.includes(viewer.username),
-            isExtraSlot: true
-          }]
-        : [])
-    ];
+        maximumCount:
+          role.maximumCount != null ? Math.max(role.maximumCount, role.requiredCount) : undefined,
+        isViewerAssigned: !!viewer && role.assignedUsernames.includes(viewer.username)
+      }));
     const committedCount = Array.from(
-      new Set([
-        ...activity.roles.flatMap((role) => role.assignedUsernames),
-        ...extraAssignedUsernames
-      ])
+      new Set(activity.roles.flatMap((role) => role.assignedUsernames))
     ).length;
     const statusTone =
-      committedCount >= activity.minimumParticipants ? 'green' : committedCount > 1 ? 'yellow' : 'red';
+      committedCount >= minimumParticipants ? 'green' : committedCount > 1 ? 'yellow' : 'red';
 
     return {
       id: activity.id,
@@ -2590,7 +3172,7 @@ function buildProjectActivities(slug: string, selectablePlanPhases: ProjectActiv
       startAt,
       endAt,
       locationLabel: activity.locationLabel,
-      minimumParticipants: activity.minimumParticipants,
+      minimumParticipants,
       maximumParticipants,
       committedCount,
       viewerAssignedRoleLabel,
@@ -2600,18 +3182,65 @@ function buildProjectActivities(slug: string, selectablePlanPhases: ProjectActiv
       statusTone,
       roles,
       note: activity.note,
-      isActive:
-        committedCount >= activity.minimumParticipants &&
-        roles.every((role) => role.isExtraSlot || role.filledCount >= role.requiredCount)
+      isActive: committedCount >= minimumParticipants && roles.every((role) => role.filledCount >= role.requiredCount)
     } satisfies ProjectActivityItem;
     });
+
+  const project = publicFeedBase.find(
+    (item): item is PublicProjectItem => item.kind === 'project' && item.slug === slug
+  );
+
+  if (
+    !viewer ||
+    !project ||
+    project.projectMode !== 'personal-service' ||
+    !isProjectCreator(slug, viewer.id) ||
+    !personalServiceUsesCalendar(slug)
+  ) {
+    return scheduledActivities;
+  }
+
+  const acceptedServiceActivities = (workflow.serviceRequests ?? [])
+    .filter((request) => request.status === 'accepted' && !!request.scheduledAt && !!request.endsAt)
+    .map((request) => ({
+      id: `accepted-service-${request.id}`,
+      title: request.title,
+      authorUsername: project.authorUsername,
+      scheduledAt: request.scheduledAt ?? '',
+      startAt: request.scheduledAt ?? '',
+      endAt: request.endsAt ?? '',
+      locationLabel: project.locationLabel,
+      minimumParticipants: 1,
+      maximumParticipants: 1,
+      committedCount: 1,
+      viewerAssignedRoleLabel: 'Service lead',
+      linkedPlanPhaseLabel: null,
+      statusTone: 'green' as const,
+      roles: [
+        {
+          label: 'Service lead',
+          filledCount: 1,
+          requiredCount: 1,
+          maximumCount: 1,
+          isViewerAssigned: true
+        }
+      ],
+      note: request.body,
+      isActive: true
+    }))
+    .sort((left, right) => new Date(left.startAt).getTime() - new Date(right.startAt).getTime());
+
+  return [...scheduledActivities, ...acceptedServiceActivities].sort(
+    (left, right) => new Date(left.startAt).getTime() - new Date(right.startAt).getTime()
+  );
 }
 
 function buildProjectServiceRequestState(
   slug: string,
   enabled: boolean,
   viewerCanSubmitRequests: boolean,
-  viewerCanReviewRequests: boolean
+  viewerCanReviewRequests: boolean,
+  requiresSchedule: boolean
 ) {
   const workflow = readProjectWorkflowState(slug);
 
@@ -2621,7 +3250,8 @@ function buildProjectServiceRequestState(
       requestCount: 0,
       requests: [] as ProjectServiceRequestItem[],
       viewerCanSubmitRequests,
-      viewerCanReviewRequests
+      viewerCanReviewRequests,
+      requiresSchedule
     };
   }
 
@@ -2632,11 +3262,15 @@ function buildProjectServiceRequestState(
       id: request.id,
       title: request.title,
       body: request.body,
+      requesterUsername: request.requesterUsername,
       createdAt: request.createdAt,
-      status: request.status
+      status: request.status,
+      scheduledAt: request.scheduledAt,
+      endsAt: request.endsAt
     })),
     viewerCanSubmitRequests,
-    viewerCanReviewRequests
+    viewerCanReviewRequests,
+    requiresSchedule
   };
 }
 
@@ -2704,6 +3338,10 @@ function activityPhaseIdForProject(projectMode: ProjectMode) {
   return isPersonalServiceProject(projectMode) ? 'phase-1' : 'phase-5';
 }
 
+function closePhaseIdForProject(projectMode: ProjectMode) {
+  return isPersonalServiceProject(projectMode) ? 'phase-2' : 'phase-6';
+}
+
 function revertableProjectPhaseIds(
   projectMode: ProjectMode,
   currentPhaseId: ProjectLifecyclePhaseId
@@ -2726,17 +3364,28 @@ function revertableProjectPhaseIds(
 function buildProjectLifecycleNotes(
   projectMode: ProjectMode,
   quorumThresholdPercent: number,
-  requestSystemEnabled: boolean
+  requestSystemEnabled: boolean,
+  personalServiceRequestModeValue: 'calendar' | 'direct' | 'both' = 'calendar'
 ) {
   if (projectMode === 'personal-service') {
     return [
       {
-        title: 'Direct scheduling',
-        body: 'Personal services skip planning and quorum. The creator schedules activity directly and handles incoming requests.'
+        title: 'Members join the chat',
+        body: 'Joining a personal service keeps its updates and linked chat attached without needing a separate member or manager list.'
       },
       {
-        title: 'Requests stay open',
-        body: 'Requests are open by default for personal services so people can ask for help without waiting for a planning cycle.'
+        title:
+          personalServiceRequestModeValue === 'calendar'
+            ? 'Calendar-first requests'
+            : personalServiceRequestModeValue === 'both'
+              ? 'Calendar and direct requests'
+              : 'Direct written requests',
+        body:
+          personalServiceRequestModeValue === 'calendar'
+            ? 'The calendar is the working surface here: the creator posts availability, and requesters choose a date and time directly from it.'
+            : personalServiceRequestModeValue === 'both'
+              ? 'This service keeps time-slot booking and direct written requests open together so people can use either path.'
+              : 'This service takes direct written requests instead of time-slot booking, so request details and messages do the coordination.'
       }
     ];
   }
@@ -2777,7 +3426,14 @@ function buildProjectLifecycle(
   const viewer = currentViewer();
   const memberIds = projectMembersBySlug[slug] ?? [];
   const viewerIsMember = !!viewer && memberIds.includes(viewer.id);
-  const phaseBlueprints = projectLifecyclePhaseBlueprintsForMode(projectMode);
+  const personalServiceRequestModeValue =
+    projectMode === 'personal-service' ? personalServiceRequestMode(slug) : 'calendar';
+  const personalServiceCalendarMode =
+    projectMode === 'personal-service' && personalServiceRequestModeValue !== 'direct';
+  const phaseBlueprints =
+    projectMode === 'personal-service'
+      ? personalServicePhaseBlueprintsForRequestMode(personalServiceRequestModeValue)
+      : projectLifecyclePhaseBlueprintsForMode(projectMode);
   const supportsDemandSignals = supportsProjectDemandSignals(projectMode);
   const supportsPlanning = supportsProjectPlanning(projectMode);
   const values = buildProjectValues(slug);
@@ -2816,14 +3472,28 @@ function buildProjectLifecycle(
     phaseBlueprints.find((phase) => phase.id === config.currentPhaseId)?.order ?? 1;
   const nextPhaseId = nextProjectPhaseId(config.currentPhaseId, projectMode);
   const selectablePlanPhases = buildSelectableActivityPlanPhases(phaseTwo, phaseThree);
-  const phaseFiveActivities = buildProjectActivities(slug, selectablePlanPhases);
   const activityPhaseId = activityPhaseIdForProject(projectMode);
-  const activeAccessPlan = phaseThree.plans.find((plan) => plan.id === phaseThree.winningPlanId);
-  const requestSystemEnabled =
+  const activityPhaseOrder =
+    phaseBlueprints.find((phase) => phase.id === activityPhaseId)?.order ?? Number.POSITIVE_INFINITY;
+  const phaseFiveActivities =
+    currentPhaseOrder >= activityPhaseOrder
+      ? buildProjectActivities(slug, selectablePlanPhases)
+      : [];
+  const requestSystemEnabled = requestSystemEnabledForProject(slug, projectMode, phaseThree);
+  const collectiveRequestMode =
+    projectMode === 'collective-service'
+      ? collectiveRequestModeForProject(slug, phaseThree)
+      : 'both';
+  const collectiveAllowOffScheduleRequests =
+    projectMode === 'collective-service'
+      ? collectiveAllowOffScheduleRequestsForProject(slug, phaseThree)
+      : false;
+  const requestRequiresSchedule =
     projectMode === 'personal-service'
-      ? true
+      ? personalServiceRequestModeValue === 'calendar'
       : projectMode === 'collective-service'
-        ? activeAccessPlan?.requestSystemEnabled ?? false
+        ? collectiveRequestMode === 'calendar' ||
+          (collectiveRequestMode === 'both' && !collectiveAllowOffScheduleRequests)
         : false;
   const requestSystem =
     projectMode === 'productive'
@@ -2831,16 +3501,21 @@ function buildProjectLifecycle(
       : buildProjectServiceRequestState(
           slug,
           requestSystemEnabled,
-          requestSystemEnabled && !!viewer && config.currentPhaseId === activityPhaseId,
-          requestSystemEnabled && memberState.viewerIsProjectManager
+          requestSystemEnabled && canViewerSubmitProjectServiceRequest(slug),
+          requestSystemEnabled && canViewerReviewProjectServiceRequests(slug),
+          requestRequiresSchedule
         );
   const personalService =
     projectMode === 'personal-service'
       ? {
           availabilitySummary:
             workflow?.availabilitySummary ??
-            'The service creator will keep a direct availability schedule visible here.',
-          travelRadiusLabel: workflow?.travelRadiusLabel
+            (personalServiceCalendarMode
+              ? 'The service creator will keep a direct availability schedule visible here.'
+              : 'Requests are handled directly through the service description and messages.'),
+          travelRadiusLabel: workflow?.travelRadiusLabel,
+          usesCalendar: personalServiceCalendarMode,
+          requestMode: personalServiceRequestModeValue
         }
       : null;
   const revertablePhaseIds = revertableProjectPhaseIds(projectMode, config.currentPhaseId);
@@ -2851,7 +3526,12 @@ function buildProjectLifecycle(
     supportsPlanning,
     currentPhaseId: config.currentPhaseId,
     quorumThresholdPercent,
-    notes: buildProjectLifecycleNotes(projectMode, quorumThresholdPercent, requestSystemEnabled),
+    notes: buildProjectLifecycleNotes(
+      projectMode,
+      quorumThresholdPercent,
+      requestSystemEnabled,
+      personalServiceRequestModeValue
+    ),
     viewerCanAdvancePhase: memberState.viewerIsProjectManager && !!nextPhaseId,
     nextPhaseId,
     nextPhaseLabel: nextPhaseId
@@ -3078,6 +3758,36 @@ const projectDetailExtras: Record<
     discussionNote: 'Use chat to capture operating constraints before planning opens.',
     discussion: []
   },
+  'neighborhood-ride-coordination-service': {
+    overview:
+      'This collective service is active with direct request intake only, so members can request support without selecting calendar slots.',
+    updates: [
+      {
+        id: 'project-update-ride-coordination-1',
+        title: 'Direct intake is live',
+        body: 'Coordinators are now handling requests through direct intake while dispatch windows stay flexible.',
+        authorUsername: 'quietember',
+        createdAt: '2026-04-30T19:10:00Z'
+      }
+    ],
+    discussionNote: 'Use chat to coordinate direct-request details and dispatch handoffs.',
+    discussion: []
+  },
+  'childcare-checkin-desk-service': {
+    overview:
+      'This collective service is active with both calendar booking and direct requests so members can use either path.',
+    updates: [
+      {
+        id: 'project-update-childcare-checkin-1',
+        title: 'Mixed request flow enabled',
+        body: 'Members can now choose either calendar slots or direct requests for childcare check-in support.',
+        authorUsername: 'toolorbit',
+        createdAt: '2026-04-30T19:30:00Z'
+      }
+    ],
+    discussionNote: 'Use chat to coordinate booking details and direct request follow-ups.',
+    discussion: []
+  },
   'patchbay-bike-light-tuneups': {
     overview:
       'This personal service is active and handles requests directly without collective planning phases.',
@@ -3185,6 +3895,20 @@ const eventParticipationById: Record<string, { goingUserIds: string[]; invitedUs
   }
 };
 
+const eventGoingSinceById: Record<string, Record<string, string>> = Object.fromEntries(
+  Object.entries(eventParticipationById).map(([eventId, participation]) => [
+    eventId,
+    Object.fromEntries(participation.goingUserIds.map((userId) => [userId, '2026-01-01T00:00:00Z']))
+  ])
+);
+
+const eventInvitedSinceById: Record<string, Record<string, string>> = Object.fromEntries(
+  Object.entries(eventParticipationById).map(([eventId, participation]) => [
+    eventId,
+    Object.fromEntries(participation.invitedUserIds.map((userId) => [userId, '2026-01-01T00:00:00Z']))
+  ])
+);
+
 const voteState = new Map<string, { voteCount: number; activeVote: VoteDirection }>();
 const confidenceState = new Map<string, { upVotes: number; downVotes: number; activeVote: VoteDirection }>();
 
@@ -3233,16 +3957,6 @@ const projectManagerConfidenceSeeds: Record<
   'confidence-project-manager-neighborhood-heat-pump-pilot-user-rowan': {
     upVotes: 16,
     downVotes: 4,
-    activeVote: 0
-  },
-  'confidence-project-manager-platform-release-governance-round-user-mika': {
-    upVotes: 18,
-    downVotes: 5,
-    activeVote: 1
-  },
-  'confidence-project-manager-platform-release-governance-round-user-ember': {
-    upVotes: 15,
-    downVotes: 6,
     activeVote: 0
   }
 };
@@ -3472,7 +4186,7 @@ const notificationsState: NotificationsPageData['items'] = currentViewer()
         surface: 'personal',
         subjectKind: 'post',
         actorUsername: 'rowanloop',
-        actionLabel: 'Commented',
+        actionLabel: 'replied to your post',
         title: '',
         body: 'I can take two of them for the Saturday walkthrough if nobody needs them earlier in the week.',
         href: buildCommentHref('/posts/post-spare-filters', 'comment-post-filters-1'),
@@ -3487,7 +4201,9 @@ const notificationsState: NotificationsPageData['items'] = currentViewer()
         surface: 'public',
         subjectKind: 'project',
         projectMode: 'productive',
-        title: 'Neighborhood Heat Pump Pilot posted an update',
+        actorUsername: 'patchbay',
+        actionLabel: 'updated',
+        title: 'Neighborhood Heat Pump Pilot',
         body: 'The first site walk is now pinned and the vendor questions were condensed into one checklist.',
         href: buildUpdateHref('/projects/neighborhood-heat-pump-pilot', 'project-update-heat-pump-1'),
         createdAt: '2026-04-30T09:25:00Z',
@@ -3501,7 +4217,9 @@ const notificationsState: NotificationsPageData['items'] = currentViewer()
         surface: 'public',
         subjectKind: 'project',
         projectMode: 'collective-service',
-        title: 'Platform Release Governance Round moved forward',
+        actorUsername: 'mika',
+        actionLabel: 'updated',
+        title: 'Platform Release Governance Round',
         body: 'The accessibility pass is queued and the release note draft now points to the live work tabs.',
         href: buildUpdateHref('/projects/platform-release-governance-round', 'project-update-release-1'),
         createdAt: '2026-04-30T10:10:00Z',
@@ -3514,7 +4232,9 @@ const notificationsState: NotificationsPageData['items'] = currentViewer()
         kind: 'event',
         surface: 'public',
         subjectKind: 'event',
-        title: 'Reminder: Tool Library Spring Swap Social',
+        actorUsername: 'toolorbit',
+        actionLabel: 'updated',
+        title: 'Tool Library Spring Swap Social',
         body: 'You are marked as going, and toolorbit confirmed the snack table and swap table are set.',
         href: '/events/tool-library-spring-swap-social',
         createdAt: '2026-04-29T21:10:00Z',
@@ -3527,7 +4247,9 @@ const notificationsState: NotificationsPageData['items'] = currentViewer()
         kind: 'event',
         surface: 'public',
         subjectKind: 'event',
-        title: 'You were invited to Retrofit Night Walk',
+        actorUsername: 'mika',
+        actionLabel: 'invited',
+        title: 'Retrofit Night Walk',
         body: 'mika added you to the invite list for the private block walkthrough on Saturday evening.',
         href: '/events/retrofit-night-walk',
         createdAt: '2026-04-30T08:40:00Z',
@@ -3539,60 +4261,156 @@ const notificationsState: NotificationsPageData['items'] = currentViewer()
   : [];
 
 const readNotificationHrefs = new Set<string>();
+const sharedNotificationsByUserId: Record<string, NotificationItem[]> = {};
 
-const messageThreadsState: MessageThread[] = currentViewer()
-  ? [
-      {
-        id: 'dm-rowan',
-        participant: userById('user-rowan') ?? patchbayUser,
-        preview: 'Can you sanity-check the laundry-room parts list before I post it publicly?',
-        lastMessageAt: '2026-04-30T09:18:00Z',
-        unreadCount: 1,
-        messages: [
-          {
-            id: 'dm-rowan-1',
-            sender: userById('user-rowan') ?? patchbayUser,
-            body: 'Can you sanity-check the laundry-room parts list before I post it publicly?',
-            createdAt: '2026-04-30T09:12:00Z',
-            isOwn: false
-          },
-          {
-            id: 'dm-rowan-2',
-            sender: activeViewer(),
-            body: 'Yes. I can check the item names and the rough labor notes before noon.',
-            createdAt: '2026-04-30T09:18:00Z',
-            isOwn: true
-          }
-        ]
-      },
-      {
-        id: 'dm-toolorbit',
-        participant: userById('user-tool') ?? patchbayUser,
-        preview: 'Audit night still needs one more person on chargers.',
-        lastMessageAt: '2026-04-29T21:04:00Z',
-        unreadCount: 0,
-        messages: [
-          {
-            id: 'dm-toolorbit-1',
-            sender: userById('user-tool') ?? patchbayUser,
-            body: 'Audit night still needs one more person on chargers.',
-            createdAt: '2026-04-29T20:58:00Z',
-            isOwn: false
-          },
-          {
-            id: 'dm-toolorbit-2',
-            sender: activeViewer(),
-            body: 'I can cover chargers if the intake desk is already staffed.',
-            createdAt: '2026-04-29T21:04:00Z',
-            isOwn: true
-          }
-        ]
-      }
-    ]
-  : [];
+function buildDefaultMessageConversations(viewer: ViewerSummary): MessageConversation[] {
+  if (viewer.id !== patchbayUser.id) {
+    return [];
+  }
+
+  return [
+    {
+      id: 'group-laundry-audit',
+      kind: 'group',
+      title: 'Laundry Room Audit',
+      participants: [
+        viewer,
+        userById('user-rowan') ?? patchbayUser,
+        userById('user-tool') ?? patchbayUser
+      ],
+      preview: 'toolorbit: I can bring the voltage meter and the spare bins.',
+      lastMessageAt: '2026-04-30T10:12:00Z',
+      unreadCount: 2,
+      messages: [
+        {
+          id: 'group-laundry-audit-1',
+          sender: userById('user-rowan') ?? patchbayUser,
+          body: 'Let us keep the final checklist in here instead of scattering it across comments.',
+          createdAt: '2026-04-30T09:56:00Z',
+          isOwn: false
+        },
+        {
+          id: 'group-laundry-audit-2',
+          sender: viewer,
+          body: 'Good. I can fold the parts list and the volunteer timing into one note.',
+          createdAt: '2026-04-30T10:04:00Z',
+          isOwn: true
+        },
+        {
+          id: 'group-laundry-audit-3',
+          sender: userById('user-tool') ?? patchbayUser,
+          body: 'I can bring the voltage meter and the spare bins.',
+          createdAt: '2026-04-30T10:12:00Z',
+          isOwn: false
+        }
+      ]
+    },
+    {
+      id: 'dm-rowan',
+      kind: 'direct',
+      title: (userById('user-rowan') ?? patchbayUser).username,
+      participants: [viewer, userById('user-rowan') ?? patchbayUser],
+      preview: 'Can you sanity-check the laundry-room parts list before I post it publicly?',
+      lastMessageAt: '2026-04-30T09:18:00Z',
+      unreadCount: 1,
+      messages: [
+        {
+          id: 'dm-rowan-1',
+          sender: userById('user-rowan') ?? patchbayUser,
+          body: 'Can you sanity-check the laundry-room parts list before I post it publicly?',
+          createdAt: '2026-04-30T09:12:00Z',
+          isOwn: false
+        },
+        {
+          id: 'dm-rowan-2',
+          sender: viewer,
+          body: 'Yes. I can check the item names and the rough labor notes before noon.',
+          createdAt: '2026-04-30T09:18:00Z',
+          isOwn: true
+        }
+      ]
+    },
+    {
+      id: 'dm-toolorbit',
+      kind: 'direct',
+      title: (userById('user-tool') ?? patchbayUser).username,
+      participants: [viewer, userById('user-tool') ?? patchbayUser],
+      preview: 'Audit night still needs one more person on chargers.',
+      lastMessageAt: '2026-04-29T21:04:00Z',
+      unreadCount: 0,
+      messages: [
+        {
+          id: 'dm-toolorbit-1',
+          sender: userById('user-tool') ?? patchbayUser,
+          body: 'Audit night still needs one more person on chargers.',
+          createdAt: '2026-04-29T20:58:00Z',
+          isOwn: false
+        },
+        {
+          id: 'dm-toolorbit-2',
+          sender: viewer,
+          body: 'I can cover chargers if the intake desk is already staffed.',
+          createdAt: '2026-04-29T21:04:00Z',
+          isOwn: true
+        }
+      ]
+    }
+  ];
+}
+
+const messageConversationsByUserId: Record<string, MessageConversation[]> = currentViewer()
+  ? {
+      [activeViewer().id]: buildDefaultMessageConversations(activeViewer())
+    }
+  : {};
+
+function currentMessageConversationsState() {
+  const viewer = currentViewer();
+
+  if (!viewer) {
+    return [];
+  }
+
+  const existing = messageConversationsByUserId[viewer.id];
+
+  if (existing) {
+    return existing;
+  }
+
+  const created = buildDefaultMessageConversations(viewer);
+  messageConversationsByUserId[viewer.id] = created;
+  return created;
+}
+
+function messageConversationsStateForUser(userId: string) {
+  const existing = messageConversationsByUserId[userId];
+
+  if (existing) {
+    return existing;
+  }
+
+  const viewer = userById(userId);
+
+  if (!viewer) {
+    return [] as MessageConversation[];
+  }
+
+  const created = buildDefaultMessageConversations(viewer);
+  messageConversationsByUserId[userId] = created;
+  return created;
+}
 
 function buildSuggestedMessageContacts(viewerId: string) {
+  const viewer = userById(viewerId);
+  const conversations = messageConversationsByUserId[viewerId] ?? (viewer ? buildDefaultMessageConversations(viewer) : []);
   const relatedIds = new Set([...followingIdsFor(viewerId), ...followerIdsFor(viewerId)]);
+
+  for (const conversation of conversations) {
+    for (const participant of conversation.participants) {
+      relatedIds.add(participant.id);
+    }
+  }
+
   relatedIds.delete(viewerId);
 
   return Array.from(relatedIds)
@@ -3601,15 +4419,154 @@ function buildSuggestedMessageContacts(viewerId: string) {
     .sort((left, right) => left.username.localeCompare(right.username));
 }
 
-function moveMessageThreadToFront(threadId: string) {
-  const threadIndex = messageThreadsState.findIndex((item) => item.id === threadId);
+function buildShareContacts() {
+  const viewer = currentViewer();
 
-  if (threadIndex <= 0) {
+  return viewer
+    ? buildSuggestedMessageContacts(viewer.id).map((contact) => toDetailMember(contact.id))
+    : [];
+}
+
+function scopeLabelsForViewer(
+  item: Pick<PublicProjectItem | PublicEventItem, 'channelTags' | 'communityTags'>,
+  viewerId: string
+) {
+  const labels = new Set<string>();
+
+  for (const tag of item.channelTags) {
+    if (tag.slug === platform.slug) {
+      if (readScopeMembership('platform', platform.slug).memberIds.includes(viewerId)) {
+        labels.add(tag.label);
+      }
+
+      continue;
+    }
+
+    if (readScopeMembership('channel', tag.slug).memberIds.includes(viewerId)) {
+      labels.add(tag.label);
+    }
+  }
+
+  for (const tag of item.communityTags) {
+    if (readScopeMembership('community', tag.slug).memberIds.includes(viewerId)) {
+      labels.add(tag.label);
+    }
+  }
+
+  return Array.from(labels);
+}
+
+function okShareTargetResult(): ShareTargetResult {
+  return { ok: true };
+}
+
+function errorShareTargetResult(error: string): ShareTargetResult {
+  return {
+    ok: false,
+    error
+  };
+}
+
+function pushUserNotification(userId: string, notification: NotificationItem) {
+  const existing = sharedNotificationsByUserId[userId] ?? [];
+  sharedNotificationsByUserId[userId] = [notification, ...existing];
+}
+
+function moveConversationListItemToFront(
+  conversations: MessageConversation[],
+  conversationId: string
+) {
+  const conversationIndex = conversations.findIndex((item) => item.id === conversationId);
+
+  if (conversationIndex <= 0) {
     return;
   }
 
-  const [thread] = messageThreadsState.splice(threadIndex, 1);
-  messageThreadsState.unshift(thread);
+  const [conversation] = conversations.splice(conversationIndex, 1);
+  conversations.unshift(conversation);
+}
+
+function moveMessageConversationToFront(conversationId: string) {
+  moveConversationListItemToFront(currentMessageConversationsState(), conversationId);
+}
+
+function moveMessageConversationToFrontForUser(userId: string, conversationId: string) {
+  moveConversationListItemToFront(messageConversationsStateForUser(userId), conversationId);
+}
+
+function ensureDirectConversationForUser(userId: string, participantId: string) {
+  const viewer = userById(userId);
+  const participant = userById(participantId);
+
+  if (!viewer || !participant) {
+    return null;
+  }
+
+  const conversations = messageConversationsStateForUser(userId);
+  let conversation = conversations.find(
+    (item) => item.kind === 'direct' && item.participants.some((member) => member.id === participantId)
+  );
+
+  if (!conversation) {
+    conversation = {
+      id: `dm-${viewer.username}-${participant.username}`,
+      kind: 'direct',
+      title: participant.username,
+      participants: [viewer, participant],
+      preview: '',
+      lastMessageAt: '',
+      unreadCount: 0,
+      messages: []
+    };
+    conversations.unshift(conversation);
+  } else {
+    conversation.title = participant.username;
+    conversation.participants = [viewer, participant];
+  }
+
+  return conversation;
+}
+
+function appendDirectMessageForUsers(senderId: string, recipientId: string, body: string) {
+  const sender = userById(senderId);
+  const trimmed = body.trim();
+
+  if (!sender || !trimmed) {
+    return;
+  }
+
+  const senderConversation = ensureDirectConversationForUser(senderId, recipientId);
+  const recipientConversation = ensureDirectConversationForUser(recipientId, senderId);
+
+  if (!senderConversation || !recipientConversation) {
+    return;
+  }
+
+  const createdAt = new Date().toISOString();
+  const preview = summarizeChatPreview(trimmed);
+
+  senderConversation.messages.push({
+    id: buildConversationMessageId(senderConversation.id),
+    sender,
+    body: trimmed,
+    createdAt,
+    isOwn: true
+  });
+  recipientConversation.messages.push({
+    id: buildConversationMessageId(recipientConversation.id),
+    sender,
+    body: trimmed,
+    createdAt,
+    isOwn: false
+  });
+  senderConversation.preview = preview;
+  recipientConversation.preview = preview;
+  senderConversation.lastMessageAt = createdAt;
+  recipientConversation.lastMessageAt = createdAt;
+  senderConversation.unreadCount = 0;
+  recipientConversation.unreadCount += 1;
+  moveMessageConversationToFrontForUser(senderId, senderConversation.id);
+  moveMessageConversationToFrontForUser(recipientId, recipientConversation.id);
 }
 
 function formatMetaFromTags(tags: TagRef[]) {
@@ -3643,6 +4600,63 @@ function toScopeMember(userId: string, confidenceTargetId?: string): ScopeMember
     bio: user.bio,
     ...buildConfidenceFields(confidenceTargetId)
   };
+}
+
+function createScopeConfidenceTargetId(
+  kind: Extract<ScopeKind, 'channel' | 'community'>,
+  slug: string,
+  userId: string
+) {
+  return `confidence-${kind}-${slug}-${userId}`;
+}
+
+function createDefaultScopeMeta(
+  kind: Extract<ScopeKind, 'channel' | 'community'>,
+  description: string,
+  joinPolicy: 'open' | 'invite_only',
+  creatorId: string,
+  confidenceTargetId: string
+): DynamicScopePageMeta {
+  const isChannel = kind === 'channel';
+
+  return {
+    description,
+    note:
+      !isChannel && joinPolicy === 'invite_only'
+        ? 'This community is invite-only right now, so only members can see the feed and moderator list.'
+        : undefined,
+    badges: isChannel
+      ? ['Topic channel']
+      : [joinPolicy === 'invite_only' ? 'Invite-only community' : 'Open community'],
+    moderationLabel: 'Moderators',
+    membersNote: isChannel
+      ? 'Members can participate in discussion and stay discoverable without crowding the header.'
+      : 'Members stay visible here without crowding the community header.',
+    moderatorsNote:
+      joinPolicy === 'invite_only'
+        ? 'Moderators are visible to members and stay accountable through confidence voting once you have access.'
+        : 'Moderators should keep at least 70% positive confidence to stay in role, so the confidence vote stays visible here.',
+    emptyFeedText: isChannel
+      ? 'No content matches this channel right now.'
+      : 'No content matches this community right now.',
+    moderatorUserIds: [creatorId],
+    moderatorConfidenceTargetIdsByUserId: {
+      [creatorId]: confidenceTargetId
+    }
+  };
+}
+
+const platformBoardConfidenceTargetIdsByUserId: Record<string, string> = {
+  'user-mika': 'confidence-stewardship-user-mika',
+  'user-ember': 'confidence-stewardship-user-ember'
+};
+
+const platformBoardMemberIds = Object.keys(platformBoardConfidenceTargetIdsByUserId);
+
+function buildPlatformBoardMembers() {
+  return platformBoardMemberIds.map((userId) =>
+    toScopeMember(userId, platformBoardConfidenceTargetIdsByUserId[userId])
+  );
 }
 
 function toDetailMember(userId: string): DetailMember {
@@ -3725,6 +4739,126 @@ function latestCommentTimestamp(comments: DetailComment[]): string | null {
   }, null);
 }
 
+function latestCommentBody(comments: DetailComment[]): string | null {
+  let latestBody: string | null = null;
+  let latestTime = Number.NEGATIVE_INFINITY;
+
+  const visit = (items: DetailComment[]) => {
+    for (const comment of items) {
+      const commentTime = new Date(comment.createdAt).getTime();
+
+      if (!Number.isNaN(commentTime) && commentTime > latestTime) {
+        latestTime = commentTime;
+        latestBody = comment.body;
+      }
+
+      visit(comment.replies);
+    }
+  };
+
+  visit(comments);
+
+  return latestBody;
+}
+
+function latestComment(comments: DetailComment[]): DetailComment | null {
+  let latestCommentItem: DetailComment | null = null;
+  let latestTime = Number.NEGATIVE_INFINITY;
+
+  const visit = (items: DetailComment[]) => {
+    for (const comment of items) {
+      const commentTime = new Date(comment.createdAt).getTime();
+
+      if (!Number.isNaN(commentTime) && commentTime > latestTime) {
+        latestTime = commentTime;
+        latestCommentItem = comment;
+      }
+
+      visit(comment.replies);
+    }
+  };
+
+  visit(comments);
+
+  return latestCommentItem;
+}
+
+function summarizeChatPreview(text: string, authorUsername?: string) {
+  const normalized = text.trim();
+  const prefixed = authorUsername ? `${authorUsername}: ${normalized}` : normalized;
+
+  if (prefixed.length <= 96) {
+    return prefixed;
+  }
+
+  return `${prefixed.slice(0, 93).trimEnd()}...`;
+}
+
+function buildLinkedChats(viewer: ViewerSummary): MessageLinkedChat[] {
+  const publicFeed = buildPublicFeedFixture();
+  const projectChats = publicFeed
+    .filter((item): item is PublicProjectItem => item.kind === 'project')
+    .filter((item) => (projectMembersBySlug[item.slug] ?? []).includes(viewer.id))
+    .map((item) => {
+      const comments = commentsBySubjectId[item.id] ?? [];
+      const latestCommentItem = latestComment(comments);
+      const lastMessageAt =
+        newestTimestamp(latestCommentTimestamp(comments), item.lastActivityAt, item.createdAt) ??
+        item.createdAt;
+
+      return {
+        id: `linked-project-chat-${item.slug}`,
+        kind: 'project' as const,
+        subjectId: item.id,
+        title: item.title,
+        href: item.href,
+        meta: `${item.stage} · ${item.locationLabel}`,
+        preview: latestCommentItem
+          ? summarizeChatPreview(latestCommentItem.body, latestCommentItem.authorUsername)
+          : 'No messages yet.',
+        lastMessageAt,
+        comments
+      } satisfies MessageLinkedChat;
+    });
+  const eventChats = publicFeed
+    .filter((item): item is PublicEventItem => item.kind === 'event')
+    .filter((item) => {
+      const participation = eventParticipationById[item.id] ?? { goingUserIds: [], invitedUserIds: [] };
+      const creatorId = userByUsername(item.createdByUsername)?.id ?? null;
+
+      return (
+        creatorId === viewer.id ||
+        participation.goingUserIds.includes(viewer.id) ||
+        participation.invitedUserIds.includes(viewer.id)
+      );
+    })
+    .map((item) => {
+      const comments = commentsBySubjectId[item.id] ?? [];
+      const latestCommentItem = latestComment(comments);
+      const lastMessageAt =
+        newestTimestamp(latestCommentTimestamp(comments), item.lastActivityAt, item.createdAt) ??
+        item.createdAt;
+
+      return {
+        id: `linked-event-chat-${item.slug}`,
+        kind: 'event' as const,
+        subjectId: item.id,
+        title: item.title,
+        href: item.href,
+        meta: `${item.locationLabel} · ${item.timeLabel}`,
+        preview: latestCommentItem
+          ? summarizeChatPreview(latestCommentItem.body, latestCommentItem.authorUsername)
+          : 'No messages yet.',
+        lastMessageAt,
+        comments
+      } satisfies MessageLinkedChat;
+    });
+
+  return [...projectChats, ...eventChats].sort(
+    (left, right) => +new Date(right.lastMessageAt) - +new Date(left.lastMessageAt)
+  );
+}
+
 function meetsConfidenceThreshold(confidenceRatio?: number, reviewCount?: number) {
   return !!reviewCount && (confidenceRatio ?? 0) >= 70;
 }
@@ -3745,7 +4879,7 @@ function buildUnreadCounts() {
 
   return {
     notifications: notificationItems.filter((item) => item.isUnread).length,
-    messages: messageThreadsState.reduce((sum, thread) => sum + thread.unreadCount, 0)
+    messages: currentMessageConversationsState().reduce((sum, conversation) => sum + conversation.unreadCount, 0)
   };
 }
 
@@ -3765,7 +4899,10 @@ function buildPublicFeedFixture(): PublicFeedItem[] {
       const overview = projectDetailExtras[item.slug]?.overview ?? item.summary;
       const workflow = readProjectWorkflowState(item.slug);
       const latestUpdate = latestProjectUpdateForSlug(item.slug);
-      const memberCount = projectMembersBySlug[item.slug]?.length ?? item.memberCount;
+      const memberCount =
+        item.projectMode === 'personal-service'
+          ? personalServiceFollowerCount(item.slug)
+          : projectMembersBySlug[item.slug]?.length ?? item.memberCount;
       const latestUpdateAt = latestUpdate?.createdAt ?? null;
       const lastActivityAt =
         newestTimestamp(item.createdAt, item.lastActivityAt, latestUpdateAt) ??
@@ -4068,12 +5205,39 @@ function buildScopeMembershipState(kind: ScopeKind, slug: string): ScopeMembersh
 function buildProjectMemberState(slug: string) {
   const viewer = currentViewer();
   const memberIds = projectMembersBySlug[slug] ?? [];
-  const managerConfig = projectManagersBySlug[slug] ?? {
-    managerIds: [],
-    candidateIds: [],
-    confidenceTargetIdsByUserId: {}
-  };
-  const explicitManagerIds = managerConfig.managerIds.filter((userId) => memberIds.includes(userId));
+  const projectMode = projectModeForSlug(slug);
+
+  if (projectMode === 'personal-service') {
+    const creator = projectAuthorForSlug(slug);
+    const followerIds = creator ? memberIds.filter((userId) => userId !== creator.id) : memberIds;
+
+    return {
+      memberCount: followerIds.length,
+      projectManagers: creator ? [toProjectRoleMember(creator.id)] : [],
+      members: followerIds.map((userId) => toProjectRoleMember(userId)),
+      viewerIsMember: !!viewer && !!creator && viewer.id !== creator.id && followerIds.includes(viewer.id),
+      viewerCanToggleMembership: !!viewer && !!creator && viewer.id !== creator.id,
+      viewerCanToggleManagerNomination: false,
+      viewerIsManagerCandidate: false,
+      viewerIsProjectManager: !!viewer && !!creator && viewer.id === creator.id
+    };
+  }
+
+  const platformManagedProject = isPlatformTaggedProject(slug);
+  const managerConfig = platformManagedProject
+    ? {
+        managerIds: platformBoardMemberIds,
+        candidateIds: [],
+        confidenceTargetIdsByUserId: platformBoardConfidenceTargetIdsByUserId
+      }
+    : projectManagersBySlug[slug] ?? {
+        managerIds: [],
+        candidateIds: [],
+        confidenceTargetIdsByUserId: {}
+      };
+  const explicitManagerIds = platformManagedProject
+    ? managerConfig.managerIds
+    : managerConfig.managerIds.filter((userId) => memberIds.includes(userId));
   const candidateIds = managerConfig.candidateIds.filter(
     (userId) => memberIds.includes(userId) && !explicitManagerIds.includes(userId)
   );
@@ -4086,7 +5250,9 @@ function buildProjectMemberState(slug: string) {
     );
   const managerIds = new Set([...explicitManagerIds, ...thresholdManagers.map((member) => member.id)]);
   const projectManagers = [
-    ...explicitManagerIds.map((userId) => toProjectRoleMember(userId)),
+    ...explicitManagerIds.map((userId) =>
+      toProjectRoleMember(userId, managerConfig.confidenceTargetIdsByUserId[userId])
+    ),
     ...thresholdManagers
   ];
 
@@ -4104,10 +5270,18 @@ function buildProjectMemberState(slug: string) {
       ),
     viewerIsMember: !!viewer && memberIds.includes(viewer.id),
     viewerCanToggleMembership: !!viewer,
-    viewerCanToggleManagerNomination: !!viewer && memberIds.includes(viewer.id),
-    viewerIsManagerCandidate: !!viewer && candidateIds.includes(viewer.id),
+    viewerCanToggleManagerNomination:
+      !platformManagedProject && !!viewer && memberIds.includes(viewer.id),
+    viewerIsManagerCandidate:
+      !platformManagedProject && !!viewer && candidateIds.includes(viewer.id),
     viewerIsProjectManager: !!viewer && managerIds.has(viewer.id)
   };
+}
+
+function isPlatformTaggedProject(slug: string) {
+  const project = findPublicProjectItem(slug);
+
+  return !!project && project.channelTags.some((tag) => tag.slug === platform.slug);
 }
 
 function buildEventMemberState(item: PublicEventItem) {
@@ -4286,6 +5460,7 @@ function buildCommunityScopeFixtures(): ScopePageData[] {
 function buildPlatformScopeFixture(): ScopePageData {
   const publicFeed = buildPublicFeedFixture();
   const platformMembers = buildScopeMembers('platform', platform.slug);
+  const boardMembers = buildPlatformBoardMembers();
 
   return {
     kind: 'platform',
@@ -4305,11 +5480,45 @@ function buildPlatformScopeFixture(): ScopePageData {
     membership: buildScopeMembershipState('platform', platform.slug),
     feed: filterByTag(publicFeed, platform.slug, 'channel'),
     members: platformMembers,
-    moderators: [
-      toScopeMember('user-mika', 'confidence-stewardship-user-mika'),
-      toScopeMember('user-ember', 'confidence-stewardship-user-ember')
-    ],
+    moderators: boardMembers,
     stats: buildScopeStats(filterByTag(publicFeed, platform.slug, 'channel'), platformMembers)
+  };
+}
+
+function buildDynamicScopeFixture(
+  kind: Extract<ScopeKind, 'channel' | 'community'>,
+  slug: string,
+  meta: DynamicScopePageMeta
+): ScopePageData | null {
+  const directory = kind === 'channel' ? channelDirectory : communityDirectory;
+  const directoryItem = directory.find((item) => item.slug === slug);
+
+  if (!directoryItem) {
+    return null;
+  }
+
+  const publicFeed = buildPublicFeedFixture();
+  const feed = filterByTag(publicFeed, slug, kind);
+  const members = buildScopeMembers(kind, slug);
+
+  return {
+    kind,
+    slug,
+    title: directoryItem.label,
+    description: meta.description,
+    note: meta.note,
+    badges: meta.badges,
+    moderationLabel: meta.moderationLabel,
+    membersNote: meta.membersNote,
+    moderatorsNote: meta.moderatorsNote,
+    emptyFeedText: meta.emptyFeedText,
+    membership: buildScopeMembershipState(kind, slug),
+    feed,
+    members,
+    moderators: meta.moderatorUserIds.map((userId) =>
+      toScopeMember(userId, meta.moderatorConfidenceTargetIdsByUserId?.[userId])
+    ),
+    stats: buildScopeStats(feed, members)
   };
 }
 
@@ -4327,18 +5536,6 @@ export const onboardingFixture: OnboardingPageData = {
       value: 'login',
       label: 'Log in',
       description: 'Use an existing account once authentication is wired.'
-    }
-  ],
-  visibilityOptions: [
-    {
-      value: 'public',
-      label: 'Public profile',
-      description: 'Your profile can be discovered across the network.'
-    },
-    {
-      value: 'limited',
-      label: 'Limited profile',
-      description: 'Only the surfaces you participate in will expose your profile.'
     }
   ],
   starterChannels: channelDirectory.map((item) => item.label),
@@ -4379,16 +5576,31 @@ function buildRightRailItems(): RightRailActivityItem[] {
     .filter((item): item is PublicProjectItem => item.kind === 'project')
     .flatMap((item) => {
       const memberIds = projectMembersBySlug[item.slug] ?? [];
+      const scopeLabels = scopeLabelsForViewer(item, viewer.id);
       const lifecycle = buildProjectLifecycle(item.slug, item.projectMode, memberIds.length);
+      const viewerIsDirectMember = memberIds.includes(viewer.id);
+      const activityPhaseId = activityPhaseIdForProject(item.projectMode);
 
-      if (!memberIds.includes(viewer.id)) {
+      if (!viewerIsDirectMember && scopeLabels.length === 0) {
         return [];
       }
 
+      if (lifecycle.currentPhaseId !== activityPhaseId) {
+        return [];
+      }
+
+      const sourceLabel = viewerIsDirectMember
+        ? item.projectMode === 'personal-service'
+          ? isProjectCreator(item.slug, viewer.id)
+            ? 'Your service'
+            : 'Member'
+          : 'Project member'
+        : `Via ${scopeLabels[0]}`;
+
       return lifecycle.phaseFive.activities.map((activity) => {
-        const requiredOpenRole = activity.roles.some((role) => role.filledCount < role.requiredCount);
-        const extrasRole = activity.roles.find((role) => role.isExtraSlot);
-        const extrasOpenRole = !!extrasRole && extrasRole.filledCount < extrasRole.requiredCount;
+        const hasOpenRole = activity.roles.some(
+          (role) => role.maximumCount == null || role.filledCount < role.maximumCount
+        );
 
         return {
           id: `rail-project-activity-${item.slug}-${activity.id}`,
@@ -4398,41 +5610,55 @@ function buildRightRailItems(): RightRailActivityItem[] {
           href: `${item.href}?activity=${activity.id}#activity-card-${activity.id}`,
           meta: `${item.title} · ${activity.locationLabel}`,
           createdAt: activity.startAt,
-          countLabel: `${activity.committedCount}/${activity.minimumParticipants} committed`,
+          countLabel: `${sourceLabel} · ${activity.committedCount}/${activity.minimumParticipants} committed`,
           viewerIsParticipating: true,
           projectMode: item.projectMode,
           projectSlug: item.slug,
           activityId: activity.id,
           activityRoleLabels: activity.roles.map((role) => role.label),
           viewerAssignedRoleLabel: activity.viewerAssignedRoleLabel,
-          projectHasOpenRole: requiredOpenRole || extrasOpenRole
+          projectHasOpenRole: hasOpenRole
         } satisfies RightRailActivityItem;
       });
     });
   const eventItems = publicFeed
     .filter((item): item is PublicEventItem => item.kind === 'event')
-    .map((item) => {
+    .flatMap((item) => {
       const participation = eventParticipationById[item.id];
       const goingUserIds = participation?.goingUserIds ?? [];
+      const invitedUserIds = participation?.invitedUserIds ?? [];
       const creatorId = userByUsername(item.createdByUsername)?.id ?? null;
+      const scopeLabels = scopeLabelsForViewer(item, viewer.id);
       const memberCount = new Set([...(creatorId ? [creatorId] : []), ...goingUserIds]).size;
       const latestUpdate = latestEventUpdateForSlug(item.slug);
       const viewerIsParticipating = !!viewer && (goingUserIds.includes(viewer.id) || creatorId === viewer.id);
+      const viewerIsInvited = invitedUserIds.includes(viewer.id);
 
-      return {
+      if (!viewerIsParticipating && !viewerIsInvited && scopeLabels.length === 0) {
+        return [];
+      }
+
+      const sourceLabel = creatorId === viewer.id
+        ? 'Hosted by you'
+        : viewerIsParticipating
+          ? 'Going'
+          : viewerIsInvited
+            ? 'Invited'
+            : `Via ${scopeLabels[0]}`;
+
+      return [{
         id: `rail-${item.id}`,
         subjectId: item.id,
         kind: 'event',
         title: item.title,
-        href: latestUpdate ? buildUpdateHref(item.href, latestUpdate.id) : item.href,
-        meta: latestUpdate ? latestUpdate.title : item.locationLabel,
+        href: item.href,
+        meta: item.locationLabel,
         createdAt: latestUpdate?.createdAt ?? item.scheduledAt ?? item.lastActivityAt,
         timeLabel: item.timeLabel,
-        countLabel: `${memberCount} going`,
+        countLabel: `${sourceLabel} · ${memberCount} going`,
         viewerIsParticipating
-      } satisfies RightRailActivityItem;
-    })
-    .filter((item) => item.viewerIsParticipating);
+      } satisfies RightRailActivityItem];
+    });
 
   return [...projectItems, ...eventItems].sort(
     (left, right) => +new Date(right.createdAt) - +new Date(left.createdAt)
@@ -4440,7 +5666,9 @@ function buildRightRailItems(): RightRailActivityItem[] {
 }
 
 function buildSettingsFixture(): SettingsPageData | null {
-  return currentViewer() ? settingsState : null;
+  const settings = currentSettingsState();
+
+  return settings ? { ...settings } : null;
 }
 
 function buildNotificationsFixture(): NotificationsPageData | null {
@@ -4450,14 +5678,23 @@ function buildNotificationsFixture(): NotificationsPageData | null {
     return null;
   }
 
-  const existingHrefs = new Set(notificationsState.map((item) => item.href));
+  const baseNotifications = viewer.id === patchbayUser.id ? notificationsState : [];
+  const sharedNotifications = sharedNotificationsByUserId[viewer.id] ?? [];
+  const existingHrefs = new Set(
+    [...sharedNotifications, ...baseNotifications].map((item) => item.href)
+  );
   const memberProjectNotifications: NotificationItem[] = Object.entries(projectMembersBySlug)
     .filter(([, memberIds]) => memberIds.includes(viewer.id))
     .map(([slug]) => {
       const project = findPublicProjectItem(slug);
       const latestUpdate = latestProjectUpdateForSlug(slug);
+      const joinedAt = projectMembershipSinceBySlug[slug]?.[viewer.id];
 
       if (!project || !latestUpdate || latestUpdate.authorUsername === viewer.username) {
+        return null;
+      }
+
+      if (joinedAt && new Date(latestUpdate.createdAt).getTime() < new Date(joinedAt).getTime()) {
         return null;
       }
 
@@ -4467,7 +5704,9 @@ function buildNotificationsFixture(): NotificationsPageData | null {
         surface: 'public' as const,
         subjectKind: 'project' as const,
         projectMode: project.projectMode,
-        title: `${project.title} posted an update`,
+        actorUsername: latestUpdate.authorUsername,
+        actionLabel: 'updated',
+        title: project.title,
         body: latestUpdate.body,
         href: buildUpdateHref(project.href, latestUpdate.id),
         createdAt: latestUpdate.createdAt,
@@ -4478,10 +5717,68 @@ function buildNotificationsFixture(): NotificationsPageData | null {
     })
     .filter((item): item is NonNullable<typeof item> => !!item)
     .filter((item) => !existingHrefs.has(item.href));
+  const memberEventNotifications: NotificationItem[] = buildPublicFeedFixture()
+    .filter((item): item is PublicEventItem => item.kind === 'event')
+    .map((event): NotificationItem | null => {
+      const participation = eventParticipationById[event.id];
+
+      if (!participation) {
+        return null;
+      }
+
+      const viewerInEvent =
+        participation.goingUserIds.includes(viewer.id) || participation.invitedUserIds.includes(viewer.id);
+
+      if (!viewerInEvent) {
+        return null;
+      }
+
+      const latestUpdate = latestEventUpdateForSlug(event.slug);
+
+      if (!latestUpdate || latestUpdate.authorUsername === viewer.username) {
+        return null;
+      }
+
+      const goingSince = eventGoingSinceById[event.id]?.[viewer.id];
+      const invitedSince = eventInvitedSinceById[event.id]?.[viewer.id];
+      const membershipSince = [goingSince, invitedSince]
+        .filter((value): value is string => !!value)
+        .sort((left, right) => new Date(left).getTime() - new Date(right).getTime())[0];
+
+      if (
+        membershipSince &&
+        new Date(latestUpdate.createdAt).getTime() < new Date(membershipSince).getTime()
+      ) {
+        return null;
+      }
+
+      return {
+        id: `notification-event-member-update-${event.slug}-${latestUpdate.id}`,
+        kind: 'event' as const,
+        surface: 'public' as const,
+        subjectKind: 'event' as const,
+        actorUsername: latestUpdate.authorUsername,
+        actionLabel: 'updated',
+        title: event.title,
+        body: latestUpdate.body,
+        href: buildUpdateHref(event.href, latestUpdate.id),
+        createdAt: latestUpdate.createdAt,
+        isUnread: !readNotificationHrefs.has(buildUpdateHref(event.href, latestUpdate.id)),
+        channelTags: event.channelTags,
+        communityTags: event.communityTags
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => !!item)
+    .filter((item) => !existingHrefs.has(item.href));
 
   return {
     viewer,
-    items: [...memberProjectNotifications, ...notificationsState]
+    items: [
+      ...sharedNotifications,
+      ...memberProjectNotifications,
+      ...memberEventNotifications,
+      ...baseNotifications
+    ]
       .map((item) => ({
         ...item,
         isUnread: item.isUnread && !readNotificationHrefs.has(item.href)
@@ -4494,13 +5791,15 @@ function buildNotificationsFixture(): NotificationsPageData | null {
 
 function buildMessagesFixture(): MessagesPageData | null {
   const viewer = currentViewer();
+  const conversations = currentMessageConversationsState();
 
   return viewer
     ? {
         viewer,
-        threads: messageThreadsState,
+        conversations,
+        linkedChats: buildLinkedChats(viewer),
         suggestedContacts: buildSuggestedMessageContacts(viewer.id),
-        activeThreadId: messageThreadsState[0]?.id ?? null
+        activeConversationId: null
       }
     : null;
 }
@@ -4613,29 +5912,42 @@ export function getSettingsFixture() {
 }
 
 export function updateMockSettings(input: SettingsUpdateInput) {
-  if (!settingsState) {
+  const settings = currentSettingsState();
+  const viewer = currentViewer();
+
+  if (!settings || !viewer) {
     return;
   }
 
-  settingsState = {
-    ...settingsState,
+  settingsByUserId[viewer.id] = {
+    ...settings,
     ...input
   };
-  settingsState.requireFollowApproval = settingsState.hidePersonalFeedFromNonFollowers;
-  syncViewerProfileFromSettings();
-  persistSettingsState();
+  settingsByUserId[viewer.id].requireFollowApproval =
+    settingsByUserId[viewer.id].hidePersonalFeedFromNonFollowers;
+  syncViewerProfileFromSettings(viewer.id);
+
+  persistClientState();
 }
 
 export function hydrateMockClientState() {
-  return hydratePersistedSettingsState();
+  return hydratePersistedClientState();
 }
 
 export function findChannelScopeFixture(slug: string): ScopePageData | null {
-  return buildChannelScopeFixtures().find((item) => item.slug === slug) ?? null;
+  return (
+    buildChannelScopeFixtures().find((item) => item.slug === slug) ??
+    buildDynamicScopeFixture('channel', slug, createdChannelScopeMetaBySlug[slug]) ??
+    null
+  );
 }
 
 export function findCommunityScopeFixture(slug: string): ScopePageData | null {
-  return buildCommunityScopeFixtures().find((item) => item.slug === slug) ?? null;
+  return (
+    buildCommunityScopeFixtures().find((item) => item.slug === slug) ??
+    buildDynamicScopeFixture('community', slug, createdCommunityScopeMetaBySlug[slug]) ??
+    null
+  );
 }
 
 export function getPlatformScopeFixture() {
@@ -4681,6 +5993,8 @@ export function findProjectFixture(slug: string): ProjectPageData | null {
     return null;
   }
 
+  const shareContacts = buildShareContacts();
+
   const lifecycle = buildProjectLifecycle(
     slug,
     item.projectMode,
@@ -4696,9 +6010,11 @@ export function findProjectFixture(slug: string): ProjectPageData | null {
     members: memberState.members,
     viewerIsMember: memberState.viewerIsMember,
     viewerCanToggleMembership: memberState.viewerCanToggleMembership,
+    viewerCanShare: !!currentViewer(),
     viewerCanToggleManagerNomination: memberState.viewerCanToggleManagerNomination,
     viewerIsManagerCandidate: memberState.viewerIsManagerCandidate,
     viewerIsProjectManager: memberState.viewerIsProjectManager,
+    shareContacts,
     discussionNote: extras.discussionNote,
     discussion: commentsBySubjectId[item.id] ?? []
   };
@@ -4753,6 +6069,8 @@ export function findEventFixture(slug: string): EventPageData | null {
     return null;
   }
 
+  const shareContacts = buildShareContacts();
+
   return {
     ...item,
     memberCount: memberState.memberCount,
@@ -4767,11 +6085,13 @@ export function findEventFixture(slug: string): EventPageData | null {
     members: memberState.members,
     viewerIsGoing: memberState.viewerIsGoing,
     viewerCanToggleGoing: memberState.viewerCanToggleGoing,
+    viewerCanShare: !!currentViewer(),
     viewerCanToggleManagerNomination: memberState.viewerCanToggleManagerNomination,
     viewerIsManagerCandidate: memberState.viewerIsManagerCandidate,
     viewerIsEventManager: memberState.viewerIsEventManager,
     viewerCanInviteEventManagers: memberState.viewerCanInviteEventManagers,
     availableManagerInvitees: memberState.availableManagerInvitees,
+    shareContacts,
     discussionNote: extras.discussionNote,
     discussion: commentsBySubjectId[item.id] ?? []
   };
@@ -4867,6 +6187,7 @@ export function toggleMockEventGoing(eventId: string) {
 
   if (participation.goingUserIds.includes(viewer.id)) {
     participation.goingUserIds = participation.goingUserIds.filter((userId) => userId !== viewer.id);
+    delete (eventGoingSinceById[eventId] ?? {})[viewer.id];
 
     if (eventManagersBySlug[event.slug]) {
       eventManagersBySlug[event.slug].managerIds = eventManagersBySlug[event.slug].managerIds.filter(
@@ -4879,6 +6200,10 @@ export function toggleMockEventGoing(eventId: string) {
 
     if (event.isPrivate && !participation.invitedUserIds.includes(viewer.id)) {
       participation.invitedUserIds = [...participation.invitedUserIds, viewer.id];
+      eventInvitedSinceById[eventId] = {
+        ...(eventInvitedSinceById[eventId] ?? {}),
+        [viewer.id]: new Date().toISOString()
+      };
     }
 
     return;
@@ -4886,12 +6211,22 @@ export function toggleMockEventGoing(eventId: string) {
 
   participation.goingUserIds = [...participation.goingUserIds, viewer.id];
   participation.invitedUserIds = participation.invitedUserIds.filter((userId) => userId !== viewer.id);
+  delete (eventInvitedSinceById[eventId] ?? {})[viewer.id];
+  eventGoingSinceById[eventId] = {
+    ...(eventGoingSinceById[eventId] ?? {}),
+    [viewer.id]: new Date().toISOString()
+  };
 }
 
 export function toggleMockProjectMembership(slug: string) {
   const viewer = currentViewer();
+  const projectMode = projectModeForSlug(slug);
 
   if (!viewer) {
+    return;
+  }
+
+  if (projectMode === 'personal-service' && isProjectCreator(slug, viewer.id)) {
     return;
   }
 
@@ -4900,8 +6235,9 @@ export function toggleMockProjectMembership(slug: string) {
 
   if (viewerIsMember) {
     projectMembersBySlug[slug] = memberIds.filter((userId) => userId !== viewer.id);
+    delete (projectMembershipSinceBySlug[slug] ?? {})[viewer.id];
 
-    if (projectManagersBySlug[slug]) {
+    if (projectManagersBySlug[slug] && projectMode !== 'personal-service') {
       projectManagersBySlug[slug].managerIds = projectManagersBySlug[slug].managerIds.filter(
         (userId) => userId !== viewer.id
       );
@@ -4914,6 +6250,22 @@ export function toggleMockProjectMembership(slug: string) {
   }
 
   projectMembersBySlug[slug] = [viewer.id, ...memberIds];
+  projectMembershipSinceBySlug[slug] = {
+    ...(projectMembershipSinceBySlug[slug] ?? {}),
+    [viewer.id]: new Date().toISOString()
+  };
+}
+
+function ensureProjectMembership(slug: string, userId: string) {
+  const memberIds = projectMembersBySlug[slug] ?? [];
+
+  if (!memberIds.includes(userId)) {
+    projectMembersBySlug[slug] = [userId, ...memberIds];
+    projectMembershipSinceBySlug[slug] = {
+      ...(projectMembershipSinceBySlug[slug] ?? {}),
+      [userId]: new Date().toISOString()
+    };
+  }
 }
 
 function ensureProjectWorkflowState(slug: string) {
@@ -4940,6 +6292,75 @@ function projectModeForSlug(slug: string) {
   return findPublicProjectItem(slug)?.projectMode ?? 'productive';
 }
 
+function requestSystemEnabledForProject(
+  slug: string,
+  projectMode: ProjectMode,
+  phaseThree?: { plans: ProjectDistributionPlan[]; winningPlanId: string | null }
+) {
+  if (projectMode === 'personal-service') {
+    return true;
+  }
+
+  if (projectMode !== 'collective-service') {
+    return false;
+  }
+
+  const memberCount = (projectMembersBySlug[slug] ?? []).length;
+  const resolvedPhaseThree =
+    phaseThree ??
+    buildDistributionPlans(
+      slug,
+      buildProjectValues(slug),
+      calculateProjectQuorumThreshold(memberCount),
+      memberCount
+    );
+  const activeAccessPlan = resolvedPhaseThree.plans.find(
+    (plan) => plan.id === resolvedPhaseThree.winningPlanId
+  );
+
+  return activeAccessPlan?.requestSystemEnabled ?? false;
+}
+
+function collectiveRequestModeForProject(
+  slug: string,
+  phaseThree?: { plans: ProjectDistributionPlan[]; winningPlanId: string | null }
+) {
+  const memberCount = (projectMembersBySlug[slug] ?? []).length;
+  const resolvedPhaseThree =
+    phaseThree ??
+    buildDistributionPlans(
+      slug,
+      buildProjectValues(slug),
+      calculateProjectQuorumThreshold(memberCount),
+      memberCount
+    );
+  const activeAccessPlan = resolvedPhaseThree.plans.find(
+    (plan) => plan.id === resolvedPhaseThree.winningPlanId
+  );
+
+  return activeAccessPlan?.requestMode ?? 'both';
+}
+
+function collectiveAllowOffScheduleRequestsForProject(
+  slug: string,
+  phaseThree?: { plans: ProjectDistributionPlan[]; winningPlanId: string | null }
+) {
+  const memberCount = (projectMembersBySlug[slug] ?? []).length;
+  const resolvedPhaseThree =
+    phaseThree ??
+    buildDistributionPlans(
+      slug,
+      buildProjectValues(slug),
+      calculateProjectQuorumThreshold(memberCount),
+      memberCount
+    );
+  const activeAccessPlan = resolvedPhaseThree.plans.find(
+    (plan) => plan.id === resolvedPhaseThree.winningPlanId
+  );
+
+  return activeAccessPlan?.allowOffScheduleRequests ?? false;
+}
+
 function rawProjectPlansForPhase(
   slug: string,
   phaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>
@@ -4962,9 +6383,9 @@ function canViewerEditProjectPhase(slug: string, phaseId: ProjectLifecyclePhaseI
 
 function canViewerEditProjectActivityCommitment(slug: string) {
   const viewer = currentViewer();
-  const memberIds = projectMembersBySlug[slug] ?? [];
+  const projectMode = projectModeForSlug(slug);
 
-  return !!viewer && memberIds.includes(viewer.id);
+  return !!viewer && projectLifecycleBySlug[slug]?.currentPhaseId === activityPhaseIdForProject(projectMode);
 }
 
 function canViewerCreateProjectActivity(slug: string) {
@@ -4977,7 +6398,7 @@ function canViewerCreateProjectActivity(slug: string) {
   }
 
   if (projectMode === 'personal-service') {
-    return canViewerManageProjectPhase(slug);
+    return personalServiceUsesCalendar(slug) && canViewerManageProjectPhase(slug);
   }
 
   return memberIds.includes(viewer.id);
@@ -4986,16 +6407,61 @@ function canViewerCreateProjectActivity(slug: string) {
 function canViewerSubmitProjectServiceRequest(slug: string) {
   const viewer = currentViewer();
   const projectMode = projectModeForSlug(slug);
-  const lifecycle = buildProjectLifecycle(slug, projectMode, (projectMembersBySlug[slug] ?? []).length);
+  const requestSystemEnabled = requestSystemEnabledForProject(slug, projectMode);
 
-  return !!viewer && !!lifecycle.requestSystem?.enabled && projectLifecycleBySlug[slug]?.currentPhaseId === activityPhaseIdForProject(projectMode);
+  return (
+    !!viewer &&
+    requestSystemEnabled &&
+    projectLifecycleBySlug[slug]?.currentPhaseId === activityPhaseIdForProject(projectMode) &&
+    !(projectMode === 'personal-service' && isProjectCreator(slug, viewer.id))
+  );
 }
 
 function canViewerReviewProjectServiceRequests(slug: string) {
   const projectMode = projectModeForSlug(slug);
-  const lifecycle = buildProjectLifecycle(slug, projectMode, (projectMembersBySlug[slug] ?? []).length);
 
-  return canViewerManageProjectPhase(slug) && !!lifecycle.requestSystem?.enabled;
+  if (projectMode === 'collective-service') {
+    return !!currentViewer() && requestSystemEnabledForProject(slug, projectMode);
+  }
+
+  return canViewerManageProjectPhase(slug) && requestSystemEnabledForProject(slug, projectMode);
+}
+
+function findOverlappingPersonalServiceAvailabilityIndex(
+  activities: RawProjectActivity[],
+  scheduledAt: string,
+  endsAt: string
+) {
+  const requestStart = new Date(scheduledAt).getTime();
+  const requestEnd = new Date(endsAt).getTime();
+
+  return activities.findIndex((activity) => {
+    const activityStart = new Date(activity.scheduledAt).getTime();
+    const activityEnd = activity.endsAt
+      ? new Date(activity.endsAt).getTime()
+      : activityStart + 60 * 60 * 1000;
+
+    return requestStart < activityEnd && requestEnd > activityStart;
+  });
+}
+
+function personalServiceUsesCalendar(slug: string) {
+  return personalServiceRequestMode(slug) !== 'direct';
+}
+
+function personalServiceRequestMode(slug: string) {
+  return readProjectWorkflowState(slug)?.serviceRequestMode ?? 'calendar';
+}
+
+function formatServiceRequestWindow(start?: string, end?: string) {
+  if (!start || !end) {
+    return '';
+  }
+
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  return `${startDate.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${startDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} to ${endDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 }
 
 function updateProjectPlanValueVoteMap(
@@ -5203,6 +6669,8 @@ export function addMockProjectDistributionPlan(slug: string, input: ProjectDistr
       accessSummary: phaseDetailsSummary,
       reserveSummary: phaseMaterialSummary,
       requestSystemEnabled: input.requestSystemEnabled ?? false,
+      requestMode: input.requestMode ?? 'both',
+      allowOffScheduleRequests: input.allowOffScheduleRequests ?? false,
       overallVotesByUserId: {
         [viewer.id]: 'yes'
       },
@@ -5249,16 +6717,23 @@ export function addMockProjectActivity(slug: string, input: ProjectActivityInput
   const viewer = currentViewer();
   const workflow = ensureProjectWorkflowState(slug);
   const roleRequirements = input.roleRequirements
-    .map((role) => ({
-      label: role.label.trim(),
-      requiredCount: Math.max(1, Number(role.requiredCount) || 1)
-    }))
+    .map((role) => {
+      const requiredCount = Math.max(1, Number(role.requiredCount) || 1);
+      const parsedMaximumCount = Number(role.maximumCount);
+
+      return {
+        label: role.label.trim(),
+        requiredCount,
+        maximumCount: Number.isFinite(parsedMaximumCount)
+          ? Math.max(requiredCount, Math.floor(parsedMaximumCount))
+          : undefined
+      };
+    })
     .filter((role) => role.label);
   const minimumParticipants = roleRequirements.reduce(
     (total, role) => total + role.requiredCount,
     0
   );
-  const maximumParticipants = Math.max(input.maximumParticipants, minimumParticipants, 1);
   const now = new Date().toISOString();
   const project = findPublicProjectItem(slug);
 
@@ -5286,14 +6761,13 @@ export function addMockProjectActivity(slug: string, input: ProjectActivityInput
       endsAt: input.endsAt.trim(),
       locationLabel: input.locationLabel.trim(),
       minimumParticipants,
-      maximumParticipants,
       linkedPlanPhaseId: input.linkedPlanPhaseId ?? null,
       roles: roleRequirements.map((role, index) => ({
         label: role.label,
         requiredCount: role.requiredCount,
+        maximumCount: role.maximumCount,
         assignedUsernames: index === 0 ? [viewer.username] : []
       })),
-      extraAssignedUsernames: [],
       note: input.note.trim()
     },
     ...workflow.phaseFiveActivities
@@ -5335,35 +6809,8 @@ export function setMockProjectActivityCommitment(
   for (const role of activity.roles) {
     role.assignedUsernames = role.assignedUsernames.filter((username) => username !== viewer.username);
   }
-  activity.extraAssignedUsernames = (activity.extraAssignedUsernames ?? []).filter(
-    (username) => username !== viewer.username
-  );
 
   if (!roleLabel) {
-    return;
-  }
-
-  const maximumParticipants = Math.max(activity.maximumParticipants ?? 0, activity.minimumParticipants, 1);
-  const committedCount = Array.from(
-    new Set([
-      ...activity.roles.flatMap((role) => role.assignedUsernames),
-      ...(activity.extraAssignedUsernames ?? [])
-    ])
-  ).length;
-
-  if (committedCount >= maximumParticipants) {
-    return;
-  }
-
-  if (roleLabel === 'Extras') {
-    const extraCapacity = Math.max(maximumParticipants - activity.minimumParticipants, 0);
-    const extraAssignedUsernames = activity.extraAssignedUsernames ?? [];
-
-    if (extraCapacity < 1 || extraAssignedUsernames.length >= extraCapacity) {
-      return;
-    }
-
-    activity.extraAssignedUsernames = [...extraAssignedUsernames, viewer.username];
     return;
   }
 
@@ -5373,29 +6820,178 @@ export function setMockProjectActivityCommitment(
     return;
   }
 
+  const maximumCount =
+    targetRole.maximumCount != null
+      ? Math.max(targetRole.maximumCount, targetRole.requiredCount)
+      : undefined;
+
+  if (maximumCount != null && targetRole.assignedUsernames.length >= maximumCount) {
+    return;
+  }
+
+  ensureProjectMembership(slug, viewer.id);
+
   targetRole.assignedUsernames = [...targetRole.assignedUsernames, viewer.username];
 }
 
-export function addMockProjectServiceRequest(slug: string, title: string, body: string) {
-  const trimmedTitle = title.trim();
-  const trimmedBody = body.trim();
+export function addMockProjectServiceRequest(slug: string, input: ProjectServiceRequestInput) {
+  const viewer = currentViewer();
+  const trimmedTitle = input.title.trim();
+  const trimmedBody = input.body.trim();
+  const trimmedScheduledAt = input.scheduledAt?.trim();
+  const trimmedEndsAt = input.endsAt?.trim();
   const workflow = ensureProjectWorkflowState(slug);
   const serviceRequests = workflow.serviceRequests ?? [];
+  const projectMode = projectModeForSlug(slug);
+  const personalRequestMode =
+    projectMode === 'personal-service' ? personalServiceRequestMode(slug) : 'calendar';
+  const usesCalendar = projectMode === 'personal-service' ? personalServiceUsesCalendar(slug) : false;
+  const collectiveRequestMode =
+    projectMode === 'collective-service' ? collectiveRequestModeForProject(slug) : 'both';
+  const collectiveAllowOffScheduleRequests =
+    projectMode === 'collective-service' ? collectiveAllowOffScheduleRequestsForProject(slug) : false;
 
-  if (!trimmedTitle || !trimmedBody || !canViewerSubmitProjectServiceRequest(slug)) {
+  if (!viewer || !trimmedTitle || !trimmedBody || !canViewerSubmitProjectServiceRequest(slug)) {
     return;
   }
+
+  if (
+    projectMode === 'personal-service' &&
+    personalRequestMode === 'calendar' &&
+    (!trimmedScheduledAt ||
+      !trimmedEndsAt ||
+      new Date(trimmedEndsAt).getTime() <= new Date(trimmedScheduledAt).getTime())
+  ) {
+    return;
+  }
+
+  if (
+    projectMode === 'personal-service' &&
+    personalRequestMode === 'both' &&
+    trimmedScheduledAt &&
+    trimmedEndsAt &&
+    new Date(trimmedEndsAt).getTime() <= new Date(trimmedScheduledAt).getTime()
+  ) {
+    return;
+  }
+
+  if (
+    projectMode === 'collective-service' &&
+    collectiveRequestMode === 'calendar' &&
+    (!trimmedScheduledAt ||
+      !trimmedEndsAt ||
+      new Date(trimmedEndsAt).getTime() <= new Date(trimmedScheduledAt).getTime())
+  ) {
+    return;
+  }
+
+  if (
+    projectMode === 'collective-service' &&
+    collectiveRequestMode === 'both' &&
+    trimmedScheduledAt &&
+    trimmedEndsAt &&
+    new Date(trimmedEndsAt).getTime() <= new Date(trimmedScheduledAt).getTime()
+  ) {
+    return;
+  }
+
+  if (
+    projectMode === 'collective-service' &&
+    collectiveRequestMode === 'both' &&
+    !collectiveAllowOffScheduleRequests &&
+    (!trimmedScheduledAt || !trimmedEndsAt)
+  ) {
+    return;
+  }
+
+  if (
+    projectMode === 'personal-service' &&
+    personalRequestMode !== 'direct' &&
+    trimmedScheduledAt &&
+    trimmedEndsAt &&
+    findOverlappingPersonalServiceAvailabilityIndex(
+      workflow.phaseFiveActivities,
+      trimmedScheduledAt,
+      trimmedEndsAt
+    ) < 0
+  ) {
+    return;
+  }
+
+  if (
+    projectMode === 'collective-service' &&
+    collectiveRequestMode !== 'direct' &&
+    (!collectiveAllowOffScheduleRequests || collectiveRequestMode === 'calendar') &&
+    trimmedScheduledAt &&
+    trimmedEndsAt &&
+    findOverlappingPersonalServiceAvailabilityIndex(
+      workflow.phaseFiveActivities,
+      trimmedScheduledAt,
+      trimmedEndsAt
+    ) < 0
+  ) {
+    return;
+  }
+
+  const createdAt = new Date().toISOString();
 
   workflow.serviceRequests = [
     {
       id: `project-service-request-${slug}-${Date.now()}`,
       title: trimmedTitle,
       body: trimmedBody,
-      createdAt: new Date().toISOString(),
-      status: 'open'
+      requesterUsername: viewer.username,
+      createdAt,
+      status: 'open',
+      scheduledAt: trimmedScheduledAt || undefined,
+      endsAt: trimmedEndsAt || undefined
     },
     ...serviceRequests
   ];
+
+  if (projectMode === 'personal-service' && !isProjectCreator(slug, viewer.id)) {
+    const memberIds = projectMembersBySlug[slug] ?? [];
+
+    if (!memberIds.includes(viewer.id)) {
+      projectMembersBySlug[slug] = [...memberIds, viewer.id];
+    }
+
+    const project = findPublicProjectItem(slug);
+    const creator = project ? userByUsername(project.authorUsername) : null;
+
+    if (project && creator && creator.id !== viewer.id) {
+      const requestWindow = formatServiceRequestWindow(trimmedScheduledAt, trimmedEndsAt);
+      const notificationBody =
+        usesCalendar && requestWindow
+          ? `${viewer.username} requested \"${trimmedTitle}\" for ${requestWindow}.`
+          : `${viewer.username} requested \"${trimmedTitle}\".`;
+
+      pushUserNotification(creator.id, {
+        id: `notification-project-request-${slug}-${creator.id}-${Date.now()}`,
+        kind: 'project',
+        surface: 'public',
+        subjectKind: 'project',
+        projectMode: project.projectMode,
+        actorUsername: viewer.username,
+        actionLabel: 'Requested',
+        title: project.title,
+        body: notificationBody,
+        href: project.href,
+        createdAt,
+        isUnread: true,
+        channelTags: project.channelTags,
+        communityTags: project.communityTags
+      });
+
+      appendDirectMessageForUsers(
+        viewer.id,
+        creator.id,
+        usesCalendar && requestWindow
+          ? `Requested \"${trimmedTitle}\" for ${requestWindow}. ${trimmedBody}`
+          : `Requested \"${trimmedTitle}\". ${trimmedBody}`
+      );
+    }
+  }
 }
 
 export function setMockProjectServiceRequestStatus(
@@ -5410,12 +7006,36 @@ export function setMockProjectServiceRequestStatus(
     return;
   }
 
+  const wasOpen = request.status === 'open';
   request.status = status;
+
+  if (
+    wasOpen &&
+    status === 'accepted' &&
+    projectModeForSlug(slug) === 'personal-service' &&
+    personalServiceUsesCalendar(slug) &&
+    request.scheduledAt &&
+    request.endsAt
+  ) {
+    const slotIndex = findOverlappingPersonalServiceAvailabilityIndex(
+      workflow.phaseFiveActivities,
+      request.scheduledAt,
+      request.endsAt
+    );
+
+    if (slotIndex >= 0) {
+      workflow.phaseFiveActivities = workflow.phaseFiveActivities.filter(
+        (_, index) => index !== slotIndex
+      );
+    }
+  }
 }
 
-export function advanceMockProjectPhase(slug: string) {
+export function advanceMockProjectPhase(slug: string, closeNote?: string) {
   const config = projectLifecycleBySlug[slug];
+  const viewer = currentViewer();
   const projectMode = findPublicProjectItem(slug)?.projectMode ?? 'productive';
+  const trimmedCloseNote = closeNote?.trim() ?? '';
 
   if (!config || !canViewerManageProjectPhase(slug)) {
     return;
@@ -5449,7 +7069,24 @@ export function advanceMockProjectPhase(slug: string) {
     return;
   }
 
+  if (nextPhaseId === closePhaseIdForProject(projectMode) && !trimmedCloseNote) {
+    return;
+  }
+
   config.currentPhaseId = nextPhaseId;
+
+  if (nextPhaseId === closePhaseIdForProject(projectMode) && viewer && projectDetailExtras[slug]) {
+    projectDetailExtras[slug].updates = [
+      {
+        id: `project-update-close-${slug}-${Date.now()}`,
+        title: 'Closure note',
+        body: trimmedCloseNote,
+        authorUsername: viewer.username,
+        createdAt: new Date().toISOString()
+      },
+      ...projectDetailExtras[slug].updates
+    ];
+  }
 }
 
 export function revertMockProjectPhase(
@@ -5488,7 +7125,7 @@ export function revertMockProjectPhase(
 export function toggleMockProjectManagerNomination(slug: string) {
   const viewer = currentViewer();
 
-  if (!viewer) {
+  if (!viewer || isPlatformTaggedProject(slug)) {
     return;
   }
 
@@ -5609,9 +7246,14 @@ export function inviteMockEventManager(slug: string, userId: string) {
 
   if (!participation.goingUserIds.includes(userId)) {
     participation.goingUserIds = [...participation.goingUserIds, userId];
+    eventGoingSinceById[event.id] = {
+      ...(eventGoingSinceById[event.id] ?? {}),
+      [userId]: new Date().toISOString()
+    };
   }
 
   participation.invitedUserIds = participation.invitedUserIds.filter((inviteeId) => inviteeId !== userId);
+  delete (eventInvitedSinceById[event.id] ?? {})[userId];
   managerConfig.candidateIds = managerConfig.candidateIds.filter((candidateId) => candidateId !== userId);
 
   if (!managerConfig.managerIds.includes(userId)) {
@@ -5672,6 +7314,513 @@ export function redeemMockScopeInvite(kind: ScopeKind, slug: string, inviteValue
   }
 
   return true;
+}
+
+export function signInMockAccount(input: SignInInput): AuthResult {
+  const username = normalizeUsernameInput(input.username);
+  const password = input.password.trim();
+  const user = userByUsername(username);
+
+  if (!username || !password) {
+    return {
+      ok: false,
+      error: 'Enter both a username and password.'
+    };
+  }
+
+  if (!user || credentialsByUserId[user.id] !== password) {
+    return {
+      ok: false,
+      error: 'That username and password do not match this mock account list.'
+    };
+  }
+
+  mockSessionFixture.currentViewerId = user.id;
+  currentSettingsState();
+  persistClientState();
+
+  return { ok: true };
+}
+
+export function signOutMockAccount() {
+  mockSessionFixture.currentViewerId = null;
+  persistClientState();
+}
+
+export function signUpMockAccount(input: SignUpInput): AuthResult {
+  const username = normalizeUsernameInput(input.username);
+  const password = input.password.trim();
+  const profileBio = input.profileBio?.trim() ?? '';
+
+  if (!username || !password) {
+    return {
+      ok: false,
+      error: 'Choose both a username and password.'
+    };
+  }
+
+  if (userByUsername(username)) {
+    return {
+      ok: false,
+      error: 'That username is already taken in the mock data.'
+    };
+  }
+
+  const user: ViewerSummary = {
+    id: uniqueUserId(username),
+    username,
+    bio: profileBio || undefined
+  };
+
+  users.push(user);
+  rebuildUserIndexes();
+  followsByUserId[user.id] = [];
+  credentialsByUserId[user.id] = password;
+  settingsByUserId[user.id] = {
+    ...createDefaultSettingsState(user),
+    profileBio
+  };
+  mockSessionFixture.currentViewerId = user.id;
+  syncViewerProfileFromSettings(user.id);
+  persistClientState();
+
+  return { ok: true };
+}
+
+function createProjectDiscussionNote(input: CreateProjectInput) {
+  if (input.channelTags.some((tag) => tag.slug === platform.slug)) {
+    return 'Platform-tagged project chat stays attached here so governance coordination stays visible without turning into a generic thread.';
+  }
+
+  if (input.projectMode === 'personal-service') {
+    return 'Use chat here to coordinate requests, timing, and service follow-up without splitting the work across separate surfaces.';
+  }
+
+  return 'Use chat here to keep planning, coordination, and follow-up attached to the project itself.';
+}
+
+function createProjectOverview(input: CreateProjectInput) {
+  const pieces = [input.summary.trim()];
+
+  if (input.note?.trim()) {
+    pieces.push(input.note.trim());
+  }
+
+  return pieces.join(' ');
+}
+
+export function createMockProject(input: CreateProjectInput): CreateResult {
+  const viewer = currentViewer();
+  const title = input.title.trim();
+  const summary = input.summary.trim();
+  const channelTags = input.channelTags;
+  const communityTags = input.communityTags;
+  const isPlatformProject = channelTags.some((tag) => tag.slug === platform.slug);
+
+  if (!viewer) {
+    return {
+      ok: false,
+      error: 'Sign in before creating a project.'
+    };
+  }
+
+  if (!title || !summary || channelTags.length === 0) {
+    return {
+      ok: false,
+      error: 'Projects need a title, summary, and at least one channel tag.'
+    };
+  }
+
+  if (isPlatformProject && !platformBoardMemberIds.includes(viewer.id)) {
+    return {
+      ok: false,
+      error: 'Only current board members can create platform-tagged projects.'
+    };
+  }
+
+  const slug = uniqueSlug(title);
+  const createdAt = new Date().toISOString();
+  const id = `project-${slug}`;
+
+  publicFeedBase.unshift({
+    kind: 'project',
+    id,
+    slug,
+    href: `/projects/${slug}`,
+    createdAt,
+    title,
+    authorUsername: viewer.username,
+    projectMode: input.projectMode,
+    summary,
+    channelTags,
+    communityTags,
+    stage:
+      input.projectMode === 'personal-service'
+        ? input.serviceRequestMode === 'direct'
+          ? 'Requests'
+          : input.serviceRequestMode === 'both'
+            ? 'Calendar + Requests'
+          : 'Calendar'
+        : 'Proposal',
+    locationLabel: projectLocationLabel(input.locationLabel),
+    voteCount: 0,
+    activeVote: 0,
+    signalCount: 0,
+    commentCount: 0,
+    memberCount: input.projectMode === 'personal-service' ? 0 : 1,
+    lastActivityAt: createdAt
+  });
+  projectMembersBySlug[slug] = [viewer.id];
+  projectMembershipSinceBySlug[slug] = {
+    ...(projectMembershipSinceBySlug[slug] ?? {}),
+    [viewer.id]: createdAt
+  };
+  projectManagersBySlug[slug] = {
+    managerIds: isPlatformProject ? [] : [viewer.id],
+    candidateIds: [],
+    confidenceTargetIdsByUserId: {}
+  };
+  projectLifecycleBySlug[slug] = createProjectLifecycleConfig(input.projectMode);
+  projectWorkflowStateBySlug[slug] = {
+    signalCount: 0,
+    signalUserIds: [],
+    values: [],
+    phaseTwoPlans: [],
+    phaseThreePlans: [],
+    phaseFiveActivities: [],
+    serviceRequests: [],
+    revertHistory: [],
+    availabilitySummary:
+      input.projectMode === 'personal-service' && input.serviceRequestMode !== 'direct'
+        ? 'Availability will be coordinated directly through this service page.'
+        : undefined,
+    travelRadiusLabel:
+      input.projectMode === 'personal-service' && input.serviceRequestMode !== 'direct'
+        ? projectLocationLabel(input.locationLabel)
+        : undefined,
+    serviceRequestMode:
+      input.projectMode === 'personal-service' ? input.serviceRequestMode ?? 'both' : undefined
+  };
+  projectDetailExtras[slug] = {
+    overview: createProjectOverview(input),
+    updates: [],
+    discussionNote: createProjectDiscussionNote(input),
+    discussion: []
+  };
+  commentsBySubjectId[id] = [];
+  seedVoteTarget(id, 0, 0);
+
+  return {
+    ok: true,
+    slug
+  };
+}
+
+export function createMockThread(input: CreateThreadInput): CreateResult {
+  const viewer = currentViewer();
+  const title = input.title.trim();
+  const body = input.body.trim();
+  const tags = [...input.channelTags, ...input.communityTags];
+
+  if (!viewer) {
+    return {
+      ok: false,
+      error: 'Sign in before creating a thread.'
+    };
+  }
+
+  if (!title || !body || tags.length === 0) {
+    return {
+      ok: false,
+      error: 'Threads need a title, opening post, and at least one discovery tag.'
+    };
+  }
+
+  const slug = uniqueSlug(title);
+  const createdAt = new Date().toISOString();
+  const id = `thread-${slug}`;
+
+  publicFeedBase.unshift({
+    kind: 'thread',
+    id,
+    slug,
+    href: `/threads/${slug}`,
+    createdAt,
+    title,
+    body,
+    authorUsername: viewer.username,
+    channelTags: input.channelTags,
+    communityTags: input.communityTags,
+    voteCount: 0,
+    activeVote: 0,
+    commentCount: 0,
+    lastActivityAt: createdAt
+  });
+  threadDiscussionNotes[slug] =
+    input.channelTags.some((tag) => tag.slug === platform.slug)
+      ? 'Platform threads stay open to regular users, even while platform-tagged projects stay board-created.'
+      : 'Discussion stays visible here so replies and follow-up notes remain attached to the original question.';
+  commentsBySubjectId[id] = [];
+  seedVoteTarget(id, 0, 0);
+
+  return {
+    ok: true,
+    slug
+  };
+}
+
+export function createMockEvent(input: CreateEventInput): CreateResult {
+  const viewer = currentViewer();
+  const title = input.title.trim();
+  const description = input.description.trim();
+  const startTimeLabel = input.startTimeLabel.trim();
+  const finishTimeLabel = input.finishTimeLabel.trim();
+  const locationLabel = input.locationLabel.trim();
+
+  if (!viewer) {
+    return {
+      ok: false,
+      error: 'Sign in before creating an event.'
+    };
+  }
+
+  if (!title || !description || !startTimeLabel || !finishTimeLabel || !locationLabel) {
+    return {
+      ok: false,
+      error: 'Events need a title, description, start time, finish time, and location.'
+    };
+  }
+
+  const invitedUserIds: string[] = [];
+
+  for (const username of Array.from(new Set(input.invitedUsernames.map((value) => value.trim()).filter(Boolean)))) {
+    const user = userByUsername(username);
+
+    if (!user) {
+      return {
+        ok: false,
+        error: `Could not find @${username}.`
+      };
+    }
+
+    if (user.id !== viewer.id) {
+      invitedUserIds.push(user.id);
+    }
+  }
+
+  const privateCommunityOnly =
+    input.channelTags.length === 0 &&
+    input.communityTags.length === 1 &&
+    readScopeMembership('community', input.communityTags[0].slug).joinPolicy === 'invite_only';
+  const personalInviteOnly =
+    input.channelTags.length === 0 && input.communityTags.length === 0 && invitedUserIds.length > 0;
+  const isPrivate = privateCommunityOnly || personalInviteOnly;
+  const slug = uniqueSlug(title);
+  const createdAt = new Date().toISOString();
+  const id = `event-${slug}`;
+  const confidenceTargetId = `confidence-event-manager-${slug}-${viewer.id}`;
+
+  publicFeedBase.unshift({
+    kind: 'event',
+    id,
+    slug,
+    href: `/events/${slug}`,
+    createdAt,
+    title,
+    description,
+    isPrivate,
+    scheduledAt: createdAt,
+    channelTags: input.channelTags,
+    communityTags: input.communityTags,
+    createdByUsername: viewer.username,
+    timeLabel: `${startTimeLabel} to ${finishTimeLabel}`,
+    locationLabel,
+    voteCount: 0,
+    activeVote: 0,
+    commentCount: 0,
+    goingCount: 1,
+    lastActivityAt: createdAt
+  });
+  eventDetailExtras[slug] = {
+    attendanceNote: isPrivate
+      ? 'This event stays private because it is invite-only or lives only inside a closed community.'
+      : 'This event stays discoverable through its tags, so people can find it without turning it into a project.',
+    agenda: [],
+    updates: [],
+    discussionNote: isPrivate
+      ? 'Private event chat stays live here so logistics and follow-up questions stay inside the invited group.'
+      : 'Event chat stays live here so logistics and follow-up notes stay immediate instead of forum-like.',
+    discussion: []
+  };
+  eventParticipationById[id] = {
+    goingUserIds: [viewer.id],
+    invitedUserIds
+  };
+  eventGoingSinceById[id] = {
+    [viewer.id]: createdAt
+  };
+  eventInvitedSinceById[id] = Object.fromEntries(
+    invitedUserIds.map((userId) => [userId, createdAt])
+  );
+  eventManagersBySlug[slug] = {
+    managerIds: [viewer.id],
+    candidateIds: [],
+    confidenceTargetIdsByUserId: {
+      [viewer.id]: confidenceTargetId
+    }
+  };
+  commentsBySubjectId[id] = [];
+  seedVoteTarget(id, 0, 0);
+  seedConfidenceTarget(confidenceTargetId, 0, 0, 0);
+
+  return {
+    ok: true,
+    slug
+  };
+}
+
+export function createMockPost(input: CreatePostInput): CreateResult {
+  const viewer = currentViewer();
+  const body = input.body.trim();
+
+  if (!viewer) {
+    return {
+      ok: false,
+      error: 'Sign in before posting.'
+    };
+  }
+
+  if (!body) {
+    return {
+      ok: false,
+      error: 'Posts need body copy before they can be published.'
+    };
+  }
+
+  const id = uniquePostId(body.slice(0, 48));
+  const createdAt = new Date().toISOString();
+
+  socialPostsBase.unshift({
+    kind: 'post',
+    id,
+    href: `/posts/${id}`,
+    author: viewer,
+    audience: input.audience,
+    voteTargetId: id,
+    body,
+    voteCount: 0,
+    activeVote: 0,
+    commentCount: 0,
+    createdAt
+  });
+  postDiscussionNotes[id] =
+    input.audience === 'public'
+      ? 'Public personal posts still keep their own reply surface so discussion does not disappear into the feed.'
+      : 'Follower posts still keep a real discussion surface so replies stay visible to the people who can see them.';
+  commentsBySubjectId[id] = [];
+  seedVoteTarget(id, 0, 0);
+
+  return {
+    ok: true,
+    id
+  };
+}
+
+export function createMockChannel(input: CreateChannelInput): CreateResult {
+  const viewer = currentViewer();
+  const name = input.name.trim();
+  const description = input.description.trim();
+
+  if (!viewer) {
+    return {
+      ok: false,
+      error: 'Sign in before creating a channel.'
+    };
+  }
+
+  if (!name || !description) {
+    return {
+      ok: false,
+      error: 'Channels need a name and description.'
+    };
+  }
+
+  const slug = uniqueScopeSlug(name, 'channel');
+  const confidenceTargetId = createScopeConfidenceTargetId('channel', slug, viewer.id);
+
+  channelDirectory.unshift({
+    slug,
+    label: name,
+    href: `/channels/${slug}`
+  });
+  scopeMembershipByKey[scopeMembershipKey('channel', slug)] = {
+    memberIds: [viewer.id],
+    joinPolicy: 'open'
+  };
+  createdChannelScopeMetaBySlug[slug] = createDefaultScopeMeta(
+    'channel',
+    description,
+    'open',
+    viewer.id,
+    confidenceTargetId
+  );
+  seedConfidenceTarget(confidenceTargetId, 0, 0, 0);
+
+  return {
+    ok: true,
+    slug
+  };
+}
+
+export function createMockCommunity(input: CreateCommunityInput): CreateResult {
+  const viewer = currentViewer();
+  const name = input.name.trim();
+  const description = input.description.trim();
+
+  if (!viewer) {
+    return {
+      ok: false,
+      error: 'Sign in before creating a community.'
+    };
+  }
+
+  if (!name || !description) {
+    return {
+      ok: false,
+      error: 'Communities need a name and description.'
+    };
+  }
+
+  const slug = uniqueScopeSlug(name, 'community');
+  const confidenceTargetId = createScopeConfidenceTargetId('community', slug, viewer.id);
+
+  communityDirectory.unshift({
+    slug,
+    label: name,
+    href: `/communities/${slug}`
+  });
+  scopeMembershipByKey[scopeMembershipKey('community', slug)] = {
+    memberIds: [viewer.id],
+    joinPolicy: input.joinPolicy,
+    inviteToken: input.joinPolicy === 'invite_only' ? `${slug}-invite` : undefined,
+    hiddenFeedCopy:
+      input.joinPolicy === 'invite_only'
+        ? 'This closed community only shows its feed to members. Join with an invite link before the work and discussion unlock here.'
+        : undefined
+  };
+  createdCommunityScopeMetaBySlug[slug] = createDefaultScopeMeta(
+    'community',
+    description,
+    input.joinPolicy,
+    viewer.id,
+    confidenceTargetId
+  );
+  seedConfidenceTarget(confidenceTargetId, 0, 0, 0);
+
+  return {
+    ok: true,
+    slug
+  };
 }
 
 export function addMockComment(subjectId: string, body: string, parentId?: string) {
@@ -5756,15 +7905,125 @@ export function addMockEventUpdate(slug: string, title: string, body: string) {
   ];
 }
 
-export function markMockNotificationRead(notificationId: string) {
-  const item = notificationsState.find((notification) => notification.id === notificationId);
+export function shareMockProjectWithUser(slug: string, username: string): ShareTargetResult {
+  const viewer = currentViewer();
+  const targetUser = userByUsername(username);
+  const project = findPublicProjectItem(slug);
 
-  if (item) {
-    item.isUnread = false;
-    readNotificationHrefs.add(item.href);
-    return;
+  if (!viewer) {
+    return errorShareTargetResult('Sign in to share projects.');
   }
 
+  if (!project) {
+    return errorShareTargetResult('That project could not be found.');
+  }
+
+  if (!targetUser || targetUser.id === viewer.id) {
+    return errorShareTargetResult('Choose another user.');
+  }
+
+  pushUserNotification(targetUser.id, {
+    id: `notification-project-share-${slug}-${targetUser.id}-${Date.now()}`,
+    kind: 'project',
+    surface: 'public',
+    subjectKind: 'project',
+    projectMode: project.projectMode,
+    actorUsername: viewer.username,
+    actionLabel: 'Shared',
+    title: project.title,
+    body: `${viewer.username} shared this project with you.`,
+    href: project.href,
+    createdAt: new Date().toISOString(),
+    isUnread: true,
+    channelTags: project.channelTags,
+    communityTags: project.communityTags
+  });
+
+  return okShareTargetResult();
+}
+
+export function shareMockEventWithUser(slug: string, username: string): ShareTargetResult {
+  const viewer = currentViewer();
+  const targetUser = userByUsername(username);
+  const event = findPublicEventItem(slug);
+
+  if (!viewer) {
+    return errorShareTargetResult('Sign in to invite or share events.');
+  }
+
+  if (!event) {
+    return errorShareTargetResult('That event could not be found.');
+  }
+
+  if (!targetUser || targetUser.id === viewer.id) {
+    return errorShareTargetResult('Choose another user.');
+  }
+
+  const participation =
+    eventParticipationById[event.id] ??
+    (eventParticipationById[event.id] = { goingUserIds: [], invitedUserIds: [] });
+
+  if (
+    !participation.goingUserIds.includes(targetUser.id) &&
+    !participation.invitedUserIds.includes(targetUser.id)
+  ) {
+    participation.invitedUserIds = [targetUser.id, ...participation.invitedUserIds];
+    eventInvitedSinceById[event.id] = {
+      ...(eventInvitedSinceById[event.id] ?? {}),
+      [targetUser.id]: new Date().toISOString()
+    };
+  }
+
+  pushUserNotification(targetUser.id, {
+    id: `notification-event-share-${slug}-${targetUser.id}-${Date.now()}`,
+    kind: 'event',
+    surface: 'public',
+    subjectKind: 'event',
+    actorUsername: viewer.username,
+    actionLabel: event.isPrivate ? 'Invited' : 'Shared',
+    title: event.title,
+    body: event.isPrivate
+      ? `${viewer.username} invited you to this event.`
+      : `${viewer.username} shared this event with you.`,
+    href: event.href,
+    createdAt: new Date().toISOString(),
+    isUnread: true,
+    channelTags: event.channelTags,
+    communityTags: event.communityTags
+  });
+
+  return okShareTargetResult();
+}
+
+function okConversationResult(conversationId?: string): MessageConversationResult {
+  return conversationId ? { ok: true, conversationId } : { ok: true };
+}
+
+function errorConversationResult(error: string): MessageConversationResult {
+  return { ok: false, error };
+}
+
+function normalizeConversationTitle(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function buildConversationId(prefix: string) {
+  return `${prefix}-${Date.now().toString(36)}`;
+}
+
+function buildConversationMessageId(conversationId: string) {
+  return `${conversationId}-${Date.now()}`;
+}
+
+function findCurrentConversation(conversationId: string) {
+  return currentMessageConversationsState().find((item) => item.id === conversationId);
+}
+
+function normalizeConversationUsernames(usernames: string[]) {
+  return Array.from(new Set(usernames.map((value) => normalizeUsernameInput(value)).filter(Boolean)));
+}
+
+export function markMockNotificationRead(notificationId: string) {
   const hydratedItem = buildNotificationsFixture()?.items.find((notification) => notification.id === notificationId);
 
   if (hydratedItem) {
@@ -5784,72 +8043,211 @@ export function markAllMockNotificationsRead() {
   }
 }
 
-export function markMockMessageThreadRead(threadId: string) {
-  const thread = messageThreadsState.find((item) => item.id === threadId);
+export function markMockConversationRead(conversationId: string) {
+  const conversation = findCurrentConversation(conversationId);
 
-  if (thread) {
-    thread.unreadCount = 0;
+  if (conversation) {
+    conversation.unreadCount = 0;
   }
 }
 
-export function sendMockMessage(threadId: string, body: string) {
+export function sendMockMessage(conversationId: string, body: string) {
   const viewer = currentViewer();
-  const thread = messageThreadsState.find((item) => item.id === threadId);
+  const conversation = findCurrentConversation(conversationId);
   const trimmed = body.trim();
 
-  if (!viewer || !thread || !trimmed) {
+  if (!viewer || !conversation || !trimmed) {
     return;
   }
 
   const createdAt = new Date().toISOString();
-  thread.messages.push({
-    id: `${threadId}-${Date.now()}`,
+  conversation.messages.push({
+    id: buildConversationMessageId(conversationId),
     sender: viewer,
     body: trimmed,
     createdAt,
     isOwn: true
   });
-  thread.preview = trimmed;
-  thread.lastMessageAt = createdAt;
-  thread.unreadCount = 0;
-  moveMessageThreadToFront(thread.id);
+  conversation.preview = summarizeChatPreview(
+    trimmed,
+    conversation.kind === 'group' ? viewer.username : undefined
+  );
+  conversation.lastMessageAt = createdAt;
+  conversation.unreadCount = 0;
+  moveMessageConversationToFront(conversation.id);
 }
 
-export function startMockMessageThread(participantUsername: string, body: string) {
+export function startMockDirectMessage(participantUsername: string, body: string): MessageConversationResult {
   const viewer = currentViewer();
   const participant = userByUsername(participantUsername);
   const trimmed = body.trim();
+  const conversations = currentMessageConversationsState();
 
-  if (!viewer || !participant || participant.id === viewer.id || !trimmed) {
-    return null;
+  if (!viewer) {
+    return errorConversationResult('Sign in to send messages.');
   }
 
-  let thread = messageThreadsState.find((item) => item.participant.id === participant.id);
+  if (!participant || participant.id === viewer.id) {
+    return errorConversationResult('Choose another person to message.');
+  }
 
-  if (!thread) {
-    thread = {
+  if (!trimmed) {
+    return errorConversationResult('Write a message before sending it.');
+  }
+
+  let conversation = conversations.find(
+    (item) => item.kind === 'direct' && item.participants.some((member) => member.id === participant.id)
+  );
+
+  if (!conversation) {
+    conversation = {
       id: `dm-${participant.username}`,
-      participant,
+      kind: 'direct',
+      title: participant.username,
+      participants: [viewer, participant],
       preview: '',
       lastMessageAt: '',
       unreadCount: 0,
       messages: []
     };
-    messageThreadsState.unshift(thread);
+    conversations.unshift(conversation);
   }
 
   const createdAt = new Date().toISOString();
-  thread.messages.push({
-    id: `${thread.id}-${Date.now()}`,
+  conversation.messages.push({
+    id: buildConversationMessageId(conversation.id),
     sender: viewer,
     body: trimmed,
     createdAt,
     isOwn: true
   });
-  thread.preview = trimmed;
-  thread.lastMessageAt = createdAt;
-  thread.unreadCount = 0;
-  moveMessageThreadToFront(thread.id);
+  conversation.preview = summarizeChatPreview(trimmed);
+  conversation.lastMessageAt = createdAt;
+  conversation.unreadCount = 0;
+  moveMessageConversationToFront(conversation.id);
+  return okConversationResult(conversation.id);
+}
 
-  return thread.id;
+export function createMockGroupConversation(
+  input: CreateGroupMessageInput
+): MessageConversationResult {
+  const viewer = currentViewer();
+  const title = normalizeConversationTitle(input.title);
+  const body = input.body.trim();
+
+  if (!viewer) {
+    return errorConversationResult('Sign in to start a group chat.');
+  }
+
+  if (!title) {
+    return errorConversationResult('Name the group chat before creating it.');
+  }
+
+  if (!body) {
+    return errorConversationResult('Write the first message for the group chat.');
+  }
+
+  const memberUsernames = normalizeConversationUsernames(input.memberUsernames);
+  const members = memberUsernames
+    .map((username) => userByUsername(username))
+    .filter((member): member is ViewerSummary => !!member && member.id !== viewer.id);
+
+  if (members.length < 2) {
+    return errorConversationResult('Choose at least two other people for a group chat.');
+  }
+
+  const createdAt = new Date().toISOString();
+  const conversationId = buildConversationId('group');
+  const conversation: MessageConversation = {
+    id: conversationId,
+    kind: 'group',
+    title,
+    participants: [viewer, ...members],
+    preview: summarizeChatPreview(body, viewer.username),
+    lastMessageAt: createdAt,
+    unreadCount: 0,
+    messages: [
+      {
+        id: buildConversationMessageId(conversationId),
+        sender: viewer,
+        body,
+        createdAt,
+        isOwn: true
+      }
+    ]
+  };
+
+  currentMessageConversationsState().unshift(conversation);
+  return okConversationResult(conversation.id);
+}
+
+export function renameMockGroupConversation(
+  conversationId: string,
+  title: string
+): MessageConversationResult {
+  const conversation = findCurrentConversation(conversationId);
+  const nextTitle = normalizeConversationTitle(title);
+
+  if (!conversation || conversation.kind !== 'group') {
+    return errorConversationResult('That group chat no longer exists.');
+  }
+
+  if (!nextTitle) {
+    return errorConversationResult('Group chats need a name.');
+  }
+
+  conversation.title = nextTitle;
+  return okConversationResult(conversation.id);
+}
+
+export function addMockGroupConversationMember(
+  conversationId: string,
+  username: string
+): MessageConversationResult {
+  const viewer = currentViewer();
+  const conversation = findCurrentConversation(conversationId);
+  const member = userByUsername(username);
+
+  if (!viewer || !conversation || conversation.kind !== 'group') {
+    return errorConversationResult('That group chat no longer exists.');
+  }
+
+  if (!member || member.id === viewer.id) {
+    return errorConversationResult('Choose someone else to add.');
+  }
+
+  if (conversation.participants.some((participant) => participant.id === member.id)) {
+    return errorConversationResult('That person is already in the group chat.');
+  }
+
+  conversation.participants = [...conversation.participants, member];
+  return okConversationResult(conversation.id);
+}
+
+export function removeMockGroupConversationMember(
+  conversationId: string,
+  username: string
+): MessageConversationResult {
+  const viewer = currentViewer();
+  const conversation = findCurrentConversation(conversationId);
+  const member = userByUsername(username);
+
+  if (!viewer || !conversation || conversation.kind !== 'group') {
+    return errorConversationResult('That group chat no longer exists.');
+  }
+
+  if (!member || member.id === viewer.id) {
+    return errorConversationResult('Leave the current viewer in the group chat.');
+  }
+
+  if (!conversation.participants.some((participant) => participant.id === member.id)) {
+    return errorConversationResult('That person is not in the group chat.');
+  }
+
+  if (conversation.participants.length <= 3) {
+    return errorConversationResult('Keep at least three people in a group chat.');
+  }
+
+  conversation.participants = conversation.participants.filter((participant) => participant.id !== member.id);
+  return okConversationResult(conversation.id);
 }

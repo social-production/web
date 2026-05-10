@@ -80,43 +80,21 @@
     description="Public keeps the shared network stream: tagged projects, threads, and open standalone events."
   />
 
-  <div class="filters">
-    <button class:active={activeFilter === 'all'} class="filter" type="button" on:click={() => (activeFilter = 'all')}>
-      All
-    </button>
-    <button
-      class:active={activeFilter === 'projects'}
-      class="filter"
-      type="button"
-      on:click={() => (activeFilter = 'projects')}
-    >
-      Projects
-    </button>
-    <button
-      class:active={activeFilter === 'threads'}
-      class="filter"
-      type="button"
-      on:click={() => (activeFilter = 'threads')}
-    >
-      Threads
-    </button>
-    <button class:active={activeFilter === 'events'} class="filter" type="button" on:click={() => (activeFilter = 'events')}>
-      Events
-    </button>
-  </div>
+  <section class="toolbar-card">
+    <div class="controls-row">
+      <select aria-label="Filter public feed" bind:value={activeFilter}>
+        <option value="all">All items</option>
+        <option value="projects">Projects</option>
+        <option value="threads">Threads</option>
+        <option value="events">Events</option>
+      </select>
 
-  <div class="controls-row">
-    <label class="control-field">
-      <span>Sort by</span>
-      <select bind:value={activeSort}>
+      <select aria-label="Sort public feed by" bind:value={activeSort}>
         <option value="popular">Most popular</option>
         <option value="recent">Most recent</option>
       </select>
-    </label>
 
-    <label class="control-field">
-      <span>Window</span>
-      <select bind:value={activeWindow}>
+      <select aria-label="Public feed time window" bind:value={activeWindow}>
         <option value="12h">Last 12 hours</option>
         <option value="1d">1 day</option>
         <option value="7d">7 days</option>
@@ -124,8 +102,8 @@
         <option value="1y">1 year</option>
         <option value="all">All time</option>
       </select>
-    </label>
-  </div>
+    </div>
+  </section>
 
   <div class="stack">
     {#if visibleItems.length === 0}
@@ -154,54 +132,24 @@
     gap: 0;
   }
 
-  .filters {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+  .toolbar-card {
+    padding: 16px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
   }
 
   .controls-row {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  .control-field {
     display: grid;
-    gap: 6px;
-    min-width: min(220px, 100%);
+    grid-template-columns: repeat(3, minmax(150px, 184px));
+    gap: 8px;
+    justify-content: start;
   }
 
-  .control-field span {
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .filter {
-    padding: 8px 10px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-    font-size: 13px;
-    font-weight: 700;
-    transition:
-      border-color 120ms ease,
-      background-color 120ms ease,
-      color 120ms ease;
-  }
-
-  .filter:hover {
-    border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand-soft) 72%, var(--panel-strong));
-    color: var(--brand-strong);
-  }
-
-  .active {
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-    border-color: transparent;
+  .controls-row select {
+    min-width: 0;
+    height: 38px;
+    padding: 0 12px;
   }
 
   .empty-card {
@@ -213,5 +161,12 @@
 
   .empty-card p {
     color: var(--text-soft);
+  }
+
+  @media (max-width: 760px) {
+    .controls-row {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+      width: 100%;
+    }
   }
 </style>

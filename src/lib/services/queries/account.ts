@@ -1,4 +1,4 @@
-import type { SettingsUpdateInput } from '$lib/types/account';
+import type { SettingsUpdateInput, SignInInput, SignUpInput } from '$lib/types/account';
 import { currentAdapter } from '$lib/services/adapters';
 
 export function getOnboarding() {
@@ -7,6 +7,18 @@ export function getOnboarding() {
 
 export function getSettings() {
   return currentAdapter.getSettings();
+}
+
+export function signIn(input: SignInInput) {
+  return currentAdapter.signIn(input);
+}
+
+export function signOut() {
+  return currentAdapter.signOut();
+}
+
+export function signUp(input: SignUpInput) {
+  return currentAdapter.signUp(input);
 }
 
 export function updateSettings(input: SettingsUpdateInput) {

@@ -1,8 +1,8 @@
 <script lang="ts">
-  import ScopePage from '$lib/features/scopes/ScopePage.svelte';
+  import ChannelPage from '$lib/features/channels/ChannelPage.svelte';
   import type { PageData } from './$types';
 
   export let data: PageData;
 </script>
 
-<ScopePage scope={data.scope} />
+<ChannelPage scope={data.scope} />

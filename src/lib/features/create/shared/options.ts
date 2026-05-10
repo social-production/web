@@ -7,6 +7,7 @@ export interface SelectOption {
 }
 
 export const channelOptions: SelectOption[] = [
+  { slug: 'platform', label: 'Platform' },
   { slug: 'housing-build', label: 'Housing & Build' },
   { slug: 'mutual-aid', label: 'Mutual Aid' },
   { slug: 'energy-retrofit', label: 'Energy Retrofit' }
