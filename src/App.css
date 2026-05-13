@@ -132,6 +132,21 @@ select {
   font: inherit;
 }
 
+a[href],
+button:not(:disabled),
+summary,
+[role='button'],
+[role='tab'],
+select,
+input[type='checkbox'],
+input[type='radio'] {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 input,
 textarea,
 select {

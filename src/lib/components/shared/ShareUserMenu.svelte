@@ -19,9 +19,9 @@
   let feedback = '';
 
   $: normalizedQuery = query.trim().toLowerCase();
-  $: filteredContacts = contacts
-    .filter((contact) => contact.username.toLowerCase().includes(normalizedQuery))
-    .slice(0, 6);
+  $: filteredContacts = normalizedQuery
+    ? contacts.filter((contact) => contact.username.toLowerCase().includes(normalizedQuery)).slice(0, 6)
+    : [];
 
   async function handleSubmit() {
     const username = query.trim();

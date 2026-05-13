@@ -59,6 +59,19 @@
   <a class="title" href={item.href}>{item.title}</a>
   <p class="body">{item.body}</p>
 
+  {#if item.subjectKind === 'project' && item.subjectFundProgress}
+    <div class="fund-progress-card">
+      <div class="fund-progress-copy">
+        <strong>{item.subjectFundProgress.title}</strong>
+        <span>{item.subjectFundProgress.raisedLabel} raised · target {item.subjectFundProgress.targetLabel}</span>
+        <strong>{item.subjectFundProgress.progressPercent}%</strong>
+      </div>
+      <div class="progress-rail">
+        <div class="progress-fill" style={`width: ${item.subjectFundProgress.progressPercent}%`}></div>
+      </div>
+    </div>
+  {/if}
+
   <div class="footer">
     <div class="engagement-row">
       <VoteStrip activeVote={item.activeVote} count={item.voteCount} on:vote={handleVote} />
@@ -114,6 +127,38 @@
     margin-top: 10px;
     font-size: 16px;
     font-weight: 800;
+  }
+
+  .fund-progress-card {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+  }
+
+  .fund-progress-copy {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .progress-rail {
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--panel-border) 74%, var(--panel));
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--brand) 0%, color-mix(in srgb, var(--brand) 65%, white) 100%);
   }
 
   .body {

@@ -28,9 +28,9 @@
   }
 
   async function handleCreatePostFromEvent() {
-    const mention = `[${data.title}](/events/${data.slug})`;
+    const mention = `[${data.title}]`;
     const params = new URLSearchParams({
-      prefill: `Sharing context from ${mention}: `
+      prefill: `Sharing context from ${mention}`
     });
     await goto(`/create/post?${params.toString()}`);
   }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/stores';
   import type { BootstrapPayload } from '$lib/types/bootstrap';
 
   export let bootstrap: BootstrapPayload;
@@ -18,6 +19,7 @@
   const railDescriptions = {
     create: 'Start a new production, service, or discussion surface.',
     collective: 'Shared governance and common platform work.',
+    assets: 'Land stewardship, storage services, and collective funds under platform governance.',
     channels: 'Topic-based discovery across projects, threads, and events.',
     communities: 'Social coordination spaces around shared work.'
   };
@@ -54,12 +56,23 @@
     <p class="section-subtitle">{railDescriptions.collective}</p>
     <div class="stack-links">
       <a
-        class:active-link={isActive(bootstrap.directory.platform.href)}
+        class:active-link={$page.url.pathname === bootstrap.directory.platform.href}
         class="rail-link"
         href={bootstrap.directory.platform.href}
         on:click={closePanels}
       >
         {bootstrap.directory.platform.label}
+      </a>
+      <a
+        class:active-link={$page.url.pathname === '/platform/assets' || $page.url.pathname.startsWith('/platform/assets/')}
+        class="rail-link"
+        href="/platform/assets"
+        on:click={closePanels}
+      >
+        <span>Assets</span>
+        <span class={`feature-pill ${bootstrap.featureFlags.assets ? 'open' : 'closed'}`}>
+          {bootstrap.featureFlags.assets ? 'Open' : 'Closed'}
+        </span>
       </a>
     </div>
   </section>
@@ -111,6 +124,7 @@
     color: var(--text-soft);
     font-size: 13px;
     font-weight: 700;
+    cursor: pointer;
   }
 
   .close-rail:hover {
@@ -145,7 +159,7 @@
     display: inline-flex;
     gap: 8px;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: space-between;
     width: 100%;
     padding: 8px 10px;
     border-radius: var(--radius-sm);
@@ -154,7 +168,12 @@
     font-weight: 700;
     white-space: nowrap;
     background: transparent;
+    cursor: pointer;
     transition: background-color 0.18s ease, color 0.18s ease;
+  }
+
+  .create-link {
+    justify-content: flex-start;
   }
 
   .rail-link:hover,
@@ -175,5 +194,23 @@
     font-size: 13px;
     font-weight: 800;
     line-height: 1;
+  }
+
+  .feature-pill {
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .feature-pill.open {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .feature-pill.closed {
+    background: color-mix(in srgb, var(--accent-warm) 18%, transparent);
+    color: var(--accent-warm-strong);
   }
 </style>

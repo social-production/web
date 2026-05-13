@@ -1,12 +1,15 @@
 import { currentAdapter } from '$lib/services/adapters';
 import type {
   ProjectActivityInput,
+  ProjectServiceHistoryCompletionRole,
   ProjectApprovalVote,
   ProjectDistributionPlanInput,
   ProjectImportanceVoteValue,
   ProjectLifecyclePhaseId,
   ProjectProductionPlanInput,
   ProjectServiceRequestInput,
+  ProjectServiceRequestPlanInput,
+  ProjectServiceRequestSettingsChangeInput,
   ProjectServiceRequestStatus
 } from '$lib/types/detail';
 
@@ -93,12 +96,59 @@ export function addProjectServiceRequest(projectSlug: string, input: ProjectServ
   return currentAdapter.addProjectServiceRequest(projectSlug, input);
 }
 
+export function planProjectServiceRequest(
+  projectSlug: string,
+  requestId: string,
+  input: ProjectServiceRequestPlanInput
+) {
+  return currentAdapter.planProjectServiceRequest(projectSlug, requestId, input);
+}
+
 export function setProjectServiceRequestStatus(
   projectSlug: string,
   requestId: string,
   status: ProjectServiceRequestStatus
 ) {
   return currentAdapter.setProjectServiceRequestStatus(projectSlug, requestId, status);
+}
+
+export function requestProjectServiceRequestSettingsChange(
+  projectSlug: string,
+  input: ProjectServiceRequestSettingsChangeInput
+) {
+  return currentAdapter.requestProjectServiceRequestSettingsChange(projectSlug, input);
+}
+
+export function setProjectServiceRequestSettingsChangeVote(
+  projectSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setProjectServiceRequestSettingsChangeVote(projectSlug, requestId, vote);
+}
+
+export function toggleProjectServiceHistoryCompletion(
+  projectSlug: string,
+  historyId: string,
+  role: ProjectServiceHistoryCompletionRole
+) {
+  return currentAdapter.toggleProjectServiceHistoryCompletion(projectSlug, historyId, role);
+}
+
+export function requestProjectPhaseChange(
+  projectSlug: string,
+  targetPhaseId: ProjectLifecyclePhaseId,
+  reason: string
+) {
+  return currentAdapter.requestProjectPhaseChange(projectSlug, targetPhaseId, reason);
+}
+
+export function setProjectPhaseChangeVote(
+  projectSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setProjectPhaseChangeVote(projectSlug, requestId, vote);
 }
 
 export function advanceProjectPhase(projectSlug: string, closeNote?: string) {

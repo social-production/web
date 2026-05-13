@@ -1,4 +1,4 @@
-import type { ProjectMode, TagRef, VoteDirection } from '$lib/types/feed';
+import type { PostBodyLink, ProjectMode, TagRef, VoteDirection } from '$lib/types/feed';
 
 export interface DetailUpdate {
   id: string;
@@ -48,8 +48,10 @@ export type ProjectLifecycleProgressState = 'complete' | 'current' | 'upcoming' 
 
 export type ProjectImportanceVoteValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export type ProjectApprovalVote = 'yes' | 'no';
-export type ProjectServiceRequestStatus = 'open' | 'accepted' | 'declined';
+export type ProjectServiceRequestStatus = 'open' | 'planned' | 'accepted' | 'declined';
 export type ProjectServiceRequestMode = 'calendar' | 'direct' | 'both';
+export type ProjectServiceHistorySource = 'request' | 'self-planned';
+export type ProjectServiceHistoryCompletionRole = 'requester' | 'participants';
 
 export interface ShareTargetResult {
   ok: boolean;
@@ -84,6 +86,11 @@ export interface ProjectPlanVoteSummary {
   approvalPercent: number;
   activeVote: ProjectApprovalVote | null;
   meetsQuorum: boolean;
+  eligibleVoterCount: number;
+  quorumThresholdPercent: number;
+  votesRequired: number;
+  votesRemaining: number;
+  remainingEligibleVotes: number;
 }
 
 export interface ProjectPlanValueAssessment extends ProjectPlanVoteSummary {
@@ -192,6 +199,24 @@ export interface ProjectActivityItem {
   isActive: boolean;
 }
 
+export interface ProjectServiceHistoryCompletionState {
+  label: string;
+  totalEligible: number;
+  doneCount: number;
+  viewerCanToggle: boolean;
+  viewerHasMarkedDone: boolean;
+}
+
+export interface ProjectServiceHistoryItem {
+  id: string;
+  source: ProjectServiceHistorySource;
+  requestId: string | null;
+  requesterUsername: string | null;
+  activity: ProjectActivityItem;
+  requesterCompletion: ProjectServiceHistoryCompletionState | null;
+  participantCompletion: ProjectServiceHistoryCompletionState;
+}
+
 export interface ProjectActivityPlanPhaseOption {
   id: string;
   label: string;
@@ -204,6 +229,28 @@ export interface ProjectServiceRequestInput {
   endsAt?: string;
 }
 
+export interface ProjectServiceRequestPlanInput {
+  title: string;
+  locationLabel: string;
+  roleRequirements: ProjectActivityRoleInput[];
+  linkedPlanPhaseId?: string | null;
+  note: string;
+}
+
+export interface ProjectServiceRequestSettings {
+  enabled: boolean;
+  requestMode: ProjectServiceRequestMode;
+  allowOffScheduleRequests: boolean;
+  summary: string;
+}
+
+export interface ProjectServiceRequestSettingsChangeInput {
+  reason: string;
+  enabled: boolean;
+  requestMode: ProjectServiceRequestMode;
+  allowOffScheduleRequests: boolean;
+}
+
 export interface ProjectServiceRequestItem {
   id: string;
   title: string;
@@ -213,6 +260,19 @@ export interface ProjectServiceRequestItem {
   status: ProjectServiceRequestStatus;
   scheduledAt?: string;
   endsAt?: string;
+  linkedActivityId?: string | null;
+}
+
+export interface ProjectServiceRequestSettingsChangeRequest {
+  id: string;
+  reason: string;
+  authorUsername: string;
+  createdAt: string;
+  proposedSettings: ProjectServiceRequestSettings;
+  approvalThresholdPercent: number;
+  voteSummary: ProjectPlanVoteSummary;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
 }
 
 export interface ProjectLifecycleRevertEntry {
@@ -221,6 +281,20 @@ export interface ProjectLifecycleRevertEntry {
   reason: string;
   authorUsername: string;
   createdAt: string;
+}
+
+export interface ProjectLifecyclePhaseChangeRequest {
+  id: string;
+  targetPhaseId: ProjectLifecyclePhaseId;
+  targetPhaseLabel: string;
+  reason: string;
+  authorUsername: string;
+  createdAt: string;
+  kind: 'advance' | 'return' | 'close';
+  approvalThresholdPercent: number;
+  voteSummary: ProjectPlanVoteSummary;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
 }
 
 export interface ProjectPhaseOneData {
@@ -250,6 +324,7 @@ export interface ProjectPhaseThreeData {
 
 export interface ProjectPhaseFiveData {
   activities: ProjectActivityItem[];
+  history: ProjectServiceHistoryItem[];
   viewerCanCreateActivities: boolean;
   selectablePlanPhases: ProjectActivityPlanPhaseOption[];
 }
@@ -260,7 +335,11 @@ export interface ProjectServiceRequestState {
   requests: ProjectServiceRequestItem[];
   viewerCanSubmitRequests: boolean;
   viewerCanReviewRequests: boolean;
+  viewerCanRequestSettingsChanges: boolean;
+  viewerCanVoteOnSettingsChanges: boolean;
   requiresSchedule: boolean;
+  settings: ProjectServiceRequestSettings;
+  settingsChangeRequests: ProjectServiceRequestSettingsChangeRequest[];
 }
 
 export interface PersonalServiceLifecycleData {
@@ -296,6 +375,9 @@ export interface ProjectLifecycleData {
   quorumThresholdPercent: number;
   notes: ProjectLifecycleNote[];
   phases: ProjectLifecyclePhase[];
+  viewerCanRequestPhaseChanges: boolean;
+  viewerCanVoteOnPhaseChanges: boolean;
+  phaseChangeRequests: ProjectLifecyclePhaseChangeRequest[];
   viewerCanAdvancePhase: boolean;
   nextPhaseId: ProjectLifecyclePhaseId | null;
   nextPhaseLabel: string | null;
@@ -364,6 +446,7 @@ export interface PostPageData {
   id: string;
   authorUsername: string;
   body: string;
+  linkedSubjects?: PostBodyLink[];
   audience: 'followers' | 'public';
   voteCount: number;
   activeVote: VoteDirection;

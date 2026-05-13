@@ -2,14 +2,22 @@
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import type { ProjectActivityItem } from '$lib/types/detail';
 
+  type CalendarInteractionAnchor = {
+    clientX: number;
+    clientY: number;
+  };
+
   export let activities: ProjectActivityItem[] = [];
   export let selectedDayIso = '';
   export let selectedActivityId = '';
   export let canCreate = false;
   export let createActive = false;
-  export let daySelect: (isoDay: string) => void = () => {};
-  export let activitySelect: (activityId: string) => void = () => {};
-  export let createAction: () => void = () => {};
+  export let createLabel = '';
+  export let createSubtitle = '';
+  export let createAriaLabel = 'Add activity';
+  export let daySelect: (isoDay: string, anchor?: CalendarInteractionAnchor) => void = () => {};
+  export let activitySelect: (activityId: string, anchor?: CalendarInteractionAnchor) => void = () => {};
+  export let createAction: (anchor?: CalendarInteractionAnchor) => void | Promise<void> = () => {};
 
   type DayCell = {
     isoDay: string;
@@ -220,6 +228,47 @@
   });
 
   $: calendarDays = buildCalendarDays(activities, visibleMonthStart);
+
+  function elementAnchor(element: HTMLElement): CalendarInteractionAnchor {
+    const rect = element.getBoundingClientRect();
+
+    return {
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2
+    };
+  }
+
+  function eventAnchor(event: MouseEvent, element: HTMLElement): CalendarInteractionAnchor {
+    if (event.clientX || event.clientY) {
+      return {
+        clientX: event.clientX,
+        clientY: event.clientY
+      };
+    }
+
+    return elementAnchor(element);
+  }
+
+  function isPastDay(isoDay: string) {
+    const date = dateFromValue(isoDay);
+
+    if (!date) {
+      return false;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return date.getTime() < today.getTime();
+  }
+
+  function handleDaySelect(isoDay: string, anchor: CalendarInteractionAnchor) {
+    if (isPastDay(isoDay)) {
+      return;
+    }
+
+    daySelect(isoDay, anchor);
+  }
 </script>
 
 <div class="calendar-shell surface-card">
@@ -246,21 +295,24 @@
     {#each calendarDays as day (day.isoDay)}
       <div
         class:muted-day={!day.isCurrentMonth}
+        class:past-day={isPastDay(day.isoDay)}
         class:hovered-day={hoveredDayIso === day.isoDay}
         class:selected-day={selectedDayIso.startsWith(day.isoDay)}
         class="calendar-cell"
         role="button"
-        tabindex="0"
+        tabindex={isPastDay(day.isoDay) ? -1 : 0}
+        aria-disabled={isPastDay(day.isoDay)}
         on:mouseenter={() => (hoveredDayIso = day.isoDay)}
         on:mouseleave={() => (hoveredDayIso = '')}
         on:focus={() => (hoveredDayIso = day.isoDay)}
         on:blur={() => (hoveredDayIso = '')}
         on:touchstart={() => (hoveredDayIso = day.isoDay)}
-        on:click={() => daySelect(day.isoDay)}
+        on:click={(event) =>
+          handleDaySelect(day.isoDay, eventAnchor(event, event.currentTarget as HTMLElement))}
         on:keydown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            daySelect(day.isoDay);
+            handleDaySelect(day.isoDay, elementAnchor(event.currentTarget as HTMLElement));
           }
         }}
       >
@@ -277,7 +329,8 @@
               on:mouseleave={() => (hoveredActivityId = '')}
               on:focus={() => (hoveredActivityId = item.id)}
               on:blur={() => (hoveredActivityId = '')}
-              on:click|stopPropagation={() => activitySelect(item.id)}
+              on:click|stopPropagation={(event) =>
+                activitySelect(item.id, eventAnchor(event, event.currentTarget as HTMLElement))}
             >
               <span class="band-label band-start">{item.startTimeLabel}</span>
               {#if item.showTitle}
@@ -294,7 +347,21 @@
 
 {#if canCreate}
   <div class="create-row">
-    <RoundPlusButton action={createAction} active={createActive} ariaLabel="Add activity" />
+    {#if createLabel || createSubtitle}
+      <div class="create-row-copy">
+        {#if createLabel}
+          <strong>{createLabel}</strong>
+        {/if}
+        {#if createSubtitle}
+          <span>{createSubtitle}</span>
+        {/if}
+      </div>
+    {/if}
+    <RoundPlusButton
+      action={(event) => createAction(event ? eventAnchor(event, event.currentTarget as HTMLElement) : undefined)}
+      active={createActive}
+      ariaLabel={createAriaLabel}
+    />
   </div>
 {/if}
 
@@ -307,6 +374,32 @@
     display: grid;
     gap: 8px;
     overflow-x: auto;
+  }
+
+  .create-row,
+  .create-row-copy {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .create-row {
+    justify-content: space-between;
+  }
+
+  .create-row-copy {
+    flex-wrap: wrap;
+  }
+
+  .create-row-copy strong {
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .create-row-copy span {
+    color: var(--text-soft);
+    font-size: 12px;
   }
 
   .calendar-toolbar {
@@ -386,6 +479,19 @@
 
   .muted-day {
     opacity: 0.45;
+  }
+
+  .past-day {
+    cursor: default;
+    opacity: 0.32;
+  }
+
+  .past-day:hover,
+  .past-day:focus-visible,
+  .past-day:active {
+    border-color: var(--panel-border);
+    background: var(--panel);
+    box-shadow: none;
   }
 
   .calendar-day-number {

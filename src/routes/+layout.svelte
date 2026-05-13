@@ -19,7 +19,7 @@
   });
 
   $: if (browser) {
-    document.body.dataset.theme = data.settings?.appearanceThemeMode ?? 'dark';
+    document.body.dataset.theme = data.settings?.appearanceThemeMode ?? 'light';
     document.body.dataset.shellMode = detectShellMode();
   }
 </script>

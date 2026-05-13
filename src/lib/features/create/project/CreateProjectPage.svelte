@@ -29,7 +29,6 @@
   let primaryChannel = '';
   let additionalChannels = '';
   let taggedCommunities = '';
-  let notes = '';
   let serviceRequestMode: 'calendar' | 'direct' | 'both' = 'both';
   let statusMessage = '';
   let platformBoardMemberIds: string[] = [];
@@ -106,7 +105,6 @@
         projectMode: selectedType,
         channelTags: projectPreview.channelTags,
         communityTags: projectPreview.communityTags,
-        note: notes,
         serviceRequestMode
       });
 
@@ -222,13 +220,7 @@
             {/each}
           </datalist>
         </label>
-
-        {#if selectedType === 'productive'}
-          <label>
-            <span class="field-label">Demand-signalling note</span>
-            <textarea bind:value={notes} rows="4"></textarea>
-          </label>
-        {:else}
+        {#if selectedType !== 'productive'}
           {#if isPersonalServiceProject(selectedType)}
             <div class="section-block">
               <span class="field-label">Service request mode</span>
@@ -269,7 +261,6 @@
               </div>
             </div>
           {/if}
-
         {/if}
 
         <div class="button-row">

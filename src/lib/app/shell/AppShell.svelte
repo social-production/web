@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import brandIcon from '$lib/assets/brand/app-icon-no-background-full-white.png';
+  import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import LeftRailPanel from '$lib/features/left-rail/LeftRailPanel.svelte';
   import RightRailPanel from '$lib/features/right-rail/RightRailPanel.svelte';
   import { onMount } from 'svelte';
@@ -174,7 +175,7 @@
         >
           Notifications
           {#if bootstrap.unreadCounts.notifications > 0}
-            <span>{bootstrap.unreadCounts.notifications}</span>
+            <CountBadge count={bootstrap.unreadCounts.notifications} />
           {/if}
         </a>
         <a
@@ -184,7 +185,7 @@
         >
           Messages
           {#if bootstrap.unreadCounts.messages > 0}
-            <span>{bootstrap.unreadCounts.messages}</span>
+            <CountBadge count={bootstrap.unreadCounts.messages} />
           {/if}
         </a>
       </nav>
@@ -402,17 +403,6 @@
   .utility-link:hover {
     background: var(--brand-soft);
     color: var(--brand-strong);
-  }
-
-  .nav-link span {
-    min-width: 18px;
-    padding: 1px 6px;
-    border-radius: var(--radius-sm);
-    background: var(--brand-badge);
-    color: var(--brand-strong);
-    text-align: center;
-    font-size: 11.5px;
-    font-weight: 700;
   }
 
   .utility-nav {

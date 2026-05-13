@@ -12,6 +12,7 @@ import type {
   EventPageData,
   PostPageData,
   ProjectActivityInput,
+  ProjectServiceHistoryCompletionRole,
   ProjectApprovalVote,
   ProjectDistributionPlanInput,
   ProjectImportanceVoteValue,
@@ -19,10 +20,13 @@ import type {
   ProjectPageData,
   ProjectProductionPlanInput,
   ProjectServiceRequestInput,
+  ProjectServiceRequestPlanInput,
+  ProjectServiceRequestSettingsChangeInput,
   ShareTargetResult,
   ProjectServiceRequestStatus,
   ThreadPageData
 } from '$lib/types/detail';
+import type { PlatformAssetsPageData } from '$lib/types/assets';
 import type {
   CreateGroupMessageInput,
   MessageConversationResult,
@@ -52,6 +56,7 @@ export interface AppAdapter {
   getChannel(slug: string): Promise<ScopePageData | null>;
   getCommunity(slug: string): Promise<ScopePageData | null>;
   getPlatform(): Promise<ScopePageData | null>;
+  getPlatformAssets(): Promise<PlatformAssetsPageData | null>;
   getOnboarding(): Promise<OnboardingPageData>;
   signIn(input: SignInInput): Promise<AuthResult>;
   signOut(): Promise<void>;
@@ -103,10 +108,39 @@ export interface AppAdapter {
     roleLabel: string | null
   ): Promise<void>;
   addProjectServiceRequest(projectSlug: string, input: ProjectServiceRequestInput): Promise<void>;
+  planProjectServiceRequest(
+    projectSlug: string,
+    requestId: string,
+    input: ProjectServiceRequestPlanInput
+  ): Promise<void>;
   setProjectServiceRequestStatus(
     projectSlug: string,
     requestId: string,
     status: ProjectServiceRequestStatus
+  ): Promise<void>;
+  requestProjectServiceRequestSettingsChange(
+    projectSlug: string,
+    input: ProjectServiceRequestSettingsChangeInput
+  ): Promise<void>;
+  setProjectServiceRequestSettingsChangeVote(
+    projectSlug: string,
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  toggleProjectServiceHistoryCompletion(
+    projectSlug: string,
+    historyId: string,
+    role: ProjectServiceHistoryCompletionRole
+  ): Promise<void>;
+  requestProjectPhaseChange(
+    projectSlug: string,
+    targetPhaseId: ProjectLifecyclePhaseId,
+    reason: string
+  ): Promise<void>;
+  setProjectPhaseChangeVote(
+    projectSlug: string,
+    requestId: string,
+    vote: ProjectApprovalVote | null
   ): Promise<void>;
   advanceProjectPhase(projectSlug: string, closeNote?: string): Promise<void>;
   revertProjectPhase(

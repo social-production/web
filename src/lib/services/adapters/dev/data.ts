@@ -11,6 +11,7 @@ import type {
   ScopeDirectoryItem,
   ViewerSummary
 } from '$lib/types/bootstrap';
+import type { PlatformAssetsPageData } from '$lib/types/assets';
 import type {
   AuthResult,
   OnboardingPageData,
@@ -27,6 +28,8 @@ import type {
   EventPageData,
   PostPageData,
   ProjectActivityPlanPhaseOption,
+  ProjectServiceHistoryCompletionRole,
+  ProjectServiceHistoryItem,
   ProjectActivityItem,
   ProjectActivityInput,
   ProjectApprovalVote,
@@ -34,6 +37,7 @@ import type {
   ProjectDistributionPlanInput,
   ProjectImportanceVoteValue,
   ProjectLifecycleData,
+  ProjectLifecyclePhaseChangeRequest,
   ProjectLifecyclePhase,
   ProjectLifecyclePhaseId,
   ProjectLifecycleRevertEntry,
@@ -46,6 +50,11 @@ import type {
   ProjectRoleMember,
   ProjectServiceRequestInput,
   ProjectServiceRequestItem,
+  ProjectServiceRequestMode,
+  ProjectServiceRequestPlanInput,
+  ProjectServiceRequestSettings,
+  ProjectServiceRequestSettingsChangeInput,
+  ProjectServiceRequestSettingsChangeRequest,
   ProjectServiceRequestStatus,
   ShareTargetResult,
   ProjectValueItem,
@@ -68,6 +77,7 @@ import type {
   CreateProjectInput,
   CreateResult,
   CreateThreadInput,
+  PostBodyLink,
   ProjectMode,
   PersonalFeedItem,
   PersonalPostItem,
@@ -78,6 +88,7 @@ import type {
   TagRef,
   VoteDirection
 } from '$lib/types/feed';
+import { canProjectVoteStillPass } from '$lib/utils/projectVotes';
 import type { SearchPageData, SearchResultItem } from '$lib/types/search';
 import type {
   ScopeKind,
@@ -254,6 +265,166 @@ const communityDirectory: ScopeDirectoryItem[] = [
   }
 ];
 
+const platformAssetsFixture: PlatformAssetsPageData = {
+  featureOpen: false,
+  intro:
+    'Assets stays under the platform because land, storage, and collective funds need public stewardship before they become live means of production in common.',
+  landAssets: [
+    {
+      id: 'land-tool-library-campus',
+      slug: 'tool-library-campus',
+      title: 'Tool Library Campus Lot',
+      locationLabel: 'North side tool library block',
+      acreageLabel: '0.7 acres',
+      stewardshipNote:
+        'This land record groups the workshop building, open repair yard, and adjacent storage area under one stewardship record so collective services can attach cleanly.',
+      managementProjects: [
+        {
+          id: 'asset-project-tool-library-land-stewardship',
+          title: 'Tool Library Land Stewardship Service',
+          projectMode: 'collective-service',
+          relationshipLabel: 'Primary land management',
+          statusLabel: 'Preview seed',
+          summary:
+            'Collective stewardship work for maintenance windows, access rules, and shared site upgrades tied to the tool library land asset.',
+          href: null
+        }
+      ],
+      storageProjects: [
+        {
+          id: 'asset-project-tool-library-storage',
+          title: 'Tool Library Storage Facility Service',
+          projectMode: 'collective-service',
+          relationshipLabel: 'Storage facility on site',
+          statusLabel: 'Preview seed',
+          summary:
+            'Collective storage service for intake shelves, overflow bins, and shared material custody on the campus lot.',
+          href: null
+        }
+      ],
+      linkedProjects: [
+        {
+          id: 'project-repair-cafe',
+          title: 'Repair Cafe Shift Grid',
+          projectMode: 'collective-service',
+          relationshipLabel: 'Uses workshop floor on this land',
+          statusLabel: 'Existing project',
+          summary:
+            'Active repair-cafe shifts depend on the workshop floor and shared intake area attached to this land asset.',
+          href: '/projects/repair-cafe-shift-grid'
+        },
+        {
+          id: 'project-childcare-checkin-desk',
+          title: 'Childcare Check-in Desk Service',
+          projectMode: 'collective-service',
+          relationshipLabel: 'Uses front room on this land',
+          statusLabel: 'Existing project',
+          summary:
+            'The current childcare check-in desk depends on front-room access within this same site.',
+          href: '/projects/childcare-checkin-desk-service'
+        }
+      ]
+    },
+    {
+      id: 'land-east-market-commons',
+      slug: 'east-market-commons',
+      title: 'East Market Commons Lot',
+      locationLabel: 'East Market retrofit and pickup cluster',
+      acreageLabel: '1.3 acres',
+      stewardshipNote:
+        'This lot ties together retrofit staging space, a future shared cold-storage pad, and pickup lanes that multiple neighborhood services already depend on.',
+      managementProjects: [
+        {
+          id: 'asset-project-east-market-land-stewardship',
+          title: 'East Market Land Stewardship Service',
+          projectMode: 'collective-service',
+          relationshipLabel: 'Primary land management',
+          statusLabel: 'Preview seed',
+          summary:
+            'Collective stewardship for maintenance, scheduling, and site-use agreements across the East Market land record.',
+          href: null
+        }
+      ],
+      storageProjects: [
+        {
+          id: 'asset-project-east-market-cold-storage',
+          title: 'East Market Cold Storage Service',
+          projectMode: 'collective-service',
+          relationshipLabel: 'Storage facility on site',
+          statusLabel: 'Preview seed',
+          summary:
+            'Cold-storage stewardship service for shared food custody and reserve handling on the commons lot.',
+          href: null
+        },
+        {
+          id: 'asset-project-east-market-material-shed',
+          title: 'Retrofit Materials Shed Service',
+          projectMode: 'collective-service',
+          relationshipLabel: 'Storage facility on site',
+          statusLabel: 'Preview seed',
+          summary:
+            'Shared storage service for retrofit materials, staging tables, and neighborhood build inventory on the lot.',
+          href: null
+        }
+      ],
+      linkedProjects: [
+        {
+          id: 'project-ride-coordination-land-link',
+          title: 'Neighborhood Ride Coordination Service',
+          projectMode: 'collective-service',
+          relationshipLabel: 'Uses pickup lane and dispatch table on this land',
+          statusLabel: 'Existing project',
+          summary:
+            'The active ride desk uses the pickup lane and visible dispatch area attached to the commons lot.',
+          href: '/projects/neighborhood-ride-coordination-service'
+        },
+        {
+          id: 'project-air-sealing-land-link',
+          title: 'Hallway Air-Sealing Build Day',
+          projectMode: 'productive',
+          relationshipLabel: 'Uses retrofit staging area on this land',
+          statusLabel: 'Existing project',
+          summary:
+            'The active build-day staging tables and materials layout sit on this commons lot once acquisition closes.',
+          href: '/projects/hallway-air-sealing-build-day'
+        }
+      ]
+    }
+  ],
+  funds: [
+    {
+      id: 'fund-east-market-cold-storage',
+      slug: 'east-market-cold-storage-fund',
+      title: 'East Market Cold Storage Fund',
+      summary:
+        'Collective fund round to secure shared cold-storage equipment and convert it into a nonprofit-held commons asset for the East Market lot.',
+      progressPercent: 62,
+      raisedLabel: '$18,600',
+      targetLabel: '$30,000',
+      status: 'active',
+      executionNote:
+        'Board members will eventually execute the real purchase with the nonprofit bank account, then convert the asset into the registry once the acquisition surface opens.',
+      linkedAssetTitles: ['East Market Commons Lot'],
+      projectHref: '/projects/east-market-cold-storage-acquisition-round'
+    },
+    {
+      id: 'fund-tool-library-shed-conversion',
+      slug: 'tool-library-shed-conversion-fund',
+      title: 'Tool Library Storage Shed Conversion Fund',
+      summary:
+        'Completed fund round for converting an existing outbuilding into shared intake and overflow storage under collective stewardship.',
+      progressPercent: 100,
+      raisedLabel: '$12,400',
+      targetLabel: '$12,400',
+      status: 'completed',
+      executionNote:
+        'Funds are complete, but board members still need to execute the purchase and convert the resulting storage asset into the platform registry.',
+      linkedAssetTitles: ['Tool Library Campus Lot'],
+      projectHref: '/projects/tool-library-shed-conversion-round'
+    }
+  ]
+};
+
 type DynamicScopePageMeta = {
   description: string;
   note?: string;
@@ -277,7 +448,7 @@ function createDefaultSettingsState(
   return {
     profileUsername: viewer.username,
     profileBio: viewer.bio ?? '',
-    appearanceThemeMode: 'dark',
+    appearanceThemeMode: 'light',
     defaultFeed: 'public',
     hidePublicActivityFromPersonalFeeds: false,
     hidePersonalFeedFromNonFollowers: false,
@@ -583,6 +754,50 @@ const publicFeedBase: PublicFeedItem[] = [
   },
   {
     kind: 'project',
+    id: 'project-east-market-cold-storage-acquisition',
+    slug: 'east-market-cold-storage-acquisition-round',
+    href: '/projects/east-market-cold-storage-acquisition-round',
+    createdAt: '2026-04-30T15:15:00Z',
+    title: 'East Market Cold Storage Acquisition Round',
+    authorUsername: 'rowanloop',
+    projectMode: 'collective-service',
+    summary:
+      'A collective-service acquisition round that already settled its operating path and is now pooling contributions for shared cold-storage equipment on the East Market lot.',
+    channelTags: [mutualAid],
+    communityTags: [eastMarket],
+    stage: 'Acquisition',
+    locationLabel: 'East Market cold-storage pad',
+    voteCount: 34,
+    activeVote: 1,
+    signalCount: 49,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T20:10:00Z'
+  },
+  {
+    kind: 'project',
+    id: 'project-tool-library-shed-conversion-acquisition',
+    slug: 'tool-library-shed-conversion-round',
+    href: '/projects/tool-library-shed-conversion-round',
+    createdAt: '2026-04-30T15:40:00Z',
+    title: 'Tool Library Shed Conversion Acquisition Round',
+    authorUsername: 'toolorbit',
+    projectMode: 'collective-service',
+    summary:
+      'A collective-service acquisition round that is converting an existing outbuilding into shared intake and overflow storage before the service shifts can open.',
+    channelTags: [mutualAid],
+    communityTags: [toolLibrary],
+    stage: 'Acquisition',
+    locationLabel: 'Tool Library campus outbuilding',
+    voteCount: 29,
+    activeVote: 1,
+    signalCount: 41,
+    commentCount: 0,
+    memberCount: 0,
+    lastActivityAt: '2026-04-30T20:25:00Z'
+  },
+  {
+    kind: 'project',
     id: 'project-repair-cafe',
     slug: 'repair-cafe-shift-grid',
     href: '/projects/repair-cafe-shift-grid',
@@ -843,6 +1058,8 @@ const projectMembersBySlug: Record<string, string[]> = {
   'neighborhood-heat-pump-pilot': ['viewer-1', 'user-rowan', 'user-mika'],
   'platform-release-governance-round': ['user-mika', 'user-ember'],
   'community-fridge-restock-route': ['viewer-1', 'user-rowan', 'user-tool'],
+  'east-market-cold-storage-acquisition-round': ['viewer-1', 'user-rowan', 'user-mika'],
+  'tool-library-shed-conversion-round': ['viewer-1', 'user-tool', 'user-rowan'],
   'repair-cafe-shift-grid': ['viewer-1', 'user-tool', 'user-rowan', 'user-mika'],
   'neighborhood-ride-coordination-service': ['viewer-1', 'user-rowan', 'user-ember'],
   'childcare-checkin-desk-service': ['viewer-1', 'user-tool', 'user-rowan'],
@@ -921,6 +1138,16 @@ const projectManagersBySlug: Record<string, RoleConfig> = {
   },
   'community-fridge-restock-route': {
     managerIds: ['user-rowan'],
+    candidateIds: [],
+    confidenceTargetIdsByUserId: {}
+  },
+  'east-market-cold-storage-acquisition-round': {
+    managerIds: ['user-rowan'],
+    candidateIds: [],
+    confidenceTargetIdsByUserId: {}
+  },
+  'tool-library-shed-conversion-round': {
+    managerIds: ['user-tool'],
     candidateIds: [],
     confidenceTargetIdsByUserId: {}
   },
@@ -1342,6 +1569,72 @@ const projectLifecycleBySlug: Record<string, ProjectLifecycleConfig> = {
       }
     }
   },
+  'east-market-cold-storage-acquisition-round': {
+    currentPhaseId: 'phase-4',
+    phases: {
+      'phase-1': {
+        progressState: 'complete',
+        projectStatus:
+          'The service already established demand and shared values around common cold storage before planning opened.'
+      },
+      'phase-2': {
+        progressState: 'complete',
+        projectStatus:
+          'The operating plan is settled, including the equipment footprint and stewardship roles needed once the storage service goes live.'
+      },
+      'phase-3': {
+        progressState: 'complete',
+        projectStatus:
+          'Access rules for shared storage use are approved, so the project can now focus on acquisition and conversion.'
+      },
+      'phase-4': {
+        betaLocked: true,
+        projectStatus:
+          'This preview round is actively pooling contributions and vendor quotes so the cold-storage equipment can be purchased and converted into the East Market asset registry at the close of acquisition.'
+      },
+      'phase-5': {
+        projectStatus:
+          'Once acquisition closes and the equipment is converted into the registry, managers can schedule the first stewardship and handoff shifts.'
+      },
+      'phase-6': {
+        projectStatus:
+          'The project can close after the first operating cycle or convert into an ongoing shared storage service.'
+      }
+    }
+  },
+  'tool-library-shed-conversion-round': {
+    currentPhaseId: 'phase-4',
+    phases: {
+      'phase-1': {
+        progressState: 'complete',
+        projectStatus:
+          'Demand and shared values are already clear for a dedicated intake and overflow storage shed on the campus lot.'
+      },
+      'phase-2': {
+        progressState: 'complete',
+        projectStatus:
+          'The conversion plan is approved, including the intake shelving, power work, and stewardship roles the storage service will need.'
+      },
+      'phase-3': {
+        progressState: 'complete',
+        projectStatus:
+          'Access and reserve rules are approved, so the round can move into acquisition and contractor coordination.'
+      },
+      'phase-4': {
+        betaLocked: true,
+        projectStatus:
+          'This preview round is already funded and now waits on board execution, contractor booking, and conversion into the Tool Library asset registry before activity can start.'
+      },
+      'phase-5': {
+        projectStatus:
+          'Once the shed is converted into a registered shared asset, managers can open concrete intake and overflow service shifts.'
+      },
+      'phase-6': {
+        projectStatus:
+          'The project can close after the first operating cycle or convert into a standing storage service.'
+      }
+    }
+  },
   'repair-cafe-shift-grid': {
     currentPhaseId: 'phase-5',
     phases: {
@@ -1722,6 +2015,27 @@ type RawProjectServiceRequest = {
   status: ProjectServiceRequestStatus;
   scheduledAt?: string;
   endsAt?: string;
+  linkedActivityId?: string | null;
+};
+
+type RawProjectRequestSystemSettings = {
+  enabled: boolean;
+  requestMode: ProjectServiceRequestMode;
+  allowOffScheduleRequests: boolean;
+};
+
+type RawProjectServiceRequestSettingsChangeRequest = {
+  id: string;
+  reason: string;
+  authorUsername: string;
+  createdAt: string;
+  proposedSettings: RawProjectRequestSystemSettings;
+  votesByUserId: Record<string, ProjectApprovalVote>;
+};
+
+type RawProjectServiceHistoryCompletion = {
+  requesterDoneByUsernames?: string[];
+  participantDoneByUsernames: string[];
 };
 
 type RawProjectRevertEntry = {
@@ -1730,6 +2044,15 @@ type RawProjectRevertEntry = {
   reason: string;
   authorUsername: string;
   createdAt: string;
+};
+
+type RawProjectPhaseChangeRequest = {
+  id: string;
+  targetPhaseId: ProjectLifecyclePhaseId;
+  reason: string;
+  authorUsername: string;
+  createdAt: string;
+  votesByUserId: Record<string, ProjectApprovalVote>;
 };
 
 type RawProjectActivity = {
@@ -1741,6 +2064,7 @@ type RawProjectActivity = {
   locationLabel: string;
   minimumParticipants: number;
   linkedPlanPhaseId?: string | null;
+  linkedRequestId?: string | null;
   roles: Array<{
     label: string;
     requiredCount: number;
@@ -1758,7 +2082,12 @@ type ProjectWorkflowState = {
   phaseThreePlans: RawDistributionPlan[];
   phaseFiveActivities: RawProjectActivity[];
   serviceRequests?: RawProjectServiceRequest[];
+  requestSystemEnabled?: boolean;
+  requestSystemOverride?: RawProjectRequestSystemSettings;
+  requestSettingsChangeRequests?: RawProjectServiceRequestSettingsChangeRequest[];
+  serviceHistoryCompletions?: Record<string, RawProjectServiceHistoryCompletion>;
   revertHistory?: RawProjectRevertEntry[];
+  phaseChangeRequests?: RawProjectPhaseChangeRequest[];
   availabilitySummary?: string;
   travelRadiusLabel?: string;
   serviceRequestMode?: 'calendar' | 'direct' | 'both';
@@ -1776,6 +2105,8 @@ const importanceVoteLabels: Record<ProjectImportanceVoteValue, string> = {
   9: 'Near required',
   10: 'Required'
 };
+
+const phaseChangeApprovalThresholdPercent = 70;
 
 function normalizeLegacyImportanceVote(vote: ProjectImportanceVoteValue) {
   switch (vote) {
@@ -2006,6 +2337,184 @@ const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
             'viewer-1': 'yes',
             'user-rowan': 'yes',
             'user-tool': 'no'
+          }
+        }
+      }
+    ],
+    phaseFiveActivities: []
+  },
+  'east-market-cold-storage-acquisition-round': {
+    signalCount: 49,
+    signalUserIds: ['viewer-1', 'user-rowan', 'user-mika'],
+    values: [
+      {
+        id: 'value-east-market-cold-storage-1',
+        label: 'Keep shared cold storage publicly stewarded so reserve handling stays accountable.',
+        authorUsername: 'rowanloop',
+        votesByUserId: {
+          'viewer-1': 4,
+          'user-rowan': 4,
+          'user-mika': 4
+        }
+      },
+      {
+        id: 'value-east-market-cold-storage-2',
+        label: 'Make the acquisition handoff legible before the equipment becomes a common asset.',
+        authorUsername: 'mika',
+        votesByUserId: {
+          'viewer-1': 4,
+          'user-rowan': 3,
+          'user-mika': 4
+        }
+      }
+    ],
+    phaseTwoPlans: [
+      {
+        id: 'production-plan-east-market-cold-storage-1',
+        title: 'Shared walk-in cooler plus intake rail',
+        authorUsername: 'rowanloop',
+        createdAt: '2026-04-30T15:20:00Z',
+        outputSummary:
+          'Install one shared cold-storage unit with a visible intake rail and steward rotation for reserve handling.',
+        materialsSummary:
+          'Needs the cooler unit, intake shelving, one monitoring station, and steward setup time.',
+        totalCostLabel: '$30,000 target',
+        acquisitionsSummary: 'Depends on the acquisition round closing and the equipment being executed through the nonprofit account.',
+        overallVotesByUserId: {
+          'viewer-1': 'yes',
+          'user-rowan': 'yes',
+          'user-mika': 'yes'
+        },
+        valueVotesByValueId: {
+          'value-east-market-cold-storage-1': {
+            'viewer-1': 'yes',
+            'user-rowan': 'yes',
+            'user-mika': 'yes'
+          },
+          'value-east-market-cold-storage-2': {
+            'viewer-1': 'yes',
+            'user-rowan': 'yes',
+            'user-mika': 'yes'
+          }
+        }
+      }
+    ],
+    phaseThreePlans: [
+      {
+        id: 'distribution-plan-east-market-cold-storage-1',
+        title: 'Stewarded reserve windows',
+        authorUsername: 'mika',
+        createdAt: '2026-04-30T15:35:00Z',
+        distributionSummary:
+          'Open stewarded reserve windows first, then release overflow storage time once the day reserve is set.',
+        accessSummary:
+          'Shared storage stays visible and stewarded, with reserve handling logged before overflow use opens wider.',
+        reserveSummary: 'Keep one reserve shelf zone for urgent food preservation and accessibility needs.',
+        requestSystemEnabled: false,
+        overallVotesByUserId: {
+          'viewer-1': 'yes',
+          'user-rowan': 'yes',
+          'user-mika': 'yes'
+        },
+        valueVotesByValueId: {
+          'value-east-market-cold-storage-1': {
+            'viewer-1': 'yes',
+            'user-rowan': 'yes',
+            'user-mika': 'yes'
+          },
+          'value-east-market-cold-storage-2': {
+            'viewer-1': 'yes',
+            'user-rowan': 'yes',
+            'user-mika': 'yes'
+          }
+        }
+      }
+    ],
+    phaseFiveActivities: []
+  },
+  'tool-library-shed-conversion-round': {
+    signalCount: 41,
+    signalUserIds: ['viewer-1', 'user-tool', 'user-rowan'],
+    values: [
+      {
+        id: 'value-tool-library-shed-1',
+        label: 'Keep intake and overflow storage visible enough that members can tell what is entering common custody.',
+        authorUsername: 'toolorbit',
+        votesByUserId: {
+          'viewer-1': 4,
+          'user-tool': 4,
+          'user-rowan': 4
+        }
+      },
+      {
+        id: 'value-tool-library-shed-2',
+        label: 'Finish the acquisition handoff before any storage shifts are scheduled against the site.',
+        authorUsername: 'rowanloop',
+        votesByUserId: {
+          'viewer-1': 4,
+          'user-tool': 4,
+          'user-rowan': 3
+        }
+      }
+    ],
+    phaseTwoPlans: [
+      {
+        id: 'production-plan-tool-library-shed-1',
+        title: 'Convert the campus outbuilding into intake storage',
+        authorUsername: 'toolorbit',
+        createdAt: '2026-04-30T15:45:00Z',
+        outputSummary:
+          'Convert the existing outbuilding into a shared intake and overflow shed with labeled custody zones.',
+        materialsSummary:
+          'Needs shelving, lighting, electrical work, and lockable intake handoff points.',
+        totalCostLabel: '$12,400 raised',
+        acquisitionsSummary: 'Funding is complete and now waits on board execution plus contractor coordination.',
+        overallVotesByUserId: {
+          'viewer-1': 'yes',
+          'user-tool': 'yes',
+          'user-rowan': 'yes'
+        },
+        valueVotesByValueId: {
+          'value-tool-library-shed-1': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          },
+          'value-tool-library-shed-2': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          }
+        }
+      }
+    ],
+    phaseThreePlans: [
+      {
+        id: 'distribution-plan-tool-library-shed-1',
+        title: 'Stewarded intake windows',
+        authorUsername: 'rowanloop',
+        createdAt: '2026-04-30T15:58:00Z',
+        distributionSummary:
+          'Use stewarded intake windows and tagged overflow bins so stored materials never lose custody clarity.',
+        accessSummary:
+          'Shared storage opens through visible stewarded windows first, with overflow retrieval handled in tagged pickup windows.',
+        reserveSummary: 'Keep one locked reserve shelf for urgent replacements and accessibility equipment.',
+        requestSystemEnabled: false,
+        overallVotesByUserId: {
+          'viewer-1': 'yes',
+          'user-tool': 'yes',
+          'user-rowan': 'yes'
+        },
+        valueVotesByValueId: {
+          'value-tool-library-shed-1': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          },
+          'value-tool-library-shed-2': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
           }
         }
       }
@@ -2931,7 +3440,12 @@ function buildProjectVoteSummary(
   const noCount = votes.filter((vote) => vote === 'no').length;
   const totalVotes = yesCount + noCount;
   const approvalPercent = totalVotes === 0 ? 0 : Math.round((yesCount / totalVotes) * 100);
-  const participationPercent = memberCount <= 0 ? 0 : Math.round((totalVotes / memberCount) * 100);
+  const votesRequired =
+    memberCount <= 0
+      ? 0
+      : Math.min(memberCount, Math.max(1, Math.ceil((memberCount * quorumThresholdPercent) / 100)));
+  const votesRemaining = Math.max(votesRequired - totalVotes, 0);
+  const remainingEligibleVotes = Math.max(memberCount - totalVotes, 0);
 
   return {
     yesCount,
@@ -2939,8 +3453,344 @@ function buildProjectVoteSummary(
     totalVotes,
     approvalPercent,
     activeVote: viewer ? votesByUserId[viewer.id] ?? null : null,
-    meetsQuorum: totalVotes > 0 && participationPercent >= quorumThresholdPercent
+    meetsQuorum: votesRequired > 0 && totalVotes >= votesRequired,
+    eligibleVoterCount: memberCount,
+    quorumThresholdPercent,
+    votesRequired,
+    votesRemaining,
+    remainingEligibleVotes
   };
+}
+
+function thresholdVoteCanStillPass(
+  voteSummary: ProjectPlanVoteSummary,
+  approvalThresholdPercent: number
+) {
+  return canProjectVoteStillPass(voteSummary, approvalThresholdPercent);
+}
+
+function phaseChangePassesApprovalThreshold(voteSummary: ProjectPlanVoteSummary) {
+  return voteSummary.approvalPercent >= phaseChangeApprovalThresholdPercent;
+}
+
+function buildProjectPhaseChangeRequests(
+  slug: string,
+  projectMode: ProjectMode,
+  currentPhaseId: ProjectLifecyclePhaseId,
+  phaseBlueprints: Array<Pick<ProjectLifecyclePhase, 'id' | 'order' | 'title'>>,
+  quorumThresholdPercent: number,
+  memberCount: number
+) {
+  const workflow = readProjectWorkflowState(slug);
+  const currentPhaseOrder =
+    phaseBlueprints.find((phase) => phase.id === currentPhaseId)?.order ?? 1;
+
+  if (!workflow) {
+    return [] as ProjectLifecyclePhaseChangeRequest[];
+  }
+
+  return (workflow.phaseChangeRequests ?? [])
+    .map((request) => {
+      const voteSummary = buildProjectVoteSummary(
+        request.votesByUserId,
+        quorumThresholdPercent,
+        memberCount
+      );
+      const targetPhase = phaseBlueprints.find((phase) => phase.id === request.targetPhaseId);
+      const targetOrder = targetPhase?.order ?? currentPhaseOrder;
+      const kind =
+        request.targetPhaseId === closePhaseIdForProject(projectMode) && targetOrder > currentPhaseOrder
+          ? 'close'
+          : targetOrder > currentPhaseOrder
+            ? 'advance'
+            : 'return';
+
+      return {
+        id: request.id,
+        targetPhaseId: request.targetPhaseId,
+        targetPhaseLabel: targetPhase?.title ?? request.targetPhaseId,
+        reason: request.reason,
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        kind,
+        approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+        voteSummary,
+        passesApprovalThreshold: phaseChangePassesApprovalThreshold(voteSummary),
+        canStillPass: thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)
+      } satisfies ProjectLifecyclePhaseChangeRequest;
+    })
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
+function uniqueUsernames(usernames: string[]) {
+  return Array.from(new Set(usernames.filter(Boolean)));
+}
+
+function rawProjectActivityEndTime(activity: RawProjectActivity) {
+  const activityStart = new Date(activity.scheduledAt).getTime();
+
+  return activity.endsAt
+    ? new Date(activity.endsAt).getTime()
+    : activityStart + 60 * 60 * 1000;
+}
+
+function rawProjectActivityEndAt(activity: RawProjectActivity) {
+  return new Date(rawProjectActivityEndTime(activity)).toISOString();
+}
+
+function projectServiceHistoryIdForActivity(activity: RawProjectActivity) {
+  return activity.linkedRequestId ? `request:${activity.linkedRequestId}` : `activity:${activity.id}`;
+}
+
+function projectServiceHistoryIdForRequest(requestId: string) {
+  return `request:${requestId}`;
+}
+
+function buildProjectActivityItemFromRaw(
+  activity: RawProjectActivity,
+  planPhaseLabelById: Map<string, string>,
+  viewerUsername: string | null
+) {
+  const minimumParticipants = activity.roles.reduce(
+    (total, role) => total + role.requiredCount,
+    0
+  );
+  const normalizedMaximumCounts = activity.roles.map((role) =>
+    role.maximumCount != null ? Math.max(role.maximumCount, role.requiredCount) : undefined
+  );
+  const maximumParticipants = normalizedMaximumCounts.every((count) => count != null)
+    ? normalizedMaximumCounts.reduce((total, count) => total + (count ?? 0), 0)
+    : undefined;
+  const startAt = activity.scheduledAt;
+  const endAt = rawProjectActivityEndAt(activity);
+  const viewerAssignedRoleLabel =
+    activity.roles.find((role) => viewerUsername && role.assignedUsernames.includes(viewerUsername))?.label ??
+    null;
+  const roles = activity.roles.map((role) => ({
+    label: role.label,
+    filledCount: role.assignedUsernames.length,
+    requiredCount: role.requiredCount,
+    maximumCount:
+      role.maximumCount != null ? Math.max(role.maximumCount, role.requiredCount) : undefined,
+    isViewerAssigned: !!viewerUsername && role.assignedUsernames.includes(viewerUsername)
+  }));
+  const committedCount = uniqueUsernames(activity.roles.flatMap((role) => role.assignedUsernames)).length;
+  const statusTone =
+    committedCount >= minimumParticipants ? 'green' : committedCount > 1 ? 'yellow' : 'red';
+
+  return {
+    id: activity.id,
+    title: activity.title,
+    authorUsername: activity.authorUsername,
+    scheduledAt: startAt,
+    startAt,
+    endAt,
+    locationLabel: activity.locationLabel,
+    minimumParticipants,
+    maximumParticipants,
+    committedCount,
+    viewerAssignedRoleLabel,
+    linkedPlanPhaseLabel: activity.linkedPlanPhaseId
+      ? planPhaseLabelById.get(activity.linkedPlanPhaseId) ?? null
+      : null,
+    statusTone,
+    roles,
+    note: activity.note,
+    isActive: rawProjectActivityIsActive(activity)
+  } satisfies ProjectActivityItem;
+}
+
+function buildProjectActivityItemFromAcceptedRequest(
+  request: RawProjectServiceRequest,
+  project: PublicProjectItem,
+  viewerUsername: string | null
+) {
+  const startAt = request.scheduledAt ?? request.createdAt;
+  const endAt =
+    request.endsAt ??
+    new Date(new Date(startAt).getTime() + 60 * 60 * 1000).toISOString();
+  const viewerIsAssigned = viewerUsername === project.authorUsername;
+
+  return {
+    id: `accepted-service-${request.id}`,
+    title: request.title,
+    authorUsername: project.authorUsername,
+    scheduledAt: startAt,
+    startAt,
+    endAt,
+    locationLabel: project.locationLabel,
+    minimumParticipants: 1,
+    maximumParticipants: 1,
+    committedCount: 1,
+    viewerAssignedRoleLabel: viewerIsAssigned ? 'Service lead' : null,
+    linkedPlanPhaseLabel: null,
+    statusTone: 'green' as const,
+    roles: [
+      {
+        label: 'Service lead',
+        filledCount: 1,
+        requiredCount: 1,
+        maximumCount: 1,
+        isViewerAssigned: viewerIsAssigned
+      }
+    ],
+    note: request.body,
+    isActive: true
+  } satisfies ProjectActivityItem;
+}
+
+function buildServiceHistoryCompletionState(
+  label: string,
+  eligibleUsernames: string[],
+  completedUsernames: string[],
+  viewerUsername: string | null
+) {
+  const eligible = uniqueUsernames(eligibleUsernames);
+  const completed = uniqueUsernames(completedUsernames).filter((username) => eligible.includes(username));
+
+  return {
+    label,
+    totalEligible: eligible.length,
+    doneCount: completed.length,
+    viewerCanToggle: !!viewerUsername && eligible.includes(viewerUsername),
+    viewerHasMarkedDone: !!viewerUsername && completed.includes(viewerUsername)
+  };
+}
+
+function canViewerSeePersonalServiceRequestHistory(
+  slug: string,
+  request: RawProjectServiceRequest
+) {
+  const viewer = currentViewer();
+
+  return !!viewer && (isProjectCreator(slug, viewer.id) || viewer.username === request.requesterUsername);
+}
+
+function baseProjectRequestSettingsForProject(
+  slug: string,
+  projectMode: ProjectMode,
+  phaseThree?: { plans: ProjectDistributionPlan[]; winningPlanId: string | null }
+) {
+  const workflow = readProjectWorkflowState(slug);
+
+  if (projectMode === 'personal-service') {
+    const requestMode = workflow?.serviceRequestMode ?? 'calendar';
+
+    return {
+      enabled: workflow?.requestSystemEnabled ?? true,
+      requestMode,
+      allowOffScheduleRequests: requestMode === 'both'
+    } satisfies RawProjectRequestSystemSettings;
+  }
+
+  if (projectMode !== 'collective-service') {
+    return {
+      enabled: false,
+      requestMode: 'calendar',
+      allowOffScheduleRequests: false
+    } satisfies RawProjectRequestSystemSettings;
+  }
+
+  const memberCount = (projectMembersBySlug[slug] ?? []).length;
+  const resolvedPhaseThree =
+    phaseThree ??
+    buildDistributionPlans(
+      slug,
+      buildProjectValues(slug),
+      calculateProjectQuorumThreshold(memberCount),
+      memberCount
+    );
+  const activeAccessPlan = resolvedPhaseThree.plans.find(
+    (plan) => plan.id === resolvedPhaseThree.winningPlanId
+  );
+
+  return {
+    enabled: activeAccessPlan?.requestSystemEnabled ?? false,
+    requestMode: activeAccessPlan?.requestMode ?? 'both',
+    allowOffScheduleRequests: activeAccessPlan?.allowOffScheduleRequests ?? false
+  } satisfies RawProjectRequestSystemSettings;
+}
+
+function resolvedProjectRequestSettingsForProject(
+  slug: string,
+  projectMode: ProjectMode,
+  phaseThree?: { plans: ProjectDistributionPlan[]; winningPlanId: string | null }
+) {
+  const workflow = readProjectWorkflowState(slug);
+  const baseSettings = baseProjectRequestSettingsForProject(slug, projectMode, phaseThree);
+  const override = workflow?.requestSystemOverride;
+
+  if (!override) {
+    return baseSettings;
+  }
+
+  return {
+    enabled: override.enabled,
+    requestMode: override.requestMode,
+    allowOffScheduleRequests:
+      projectMode === 'personal-service'
+        ? override.requestMode === 'both'
+        : override.allowOffScheduleRequests
+  } satisfies RawProjectRequestSystemSettings;
+}
+
+function projectRequestSettingsSummary(
+  projectMode: ProjectMode,
+  settings: RawProjectRequestSystemSettings
+) {
+  if (!settings.enabled) {
+    return 'Requests are currently turned off.';
+  }
+
+  if (projectMode === 'personal-service') {
+    switch (settings.requestMode) {
+      case 'direct':
+        return 'Requests are direct only.';
+      case 'both':
+        return 'Requests can use listed availability or direct written intake.';
+      default:
+        return 'Requests can only use the creator\'s listed availability.';
+    }
+  }
+
+  switch (settings.requestMode) {
+    case 'direct':
+      return 'Requests are direct only.';
+    case 'both':
+      return settings.allowOffScheduleRequests
+        ? 'Requests can use listed activity windows or be made off-schedule.'
+        : 'Requests can be written, but they still need an existing activity window.';
+    default:
+      return 'Requests can only use already scheduled activity windows.';
+  }
+}
+
+function buildProjectRequestSettings(
+  slug: string,
+  projectMode: ProjectMode,
+  phaseThree?: { plans: ProjectDistributionPlan[]; winningPlanId: string | null }
+) {
+  const settings = resolvedProjectRequestSettingsForProject(slug, projectMode, phaseThree);
+
+  return {
+    ...settings,
+    summary: projectRequestSettingsSummary(projectMode, settings)
+  } satisfies ProjectServiceRequestSettings;
+}
+
+function projectRequestSettingsSignature(settings: RawProjectRequestSystemSettings) {
+  return [
+    settings.enabled ? 'enabled' : 'disabled',
+    settings.requestMode,
+    settings.allowOffScheduleRequests ? 'off-schedule' : 'scheduled-only'
+  ].join(':');
+}
+
+function projectRequestSettingsMatch(
+  left: RawProjectRequestSystemSettings,
+  right: RawProjectRequestSystemSettings
+) {
+  return projectRequestSettingsSignature(left) === projectRequestSettingsSignature(right);
 }
 
 function buildProjectValues(slug: string): ProjectValueItem[] {
@@ -3119,158 +3969,247 @@ function buildSelectableActivityPlanPhases(
   ] satisfies ProjectActivityPlanPhaseOption[];
 }
 
-function buildProjectActivities(slug: string, selectablePlanPhases: ProjectActivityPlanPhaseOption[]) {
-  const workflow = readProjectWorkflowState(slug);
-  const viewer = currentViewer();
-  const planPhaseLabelById = new Map(selectablePlanPhases.map((option) => [option.id, option.label]));
+function buildProjectServiceHistoryItemFromActivity(
+  activity: RawProjectActivity,
+  workflow: ProjectWorkflowState,
+  planPhaseLabelById: Map<string, string>,
+  viewerUsername: string | null
+) {
+  const linkedRequest = activity.linkedRequestId
+    ? (workflow.serviceRequests ?? []).find((request) => request.id === activity.linkedRequestId) ?? null
+    : null;
+  const completionId = projectServiceHistoryIdForActivity(activity);
+  const completion = workflow.serviceHistoryCompletions?.[completionId] ?? {
+    requesterDoneByUsernames: [],
+    participantDoneByUsernames: []
+  };
+  const participantUsernames = uniqueUsernames(
+    activity.roles.flatMap((role) => role.assignedUsernames)
+  );
 
-  if (!workflow) {
-    return [] as ProjectActivityItem[];
+  return {
+    id: completionId,
+    source: linkedRequest ? 'request' : 'self-planned',
+    requestId: linkedRequest?.id ?? null,
+    requesterUsername: linkedRequest?.requesterUsername ?? null,
+    activity: buildProjectActivityItemFromRaw(activity, planPhaseLabelById, viewerUsername),
+    requesterCompletion: linkedRequest
+      ? buildServiceHistoryCompletionState(
+          'Requester completion',
+          [linkedRequest.requesterUsername],
+          completion.requesterDoneByUsernames ?? [],
+          viewerUsername
+        )
+      : null,
+    participantCompletion: buildServiceHistoryCompletionState(
+      linkedRequest ? 'Service completion' : 'Participant completion',
+      participantUsernames,
+      completion.participantDoneByUsernames,
+      viewerUsername
+    )
+  } satisfies ProjectServiceHistoryItem;
+}
+
+function buildProjectServiceHistoryItemFromAcceptedRequest(
+  request: RawProjectServiceRequest,
+  workflow: ProjectWorkflowState,
+  project: PublicProjectItem,
+  viewerUsername: string | null
+) {
+  const completionId = projectServiceHistoryIdForRequest(request.id);
+  const completion = workflow.serviceHistoryCompletions?.[completionId] ?? {
+    requesterDoneByUsernames: [],
+    participantDoneByUsernames: []
+  };
+
+  return {
+    id: completionId,
+    source: 'request',
+    requestId: request.id,
+    requesterUsername: request.requesterUsername,
+    activity: buildProjectActivityItemFromAcceptedRequest(request, project, viewerUsername),
+    requesterCompletion: buildServiceHistoryCompletionState(
+      'Requester completion',
+      [request.requesterUsername],
+      completion.requesterDoneByUsernames ?? [],
+      viewerUsername
+    ),
+    participantCompletion: buildServiceHistoryCompletionState(
+      'Service completion',
+      [project.authorUsername],
+      completion.participantDoneByUsernames,
+      viewerUsername
+    )
+  } satisfies ProjectServiceHistoryItem;
+}
+
+function buildProjectPhaseFiveState(
+  slug: string,
+  projectMode: ProjectMode,
+  selectablePlanPhases: ProjectActivityPlanPhaseOption[]
+) {
+  const workflow = readProjectWorkflowState(slug);
+  const viewerUsername = currentViewer()?.username ?? null;
+  const planPhaseLabelById = new Map(selectablePlanPhases.map((option) => [option.id, option.label]));
+  const project = publicFeedBase.find(
+    (item): item is PublicProjectItem => item.kind === 'project' && item.slug === slug
+  );
+
+  if (!workflow || !project) {
+    return {
+      activities: [] as ProjectActivityItem[],
+      history: [] as ProjectServiceHistoryItem[]
+    };
   }
 
+  const now = Date.now();
   const scheduledActivities = [...workflow.phaseFiveActivities]
     .sort(
       (left, right) =>
         new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
     )
-    .map((activity) => {
-    const minimumParticipants = activity.roles.reduce(
-      (total, role) => total + role.requiredCount,
-      0
+    .map((activity) => ({
+      activity,
+      item: buildProjectActivityItemFromRaw(activity, planPhaseLabelById, viewerUsername)
+    }));
+
+  const liveActivities = scheduledActivities
+    .filter(({ activity }) => rawProjectActivityEndTime(activity) >= now)
+    .map(({ item }) => item);
+  const history = scheduledActivities
+    .filter(({ activity }) => rawProjectActivityEndTime(activity) < now)
+    .map(({ activity }) =>
+      buildProjectServiceHistoryItemFromActivity(
+        activity,
+        workflow,
+        planPhaseLabelById,
+        viewerUsername
+      )
     );
-    const normalizedMaximumCounts = activity.roles.map((role) =>
-      role.maximumCount != null ? Math.max(role.maximumCount, role.requiredCount) : undefined
-    );
-    const maximumParticipants = normalizedMaximumCounts.every((count) => count != null)
-      ? normalizedMaximumCounts.reduce((total, count) => total + (count ?? 0), 0)
-      : undefined;
-    const startAt = activity.scheduledAt;
-    const endAt =
-      activity.endsAt ??
-      new Date(new Date(activity.scheduledAt).getTime() + 60 * 60 * 1000).toISOString();
-    const viewerAssignedRoleLabel =
-      activity.roles.find((role) => viewer && role.assignedUsernames.includes(viewer.username))?.label ?? null;
-    const roles = activity.roles.map((role) => ({
-        label: role.label,
-        filledCount: role.assignedUsernames.length,
-        requiredCount: role.requiredCount,
-        maximumCount:
-          role.maximumCount != null ? Math.max(role.maximumCount, role.requiredCount) : undefined,
-        isViewerAssigned: !!viewer && role.assignedUsernames.includes(viewer.username)
-      }));
-    const committedCount = Array.from(
-      new Set(activity.roles.flatMap((role) => role.assignedUsernames))
-    ).length;
-    const statusTone =
-      committedCount >= minimumParticipants ? 'green' : committedCount > 1 ? 'yellow' : 'red';
 
-    return {
-      id: activity.id,
-      title: activity.title,
-      authorUsername: activity.authorUsername,
-      scheduledAt: startAt,
-      startAt,
-      endAt,
-      locationLabel: activity.locationLabel,
-      minimumParticipants,
-      maximumParticipants,
-      committedCount,
-      viewerAssignedRoleLabel,
-      linkedPlanPhaseLabel: activity.linkedPlanPhaseId
-        ? planPhaseLabelById.get(activity.linkedPlanPhaseId) ?? null
-        : null,
-      statusTone,
-      roles,
-      note: activity.note,
-      isActive: committedCount >= minimumParticipants && roles.every((role) => role.filledCount >= role.requiredCount)
-    } satisfies ProjectActivityItem;
-    });
+  if (projectMode === 'personal-service') {
+    for (const request of workflow.serviceRequests ?? []) {
+      if (
+        request.status !== 'accepted' ||
+        request.linkedActivityId ||
+        !canViewerSeePersonalServiceRequestHistory(slug, request)
+      ) {
+        continue;
+      }
 
-  const project = publicFeedBase.find(
-    (item): item is PublicProjectItem => item.kind === 'project' && item.slug === slug
-  );
+      const activityItem = buildProjectActivityItemFromAcceptedRequest(request, project, viewerUsername);
 
-  if (
-    !viewer ||
-    !project ||
-    project.projectMode !== 'personal-service' ||
-    !isProjectCreator(slug, viewer.id) ||
-    !personalServiceUsesCalendar(slug)
-  ) {
-    return scheduledActivities;
+      if (new Date(activityItem.endAt).getTime() < now) {
+        history.push(
+          buildProjectServiceHistoryItemFromAcceptedRequest(
+            request,
+            workflow,
+            project,
+            viewerUsername
+          )
+        );
+      } else {
+        liveActivities.push(activityItem);
+      }
+    }
   }
 
-  const acceptedServiceActivities = (workflow.serviceRequests ?? [])
-    .filter((request) => request.status === 'accepted' && !!request.scheduledAt && !!request.endsAt)
-    .map((request) => ({
-      id: `accepted-service-${request.id}`,
-      title: request.title,
-      authorUsername: project.authorUsername,
-      scheduledAt: request.scheduledAt ?? '',
-      startAt: request.scheduledAt ?? '',
-      endAt: request.endsAt ?? '',
-      locationLabel: project.locationLabel,
-      minimumParticipants: 1,
-      maximumParticipants: 1,
-      committedCount: 1,
-      viewerAssignedRoleLabel: 'Service lead',
-      linkedPlanPhaseLabel: null,
-      statusTone: 'green' as const,
-      roles: [
-        {
-          label: 'Service lead',
-          filledCount: 1,
-          requiredCount: 1,
-          maximumCount: 1,
-          isViewerAssigned: true
-        }
-      ],
-      note: request.body,
-      isActive: true
-    }))
-    .sort((left, right) => new Date(left.startAt).getTime() - new Date(right.startAt).getTime());
+  return {
+    activities: liveActivities.sort(
+      (left, right) => new Date(left.startAt).getTime() - new Date(right.startAt).getTime()
+    ),
+    history: history.sort(
+      (left, right) => new Date(right.activity.endAt).getTime() - new Date(left.activity.endAt).getTime()
+    )
+  };
+}
 
-  return [...scheduledActivities, ...acceptedServiceActivities].sort(
-    (left, right) => new Date(left.startAt).getTime() - new Date(right.startAt).getTime()
-  );
+function buildProjectServiceRequestSettingsChangeRequests(
+  slug: string,
+  projectMode: ProjectMode
+) {
+  const workflow = readProjectWorkflowState(slug);
+  const eligibleVoterCount = requestSettingsEligibleVoterCount(slug, projectMode);
+  const quorumThresholdPercent = calculateProjectQuorumThreshold(eligibleVoterCount);
+
+  return [...(workflow?.requestSettingsChangeRequests ?? [])]
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .map((request) => {
+      const voteSummary = buildProjectVoteSummary(
+        request.votesByUserId,
+        quorumThresholdPercent,
+        eligibleVoterCount
+      );
+
+      return {
+        id: request.id,
+        reason: request.reason,
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        proposedSettings: {
+          ...request.proposedSettings,
+          summary: projectRequestSettingsSummary(projectMode, request.proposedSettings)
+        },
+        approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+        voteSummary,
+        passesApprovalThreshold: phaseChangePassesApprovalThreshold(voteSummary),
+        canStillPass: thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)
+      } satisfies ProjectServiceRequestSettingsChangeRequest;
+    });
 }
 
 function buildProjectServiceRequestState(
   slug: string,
-  enabled: boolean,
+  projectMode: ProjectMode,
   viewerCanSubmitRequests: boolean,
   viewerCanReviewRequests: boolean,
-  requiresSchedule: boolean
+  requiresSchedule: boolean,
+  phaseThree?: { plans: ProjectDistributionPlan[]; winningPlanId: string | null }
 ) {
   const workflow = readProjectWorkflowState(slug);
+  const settings = buildProjectRequestSettings(slug, projectMode, phaseThree);
+  const settingsChangeRequests = buildProjectServiceRequestSettingsChangeRequests(slug, projectMode);
 
   if (!workflow) {
     return {
-      enabled,
+      enabled: settings.enabled,
       requestCount: 0,
       requests: [] as ProjectServiceRequestItem[],
       viewerCanSubmitRequests,
       viewerCanReviewRequests,
-      requiresSchedule
+      viewerCanRequestSettingsChanges: canViewerRequestProjectServiceRequestSettingsChange(slug),
+      viewerCanVoteOnSettingsChanges: canViewerVoteOnProjectServiceRequestSettingsChange(slug),
+      requiresSchedule,
+      settings,
+      settingsChangeRequests
     };
   }
 
+  const liveRequests = (workflow.serviceRequests ?? []).filter(
+    (request) => resolveProjectServiceRequestStatus(request, workflow.phaseFiveActivities) === 'open'
+  );
+
   return {
-    enabled,
-    requestCount: (workflow.serviceRequests ?? []).filter((request) => request.status === 'open').length,
-    requests: (workflow.serviceRequests ?? []).map((request) => ({
+    enabled: settings.enabled,
+    requestCount: liveRequests.length,
+    requests: liveRequests.map((request) => ({
       id: request.id,
       title: request.title,
       body: request.body,
       requesterUsername: request.requesterUsername,
       createdAt: request.createdAt,
-      status: request.status,
+      status: resolveProjectServiceRequestStatus(request, workflow.phaseFiveActivities),
       scheduledAt: request.scheduledAt,
-      endsAt: request.endsAt
+      endsAt: request.endsAt,
+      linkedActivityId: request.linkedActivityId ?? null
     })),
     viewerCanSubmitRequests,
     viewerCanReviewRequests,
-    requiresSchedule
+    viewerCanRequestSettingsChanges: canViewerRequestProjectServiceRequestSettingsChange(slug),
+    viewerCanVoteOnSettingsChanges: canViewerVoteOnProjectServiceRequestSettingsChange(slug),
+    requiresSchedule,
+    settings,
+    settingsChangeRequests
   };
 }
 
@@ -3315,6 +4254,22 @@ function nextProjectPhaseId(
     default:
       return null;
   }
+}
+
+function requestableProjectPhaseTargetIds(
+  currentPhaseId: ProjectLifecyclePhaseId,
+  projectMode: ProjectMode
+) {
+  const nextPhaseId = nextProjectPhaseId(currentPhaseId, projectMode);
+
+  return [
+    ...(nextPhaseId ? [nextPhaseId] : []),
+    ...revertableProjectPhaseIds(projectMode, currentPhaseId)
+  ];
+}
+
+function phaseOrderForProjectMode(projectMode: ProjectMode, phaseId: ProjectLifecyclePhaseId) {
+  return projectLifecyclePhaseBlueprintsForMode(projectMode).find((phase) => phase.id === phaseId)?.order ?? 0;
 }
 
 function calculateProjectQuorumThreshold(memberCount: number) {
@@ -3402,6 +4357,10 @@ function buildProjectLifecycleNotes(
     {
       title: `Current quorum: ${quorumThresholdPercent}%`,
       body: `This mock rule starts at 100% for projects with 5 members or fewer and eases toward 30% as groups approach 1000 members. The project group should eventually be able to tune it.`
+      },
+      {
+        title: `Phase changes need ${phaseChangeApprovalThresholdPercent}% approval`,
+        body: 'Any project member can request a phase change, but the request only executes once quorum is met and the approval rating reaches the required threshold.'
     },
     ...(projectMode === 'collective-service'
       ? [
@@ -3475,10 +4434,13 @@ function buildProjectLifecycle(
   const activityPhaseId = activityPhaseIdForProject(projectMode);
   const activityPhaseOrder =
     phaseBlueprints.find((phase) => phase.id === activityPhaseId)?.order ?? Number.POSITIVE_INFINITY;
-  const phaseFiveActivities =
+  const phaseFiveState =
     currentPhaseOrder >= activityPhaseOrder
-      ? buildProjectActivities(slug, selectablePlanPhases)
-      : [];
+      ? buildProjectPhaseFiveState(slug, projectMode, selectablePlanPhases)
+      : {
+          activities: [] as ProjectActivityItem[],
+          history: [] as ProjectServiceHistoryItem[]
+        };
   const requestSystemEnabled = requestSystemEnabledForProject(slug, projectMode, phaseThree);
   const collectiveRequestMode =
     projectMode === 'collective-service'
@@ -3500,10 +4462,11 @@ function buildProjectLifecycle(
       ? null
       : buildProjectServiceRequestState(
           slug,
-          requestSystemEnabled,
+          projectMode,
           requestSystemEnabled && canViewerSubmitProjectServiceRequest(slug),
-          requestSystemEnabled && canViewerReviewProjectServiceRequests(slug),
-          requestRequiresSchedule
+          canViewerReviewProjectServiceRequests(slug),
+          requestRequiresSchedule,
+          phaseThree
         );
   const personalService =
     projectMode === 'personal-service'
@@ -3519,6 +4482,20 @@ function buildProjectLifecycle(
         }
       : null;
   const revertablePhaseIds = revertableProjectPhaseIds(projectMode, config.currentPhaseId);
+  const phaseChangeRequests = buildProjectPhaseChangeRequests(
+    slug,
+    projectMode,
+    config.currentPhaseId,
+    phaseBlueprints,
+    quorumThresholdPercent,
+    memberCount
+  );
+  const viewerCanRequestPhaseChanges =
+    (memberState.viewerIsMember || memberState.viewerIsProjectManager) &&
+    requestableProjectPhaseTargetIds(config.currentPhaseId, projectMode).length > 0;
+  const viewerCanVoteOnPhaseChanges =
+    memberState.viewerIsMember || memberState.viewerIsProjectManager;
+  const canAdvancePhaseNow = nextPhaseId ? canAdvanceMockProjectPhaseNow(slug, projectMode) : false;
 
   return {
     projectMode,
@@ -3532,7 +4509,10 @@ function buildProjectLifecycle(
       requestSystemEnabled,
       personalServiceRequestModeValue
     ),
-    viewerCanAdvancePhase: memberState.viewerIsProjectManager && !!nextPhaseId,
+    viewerCanRequestPhaseChanges,
+    viewerCanVoteOnPhaseChanges,
+    phaseChangeRequests,
+    viewerCanAdvancePhase: memberState.viewerIsProjectManager && !!nextPhaseId && canAdvancePhaseNow,
     nextPhaseId,
     nextPhaseLabel: nextPhaseId
       ? phaseBlueprints.find((phase) => phase.id === nextPhaseId)?.title ?? null
@@ -3565,7 +4545,8 @@ function buildProjectLifecycle(
       requestSystemEnabled
     },
     phaseFive: {
-      activities: phaseFiveActivities,
+      activities: phaseFiveState.activities,
+      history: phaseFiveState.history,
       viewerCanCreateActivities: canViewerCreateProjectActivity(slug),
       selectablePlanPhases
     },
@@ -3648,6 +4629,38 @@ const projectDetailExtras: Record<
     ],
     discussionNote:
       'Project chat stays live here so route changes, pickup questions, and volunteer coordination feel like working notes instead of forum posts.',
+    discussion: []
+  },
+  'east-market-cold-storage-acquisition-round': {
+    overview:
+      'This round is already through operations and access planning and now exists to make the acquisition handoff legible before the resulting cold-storage equipment is converted into the East Market commons asset record.',
+    updates: [
+      {
+        id: 'project-update-east-market-cold-storage-1',
+        title: 'Vendor shortlist narrowed',
+        body: 'Board review narrowed the cold-room shortlist to two vendors that can deliver within the current acquisition window.',
+        authorUsername: 'rowanloop',
+        createdAt: '2026-04-30T20:10:00Z'
+      }
+    ],
+    discussionNote:
+      'Use chat to track vendor questions, funding edge cases, and the asset-conversion handoff before the storage service opens.',
+    discussion: []
+  },
+  'tool-library-shed-conversion-round': {
+    overview:
+      'This round is already funded and now keeps the contractor handoff, board execution, and future asset conversion visible before the storage shed becomes a live registered service site.',
+    updates: [
+      {
+        id: 'project-update-tool-library-shed-1',
+        title: 'Electrical scope confirmed',
+        body: 'The conversion scope now includes one dedicated outlet run and a lockable intake shelf zone for shared storage handoff.',
+        authorUsername: 'toolorbit',
+        createdAt: '2026-04-30T20:25:00Z'
+      }
+    ],
+    discussionNote:
+      'Use chat to coordinate contractor timing, board execution, and the final asset-registry conversion checklist.',
     discussion: []
   },
   'repair-cafe-shift-grid': {
@@ -4890,6 +5903,26 @@ function readVoteTarget(id: string, fallbackCount: number, fallbackVote: VoteDir
   };
 }
 
+function projectFundProgressForSlug(slug: string) {
+  if (projectLifecycleBySlug[slug]?.currentPhaseId !== 'phase-4') {
+    return undefined;
+  }
+
+  const fund = platformAssetsFixture.funds.find((entry) => entry.projectHref === `/projects/${slug}`);
+
+  if (!fund) {
+    return undefined;
+  }
+
+  return {
+    title: fund.title,
+    progressPercent: fund.progressPercent,
+    raisedLabel: fund.raisedLabel,
+    targetLabel: fund.targetLabel,
+    status: fund.status
+  };
+}
+
 function buildPublicFeedFixture(): PublicFeedItem[] {
   return publicFeedBase.map((item) => {
     const vote = readVoteTarget(item.id, item.voteCount, item.activeVote);
@@ -4918,7 +5951,8 @@ function buildPublicFeedFixture(): PublicFeedItem[] {
         commentCount,
         signalCount: workflow?.signalCount ?? item.signalCount,
         memberCount,
-        lastActivityAt
+        lastActivityAt,
+        fundProgress: projectFundProgressForSlug(item.slug)
       } satisfies PublicProjectItem;
     }
 
@@ -4998,7 +6032,8 @@ function buildPublicActivityItem(item: PublicFeedItem): PersonalFeedItem {
     commentCount: item.commentCount,
     createdAt: isUpdated && latestUpdate ? latestUpdate.createdAt : item.createdAt,
     channelTags: item.channelTags,
-    communityTags: item.communityTags
+    communityTags: item.communityTags,
+    subjectFundProgress: item.kind === 'project' ? item.fundProgress : undefined
   };
 }
 
@@ -5062,9 +6097,34 @@ function buildSocialPostItem(post: PersonalPostItem): PersonalPostItem {
 
   return {
     ...post,
+    linkedSubjects: post.linkedSubjects ?? detectPostBodyLinks(post.body),
     voteCount: vote.voteCount,
     commentCount
   } satisfies PersonalPostItem;
+}
+
+function detectPostBodyLinks(body: string): PostBodyLink[] {
+  const normalizedBody = body.toLowerCase();
+  const seenLabels = new Set<string>();
+
+  return publicFeedBase
+    .filter((item): item is PublicProjectItem | PublicEventItem => item.kind === 'project' || item.kind === 'event')
+    .map((item) => ({
+      kind: item.kind,
+      label: item.title,
+      href: item.href
+    }))
+    .sort((left, right) => right.label.length - left.label.length)
+    .filter((link) => {
+      const key = link.label.toLowerCase();
+
+      if (seenLabels.has(key) || !normalizedBody.includes(key)) {
+        return false;
+      }
+
+      seenLabels.add(key);
+      return true;
+    });
 }
 
 function buildSocialPostsForUser(profileUserId: string) {
@@ -5954,6 +7014,10 @@ export function getPlatformScopeFixture() {
   return buildPlatformScopeFixture();
 }
 
+export function getPlatformAssetsFixture() {
+  return platformAssetsFixture;
+}
+
 export function findProfileFixture(username: string): ProfilePageData | null {
   return buildProfileFixture(username);
 }
@@ -6049,6 +7113,7 @@ export function findPostFixture(id: string): PostPageData | null {
     id: item.id,
     authorUsername: item.author.username,
     body: item.body,
+    linkedSubjects: item.linkedSubjects,
     audience: item.audience,
     voteCount: item.voteCount,
     activeVote: item.activeVote,
@@ -6279,17 +7344,46 @@ function ensureProjectWorkflowState(slug: string) {
       phaseThreePlans: [],
       phaseFiveActivities: [],
       serviceRequests: [],
-      revertHistory: []
+      requestSettingsChangeRequests: [],
+      serviceHistoryCompletions: {},
+      revertHistory: [],
+      phaseChangeRequests: []
     });
 
   workflow.serviceRequests ??= [];
+  workflow.requestSettingsChangeRequests ??= [];
+  workflow.serviceHistoryCompletions ??= {};
   workflow.revertHistory ??= [];
+  workflow.phaseChangeRequests ??= [];
 
   return workflow;
 }
 
+function canViewerRequestProjectPhaseChange(slug: string) {
+  const memberState = buildProjectMemberState(slug);
+
+  return memberState.viewerIsMember || memberState.viewerIsProjectManager;
+}
+
+function canViewerVoteOnProjectPhaseChange(slug: string) {
+  return canViewerRequestProjectPhaseChange(slug);
+}
+
 function projectModeForSlug(slug: string) {
   return findPublicProjectItem(slug)?.projectMode ?? 'productive';
+}
+
+function requestSettingsEligibleVoterCount(
+  slug: string,
+  projectMode = projectModeForSlug(slug)
+) {
+  if (projectMode === 'personal-service') {
+    return findPublicProjectItem(slug) ? 1 : 0;
+  }
+
+  const memberState = buildProjectMemberState(slug);
+
+  return memberState.projectManagers.length + memberState.members.length;
 }
 
 function requestSystemEnabledForProject(
@@ -6297,68 +7391,25 @@ function requestSystemEnabledForProject(
   projectMode: ProjectMode,
   phaseThree?: { plans: ProjectDistributionPlan[]; winningPlanId: string | null }
 ) {
-  if (projectMode === 'personal-service') {
-    return true;
-  }
-
-  if (projectMode !== 'collective-service') {
-    return false;
-  }
-
-  const memberCount = (projectMembersBySlug[slug] ?? []).length;
-  const resolvedPhaseThree =
-    phaseThree ??
-    buildDistributionPlans(
-      slug,
-      buildProjectValues(slug),
-      calculateProjectQuorumThreshold(memberCount),
-      memberCount
-    );
-  const activeAccessPlan = resolvedPhaseThree.plans.find(
-    (plan) => plan.id === resolvedPhaseThree.winningPlanId
-  );
-
-  return activeAccessPlan?.requestSystemEnabled ?? false;
+  return resolvedProjectRequestSettingsForProject(slug, projectMode, phaseThree).enabled;
 }
 
 function collectiveRequestModeForProject(
   slug: string,
   phaseThree?: { plans: ProjectDistributionPlan[]; winningPlanId: string | null }
 ) {
-  const memberCount = (projectMembersBySlug[slug] ?? []).length;
-  const resolvedPhaseThree =
-    phaseThree ??
-    buildDistributionPlans(
-      slug,
-      buildProjectValues(slug),
-      calculateProjectQuorumThreshold(memberCount),
-      memberCount
-    );
-  const activeAccessPlan = resolvedPhaseThree.plans.find(
-    (plan) => plan.id === resolvedPhaseThree.winningPlanId
-  );
-
-  return activeAccessPlan?.requestMode ?? 'both';
+  return resolvedProjectRequestSettingsForProject(slug, 'collective-service', phaseThree).requestMode;
 }
 
 function collectiveAllowOffScheduleRequestsForProject(
   slug: string,
   phaseThree?: { plans: ProjectDistributionPlan[]; winningPlanId: string | null }
 ) {
-  const memberCount = (projectMembersBySlug[slug] ?? []).length;
-  const resolvedPhaseThree =
-    phaseThree ??
-    buildDistributionPlans(
-      slug,
-      buildProjectValues(slug),
-      calculateProjectQuorumThreshold(memberCount),
-      memberCount
-    );
-  const activeAccessPlan = resolvedPhaseThree.plans.find(
-    (plan) => plan.id === resolvedPhaseThree.winningPlanId
-  );
-
-  return activeAccessPlan?.allowOffScheduleRequests ?? false;
+  return resolvedProjectRequestSettingsForProject(
+    slug,
+    'collective-service',
+    phaseThree
+  ).allowOffScheduleRequests;
 }
 
 function rawProjectPlansForPhase(
@@ -6386,6 +7437,27 @@ function canViewerEditProjectActivityCommitment(slug: string) {
   const projectMode = projectModeForSlug(slug);
 
   return !!viewer && projectLifecycleBySlug[slug]?.currentPhaseId === activityPhaseIdForProject(projectMode);
+}
+
+function canViewerRequestProjectServiceRequestSettingsChange(slug: string) {
+  const viewer = currentViewer();
+  const projectMode = projectModeForSlug(slug);
+
+  if (!viewer || projectLifecycleBySlug[slug]?.currentPhaseId !== activityPhaseIdForProject(projectMode)) {
+    return false;
+  }
+
+  if (projectMode === 'personal-service') {
+    return isProjectCreator(slug, viewer.id);
+  }
+
+  const memberState = buildProjectMemberState(slug);
+
+  return memberState.viewerIsMember || memberState.viewerIsProjectManager;
+}
+
+function canViewerVoteOnProjectServiceRequestSettingsChange(slug: string) {
+  return canViewerRequestProjectServiceRequestSettingsChange(slug);
 }
 
 function canViewerCreateProjectActivity(slug: string) {
@@ -6420,11 +7492,15 @@ function canViewerSubmitProjectServiceRequest(slug: string) {
 function canViewerReviewProjectServiceRequests(slug: string) {
   const projectMode = projectModeForSlug(slug);
 
-  if (projectMode === 'collective-service') {
-    return !!currentViewer() && requestSystemEnabledForProject(slug, projectMode);
+  if (projectLifecycleBySlug[slug]?.currentPhaseId !== activityPhaseIdForProject(projectMode)) {
+    return false;
   }
 
-  return canViewerManageProjectPhase(slug) && requestSystemEnabledForProject(slug, projectMode);
+  if (projectMode === 'collective-service') {
+    return !!currentViewer();
+  }
+
+  return canViewerManageProjectPhase(slug);
 }
 
 function findOverlappingPersonalServiceAvailabilityIndex(
@@ -6450,7 +7526,7 @@ function personalServiceUsesCalendar(slug: string) {
 }
 
 function personalServiceRequestMode(slug: string) {
-  return readProjectWorkflowState(slug)?.serviceRequestMode ?? 'calendar';
+  return resolvedProjectRequestSettingsForProject(slug, 'personal-service').requestMode;
 }
 
 function formatServiceRequestWindow(start?: string, end?: string) {
@@ -6462,6 +7538,53 @@ function formatServiceRequestWindow(start?: string, end?: string) {
   const endDate = new Date(end);
 
   return `${startDate.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${startDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} to ${endDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+}
+
+function normalizeProjectActivityRoleRequirements(roleRequirements: ProjectActivityInput['roleRequirements']) {
+  return roleRequirements
+    .map((role) => {
+      const requiredCount = Math.max(1, Number(role.requiredCount) || 1);
+      const parsedMaximumCount = Number(role.maximumCount);
+
+      return {
+        label: role.label.trim(),
+        requiredCount,
+        maximumCount: Number.isFinite(parsedMaximumCount)
+          ? Math.max(requiredCount, Math.floor(parsedMaximumCount))
+          : undefined
+      };
+    })
+    .filter((role) => role.label);
+}
+
+function minimumParticipantsForRawActivity(activity: RawProjectActivity) {
+  return activity.roles.reduce((total, role) => total + role.requiredCount, 0);
+}
+
+function rawProjectActivityIsActive(activity: RawProjectActivity) {
+  const committedCount = activity.roles.reduce((total, role) => total + role.assignedUsernames.length, 0);
+
+  return (
+    committedCount >= minimumParticipantsForRawActivity(activity) &&
+    activity.roles.every((role) => role.assignedUsernames.length >= role.requiredCount)
+  );
+}
+
+function resolveProjectServiceRequestStatus(
+  request: RawProjectServiceRequest,
+  activities: RawProjectActivity[]
+): ProjectServiceRequestStatus {
+  if (!request.linkedActivityId) {
+    return request.status;
+  }
+
+  const linkedActivity = activities.find((activity) => activity.id === request.linkedActivityId);
+
+  if (!linkedActivity) {
+    return request.status;
+  }
+
+  return rawProjectActivityIsActive(linkedActivity) ? 'accepted' : 'planned';
 }
 
 function updateProjectPlanValueVoteMap(
@@ -6716,20 +7839,7 @@ export function setMockProjectPlanOverallVote(
 export function addMockProjectActivity(slug: string, input: ProjectActivityInput) {
   const viewer = currentViewer();
   const workflow = ensureProjectWorkflowState(slug);
-  const roleRequirements = input.roleRequirements
-    .map((role) => {
-      const requiredCount = Math.max(1, Number(role.requiredCount) || 1);
-      const parsedMaximumCount = Number(role.maximumCount);
-
-      return {
-        label: role.label.trim(),
-        requiredCount,
-        maximumCount: Number.isFinite(parsedMaximumCount)
-          ? Math.max(requiredCount, Math.floor(parsedMaximumCount))
-          : undefined
-      };
-    })
-    .filter((role) => role.label);
+  const roleRequirements = normalizeProjectActivityRoleRequirements(input.roleRequirements);
   const minimumParticipants = roleRequirements.reduce(
     (total, role) => total + role.requiredCount,
     0
@@ -6762,6 +7872,7 @@ export function addMockProjectActivity(slug: string, input: ProjectActivityInput
       locationLabel: input.locationLabel.trim(),
       minimumParticipants,
       linkedPlanPhaseId: input.linkedPlanPhaseId ?? null,
+      linkedRequestId: null,
       roles: roleRequirements.map((role, index) => ({
         label: role.label,
         requiredCount: role.requiredCount,
@@ -6877,6 +7988,15 @@ export function addMockProjectServiceRequest(slug: string, input: ProjectService
 
   if (
     projectMode === 'collective-service' &&
+    (!trimmedScheduledAt ||
+      !trimmedEndsAt ||
+      new Date(trimmedEndsAt).getTime() <= new Date(trimmedScheduledAt).getTime())
+  ) {
+    return;
+  }
+
+  if (
+    projectMode === 'collective-service' &&
     collectiveRequestMode === 'calendar' &&
     (!trimmedScheduledAt ||
       !trimmedEndsAt ||
@@ -6944,7 +8064,8 @@ export function addMockProjectServiceRequest(slug: string, input: ProjectService
       createdAt,
       status: 'open',
       scheduledAt: trimmedScheduledAt || undefined,
-      endsAt: trimmedEndsAt || undefined
+      endsAt: trimmedEndsAt || undefined,
+      linkedActivityId: null
     },
     ...serviceRequests
   ];
@@ -6994,6 +8115,64 @@ export function addMockProjectServiceRequest(slug: string, input: ProjectService
   }
 }
 
+export function planMockProjectServiceRequest(
+  slug: string,
+  requestId: string,
+  input: ProjectServiceRequestPlanInput
+) {
+  const viewer = currentViewer();
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = (workflow.serviceRequests ?? []).find((item) => item.id === requestId);
+  const roleRequirements = normalizeProjectActivityRoleRequirements(input.roleRequirements);
+  const minimumParticipants = roleRequirements.reduce(
+    (total, role) => total + role.requiredCount,
+    0
+  );
+
+  if (
+    !viewer ||
+    !request ||
+    request.status !== 'open' ||
+    !request.scheduledAt ||
+    !request.endsAt ||
+    !canViewerReviewProjectServiceRequests(slug) ||
+    !input.title.trim() ||
+    !input.locationLabel.trim() ||
+    !input.note.trim() ||
+    roleRequirements.length === 0 ||
+    minimumParticipants < 1
+  ) {
+    return;
+  }
+
+  const activityId = `project-activity-request-${slug}-${Date.now()}`;
+
+  workflow.phaseFiveActivities = [
+    {
+      id: activityId,
+      title: input.title.trim(),
+      authorUsername: viewer.username,
+      scheduledAt: request.scheduledAt,
+      endsAt: request.endsAt,
+      locationLabel: input.locationLabel.trim(),
+      minimumParticipants,
+      linkedPlanPhaseId: input.linkedPlanPhaseId ?? null,
+      linkedRequestId: request.id,
+      roles: roleRequirements.map((role) => ({
+        label: role.label,
+        requiredCount: role.requiredCount,
+        maximumCount: role.maximumCount,
+        assignedUsernames: []
+      })),
+      note: input.note.trim()
+    },
+    ...workflow.phaseFiveActivities
+  ];
+
+  request.status = 'planned';
+  request.linkedActivityId = activityId;
+}
+
 export function setMockProjectServiceRequestStatus(
   slug: string,
   requestId: string,
@@ -7029,6 +8208,192 @@ export function setMockProjectServiceRequestStatus(
       );
     }
   }
+}
+
+function maybeApplyApprovedProjectServiceRequestSettingsChange(slug: string, requestId: string) {
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.requestSettingsChangeRequests?.find((item) => item.id === requestId);
+  const projectMode = projectModeForSlug(slug);
+
+  if (!request) {
+    return;
+  }
+
+  const eligibleVoterCount = requestSettingsEligibleVoterCount(slug, projectMode);
+  const voteSummary = buildProjectVoteSummary(
+    request.votesByUserId,
+    calculateProjectQuorumThreshold(eligibleVoterCount),
+    eligibleVoterCount
+  );
+
+  if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    workflow.requestSettingsChangeRequests = (workflow.requestSettingsChangeRequests ?? []).filter(
+      (item) => item.id !== requestId
+    );
+    return;
+  }
+
+  if (!voteSummary.meetsQuorum || !phaseChangePassesApprovalThreshold(voteSummary)) {
+    return;
+  }
+
+  workflow.requestSystemOverride = {
+    enabled: request.proposedSettings.enabled,
+    requestMode: request.proposedSettings.requestMode,
+    allowOffScheduleRequests:
+      projectMode === 'personal-service'
+        ? request.proposedSettings.requestMode === 'both'
+        : request.proposedSettings.allowOffScheduleRequests
+  };
+  workflow.requestSettingsChangeRequests = (workflow.requestSettingsChangeRequests ?? []).filter(
+    (item) => item.id !== requestId
+  );
+}
+
+function buildProjectServiceHistoryItemById(slug: string, historyId: string) {
+  const projectMode = projectModeForSlug(slug);
+  const memberCount = (projectMembersBySlug[slug] ?? []).length;
+  const quorumThresholdPercent = calculateProjectQuorumThreshold(memberCount);
+  const values = buildProjectValues(slug);
+  const phaseTwo = buildProductionPlans(slug, values, quorumThresholdPercent, memberCount);
+  const phaseThree = buildDistributionPlans(slug, values, quorumThresholdPercent, memberCount);
+  const selectablePlanPhases = buildSelectableActivityPlanPhases(phaseTwo, phaseThree);
+
+  return (
+    buildProjectPhaseFiveState(slug, projectMode, selectablePlanPhases).history.find(
+      (item) => item.id === historyId
+    ) ?? null
+  );
+}
+
+function toggleUsernameMembership(usernames: string[], username: string) {
+  return usernames.includes(username)
+    ? usernames.filter((item) => item !== username)
+    : [...usernames, username];
+}
+
+export function requestMockProjectServiceRequestSettingsChange(
+  slug: string,
+  input: ProjectServiceRequestSettingsChangeInput
+) {
+  const viewer = currentViewer();
+  const projectMode = projectModeForSlug(slug);
+  const trimmedReason = input.reason.trim();
+
+  if (!viewer || !trimmedReason || !canViewerRequestProjectServiceRequestSettingsChange(slug)) {
+    return;
+  }
+
+  const workflow = ensureProjectWorkflowState(slug);
+
+  const proposedSettings = {
+    enabled: input.enabled,
+    requestMode: input.requestMode,
+    allowOffScheduleRequests:
+      projectMode === 'personal-service' ? input.requestMode === 'both' : input.allowOffScheduleRequests
+  } satisfies RawProjectRequestSystemSettings;
+  const currentSettings = resolvedProjectRequestSettingsForProject(slug, projectMode);
+
+  if (projectRequestSettingsMatch(currentSettings, proposedSettings)) {
+    return;
+  }
+
+  if (
+    (workflow.requestSettingsChangeRequests ?? []).some(
+      (request) =>
+        projectRequestSettingsSignature(request.proposedSettings) ===
+        projectRequestSettingsSignature(proposedSettings)
+    )
+  ) {
+    return;
+  }
+
+  const createdAt = new Date().toISOString();
+  const requestId = `project-request-settings-${slug}-${Date.now()}`;
+  workflow.requestSettingsChangeRequests = [
+    {
+      id: requestId,
+      reason: trimmedReason,
+      authorUsername: viewer.username,
+      createdAt,
+      proposedSettings,
+      votesByUserId: {
+        [viewer.id]: 'yes'
+      }
+    },
+    ...(workflow.requestSettingsChangeRequests ?? [])
+  ];
+
+  maybeApplyApprovedProjectServiceRequestSettingsChange(slug, requestId);
+}
+
+export function setMockProjectServiceRequestSettingsChangeVote(
+  slug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.requestSettingsChangeRequests?.find((item) => item.id === requestId);
+
+  if (!viewer || !request || !canViewerVoteOnProjectServiceRequestSettingsChange(slug)) {
+    return;
+  }
+
+  if (vote) {
+    request.votesByUserId[viewer.id] = vote;
+  } else {
+    delete request.votesByUserId[viewer.id];
+  }
+
+  maybeApplyApprovedProjectServiceRequestSettingsChange(slug, requestId);
+}
+
+export function setMockProjectServiceHistoryCompletion(
+  slug: string,
+  historyId: string,
+  role: ProjectServiceHistoryCompletionRole
+) {
+  const viewer = currentViewer();
+
+  if (!viewer) {
+    return;
+  }
+
+  const historyItem = buildProjectServiceHistoryItemById(slug, historyId);
+
+  if (!historyItem) {
+    return;
+  }
+
+  const workflow = ensureProjectWorkflowState(slug);
+  const completion =
+    workflow.serviceHistoryCompletions?.[historyId] ??
+    (workflow.serviceHistoryCompletions![historyId] = {
+      requesterDoneByUsernames: [],
+      participantDoneByUsernames: []
+    });
+
+  if (role === 'requester') {
+    if (!historyItem.requesterCompletion?.viewerCanToggle) {
+      return;
+    }
+
+    completion.requesterDoneByUsernames = toggleUsernameMembership(
+      completion.requesterDoneByUsernames ?? [],
+      viewer.username
+    );
+    return;
+  }
+
+  if (!historyItem.participantCompletion.viewerCanToggle) {
+    return;
+  }
+
+  completion.participantDoneByUsernames = toggleUsernameMembership(
+    completion.participantDoneByUsernames,
+    viewer.username
+  );
 }
 
 export function advanceMockProjectPhase(slug: string, closeNote?: string) {
@@ -7489,6 +8854,9 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
     phaseThreePlans: [],
     phaseFiveActivities: [],
     serviceRequests: [],
+    requestSystemEnabled: input.projectMode === 'personal-service' ? true : undefined,
+    requestSettingsChangeRequests: [],
+    serviceHistoryCompletions: {},
     revertHistory: [],
     availabilitySummary:
       input.projectMode === 'personal-service' && input.serviceRequestMode !== 'direct'
@@ -7708,6 +9076,7 @@ export function createMockPost(input: CreatePostInput): CreateResult {
     audience: input.audience,
     voteTargetId: id,
     body,
+    linkedSubjects: detectPostBodyLinks(body),
     voteCount: 0,
     activeVote: 0,
     commentCount: 0,
@@ -8250,4 +9619,206 @@ export function removeMockGroupConversationMember(
 
   conversation.participants = conversation.participants.filter((participant) => participant.id !== member.id);
   return okConversationResult(conversation.id);
+}
+
+function canAdvanceMockProjectPhaseNow(slug: string, projectMode: ProjectMode) {
+  const config = projectLifecycleBySlug[slug];
+
+  if (!config) {
+    return false;
+  }
+
+  if (projectMode === 'personal-service') {
+    return !!nextProjectPhaseId(config.currentPhaseId, projectMode);
+  }
+
+  const memberCount = (projectMembersBySlug[slug] ?? []).length;
+  const values = buildProjectValues(slug);
+
+  switch (config.currentPhaseId) {
+    case 'phase-1':
+      return values.length > 0;
+    case 'phase-2':
+      return !!buildProductionPlans(
+        slug,
+        values,
+        calculateProjectQuorumThreshold(memberCount),
+        memberCount
+      ).winningPlanId;
+    case 'phase-3':
+      return !!buildDistributionPlans(
+        slug,
+        values,
+        calculateProjectQuorumThreshold(memberCount),
+        memberCount
+      ).winningPlanId;
+    default:
+      return !!nextProjectPhaseId(config.currentPhaseId, projectMode);
+  }
+}
+
+function applyApprovedProjectPhaseChange(
+  slug: string,
+  targetPhaseId: ProjectLifecyclePhaseId,
+  reason: string,
+  authorUsername: string
+) {
+  const config = projectLifecycleBySlug[slug];
+  const projectMode = projectModeForSlug(slug);
+  const trimmedReason = reason.trim();
+
+  if (!config || !trimmedReason) {
+    return;
+  }
+
+  const currentPhaseId = config.currentPhaseId;
+  config.currentPhaseId = targetPhaseId;
+
+  if (
+    ['phase-2', 'phase-3'].includes(targetPhaseId) &&
+    phaseOrderForProjectMode(projectMode, targetPhaseId) < phaseOrderForProjectMode(projectMode, currentPhaseId)
+  ) {
+    const workflow = ensureProjectWorkflowState(slug);
+    workflow.revertHistory = [
+      {
+        id: `project-revert-${slug}-${Date.now()}`,
+        targetPhaseId: targetPhaseId as Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>,
+        reason: trimmedReason,
+        authorUsername,
+        createdAt: new Date().toISOString()
+      },
+      ...(workflow.revertHistory ?? [])
+    ];
+  }
+
+  if (targetPhaseId === closePhaseIdForProject(projectMode) && projectDetailExtras[slug]) {
+    projectDetailExtras[slug].updates = [
+      {
+        id: `project-update-close-${slug}-${Date.now()}`,
+        title: 'Closure note',
+        body: trimmedReason,
+        authorUsername,
+        createdAt: new Date().toISOString()
+      },
+      ...projectDetailExtras[slug].updates
+    ];
+  }
+}
+
+function maybeApplyApprovedProjectPhaseChange(slug: string, requestId: string) {
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.phaseChangeRequests?.find((item) => item.id === requestId);
+  const config = projectLifecycleBySlug[slug];
+  const projectMode = projectModeForSlug(slug);
+
+  if (!request || !config) {
+    return;
+  }
+
+  const memberState = buildProjectMemberState(slug);
+  const memberCount = memberState.projectManagers.length + memberState.members.length;
+  const voteSummary = buildProjectVoteSummary(
+    request.votesByUserId,
+    calculateProjectQuorumThreshold(memberCount),
+    memberCount
+  );
+
+  if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    workflow.phaseChangeRequests = (workflow.phaseChangeRequests ?? []).filter(
+      (item) => item.id !== requestId
+    );
+    return;
+  }
+
+  if (!voteSummary.meetsQuorum || !phaseChangePassesApprovalThreshold(voteSummary)) {
+    return;
+  }
+
+  const requestableTargets = requestableProjectPhaseTargetIds(config.currentPhaseId, projectMode);
+  const nextPhaseId = nextProjectPhaseId(config.currentPhaseId, projectMode);
+
+  if (!requestableTargets.includes(request.targetPhaseId)) {
+    return;
+  }
+
+  if (request.targetPhaseId === nextPhaseId && !canAdvanceMockProjectPhaseNow(slug, projectMode)) {
+    return;
+  }
+
+  applyApprovedProjectPhaseChange(slug, request.targetPhaseId, request.reason, request.authorUsername);
+  workflow.phaseChangeRequests = (workflow.phaseChangeRequests ?? []).filter(
+    (item) => item.id !== requestId
+  );
+}
+
+export function requestMockProjectPhaseChange(
+  slug: string,
+  targetPhaseId: ProjectLifecyclePhaseId,
+  reason: string
+) {
+  const viewer = currentViewer();
+  const config = projectLifecycleBySlug[slug];
+  const projectMode = projectModeForSlug(slug);
+  const trimmedReason = reason.trim();
+
+  if (!viewer || !config || !trimmedReason || !canViewerRequestProjectPhaseChange(slug)) {
+    return;
+  }
+
+  const requestableTargets = requestableProjectPhaseTargetIds(config.currentPhaseId, projectMode);
+  const nextPhaseId = nextProjectPhaseId(config.currentPhaseId, projectMode);
+
+  if (!requestableTargets.includes(targetPhaseId)) {
+    return;
+  }
+
+  if (targetPhaseId === nextPhaseId && !canAdvanceMockProjectPhaseNow(slug, projectMode)) {
+    return;
+  }
+
+  const workflow = ensureProjectWorkflowState(slug);
+
+  if ((workflow.phaseChangeRequests ?? []).some((request) => request.targetPhaseId === targetPhaseId)) {
+    return;
+  }
+
+  const createdAt = new Date().toISOString();
+  const requestId = `project-phase-change-${slug}-${Date.now()}`;
+  workflow.phaseChangeRequests = [
+    {
+      id: requestId,
+      targetPhaseId,
+      reason: trimmedReason,
+      authorUsername: viewer.username,
+      createdAt,
+      votesByUserId: {
+        [viewer.id]: 'yes'
+      }
+    },
+    ...(workflow.phaseChangeRequests ?? [])
+  ];
+
+  maybeApplyApprovedProjectPhaseChange(slug, requestId);
+}
+
+export function setMockProjectPhaseChangeVote(
+  slug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.phaseChangeRequests?.find((item) => item.id === requestId);
+
+  if (!viewer || !request || !canViewerVoteOnProjectPhaseChange(slug)) {
+    return;
+  }
+
+  if (vote) {
+    request.votesByUserId[viewer.id] = vote;
+  } else {
+    delete request.votesByUserId[viewer.id];
+  }
+
+  maybeApplyApprovedProjectPhaseChange(slug, requestId);
 }

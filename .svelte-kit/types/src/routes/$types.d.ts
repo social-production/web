@@ -11,8 +11,8 @@ type EnsureDefined<T> = T extends null | undefined ? {} : T;
 type OptionalUnion<U extends Record<string, any>, A extends keyof U = U extends U ? keyof U : never> = U extends unknown ? { [P in Exclude<A, keyof U>]?: never } & U : never;
 export type Snapshot<T = any> = Kit.Snapshot<T>;
 type PageParentData = EnsureDefined<LayoutData>;
-type LayoutRouteId = RouteId | "/" | "/about" | "/channels/[slug]" | "/communities/[slug]" | "/create/channel" | "/create/community" | "/create/event" | "/create/post" | "/create/project" | "/create/thread" | "/events/[slug]" | "/messages" | "/notifications" | "/onboarding" | "/personal" | "/platform" | "/posts/[id]" | "/profile/[username]" | "/projects/[slug]" | "/roadmap" | "/search" | "/settings" | "/stewardship" | "/threads/[slug]" | null
-type LayoutParams = RouteParams & { slug?: string; id?: string; username?: string }
+type LayoutRouteId = RouteId | "/" | "/about" | "/channels/[slug]" | "/communities/[slug]" | "/create/channel" | "/create/community" | "/create/event" | "/create/post" | "/create/project" | "/create/thread" | "/events/[slug]" | "/messages" | "/notifications" | "/onboarding" | "/personal" | "/platform" | "/platform/assets" | "/platform/assets/[assetSlug]" | "/posts/[id]" | "/profile/[username]" | "/projects/[slug]" | "/roadmap" | "/search" | "/settings" | "/stewardship" | "/threads/[slug]" | null
+type LayoutParams = RouteParams & { slug?: string; assetSlug?: string; id?: string; username?: string }
 type LayoutParentData = EnsureDefined<{}>;
 
 export type PageServerData = null;

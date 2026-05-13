@@ -4,6 +4,9 @@
   export let activity: ProjectActivityItem;
   export let expanded = false;
   export let highlighted = false;
+  export let readOnly = false;
+  export let badgeLabel: string | null = null;
+  export let badgeClass: 'complete' | 'upcoming' | 'current' | 'locked' | null = null;
   export let changecommitment: (activityId: string, roleLabel: string | null) => void = () => {};
 
   function sameCalendarDay(left: Date, right: Date) {
@@ -33,10 +36,6 @@
     return `${formatDayDate(start)}, ${formatTime(start)} - ${formatDayDate(end)}, ${formatTime(end)}`;
   }
 
-  function requiredRoleCommitmentCount() {
-    return activity.roles.reduce((total, role) => total + Math.min(role.filledCount, role.requiredCount), 0);
-  }
-
   function roleHasOpenCapacity(role: ProjectActivityRole) {
     return role.maximumCount == null || role.filledCount < role.maximumCount;
   }
@@ -50,6 +49,9 @@
   }
 
   let open = expanded;
+
+  $: resolvedBadgeLabel = badgeLabel ?? (activity.isActive ? 'Active' : 'Pending roles');
+  $: resolvedBadgeClass = badgeClass ?? (activity.isActive ? 'complete' : 'upcoming');
 
   $: if (expanded || highlighted) {
     open = true;
@@ -69,14 +71,14 @@
         <strong>{activity.title}</strong>
         <span>{timeLabel()}</span>
       </div>
-      <span class={`phase-badge ${activity.isActive ? 'complete' : 'upcoming'}`}>
-        {activity.isActive ? 'Active' : 'Pending roles'}
+      <span class={`phase-badge ${resolvedBadgeClass}`}>
+        {resolvedBadgeLabel}
       </span>
     </div>
     <div class="activity-footer">
       <span>{activity.locationLabel}</span>
       <span class="commitment-summary">
-        <span>{requiredRoleCommitmentCount()}/{activity.minimumParticipants} committed</span>
+        <span>{activity.committedCount}/{activity.minimumParticipants} committed</span>
         {#if activity.maximumParticipants && activity.maximumParticipants > activity.minimumParticipants}
           <span>Up to {activity.maximumParticipants} total</span>
         {/if}
@@ -110,22 +112,25 @@
                 · Maximum {role.maximumCount}
               {/if}
             </span>
-            <button
-              class:selected={activity.viewerAssignedRoleLabel === role.label}
-              class="vote-chip"
-              disabled={!role.isViewerAssigned && !roleHasOpenCapacity(role)}
-              type="button"
-              on:click={() =>
-                changecommitment(
-                  activity.id,
-                  activity.viewerAssignedRoleLabel === role.label ? null : role.label
-                )}
-            >
-              {commitmentButtonLabel(role)}
-            </button>
+            {#if !readOnly}
+              <button
+                class:selected={activity.viewerAssignedRoleLabel === role.label}
+                class="vote-chip"
+                disabled={!role.isViewerAssigned && !roleHasOpenCapacity(role)}
+                type="button"
+                on:click={() =>
+                  changecommitment(
+                    activity.id,
+                    activity.viewerAssignedRoleLabel === role.label ? null : role.label
+                  )}
+              >
+                {commitmentButtonLabel(role)}
+              </button>
+            {/if}
           </div>
         {/each}
       </div>
+      <slot />
       <div class="expanded-footer">
         <span class="creator-tag">{activity.authorUsername}</span>
       </div>
@@ -217,7 +222,7 @@
 
   .role-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 10px;
   }
 
