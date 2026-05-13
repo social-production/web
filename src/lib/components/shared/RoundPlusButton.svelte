@@ -1,7 +1,7 @@
 <script lang="ts">
   export let active = false;
   export let ariaLabel = 'Add item';
-  export let action: () => void = () => {};
+  export let action: (event?: MouseEvent) => unknown = () => {};
 </script>
 
 <button
@@ -10,7 +10,7 @@
   class:active
   class="round-plus-button"
   type="button"
-  on:click={action}
+  on:click={(event) => action(event)}
 >
   +
 </button>

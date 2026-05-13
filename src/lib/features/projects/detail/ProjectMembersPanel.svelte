@@ -9,9 +9,22 @@
   export let data: ProjectPageData;
 
   let managerTogglePending = false;
+  let showRoleRules = false;
 
   function meetsConfidenceThreshold(member: ProjectRoleMember) {
     return !!member.confidenceReviewCount && (member.confidenceRatio ?? 0) >= 70;
+  }
+
+  function roleStatusLabel(member: ProjectRoleMember) {
+    if (member.isManagerCandidate) {
+      return meetsConfidenceThreshold(member) ? 'Candidate at threshold' : 'Candidate below threshold';
+    }
+
+    if (member.confidenceReviewCount && !meetsConfidenceThreshold(member)) {
+      return 'Under review';
+    }
+
+    return 'Project manager';
   }
 
   async function handleManagerConfidenceVote(
@@ -50,17 +63,34 @@
   <div class="members-header">
     <div class="section-header compact-header">
       <h2>Project managers</h2>
-      <p>Members can become project managers. Manager requests use the same 70% confidence rule as the rest of the platform.</p>
+      <p>Project managers coordinate activities and phase-change requests. Members enter the role through visible confidence voting.</p>
     </div>
-    <button
-      class="secondary-button"
-      disabled={!data.viewerCanToggleManagerNomination || managerTogglePending}
-      type="button"
-      on:click={handleManagerNominationToggle}
-    >
-      {managerToggleLabel}
-    </button>
+    <div class="header-actions">
+      <button class:active={showRoleRules} class="secondary-button" type="button" on:click={() => (showRoleRules = !showRoleRules)}>
+        {showRoleRules ? 'Hide role rules' : 'How it works'}
+      </button>
+      <button
+        class="secondary-button"
+        disabled={!data.viewerCanToggleManagerNomination || managerTogglePending}
+        type="button"
+        on:click={handleManagerNominationToggle}
+      >
+        {managerToggleLabel}
+      </button>
+    </div>
   </div>
+
+  {#if showRoleRules}
+    <div class="rules-card">
+      <h3>How project manager roles work</h3>
+      <ul>
+        <li>Any project member can nominate themselves for project manager.</li>
+        <li>Members vote confidence on the nomination using the same visible vote strip shown here.</li>
+        <li>A candidate clears into the role once confidence reaches 70% with visible reviews.</li>
+        <li>Managers who fall below 70% stay visible as under review until the group renews or removes the role.</li>
+      </ul>
+    </div>
+  {/if}
 
   <div class="members-scroll-shell">
     <div class="stack">
@@ -76,6 +106,9 @@
                 <strong>{member.username}</strong>
               </a>
               <div class="confidence-summary">
+                <span class={`status-chip ${meetsConfidenceThreshold(member) ? 'healthy' : 'warning'}`}>
+                  {roleStatusLabel(member)}
+                </span>
                 <span class:healthy={meetsConfidenceThreshold(member)} class:warning={!meetsConfidenceThreshold(member)}>
                   {member.confidenceRatio}% confidence
                 </span>
@@ -117,6 +150,9 @@
 
               {#if member.isManagerCandidate}
                 <div class="confidence-summary">
+                  <span class={`status-chip ${meetsConfidenceThreshold(member) ? 'healthy' : 'warning'}`}>
+                    {roleStatusLabel(member)}
+                  </span>
                   <span class="warning">
                     Manager request
                     {#if member.confidenceReviewCount}
@@ -158,7 +194,8 @@
 
   .members-header,
   .confidence-row,
-  .confidence-summary {
+  .confidence-summary,
+  .header-actions {
     display: flex;
     gap: 12px;
     align-items: center;
@@ -184,7 +221,8 @@
   }
 
   .person-row,
-  .empty-card {
+  .empty-card,
+  .rules-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -192,6 +230,7 @@
   }
 
   h2,
+  h3,
   strong {
     font-size: 14px;
     color: var(--text-main);
@@ -211,6 +250,24 @@
   .confidence-summary {
     font-size: 12px;
     line-height: 1.4;
+  }
+
+  .status-chip {
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .status-chip.healthy {
+    background: color-mix(in srgb, var(--brand-soft) 75%, var(--panel));
+    color: var(--brand-strong);
+  }
+
+  .status-chip.warning {
+    background: color-mix(in srgb, var(--accent-warm) 18%, var(--panel));
+    color: var(--accent-warm-strong);
   }
 
   .confidence-summary .healthy {
@@ -239,6 +296,13 @@
   .members-divider {
     padding-top: 12px;
     border-top: 1px solid var(--panel-border);
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-soft);
+    line-height: 1.5;
   }
 
   @media (max-width: 760px) {

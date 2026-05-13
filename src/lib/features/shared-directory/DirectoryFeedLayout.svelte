@@ -118,6 +118,14 @@
     return (member.confidenceRatio ?? 0) >= 70;
   }
 
+  function moderatorStatusLabel(member: ScopeMemberSummary) {
+    if (member.confidenceRatio === undefined) {
+      return pageData.kind === 'platform' ? 'Recorded board seat' : 'Recorded moderator seat';
+    }
+
+    return meetsConfidenceThreshold(member) ? 'Above threshold' : 'Under review';
+  }
+
   async function handleConfidenceVote(member: ScopeMemberSummary, event: CustomEvent<{ vote: VoteDirection }>) {
     if (!member.confidenceTargetId) {
       return;
@@ -333,6 +341,19 @@
       <h2>{pageData.moderationLabel}</h2>
       <p class="panel-copy">{pageData.moderatorsNote}</p>
 
+      <div class="role-rules-card">
+        <h3>{pageData.kind === 'platform' ? 'How board roles work' : 'How moderation roles work'}</h3>
+        <ul>
+          <li>
+            {pageData.kind === 'platform'
+              ? 'Board members oversee platform-tagged work and the eventual conversion of completed collective funds into real nonprofit-held assets.'
+              : 'Moderators are scope-level roles for discussion health, membership boundaries, and visible coordination.'}
+          </li>
+          <li>Confidence voting stays visible on every role holder so members can see whether the role remains above the 70% threshold.</li>
+          <li>Roles below threshold stay visible as under review until the scope renews or replaces them.</li>
+        </ul>
+      </div>
+
       <div class="people-stack">
         {#if pageData.moderators.length === 0}
           <div class="person-row">
@@ -348,6 +369,9 @@
                 </a>
                 {#if member.confidenceRatio !== undefined}
                   <div class="confidence-summary">
+                    <span class={`status-chip ${meetsConfidenceThreshold(member) ? 'healthy' : 'warning'}`}>
+                      {moderatorStatusLabel(member)}
+                    </span>
                     <span class:healthy={meetsConfidenceThreshold(member)} class:warning={!meetsConfidenceThreshold(member)}>
                       {member.confidenceRatio}% confidence
                     </span>
@@ -390,12 +414,14 @@
 <style>
   .directory-page,
   .stack,
-  .people-stack {
+  .people-stack,
+  .role-rules-card {
     display: grid;
   }
 
   .directory-page,
-  .people-stack {
+  .people-stack,
+  .role-rules-card {
     gap: 12px;
   }
 
@@ -412,7 +438,8 @@
   .toolbar-card,
   .people-card,
   .info-card,
-  .invite-card {
+  .invite-card,
+  .role-rules-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -564,6 +591,36 @@
   }
 
   .warning {
+    color: var(--accent-warm-strong);
+  }
+
+  .role-rules-card h3 {
+    font-size: 14px;
+    color: var(--text-main);
+  }
+
+  .role-rules-card ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-soft);
+    line-height: 1.5;
+  }
+
+  .status-chip {
+    padding: 4px 8px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .status-chip.healthy {
+    background: color-mix(in srgb, var(--brand-soft) 75%, var(--panel));
+    color: var(--brand-strong);
+  }
+
+  .status-chip.warning {
+    background: color-mix(in srgb, var(--accent-warm) 18%, var(--panel));
     color: var(--accent-warm-strong);
   }
 

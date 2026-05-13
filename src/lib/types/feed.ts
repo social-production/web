@@ -5,6 +5,12 @@ export type ProjectMode = 'productive' | 'collective-service' | 'personal-servic
 export type SubjectKind = 'project' | 'thread' | 'event' | 'post';
 export type VoteDirection = -1 | 0 | 1;
 
+export interface PostBodyLink {
+  kind: 'project' | 'event';
+  label: string;
+  href: string;
+}
+
 export interface TagRef {
   slug: string;
   label: string;
@@ -63,6 +69,14 @@ export interface CreateCommunityInput {
   joinPolicy: 'open' | 'invite_only';
 }
 
+export interface ProjectFundProgress {
+  title: string;
+  progressPercent: number;
+  raisedLabel: string;
+  targetLabel: string;
+  status: 'active' | 'completed';
+}
+
 export interface PublicProjectItem {
   kind: 'project';
   id: string;
@@ -84,6 +98,7 @@ export interface PublicProjectItem {
   commentCount: number;
   memberCount: number;
   lastActivityAt: string;
+  fundProgress?: ProjectFundProgress;
 }
 
 export interface PublicThreadItem {
@@ -138,6 +153,7 @@ export interface PersonalPostItem {
   audience: 'followers' | 'public';
   voteTargetId: string;
   body: string;
+  linkedSubjects?: PostBodyLink[];
   voteCount: number;
   activeVote: VoteDirection;
   commentCount: number;
@@ -162,6 +178,7 @@ export interface PersonalActivityItem {
   createdAt: string;
   channelTags: TagRef[];
   communityTags: TagRef[];
+  subjectFundProgress?: ProjectFundProgress;
 }
 
 export type PersonalFeedItem = PersonalPostItem | PersonalActivityItem;

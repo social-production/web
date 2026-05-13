@@ -1,10 +1,13 @@
 <script lang="ts">
-  import ProjectPersonalServicePhase from '../phases/ProjectPersonalServicePhase.svelte';
-  import ProjectLifecyclePhaseSix from '../phases/ProjectLifecyclePhaseSix.svelte';
+  import IndividualServicePhaseOne from './phases/IndividualServicePhaseOne.svelte';
+  import IndividualServicePhaseTwo from './phases/IndividualServicePhaseTwo.svelte';
   import type {
     ProjectActivityRoleInput,
+    ProjectServiceHistoryCompletionRole,
+    ProjectApprovalVote,
     ProjectLifecyclePhaseId,
     ProjectPageData,
+    ProjectServiceRequestSettingsChangeInput,
     ProjectServiceRequestStatus
   } from '$lib/types/detail';
 
@@ -45,10 +48,21 @@
     requestId: string,
     status: ProjectServiceRequestStatus
   ) => void | Promise<void> = () => {};
+  export let requestServiceRequestSettingsChange: (
+    input: ProjectServiceRequestSettingsChangeInput
+  ) => void | Promise<void> = () => {};
+  export let voteOnRequestSettingsChange: (
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
+  export let toggleHistoryCompletion: (
+    historyId: string,
+    role: ProjectServiceHistoryCompletionRole
+  ) => void | Promise<void> = () => {};
 </script>
 
 {#if activePhaseId === 'phase-1'}
-  <ProjectPersonalServicePhase
+  <IndividualServicePhaseOne
     {data}
     bind:activityComposerElement
     bind:activityEndInputElement
@@ -64,7 +78,10 @@
     {submitActivity}
     {submitServiceRequest}
     {updateRequestStatus}
+    {requestServiceRequestSettingsChange}
+    {voteOnRequestSettingsChange}
+    {toggleHistoryCompletion}
   />
 {:else}
-  <ProjectLifecyclePhaseSix projectMode={data.projectMode} />
+  <IndividualServicePhaseTwo projectMode={data.projectMode} />
 {/if}

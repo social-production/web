@@ -3,6 +3,7 @@
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
+  import LinkedPostBody from '$lib/components/shared/LinkedPostBody.svelte';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { setVote } from '$lib/services/queries/feeds';
@@ -39,7 +40,7 @@
     </div>
   </div>
 
-  <p class="body">{item.body}</p>
+  <LinkedPostBody body={item.body} links={item.linkedSubjects ?? []} variant="feed" />
 
   <div class="footer">
     <div class="engagement-row">
@@ -76,7 +77,6 @@
   }
 
   .name,
-  .body,
   .footer {
     margin: 0;
   }
@@ -87,13 +87,6 @@
 
   .footer {
     color: var(--text-soft);
-  }
-
-  .body {
-    display: block;
-    margin-top: 10px;
-    font-size: 14px;
-    line-height: 1.45;
   }
 
   .footer {

@@ -8,7 +8,6 @@
   import type { PersonalPostItem } from '$lib/types/feed';
 
   let body = '';
-  let audience: 'followers' | 'public' = 'followers';
   let statusMessage = '';
   let isSubmitting = false;
   let hasAppliedPrefill = false;
@@ -26,7 +25,7 @@
         id: 'post-preview',
         href: '#',
         author: viewer,
-        audience,
+        audience: 'followers',
         voteTargetId: 'post-preview',
         body: body.trim() || 'Share a direct post to your personal timeline...',
         voteCount: 0,
@@ -45,7 +44,7 @@
     try {
       const result = await createPost({
         body,
-        audience
+        audience: 'followers'
       });
 
       if (!result.ok || !result.id) {
@@ -72,13 +71,10 @@
       description="Text posts live here directly. Image posts can layer in later without changing the Personal/Public split."
     >
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
-        <label>
+        <div class="audience-note">
           <span class="field-label">Audience</span>
-          <select bind:value={audience}>
-            <option value="followers">Followers</option>
-            <option value="public">Public</option>
-          </select>
-        </label>
+          <p>Followers only</p>
+        </div>
 
         <label>
           <span class="field-label">Post body</span>
@@ -129,5 +125,11 @@
     margin-bottom: 6px;
     font-size: 13px;
     font-weight: 700;
+  }
+
+  .audience-note p {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
   }
 </style>

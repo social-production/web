@@ -3,6 +3,7 @@
   import { invalidateAll } from '$app/navigation';
   import DiscussionPanel from '$lib/components/discussion/DiscussionPanel.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
+  import LinkedPostBody from '$lib/components/shared/LinkedPostBody.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { setVote } from '$lib/services/queries/feeds';
@@ -40,7 +41,7 @@
       </div>
     </div>
 
-    <p class="body">{data.body}</p>
+    <LinkedPostBody body={data.body} links={data.linkedSubjects ?? []} variant="detail" />
 
     <div class="engagement-row">
       <div class="engagement-actions">
@@ -108,16 +109,8 @@
     color: var(--accent-warm-strong);
   }
 
-  .body,
-  p,
   span {
     color: var(--text-soft);
     line-height: 1.5;
-  }
-
-  .body {
-    margin-top: 14px;
-    margin-bottom: 18px;
-    font-size: 15px;
   }
 </style>

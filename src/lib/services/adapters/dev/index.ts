@@ -12,7 +12,10 @@ import {
   addMockProjectDistributionPlan,
   addMockProjectProductionPlan,
   addMockProjectServiceRequest,
+  planMockProjectServiceRequest,
+  requestMockProjectServiceRequestSettingsChange,
   buildSearchFixture,
+  setMockProjectServiceHistoryCompletion,
   toggleMockProjectDemandSignal,
   addMockProjectValue,
   findChannelScopeFixture,
@@ -30,6 +33,7 @@ import {
   getPublicFeedFixture,
   getSettingsFixture,
   getPlatformScopeFixture,
+  getPlatformAssetsFixture,
   markAllMockNotificationsRead,
   markMockConversationRead,
   markMockNotificationRead,
@@ -52,8 +56,11 @@ import {
   setMockVote,
   setMockProjectPlanOverallVote,
   setMockProjectPlanValueVote,
+  setMockProjectPhaseChangeVote,
+  setMockProjectServiceRequestSettingsChangeVote,
   setMockProjectValueImportance,
   setMockProjectServiceRequestStatus,
+  requestMockProjectPhaseChange,
   toggleMockEventGoing,
   toggleMockEventManagerNomination,
   advanceMockProjectPhase,
@@ -91,6 +98,10 @@ export const devAdapter: AppAdapter = {
 
   async getPlatform() {
     return structuredClone(getPlatformScopeFixture());
+  },
+
+  async getPlatformAssets() {
+    return structuredClone(getPlatformAssetsFixture());
   },
 
   async getOnboarding() {
@@ -221,8 +232,32 @@ export const devAdapter: AppAdapter = {
     addMockProjectServiceRequest(projectSlug, input);
   },
 
+  async planProjectServiceRequest(projectSlug, requestId, input) {
+    planMockProjectServiceRequest(projectSlug, requestId, input);
+  },
+
   async setProjectServiceRequestStatus(projectSlug, requestId, status) {
     setMockProjectServiceRequestStatus(projectSlug, requestId, status);
+  },
+
+  async requestProjectServiceRequestSettingsChange(projectSlug, input) {
+    requestMockProjectServiceRequestSettingsChange(projectSlug, input);
+  },
+
+  async setProjectServiceRequestSettingsChangeVote(projectSlug, requestId, vote) {
+    setMockProjectServiceRequestSettingsChangeVote(projectSlug, requestId, vote);
+  },
+
+  async toggleProjectServiceHistoryCompletion(projectSlug, historyId, role) {
+    setMockProjectServiceHistoryCompletion(projectSlug, historyId, role);
+  },
+
+  async requestProjectPhaseChange(projectSlug, targetPhaseId, reason) {
+    requestMockProjectPhaseChange(projectSlug, targetPhaseId, reason);
+  },
+
+  async setProjectPhaseChangeVote(projectSlug, requestId, vote) {
+    setMockProjectPhaseChangeVote(projectSlug, requestId, vote);
   },
 
   async advanceProjectPhase(projectSlug, closeNote) {

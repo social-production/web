@@ -1,10 +1,10 @@
 <script lang="ts">
-  import ProjectLifecyclePhaseOne from '../phases/ProjectLifecyclePhaseOne.svelte';
-  import ProjectLifecyclePhaseTwo from '../phases/ProjectLifecyclePhaseTwo.svelte';
-  import ProjectLifecyclePhaseThree from '../phases/ProjectLifecyclePhaseThree.svelte';
-  import ProjectLifecyclePhaseFour from '../phases/ProjectLifecyclePhaseFour.svelte';
-  import ProjectLifecyclePhaseFive from '../phases/ProjectLifecyclePhaseFive.svelte';
-  import ProjectLifecyclePhaseSix from '../phases/ProjectLifecyclePhaseSix.svelte';
+  import ProductiveLifecyclePhaseOne from './phases/ProductiveLifecyclePhaseOne.svelte';
+  import ProductiveLifecyclePhaseTwo from './phases/ProductiveLifecyclePhaseTwo.svelte';
+  import ProductiveLifecyclePhaseThree from './phases/ProductiveLifecyclePhaseThree.svelte';
+  import ProductiveLifecyclePhaseFour from './phases/ProductiveLifecyclePhaseFour.svelte';
+  import ProductiveLifecyclePhaseFive from './phases/ProductiveLifecyclePhaseFive.svelte';
+  import ProductiveLifecyclePhaseSix from './phases/ProductiveLifecyclePhaseSix.svelte';
   import type {
     ProjectActivityRoleInput,
     ProjectApprovalVote,
@@ -102,7 +102,7 @@
 </script>
 
 {#if activePhaseId === 'phase-1'}
-  <ProjectLifecyclePhaseOne
+  <ProductiveLifecyclePhaseOne
     {data}
     bind:draftValue
     bind:showValueComposer={showPhaseOneComposer}
@@ -111,7 +111,7 @@
     vote={setProjectValueVote}
   />
 {:else if activePhaseId === 'phase-2'}
-  <ProjectLifecyclePhaseTwo
+  <ProductiveLifecyclePhaseTwo
     {data}
     form={productionForm}
     bind:showComposer={showPhaseTwoComposer}
@@ -123,7 +123,7 @@
     overallvote={setPhaseTwoPlanOverallVote}
   />
 {:else if activePhaseId === 'phase-3'}
-  <ProjectLifecyclePhaseThree
+  <ProductiveLifecyclePhaseThree
     {data}
     form={distributionForm}
     bind:showComposer={showPhaseThreeComposer}
@@ -135,9 +135,9 @@
     overallvote={setPhaseThreePlanOverallVote}
   />
 {:else if activePhaseId === 'phase-4'}
-  <ProjectLifecyclePhaseFour />
+  <ProductiveLifecyclePhaseFour />
 {:else if activePhaseId === 'phase-5'}
-  <ProjectLifecyclePhaseFive
+  <ProductiveLifecyclePhaseFive
     {data}
     bind:activityComposerElement
     bind:activityEndInputElement
@@ -154,5 +154,5 @@
     changecommitment={updateActivityCommitment}
   />
 {:else}
-  <ProjectLifecyclePhaseSix projectMode={data.projectMode} />
+  <ProductiveLifecyclePhaseSix projectMode={data.projectMode} />
 {/if}

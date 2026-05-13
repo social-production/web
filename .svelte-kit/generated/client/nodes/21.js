@@ -1,1 +1,3 @@
-export { default as component } from "../../../../src/routes/roadmap/+page.svelte";
+import * as universal from "../../../../src/routes/profile/[username]/+page.ts";
+export { universal };
+export { default as component } from "../../../../src/routes/profile/[username]/+page.svelte";
