@@ -1,17 +1,102 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { page } from '$app/stores';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import PersonalFeedCard from '$lib/components/cards/personal-feed/PersonalFeedCard.svelte';
+  import { getSettings, updateSettings } from '$lib/services/queries/account';
+  import type {
+    FeedSortPreference,
+    FeedWindowPreference,
+    PersonalFeedFilterPreference,
+    PersonalFeedPreferences,
+    PersonalFeedScopePreference
+  } from '$lib/types/account';
   import type { PersonalFeedItem } from '$lib/types/feed';
 
   export let items: PersonalFeedItem[];
 
-  type PersonalFilter = 'all' | 'activity' | 'posts' | 'events';
-  type FeedSort = 'popular' | 'recent';
-  type FeedWindow = '12h' | '1d' | '7d' | '1m' | '1y' | 'all';
+  type PersonalScope = PersonalFeedScopePreference;
+  type PersonalFilter = PersonalFeedFilterPreference;
+  type FeedSort = FeedSortPreference;
+  type FeedWindow = FeedWindowPreference;
 
-  let activeFilter: PersonalFilter = 'all';
-  let activeSort: FeedSort = 'popular';
-  let activeWindow: FeedWindow = 'all';
+  const defaultPreferences: PersonalFeedPreferences = {
+    scope: 'following',
+    filter: 'all',
+    sort: 'popular',
+    window: 'all'
+  };
+
+  let activeScope: PersonalScope = defaultPreferences.scope;
+  let activeFilter: PersonalFilter = defaultPreferences.filter;
+  let activeSort: FeedSort = defaultPreferences.sort;
+  let activeWindow: FeedWindow = defaultPreferences.window;
+  let preferencesReady = false;
+  let isHydratingPreferences = false;
+  let lastHydratedViewerId = '';
+  let lastPersistedPreferences = preferenceSignature(defaultPreferences);
+
+  function preferenceSignature(preferences: PersonalFeedPreferences) {
+    return [preferences.scope, preferences.filter, preferences.sort, preferences.window].join(':');
+  }
+
+  function currentPreferences(): PersonalFeedPreferences {
+    return {
+      scope: activeScope,
+      filter: activeFilter,
+      sort: activeSort,
+      window: activeWindow
+    };
+  }
+
+  function applyPreferences(preferences?: Partial<PersonalFeedPreferences> | null) {
+    const next: PersonalFeedPreferences = {
+      ...defaultPreferences,
+      ...(preferences ?? {})
+    };
+
+    isHydratingPreferences = true;
+    activeScope = next.scope;
+    activeFilter = next.filter;
+    activeSort = next.sort;
+    activeWindow = next.window;
+    lastPersistedPreferences = preferenceSignature(next);
+    isHydratingPreferences = false;
+  }
+
+  async function hydratePreferences() {
+    const settings = await getSettings();
+    applyPreferences(settings?.personalFeedPreferences);
+    preferencesReady = true;
+  }
+
+  async function persistPreferences() {
+    if (!preferencesReady || isHydratingPreferences || !$page.data.bootstrap?.viewer) {
+      return;
+    }
+
+    const preferences = currentPreferences();
+    const signature = preferenceSignature(preferences);
+
+    if (signature === lastPersistedPreferences) {
+      return;
+    }
+
+    await updateSettings({ personalFeedPreferences: preferences });
+    lastPersistedPreferences = signature;
+  }
+
+  function handlePreferencesChange() {
+    void persistPreferences();
+  }
+
+  function matchesScope(item: PersonalFeedItem, scope: PersonalScope) {
+    if (scope === 'following') {
+      return item.feedSource !== 'discovery';
+    }
+
+    return item.kind === 'activity' ? item.feedSource !== 'discovery' : true;
+  }
 
   function matchesFilter(item: PersonalFeedItem, filter: PersonalFilter) {
     if (filter === 'all') {
@@ -66,12 +151,25 @@
     return itemTimestamp(right) - itemTimestamp(left);
   }
 
-  $: referenceTime = items.reduce((max, item) => Math.max(max, itemTimestamp(item)), 0);
+  $: viewerId = $page.data.bootstrap?.viewer?.id ?? '';
+  $: if (viewerId !== lastHydratedViewerId) {
+    lastHydratedViewerId = viewerId;
+    preferencesReady = false;
+    applyPreferences($page.data.settings?.personalFeedPreferences);
+    preferencesReady = true;
+  }
+
+  $: referenceTime = Date.now();
   $: visibleItems = items
+    .filter((item) => matchesScope(item, activeScope))
     .filter((item) => matchesFilter(item, activeFilter))
     .filter((item) => matchesWindow(item, activeWindow, referenceTime))
     .slice()
     .sort((left, right) => compareItems(left, right, activeSort));
+
+  onMount(() => {
+    void hydratePreferences();
+  });
 </script>
 
 <section class="feed-page">
@@ -82,19 +180,24 @@
 
   <section class="toolbar-card">
     <div class="controls-row">
-      <select aria-label="Filter personal feed" bind:value={activeFilter}>
+      <select aria-label="Choose personal feed scope" bind:value={activeScope} on:change={handlePreferencesChange}>
+        <option value="following">Following only</option>
+        <option value="popular">Following + popular</option>
+      </select>
+
+      <select aria-label="Filter personal feed" bind:value={activeFilter} on:change={handlePreferencesChange}>
         <option value="all">All items</option>
         <option value="activity">Public activity</option>
         <option value="posts">Posts</option>
         <option value="events">Events</option>
       </select>
 
-      <select aria-label="Sort personal feed by" bind:value={activeSort}>
+      <select aria-label="Sort personal feed by" bind:value={activeSort} on:change={handlePreferencesChange}>
         <option value="popular">Most popular</option>
         <option value="recent">Most recent</option>
       </select>
 
-      <select aria-label="Personal feed time window" bind:value={activeWindow}>
+      <select aria-label="Personal feed time window" bind:value={activeWindow} on:change={handlePreferencesChange}>
         <option value="12h">Last 12 hours</option>
         <option value="1d">1 day</option>
         <option value="7d">7 days</option>
@@ -108,7 +211,7 @@
   <div class="stack">
     {#if visibleItems.length === 0}
       <section class="empty-card">
-        <p>No posts or activity match this filter yet.</p>
+        <p>{activeScope === 'following' ? 'No posts or activity from people you follow match this filter yet.' : 'No followed activity or popular public posts match this filter yet.'}</p>
       </section>
     {:else}
       {#each visibleItems as item}
@@ -133,7 +236,7 @@
   }
 
   .toolbar-card {
-    padding: 16px;
+    padding: 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
@@ -141,15 +244,16 @@
 
   .controls-row {
     display: grid;
-    grid-template-columns: repeat(3, minmax(150px, 184px));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
-    justify-content: start;
+    width: 100%;
   }
 
   .controls-row select {
     min-width: 0;
-    height: 38px;
-    padding: 0 12px;
+    height: 34px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 
   .empty-card {

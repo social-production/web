@@ -19,7 +19,9 @@
     addProjectProductionPlan,
     addProjectServiceRequest,
     addProjectValue,
+    advanceProjectPhase,
     planProjectServiceRequest,
+    revertProjectPhase,
     requestProjectPhaseChange,
     requestProjectServiceRequestSettingsChange,
     setProjectActivityCommitment,
@@ -33,6 +35,7 @@
   } from '$lib/services/queries/details';
   import type {
     ProjectActivityRoleInput,
+    ProjectServiceHistoryCompletionChoice,
     ProjectServiceHistoryCompletionRole,
     ProjectApprovalVote,
     ProjectImportanceVoteValue,
@@ -121,7 +124,7 @@
     endsAt: '',
     locationLabel: '',
     roleRequirements: [createDraftActivityRole()],
-    linkedPlanPhaseId: null as string | null,
+    linkedPlanPhaseId: '' as string | null,
     note: ''
   };
   let serviceRequestForm = {
@@ -141,9 +144,12 @@
   let expandedPhaseThreePlanIds: string[] = [];
   let expandedActivityIds: string[] = [];
   let highlightedActivityId: string | null = null;
+  let highlightedRequestId: string | null = null;
   let selectedCollectiveRequestActivityId: string | null = null;
   let activityHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
+  let requestHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let lastActivityTargetId: string | null = null;
+  let lastRequestTargetId: string | null = null;
   let activityComposerElement: HTMLElement | null = null;
   let serviceRequestComposerElement: HTMLElement | null = null;
   let activityStartInputElement: HTMLInputElement | null = null;
@@ -167,6 +173,18 @@
     return url.searchParams.get('activity');
   }
 
+  function readRequestTarget(url: URL) {
+    if (url.hash.startsWith('#request-card-')) {
+      return url.hash.slice('#request-card-'.length) || null;
+    }
+
+    if (url.hash.startsWith('#request-')) {
+      return url.hash.slice('#request-'.length) || null;
+    }
+
+    return url.searchParams.get('request');
+  }
+
   $: currentPhaseOrder = phaseOrder(data.lifecycle.currentPhaseId);
 
   $: if (lastCurrentPhaseId !== data.lifecycle.currentPhaseId) {
@@ -187,7 +205,12 @@
       clearTimeout(activityHighlightResetHandle);
       activityHighlightResetHandle = null;
     }
+    if (requestHighlightResetHandle) {
+      clearTimeout(requestHighlightResetHandle);
+      requestHighlightResetHandle = null;
+    }
     highlightedActivityId = null;
+    highlightedRequestId = null;
   }
 
   $: activePhase =
@@ -221,6 +244,18 @@
         expandedActivityIds = [...expandedActivityIds, activityTargetId];
       }
       void focusActivityCard(activityTargetId);
+    }
+  }
+
+  $: {
+    const requestTargetId = readRequestTarget($page.url);
+
+    if (!requestTargetId) {
+      lastRequestTargetId = null;
+    } else if (requestTargetId !== lastRequestTargetId) {
+      lastRequestTargetId = requestTargetId;
+      activePhaseId = isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5';
+      void focusRequestCard(requestTargetId);
     }
   }
 
@@ -444,7 +479,7 @@
         endsAt: '',
         locationLabel: '',
         roleRequirements: [createDraftActivityRole()],
-        linkedPlanPhaseId: null,
+        linkedPlanPhaseId: '',
         note: ''
       };
       showPersonalActivityComposer = false;
@@ -498,7 +533,7 @@
       endsAt: '',
       locationLabel: '',
       roleRequirements: [createDraftActivityRole()],
-      linkedPlanPhaseId: null,
+      linkedPlanPhaseId: '',
       note: ''
     };
     showPersonalActivityComposer = false;
@@ -554,9 +589,23 @@
 
   async function toggleServiceHistoryCompletion(
     historyId: string,
-    role: ProjectServiceHistoryCompletionRole
+    role: ProjectServiceHistoryCompletionRole,
+    selection?: ProjectServiceHistoryCompletionChoice
   ) {
-    await refreshAfter(() => toggleProjectServiceHistoryCompletion(data.slug, historyId, role));
+    await refreshAfter(() =>
+      toggleProjectServiceHistoryCompletion(data.slug, historyId, role, selection)
+    );
+  }
+
+  async function advancePhase(closeNote?: string) {
+    await refreshAfter(() => advanceProjectPhase(data.slug, closeNote));
+  }
+
+  async function revertPhase(
+    targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>,
+    reason: string
+  ) {
+    await refreshAfter(() => revertProjectPhase(data.slug, targetPhaseId, reason));
   }
 
   function addProductionPlanPhase() {
@@ -773,17 +822,54 @@
     });
   }
 
+  function openActivityDetails(activityId: string) {
+    if (!browser) {
+      return;
+    }
+
+    const details = document.getElementById(`activity-${activityId}`);
+
+    if (details instanceof HTMLDetailsElement) {
+      details.open = true;
+    }
+  }
+
+  function scrollRequestCardIntoView(requestId: string) {
+    if (!browser) {
+      return;
+    }
+
+    document.getElementById(`request-card-${requestId}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
+
+  function openRequestDetails(requestId: string) {
+    if (!browser) {
+      return;
+    }
+
+    const details = document.getElementById(`request-${requestId}`);
+
+    if (details instanceof HTMLDetailsElement) {
+      details.open = true;
+    }
+  }
+
   async function focusActivityCard(activityId: string) {
     if (activityHighlightResetHandle) {
       clearTimeout(activityHighlightResetHandle);
     }
     highlightedActivityId = activityId;
     await tick();
+    openActivityDetails(activityId);
     scrollActivityCardIntoView(activityId);
 
     if (browser) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
+          openActivityDetails(activityId);
           scrollActivityCardIntoView(activityId);
         });
       });
@@ -794,6 +880,33 @@
         highlightedActivityId = null;
       }
       activityHighlightResetHandle = null;
+    }, 1800);
+  }
+
+  async function focusRequestCard(requestId: string) {
+    if (requestHighlightResetHandle) {
+      clearTimeout(requestHighlightResetHandle);
+    }
+
+    highlightedRequestId = requestId;
+    await tick();
+    openRequestDetails(requestId);
+    scrollRequestCardIntoView(requestId);
+
+    if (browser) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          openRequestDetails(requestId);
+          scrollRequestCardIntoView(requestId);
+        });
+      });
+    }
+
+    requestHighlightResetHandle = setTimeout(() => {
+      if (highlightedRequestId === requestId) {
+        highlightedRequestId = null;
+      }
+      requestHighlightResetHandle = null;
     }, 1800);
   }
 </script>
@@ -816,6 +929,8 @@
         bind:serviceRequestComposerElement
         bind:activityStartInputElement
         bind:activityEndInputElement
+        {highlightedActivityId}
+        {highlightedRequestId}
         openPersonalActivityComposer={openPersonalActivityComposer}
         openPersonalServiceRequestComposer={openPersonalServiceRequestComposer}
         openPersonalServiceRequestComposerForDay={openPersonalServiceRequestComposerForDay}
@@ -842,6 +957,7 @@
         activityForm={activityForm}
         serviceRequestForm={serviceRequestForm}
         {highlightedActivityId}
+        {highlightedRequestId}
         bind:selectedRequestActivityId={selectedCollectiveRequestActivityId}
         bind:activityComposerElement
         bind:serviceRequestComposerElement
@@ -889,7 +1005,6 @@
         productionForm={productionForm}
         distributionForm={distributionForm}
         activityForm={activityForm}
-        serviceRequestForm={serviceRequestForm}
         {highlightedActivityId}
         bind:activityComposerElement
         bind:activityStartInputElement
@@ -911,14 +1026,16 @@
         openActivityComposerForDay={openActivityComposerForDay}
         focusActivityCard={focusActivityCard}
         submitActivity={submitActivity}
-        submitServiceRequest={submitServiceRequest}
         updateActivityCommitment={updateActivityCommitment}
+        toggleHistoryCompletion={toggleServiceHistoryCompletion}
       />
     {/if}
 
     <ProjectPhaseChangeSection
       data={data}
       {activePhaseId}
+      {advancePhase}
+      {revertPhase}
       requestPhaseChange={handlePhaseChangeRequest}
       voteOnPhaseChange={handlePhaseChangeVote}
     />

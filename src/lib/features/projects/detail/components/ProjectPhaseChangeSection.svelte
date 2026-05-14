@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import {
@@ -18,6 +19,11 @@
 
   export let data: ProjectPageData;
   export let activePhaseId: ProjectLifecyclePhaseId;
+  export let advancePhase: (closeNote?: string) => void | Promise<void> = () => {};
+  export let revertPhase: (
+    targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>,
+    reason: string
+  ) => void | Promise<void> = () => {};
   export let requestPhaseChange: (
     targetPhaseId: ProjectLifecyclePhaseId,
     reason: string
@@ -31,20 +37,29 @@
   let showRevertComposer = false;
   let nextPhaseReason = '';
   let revertReason = '';
-  let revertTargetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'> = 'phase-2';
+  let revertTargetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'> = 'phase-2';
   let expandedVoteGroup: 'return' | 'advance' | 'close' | null = null;
+  let nextPhaseComposerElement: HTMLDivElement | null = null;
+  let revertComposerElement: HTMLDivElement | null = null;
 
   $: currentPhaseVisible = activePhaseId === data.lifecycle.currentPhaseId;
+  $: personalDirectPhaseChange = isPersonalServiceProject(data.projectMode);
   $: returnRequests = data.lifecycle.phaseChangeRequests.filter((request) => request.kind === 'return');
   $: nextVoteKind = (isClosingTransition() ? 'close' : 'advance') as 'close' | 'advance';
   $: nextActionRequests = data.lifecycle.phaseChangeRequests.filter(
     (request) => request.kind === nextVoteKind
   );
-  $: showReturnActions = data.lifecycle.revertablePhaseIds.length > 0 || returnRequests.length > 0;
-  $: showNextActions = !!data.lifecycle.nextPhaseId || nextActionRequests.length > 0;
+  $: canDirectReturn = personalDirectPhaseChange && data.lifecycle.viewerCanRevertPhase;
+  $: canDirectAdvance = personalDirectPhaseChange && data.lifecycle.viewerCanAdvancePhase;
+  $: showReturnActions = personalDirectPhaseChange
+    ? canDirectReturn
+    : data.lifecycle.revertablePhaseIds.length > 0 || returnRequests.length > 0;
+  $: showNextActions = personalDirectPhaseChange
+    ? canDirectAdvance
+    : !!data.lifecycle.nextPhaseId || nextActionRequests.length > 0;
 
   $: if (!data.lifecycle.revertablePhaseIds.includes(revertTargetPhaseId)) {
-    revertTargetPhaseId = data.lifecycle.revertablePhaseIds[0] ?? 'phase-2';
+    revertTargetPhaseId = data.lifecycle.revertablePhaseIds[0] ?? 'phase-1';
   }
 
   $: if (!currentPhaseVisible) {
@@ -61,7 +76,13 @@
     return data.lifecycle.nextPhaseId === closePhaseId();
   }
 
-  function revertTargetLabel(phaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>) {
+  function revertTargetLabel(
+    phaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>
+  ) {
+    if (phaseId === 'phase-1') {
+      return 'Phase 1 / Active service';
+    }
+
     if (phaseId === 'phase-2') {
       return isCollectiveServiceProject(data.projectMode)
         ? 'Phase 2 / Operations Plan'
@@ -79,13 +100,17 @@
     }
 
     if (isClosingTransition()) {
-      return 'Request close';
+      return personalDirectPhaseChange ? 'Close service' : 'Request close';
     }
 
-    return 'Request advance';
+    return personalDirectPhaseChange ? 'Advance project' : 'Request advance';
   }
 
   function nextPhasePlaceholder() {
+    if (personalDirectPhaseChange && isClosingTransition()) {
+      return 'Add the closure note that should appear in project updates.';
+    }
+
     return isClosingTransition()
       ? 'State why the project should close or where the work continues next.'
       : 'State why this phase change should happen now.';
@@ -107,9 +132,13 @@
       return;
     }
 
-    await requestPhaseChange(data.lifecycle.nextPhaseId, nextPhaseReason);
-    nextPhaseReason = '';
-    showNextPhaseComposer = false;
+    if (personalDirectPhaseChange) {
+      await advancePhase(nextPhaseReason);
+    } else {
+      await requestPhaseChange(data.lifecycle.nextPhaseId, nextPhaseReason);
+    }
+
+    closeNextPhaseComposer();
   }
 
   async function submitRevertRequest() {
@@ -117,47 +146,103 @@
       return;
     }
 
-    await requestPhaseChange(revertTargetPhaseId, revertReason);
-    revertReason = '';
-    showRevertComposer = false;
+    if (personalDirectPhaseChange) {
+      await revertPhase(revertTargetPhaseId, revertReason);
+    } else {
+      await requestPhaseChange(revertTargetPhaseId, revertReason);
+    }
+
+    closeRevertComposer();
   }
 
-  function toggleNextPhaseComposer() {
-    showNextPhaseComposer = !showNextPhaseComposer;
-    expandedVoteGroup = null;
+  function scrollComposerIntoView(element: HTMLElement | null) {
+    if (typeof window === 'undefined' || !element) {
+      return;
+    }
 
-    if (showNextPhaseComposer) {
-      showRevertComposer = false;
+    element.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
+
+  function closeNextPhaseComposer() {
+    showNextPhaseComposer = false;
+    nextPhaseReason = '';
+  }
+
+  function closeRevertComposer() {
+    showRevertComposer = false;
+    revertReason = '';
+  }
+
+  async function toggleNextPhaseComposer() {
+    const willOpen = !showNextPhaseComposer;
+
+    if (!willOpen) {
+      closeNextPhaseComposer();
+      expandedVoteGroup = null;
+      return;
+    }
+
+    showNextPhaseComposer = true;
+    closeRevertComposer();
+    expandedVoteGroup = null;
+    await tick();
+    scrollComposerIntoView(nextPhaseComposerElement);
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        scrollComposerIntoView(nextPhaseComposerElement);
+      });
     }
   }
 
-  function toggleRevertComposer() {
-    showRevertComposer = !showRevertComposer;
-    expandedVoteGroup = null;
+  async function toggleRevertComposer() {
+    const willOpen = !showRevertComposer;
 
-    if (showRevertComposer) {
-      showNextPhaseComposer = false;
+    if (!willOpen) {
+      closeRevertComposer();
+      expandedVoteGroup = null;
+      return;
+    }
+
+    showRevertComposer = true;
+    closeNextPhaseComposer();
+    expandedVoteGroup = null;
+    await tick();
+    scrollComposerIntoView(revertComposerElement);
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        scrollComposerIntoView(revertComposerElement);
+      });
     }
   }
 
   function toggleVoteGroup(kind: 'return' | 'advance' | 'close') {
     expandedVoteGroup = expandedVoteGroup === kind ? null : kind;
-    showNextPhaseComposer = false;
-    showRevertComposer = false;
+    closeNextPhaseComposer();
+    closeRevertComposer();
   }
 </script>
 
-{#if currentPhaseVisible && (data.lifecycle.phaseChangeRequests.length > 0 || data.lifecycle.viewerCanRequestPhaseChanges)}
+{#if currentPhaseVisible && (data.lifecycle.phaseChangeRequests.length > 0 || data.lifecycle.viewerCanRequestPhaseChanges || data.lifecycle.viewerCanAdvancePhase || data.lifecycle.viewerCanRevertPhase)}
   <div class="phase-change-stack">
     {#if showReturnActions || showNextActions}
       <div class="change-action-row">
         <div class="action-group action-group-left">
-          {#if data.lifecycle.viewerCanRequestPhaseChanges && data.lifecycle.revertablePhaseIds.length > 0}
-            <button class="secondary-button action-button" type="button" on:click={toggleRevertComposer}>
-              Request return
+          {#if (personalDirectPhaseChange ? canDirectReturn : data.lifecycle.viewerCanRequestPhaseChanges) && data.lifecycle.revertablePhaseIds.length > 0}
+            <button
+              class:active-toggle={showRevertComposer}
+              class="secondary-button action-button"
+              type="button"
+              on:click={toggleRevertComposer}
+            >
+              {personalDirectPhaseChange ? 'Return to active' : 'Request return'}
             </button>
           {/if}
-          {#if returnRequests.length > 0}
+          {#if !personalDirectPhaseChange && returnRequests.length > 0}
             <button class="vote-chip notice-chip" type="button" on:click={() => toggleVoteGroup('return')}>
               Vote Active
               <CountBadge count={returnRequests.length} />
@@ -166,14 +251,19 @@
         </div>
 
         <div class="action-group action-group-right">
-          {#if nextActionRequests.length > 0}
+          {#if !personalDirectPhaseChange && nextActionRequests.length > 0}
             <button class="vote-chip notice-chip" type="button" on:click={() => toggleVoteGroup(nextVoteKind)}>
               Vote Active
               <CountBadge count={nextActionRequests.length} />
             </button>
           {/if}
-          {#if data.lifecycle.viewerCanRequestPhaseChanges && data.lifecycle.nextPhaseId}
-            <button class="secondary-button action-button" type="button" on:click={toggleNextPhaseComposer}>
+          {#if (personalDirectPhaseChange ? canDirectAdvance : data.lifecycle.viewerCanRequestPhaseChanges) && data.lifecycle.nextPhaseId}
+            <button
+              class:active-toggle={showNextPhaseComposer}
+              class="secondary-button action-button"
+              type="button"
+              on:click={toggleNextPhaseComposer}
+            >
               {nextPhaseActionLabel()}
             </button>
           {/if}
@@ -181,10 +271,10 @@
       </div>
     {/if}
 
-    {#if showRevertComposer && data.lifecycle.viewerCanRequestPhaseChanges && data.lifecycle.revertablePhaseIds.length > 0}
-      <div class="mechanics-card change-action-panel">
+    {#if showRevertComposer && (personalDirectPhaseChange ? canDirectReturn : data.lifecycle.viewerCanRequestPhaseChanges) && data.lifecycle.revertablePhaseIds.length > 0}
+      <div bind:this={revertComposerElement} class="mechanics-card change-action-panel">
         <div class="composer-card">
-          <h3>Request return</h3>
+          <h3>{personalDirectPhaseChange ? 'Return to active' : 'Request return'}</h3>
           <label>
             <span class="field-inline-label">Return to</span>
             <select bind:value={revertTargetPhaseId}>
@@ -195,24 +285,34 @@
           </label>
           <label>
             <span class="field-inline-label">Reason</span>
-            <textarea bind:value={revertReason} rows="3" placeholder="State clearly why the project should return to an earlier planning phase."></textarea>
+            <textarea
+              bind:value={revertReason}
+              rows="3"
+              placeholder={personalDirectPhaseChange
+                ? 'State clearly why the project should return to active work.'
+                : 'State clearly why the project should return to an earlier planning phase.'}
+            ></textarea>
           </label>
           <div class="composer-actions">
-            <button class="primary-button" type="button" on:click={submitRevertRequest}>Submit request</button>
+            <button class="secondary-button" type="button" on:click={closeRevertComposer}>Cancel</button>
+            <button class="primary-button" type="button" on:click={submitRevertRequest}>
+              {personalDirectPhaseChange ? 'Return to active' : 'Submit request'}
+            </button>
           </div>
         </div>
       </div>
     {/if}
 
     {#if showNextPhaseComposer && data.lifecycle.nextPhaseId}
-      <div class="mechanics-card change-action-panel">
+      <div bind:this={nextPhaseComposerElement} class="mechanics-card change-action-panel">
         <div class="composer-card">
-          <h3>{isClosingTransition() ? 'Request close' : 'Request advance'}</h3>
+          <h3>{nextPhaseActionLabel()}</h3>
           <label>
             <span class="field-inline-label">Reason</span>
             <textarea bind:value={nextPhaseReason} rows="3" placeholder={nextPhasePlaceholder()}></textarea>
           </label>
           <div class="composer-actions">
+            <button class="secondary-button" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
             <button class="primary-button" type="button" on:click={submitNextPhaseRequest}>
               {nextPhaseActionLabel()}
             </button>
@@ -315,9 +415,12 @@
     flex-wrap: wrap;
   }
 
-  .action-group,
   .vote-card-top {
     justify-content: space-between;
+  }
+
+  .action-group-left {
+    justify-content: flex-start;
   }
 
   .action-group-right {
@@ -326,6 +429,10 @@
 
   .action-button {
     width: auto;
+  }
+
+  .change-action-panel {
+    scroll-margin-top: 92px;
   }
 
   .mechanics-card,
@@ -361,6 +468,13 @@
     border: 1px solid var(--panel-border);
     background: var(--panel-strong);
     color: var(--text-soft);
+  }
+
+  .secondary-button.active-toggle {
+    border-color: color-mix(in srgb, var(--brand-strong) 62%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 46%, var(--panel-strong));
+    color: var(--brand-strong);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 24%, transparent);
   }
 
   .notice-chip {

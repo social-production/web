@@ -3,6 +3,7 @@
   import IndividualServicePhaseTwo from './phases/IndividualServicePhaseTwo.svelte';
   import type {
     ProjectActivityRoleInput,
+    ProjectServiceHistoryCompletionChoice,
     ProjectServiceHistoryCompletionRole,
     ProjectApprovalVote,
     ProjectLifecyclePhaseId,
@@ -32,6 +33,8 @@
   export let activePhaseId: ProjectLifecyclePhaseId;
   export let activityForm: DraftActivityForm;
   export let serviceRequestForm: DraftServiceRequestForm;
+  export let highlightedActivityId: string | null = null;
+  export let highlightedRequestId: string | null = null;
   export let showPersonalActivityComposer = false;
   export let showPersonalServiceRequestComposer = false;
   export let activityComposerElement: HTMLElement | null = null;
@@ -57,7 +60,8 @@
   ) => void | Promise<void> = () => {};
   export let toggleHistoryCompletion: (
     historyId: string,
-    role: ProjectServiceHistoryCompletionRole
+    role: ProjectServiceHistoryCompletionRole,
+    selection?: ProjectServiceHistoryCompletionChoice
   ) => void | Promise<void> = () => {};
 </script>
 
@@ -71,6 +75,8 @@
     bind:showPersonalActivityComposer
     bind:showPersonalServiceRequestComposer
     {activityForm}
+    {highlightedActivityId}
+    {highlightedRequestId}
     {openPersonalActivityComposer}
     {openPersonalServiceRequestComposer}
     {openPersonalServiceRequestComposerForDay}

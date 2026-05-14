@@ -23,6 +23,12 @@
     channels: 'Topic-based discovery across projects, threads, and events.',
     communities: 'Social coordination spaces around shared work.'
   };
+
+  $: collectiveLink = bootstrap.directory.platform ?? {
+    slug: 'platform',
+    label: 'Platform',
+    href: '/platform'
+  };
 </script>
 
 {#if compact}
@@ -50,33 +56,31 @@
   </div>
 </section>
 
-{#if bootstrap.directory.platform}
-  <section class="rail-panel">
-    <h2>Collective</h2>
-    <p class="section-subtitle">{railDescriptions.collective}</p>
-    <div class="stack-links">
-      <a
-        class:active-link={$page.url.pathname === bootstrap.directory.platform.href}
-        class="rail-link"
-        href={bootstrap.directory.platform.href}
-        on:click={closePanels}
-      >
-        {bootstrap.directory.platform.label}
-      </a>
-      <a
-        class:active-link={$page.url.pathname === '/platform/assets' || $page.url.pathname.startsWith('/platform/assets/')}
-        class="rail-link"
-        href="/platform/assets"
-        on:click={closePanels}
-      >
-        <span>Assets</span>
-        <span class={`feature-pill ${bootstrap.featureFlags.assets ? 'open' : 'closed'}`}>
-          {bootstrap.featureFlags.assets ? 'Open' : 'Closed'}
-        </span>
-      </a>
-    </div>
-  </section>
-{/if}
+<section class="rail-panel">
+  <h2>Collective</h2>
+  <p class="section-subtitle">{railDescriptions.collective}</p>
+  <div class="stack-links">
+    <a
+      class:active-link={$page.url.pathname === collectiveLink.href}
+      class="rail-link"
+      href={collectiveLink.href}
+      on:click={closePanels}
+    >
+      {collectiveLink.label}
+    </a>
+    <a
+      class:active-link={$page.url.pathname === '/platform/assets' || $page.url.pathname.startsWith('/platform/assets/')}
+      class="rail-link"
+      href="/platform/assets"
+      on:click={closePanels}
+    >
+      <span>Assets</span>
+      <span class={`feature-pill ${bootstrap.featureFlags.assets ? 'open' : 'closed'}`}>
+        {bootstrap.featureFlags.assets ? 'Open' : 'Closed'}
+      </span>
+    </a>
+  </div>
+</section>
 
 <section class="rail-panel">
   <h2>Channels</h2>

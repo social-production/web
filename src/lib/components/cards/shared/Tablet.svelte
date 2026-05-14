@@ -30,6 +30,7 @@
     white-space: nowrap;
     color: #fff;
     text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+    transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
   }
 
   .thread {

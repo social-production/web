@@ -14,8 +14,10 @@ import type {
 import type { PlatformAssetsPageData } from '$lib/types/assets';
 import type {
   AuthResult,
+  PersonalFeedPreferences,
   OnboardingPageData,
   ProfilePageData,
+  PublicFeedPreferences,
   SignInInput,
   SignUpInput,
   SettingsPageData,
@@ -28,7 +30,9 @@ import type {
   EventPageData,
   PostPageData,
   ProjectActivityPlanPhaseOption,
+  ProjectServiceHistoryCompletionChoice,
   ProjectServiceHistoryCompletionRole,
+  ProjectServiceHistoryCompletionState,
   ProjectServiceHistoryItem,
   ProjectActivityItem,
   ProjectActivityInput,
@@ -56,6 +60,7 @@ import type {
   ProjectServiceRequestSettingsChangeInput,
   ProjectServiceRequestSettingsChangeRequest,
   ProjectServiceRequestStatus,
+  ProjectServiceHistoryState,
   ShareTargetResult,
   ProjectValueItem,
   ThreadPageData
@@ -442,6 +447,24 @@ const createdCommunityScopeMetaBySlug: Record<string, DynamicScopePageMeta> = {}
 
 const clientStateStorageKey = 'social-production.web.client-state';
 
+function createDefaultPublicFeedPreferences(): PublicFeedPreferences {
+  return {
+    scope: 'home',
+    filter: 'all',
+    sort: 'popular',
+    window: 'all'
+  };
+}
+
+function createDefaultPersonalFeedPreferences(): PersonalFeedPreferences {
+  return {
+    scope: 'following',
+    filter: 'all',
+    sort: 'popular',
+    window: 'all'
+  };
+}
+
 function createDefaultSettingsState(
   viewer: ViewerSummary
 ): SettingsPageData {
@@ -450,9 +473,32 @@ function createDefaultSettingsState(
     profileBio: viewer.bio ?? '',
     appearanceThemeMode: 'light',
     defaultFeed: 'public',
+    publicFeedPreferences: createDefaultPublicFeedPreferences(),
+    personalFeedPreferences: createDefaultPersonalFeedPreferences(),
     hidePublicActivityFromPersonalFeeds: false,
     hidePersonalFeedFromNonFollowers: false,
     requireFollowApproval: false
+  };
+}
+
+function normalizeSettingsState(
+  viewer: ViewerSummary,
+  settings?: Partial<SettingsPageData> | null
+): SettingsPageData {
+  const defaults = createDefaultSettingsState(viewer);
+
+  return {
+    ...defaults,
+    ...settings,
+    publicFeedPreferences: {
+      ...defaults.publicFeedPreferences,
+      ...(settings?.publicFeedPreferences ?? {})
+    },
+    personalFeedPreferences: {
+      ...defaults.personalFeedPreferences,
+      ...(settings?.personalFeedPreferences ?? {})
+    },
+    requireFollowApproval: settings?.hidePersonalFeedFromNonFollowers ?? false
   };
 }
 
@@ -472,8 +518,10 @@ function currentSettingsState() {
   const existing = settingsByUserId[viewer.id];
 
   if (existing) {
-    existing.profileUsername = viewer.username;
-    return existing;
+    const normalized = normalizeSettingsState(viewer, existing);
+    normalized.profileUsername = viewer.username;
+    settingsByUserId[viewer.id] = normalized;
+    return normalized;
   }
 
   const created = createDefaultSettingsState(viewer);
@@ -509,6 +557,7 @@ function persistClientState() {
         users,
         credentialsByUserId,
         followsByUserId,
+        scopeMembershipByKey,
         settingsByUserId
       })
     );
@@ -534,6 +583,15 @@ function hydratePersistedClientState() {
       users?: ViewerSummary[];
       credentialsByUserId?: Record<string, string>;
       followsByUserId?: Record<string, string[]>;
+      scopeMembershipByKey?: Record<
+        string,
+        {
+          memberIds?: string[];
+          joinPolicy?: 'open' | 'invite_only';
+          hiddenFeedCopy?: string;
+          inviteToken?: string;
+        }
+      >;
       settingsByUserId?: Record<string, SettingsPageData>;
     };
 
@@ -558,16 +616,29 @@ function hydratePersistedClientState() {
       );
     }
 
+    if (persisted.scopeMembershipByKey && typeof persisted.scopeMembershipByKey === 'object') {
+      Object.assign(
+        scopeMembershipByKey,
+        Object.fromEntries(
+          Object.entries(persisted.scopeMembershipByKey).map(([key, membership]) => [
+            key,
+            {
+              ...scopeMembershipByKey[key],
+              ...membership,
+              memberIds: Array.isArray(membership?.memberIds)
+                ? membership.memberIds.filter((value): value is string => typeof value === 'string')
+                : scopeMembershipByKey[key]?.memberIds ?? []
+            }
+          ])
+        )
+      );
+    }
+
     if (persisted.settingsByUserId && typeof persisted.settingsByUserId === 'object') {
       settingsByUserId = Object.fromEntries(
         Object.entries(persisted.settingsByUserId).map(([userId, settings]) => [
           userId,
-          {
-            ...createDefaultSettingsState(userById(userId) ?? patchbayUser),
-            ...settings,
-            requireFollowApproval:
-              settings?.hidePersonalFeedFromNonFollowers ?? false
-          }
+          normalizeSettingsState(userById(userId) ?? patchbayUser, settings)
         ])
       );
     }
@@ -2034,13 +2105,15 @@ type RawProjectServiceRequestSettingsChangeRequest = {
 };
 
 type RawProjectServiceHistoryCompletion = {
+  requesterSelectionsByUsername?: Record<string, ProjectServiceHistoryCompletionChoice>;
+  participantSelectionsByUsername?: Record<string, ProjectServiceHistoryCompletionChoice>;
   requesterDoneByUsernames?: string[];
-  participantDoneByUsernames: string[];
+  participantDoneByUsernames?: string[];
 };
 
 type RawProjectRevertEntry = {
   id: string;
-  targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>;
+  targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>;
   reason: string;
   authorUsername: string;
   createdAt: string;
@@ -2620,12 +2693,65 @@ const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
     ],
     phaseFiveActivities: [
       {
+        id: 'project-activity-repair-0',
+        title: 'Tuesday repair cafe kickoff',
+        authorUsername: 'toolorbit',
+        scheduledAt: '2026-05-01T18:00:00Z',
+        endsAt: '2026-05-01T21:00:00Z',
+        locationLabel: 'Tool Library workshop floor',
+        minimumParticipants: 2,
+        linkedPlanPhaseId: 'production-plan-repair-1-phase-1',
+        roles: [
+          {
+            label: 'Intake table',
+            requiredCount: 1,
+            assignedUsernames: ['patchbay']
+          },
+          {
+            label: 'Bench repair support',
+            requiredCount: 1,
+            assignedUsernames: ['toolorbit']
+          }
+        ],
+        note: 'Initial floor layout and queue test for the repair night workflow.'
+      },
+      {
         id: 'project-activity-repair-1',
         title: 'Thursday repair cafe shift',
         authorUsername: 'toolorbit',
         scheduledAt: '2026-05-05T18:00:00Z',
+        endsAt: '2026-05-05T21:00:00Z',
         locationLabel: 'Tool Library workshop floor',
         minimumParticipants: 3,
+        linkedPlanPhaseId: 'production-plan-repair-1-phase-1',
+        roles: [
+          {
+            label: 'Intake table',
+            requiredCount: 1,
+            assignedUsernames: ['patchbay']
+          },
+          {
+            label: 'Bench repair support',
+            requiredCount: 1,
+            assignedUsernames: ['toolorbit']
+          },
+          {
+            label: 'Queue board runner',
+            requiredCount: 1,
+            assignedUsernames: ['rowanloop']
+          }
+        ],
+        note: 'This shift opened with all three floor roles covered.'
+      },
+      {
+        id: 'project-activity-repair-2',
+        title: 'Next Thursday repair cafe shift',
+        authorUsername: 'toolorbit',
+        scheduledAt: '2026-05-21T18:00:00Z',
+        endsAt: '2026-05-21T21:00:00Z',
+        locationLabel: 'Tool Library workshop floor',
+        minimumParticipants: 3,
+        linkedPlanPhaseId: 'production-plan-repair-1-phase-1',
         roles: [
           {
             label: 'Intake table',
@@ -2643,9 +2769,24 @@ const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
             assignedUsernames: []
           }
         ],
-        note: 'This shift only goes live once all three floor roles are covered.'
+        note: 'The next shift stays tentative until the final queue role is filled.'
       }
-    ]
+    ],
+    serviceHistoryCompletions: {
+      'activity:project-activity-repair-0': {
+        participantSelectionsByUsername: {
+          patchbay: 'completed',
+          toolorbit: 'completed'
+        }
+      },
+      'activity:project-activity-repair-1': {
+        participantSelectionsByUsername: {
+          patchbay: 'completed',
+          toolorbit: 'completed',
+          rowanloop: 'uncompleted'
+        }
+      }
+    }
   },
   'neighborhood-ride-coordination-service': {
     signalCount: 44,
@@ -3101,14 +3242,92 @@ const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
         }
       }
     ],
-    phaseTwoPlans: [],
-    phaseThreePlans: [],
+    phaseTwoPlans: [
+      {
+        id: 'production-plan-airseal-1',
+        title: 'Hallway prep and sealing runbook',
+        authorUsername: 'toolorbit',
+        createdAt: '2026-05-02T15:15:00Z',
+        outputSummary: 'Stage materials by hallway, seal priority gaps first, and leave a verification sweep before wrap-up.',
+        materialsSummary: 'Requires labeled sealant kits, masking bundles, ladders, and one staged cleanup station per hallway.',
+        totalCostLabel: '$320 pooled materials',
+        acquisitionsSummary: 'Buy sealant refills and masking materials in one batch before the install block opens.',
+        overallVotesByUserId: {
+          'viewer-1': 'yes',
+          'user-tool': 'yes',
+          'user-rowan': 'yes'
+        },
+        valueVotesByValueId: {
+          'value-airseal-1': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          },
+          'value-airseal-2': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          }
+        }
+      }
+    ],
+    phaseThreePlans: [
+      {
+        id: 'distribution-plan-airseal-1',
+        title: 'Hallway-by-hallway access and verification order',
+        authorUsername: 'rowanloop',
+        createdAt: '2026-05-05T17:00:00Z',
+        distributionSummary: 'Open each hallway in a fixed order so staged materials and installers move in one direction without doubling back.',
+        accessSummary: 'Residents get hallway-specific timing notices, then each block reopens only after the smoke check passes.',
+        reserveSummary: 'Keep one flex hour at the end of the week for units that fail the first verification sweep.',
+        overallVotesByUserId: {
+          'viewer-1': 'yes',
+          'user-tool': 'yes',
+          'user-rowan': 'yes'
+        },
+        valueVotesByValueId: {
+          'value-airseal-1': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          },
+          'value-airseal-2': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          }
+        }
+      }
+    ],
     phaseFiveActivities: [
+      {
+        id: 'project-activity-airseal-0',
+        title: 'Material staging and masking pass',
+        authorUsername: 'toolorbit',
+        scheduledAt: '2026-05-10T09:00:00Z',
+        endsAt: '2026-05-10T12:00:00Z',
+        locationLabel: 'Tool Library annex workshop',
+        minimumParticipants: 2,
+        roles: [
+          {
+            label: 'Prep lead',
+            requiredCount: 1,
+            assignedUsernames: ['patchbay']
+          },
+          {
+            label: 'Material runner',
+            requiredCount: 1,
+            assignedUsernames: ['toolorbit']
+          }
+        ],
+        note: 'Past prep block that staged masking and sealant bundles for the main install round.'
+      },
       {
         id: 'project-activity-airseal-1',
         title: 'Saturday hallway sealing block',
         authorUsername: 'toolorbit',
-        scheduledAt: '2026-05-06T10:00:00Z',
+        scheduledAt: '2026-05-18T10:00:00Z',
+        endsAt: '2026-05-18T14:00:00Z',
         locationLabel: 'Tool Library annex workshop',
         minimumParticipants: 3,
         roles: [
@@ -3120,12 +3339,42 @@ const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
           {
             label: 'Install team',
             requiredCount: 2,
-            assignedUsernames: ['toolorbit']
+            assignedUsernames: ['toolorbit', 'rowanloop']
           }
         ],
         note: 'This session only activates when all required install roles are filled.'
+      },
+      {
+        id: 'project-activity-airseal-2',
+        title: 'Smoke check and touch-up round',
+        authorUsername: 'toolorbit',
+        scheduledAt: '2026-05-22T17:30:00Z',
+        endsAt: '2026-05-22T19:00:00Z',
+        locationLabel: 'East Market north hall',
+        minimumParticipants: 2,
+        roles: [
+          {
+            label: 'Seal check lead',
+            requiredCount: 1,
+            assignedUsernames: ['patchbay']
+          },
+          {
+            label: 'Smoke test support',
+            requiredCount: 1,
+            assignedUsernames: []
+          }
+        ],
+        note: 'Follow-up verification round with one remaining support slot still open.'
       }
-    ]
+    ],
+    serviceHistoryCompletions: {
+      'activity:project-activity-airseal-0': {
+        participantSelectionsByUsername: {
+          patchbay: 'completed',
+          toolorbit: 'completed'
+        }
+      }
+    }
   },
   'block-weatherization-pilot-wrap': {
     signalCount: 66,
@@ -3382,13 +3631,7 @@ function stageLabelForProject(slug: string, fallback: string, projectMode: Proje
       return 'Closed';
     }
 
-    const requestMode = personalServiceRequestMode(slug);
-
-    if (requestMode === 'both') {
-      return 'Calendar + Requests';
-    }
-
-    return requestMode === 'direct' ? 'Requests' : 'Calendar';
+    return 'Activity';
   }
 
   return projectFeedPhaseLabel(projectMode, currentPhaseId) ?? fallback;
@@ -3600,60 +3843,189 @@ function buildProjectActivityItemFromRaw(
   } satisfies ProjectActivityItem;
 }
 
-function buildProjectActivityItemFromAcceptedRequest(
+function buildProjectActivityItemFromRequestWindow(
   request: RawProjectServiceRequest,
   project: PublicProjectItem,
-  viewerUsername: string | null
+  viewerUsername: string | null,
+  statusTone: ProjectActivityItem['statusTone'],
+  serviceCommitted: boolean
 ) {
   const startAt = request.scheduledAt ?? request.createdAt;
   const endAt =
     request.endsAt ??
     new Date(new Date(startAt).getTime() + 60 * 60 * 1000).toISOString();
-  const viewerIsAssigned = viewerUsername === project.authorUsername;
+  const viewerIsAssigned = serviceCommitted && viewerUsername === project.authorUsername;
 
   return {
     id: `accepted-service-${request.id}`,
     title: request.title,
-    authorUsername: project.authorUsername,
+    authorUsername: request.requesterUsername,
     scheduledAt: startAt,
     startAt,
     endAt,
     locationLabel: project.locationLabel,
     minimumParticipants: 1,
     maximumParticipants: 1,
-    committedCount: 1,
+    committedCount: serviceCommitted ? 1 : 0,
     viewerAssignedRoleLabel: viewerIsAssigned ? 'Service lead' : null,
     linkedPlanPhaseLabel: null,
-    statusTone: 'green' as const,
+    statusTone,
     roles: [
       {
         label: 'Service lead',
-        filledCount: 1,
+        filledCount: serviceCommitted ? 1 : 0,
         requiredCount: 1,
         maximumCount: 1,
         isViewerAssigned: viewerIsAssigned
       }
     ],
     note: request.body,
-    isActive: true
+    isActive: serviceCommitted
   } satisfies ProjectActivityItem;
+}
+
+function buildProjectActivityItemFromAcceptedRequest(
+  request: RawProjectServiceRequest,
+  project: PublicProjectItem,
+  viewerUsername: string | null
+) {
+  return buildProjectActivityItemFromRequestWindow(request, project, viewerUsername, 'green', true);
+}
+
+function buildProjectActivityItemFromUnansweredRequest(
+  request: RawProjectServiceRequest,
+  project: PublicProjectItem,
+  viewerUsername: string | null
+) {
+  return buildProjectActivityItemFromRequestWindow(request, project, viewerUsername, 'red', false);
+}
+
+function normalizeHistorySelectionMap(
+  selectionsByUsername?: Record<string, ProjectServiceHistoryCompletionChoice>,
+  completedUsernames: string[] = []
+) {
+  const normalizedSelections = { ...(selectionsByUsername ?? {}) };
+
+  for (const username of uniqueUsernames(completedUsernames)) {
+    normalizedSelections[username] ??= 'completed';
+  }
+
+  return normalizedSelections;
+}
+
+function normalizeRawServiceHistoryCompletion(completion?: RawProjectServiceHistoryCompletion | null) {
+  return {
+    requesterSelectionsByUsername: normalizeHistorySelectionMap(
+      completion?.requesterSelectionsByUsername,
+      completion?.requesterDoneByUsernames ?? []
+    ),
+    participantSelectionsByUsername: normalizeHistorySelectionMap(
+      completion?.participantSelectionsByUsername,
+      completion?.participantDoneByUsernames ?? []
+    )
+  };
 }
 
 function buildServiceHistoryCompletionState(
   label: string,
   eligibleUsernames: string[],
-  completedUsernames: string[],
+  completionSelectionsByUsername: Record<string, ProjectServiceHistoryCompletionChoice> | undefined,
   viewerUsername: string | null
 ) {
   const eligible = uniqueUsernames(eligibleUsernames);
-  const completed = uniqueUsernames(completedUsernames).filter((username) => eligible.includes(username));
+  const filteredSelections = Object.fromEntries(
+    Object.entries(completionSelectionsByUsername ?? {}).filter(
+      ([username, selection]) =>
+        eligible.includes(username) && (selection === 'completed' || selection === 'uncompleted')
+    )
+  );
+  const completedCount = Object.values(filteredSelections).filter(
+    (selection) => selection === 'completed'
+  ).length;
+  const uncompletedCount = Object.values(filteredSelections).filter(
+    (selection) => selection === 'uncompleted'
+  ).length;
+  const viewerCanSet = !!viewerUsername && eligible.includes(viewerUsername);
+  const viewerSelection = viewerCanSet && viewerUsername ? filteredSelections[viewerUsername] ?? null : null;
 
   return {
     label,
     totalEligible: eligible.length,
-    doneCount: completed.length,
-    viewerCanToggle: !!viewerUsername && eligible.includes(viewerUsername),
-    viewerHasMarkedDone: !!viewerUsername && completed.includes(viewerUsername)
+    completedCount,
+    uncompletedCount,
+    pendingCount: Math.max(eligible.length - completedCount - uncompletedCount, 0),
+    viewerCanSet,
+    viewerSelection,
+    doneCount: completedCount,
+    viewerCanToggle: viewerCanSet,
+    viewerHasMarkedDone: viewerSelection === 'completed'
+  } satisfies ProjectServiceHistoryCompletionState;
+}
+
+function projectServiceHistoryStateMeta(historyState: ProjectServiceHistoryState) {
+  switch (historyState) {
+    case 'unanswered-request':
+      return {
+        label: 'Unanswered request',
+        description: 'This requested time passed without being accepted or turned into a scheduled activity.'
+      };
+    case 'request-only':
+      return {
+        label: 'Request only',
+        description: 'This request moved into history without turning into a planned activity.'
+      };
+    case 'planned-activity':
+      return {
+        label: 'Planned activity',
+        description: 'This request became a planned activity but did not reach the required commitment.'
+      };
+    case 'committed-activity':
+      return {
+        label: 'Committed activity',
+        description: 'This request became a planned activity and reached the required commitment.'
+      };
+    default:
+      return {
+        label: 'Self planned activity',
+        description: 'This activity was created directly by the project instead of coming from a request.'
+      };
+  }
+}
+
+function aggregateProjectServiceHistoryCompletion(
+  requesterCompletion: ProjectServiceHistoryCompletionState | null,
+  participantCompletion: ProjectServiceHistoryCompletionState
+) {
+  const completionGroups = [requesterCompletion, participantCompletion].filter(
+    (group): group is ProjectServiceHistoryCompletionState => group !== null
+  );
+  const totalEligible = completionGroups.reduce((total, group) => total + group.totalEligible, 0);
+  const completedCount = completionGroups.reduce((total, group) => total + group.completedCount, 0);
+  const uncompletedCount = completionGroups.reduce(
+    (total, group) => total + group.uncompletedCount,
+    0
+  );
+
+  if (totalEligible > 0 && completedCount === totalEligible) {
+    return {
+      aggregateCompletionState: 'completed' as const,
+      aggregateCompletionLabel: 'Completed',
+      aggregateCompletionTone: 'complete' as const
+    };
+  }
+
+  if (totalEligible > 0 && uncompletedCount === totalEligible) {
+    return {
+      aggregateCompletionState: 'uncompleted' as const,
+      aggregateCompletionLabel: 'Uncompleted',
+      aggregateCompletionTone: 'uncompleted' as const
+    };
+  }
+
+  return {
+    aggregateCompletionState: 'mixed' as const,
+    aggregateCompletionLabel: 'Mixed',
+    aggregateCompletionTone: 'mixed' as const
   };
 }
 
@@ -3664,6 +4036,18 @@ function canViewerSeePersonalServiceRequestHistory(
   const viewer = currentViewer();
 
   return !!viewer && (isProjectCreator(slug, viewer.id) || viewer.username === request.requesterUsername);
+}
+
+function canViewerSeePastServiceRequestHistory(
+  slug: string,
+  projectMode: ProjectMode,
+  request: RawProjectServiceRequest
+) {
+  if (projectMode === 'personal-service') {
+    return canViewerSeePersonalServiceRequestHistory(slug, request);
+  }
+
+  return canViewerReviewProjectServiceRequests(slug);
 }
 
 function baseProjectRequestSettingsForProject(
@@ -3979,12 +4363,31 @@ function buildProjectServiceHistoryItemFromActivity(
     ? (workflow.serviceRequests ?? []).find((request) => request.id === activity.linkedRequestId) ?? null
     : null;
   const completionId = projectServiceHistoryIdForActivity(activity);
-  const completion = workflow.serviceHistoryCompletions?.[completionId] ?? {
-    requesterDoneByUsernames: [],
-    participantDoneByUsernames: []
-  };
+  const completion = normalizeRawServiceHistoryCompletion(
+    workflow.serviceHistoryCompletions?.[completionId]
+  );
   const participantUsernames = uniqueUsernames(
     activity.roles.flatMap((role) => role.assignedUsernames)
+  );
+  const historyState: ProjectServiceHistoryState = linkedRequest
+    ? rawProjectActivityIsActive(activity)
+      ? 'committed-activity'
+      : 'planned-activity'
+    : 'self-planned';
+  const historyStateMeta = projectServiceHistoryStateMeta(historyState);
+  const requesterCompletion = linkedRequest
+    ? buildServiceHistoryCompletionState(
+        'Requester completion',
+        [linkedRequest.requesterUsername],
+        completion.requesterSelectionsByUsername,
+        viewerUsername
+      )
+    : null;
+  const participantCompletion = buildServiceHistoryCompletionState(
+    linkedRequest ? 'Service completion' : 'Participant completion',
+    participantUsernames,
+    completion.participantSelectionsByUsername,
+    viewerUsername
   );
 
   return {
@@ -3993,20 +4396,12 @@ function buildProjectServiceHistoryItemFromActivity(
     requestId: linkedRequest?.id ?? null,
     requesterUsername: linkedRequest?.requesterUsername ?? null,
     activity: buildProjectActivityItemFromRaw(activity, planPhaseLabelById, viewerUsername),
-    requesterCompletion: linkedRequest
-      ? buildServiceHistoryCompletionState(
-          'Requester completion',
-          [linkedRequest.requesterUsername],
-          completion.requesterDoneByUsernames ?? [],
-          viewerUsername
-        )
-      : null,
-    participantCompletion: buildServiceHistoryCompletionState(
-      linkedRequest ? 'Service completion' : 'Participant completion',
-      participantUsernames,
-      completion.participantDoneByUsernames,
-      viewerUsername
-    )
+    historyState,
+    historyStateLabel: historyStateMeta.label,
+    historyStateDescription: historyStateMeta.description,
+    ...aggregateProjectServiceHistoryCompletion(requesterCompletion, participantCompletion),
+    requesterCompletion,
+    participantCompletion
   } satisfies ProjectServiceHistoryItem;
 }
 
@@ -4017,10 +4412,23 @@ function buildProjectServiceHistoryItemFromAcceptedRequest(
   viewerUsername: string | null
 ) {
   const completionId = projectServiceHistoryIdForRequest(request.id);
-  const completion = workflow.serviceHistoryCompletions?.[completionId] ?? {
-    requesterDoneByUsernames: [],
-    participantDoneByUsernames: []
-  };
+  const completion = normalizeRawServiceHistoryCompletion(
+    workflow.serviceHistoryCompletions?.[completionId]
+  );
+  const historyState = 'request-only' as const;
+  const historyStateMeta = projectServiceHistoryStateMeta(historyState);
+  const requesterCompletion = buildServiceHistoryCompletionState(
+    'Requester completion',
+    [request.requesterUsername],
+    completion.requesterSelectionsByUsername,
+    viewerUsername
+  );
+  const participantCompletion = buildServiceHistoryCompletionState(
+    'Service completion',
+    [project.authorUsername],
+    completion.participantSelectionsByUsername,
+    viewerUsername
+  );
 
   return {
     id: completionId,
@@ -4028,19 +4436,53 @@ function buildProjectServiceHistoryItemFromAcceptedRequest(
     requestId: request.id,
     requesterUsername: request.requesterUsername,
     activity: buildProjectActivityItemFromAcceptedRequest(request, project, viewerUsername),
-    requesterCompletion: buildServiceHistoryCompletionState(
-      'Requester completion',
-      [request.requesterUsername],
-      completion.requesterDoneByUsernames ?? [],
-      viewerUsername
-    ),
-    participantCompletion: buildServiceHistoryCompletionState(
-      'Service completion',
-      [project.authorUsername],
-      completion.participantDoneByUsernames,
-      viewerUsername
-    )
+    historyState,
+    historyStateLabel: historyStateMeta.label,
+    historyStateDescription: historyStateMeta.description,
+    ...aggregateProjectServiceHistoryCompletion(requesterCompletion, participantCompletion),
+    requesterCompletion,
+    participantCompletion
   } satisfies ProjectServiceHistoryItem;
+}
+
+function buildProjectServiceHistoryItemFromUnansweredRequest(
+  request: RawProjectServiceRequest,
+  workflow: ProjectWorkflowState,
+  project: PublicProjectItem,
+  viewerUsername: string | null
+) {
+  const completionId = projectServiceHistoryIdForRequest(request.id);
+  const completion = normalizeRawServiceHistoryCompletion(
+    workflow.serviceHistoryCompletions?.[completionId]
+  );
+  const historyState = 'unanswered-request' as const;
+  const historyStateMeta = projectServiceHistoryStateMeta(historyState);
+  const participantCompletion = buildServiceHistoryCompletionState(
+    'Service completion',
+    [],
+    completion.participantSelectionsByUsername,
+    viewerUsername
+  );
+
+  return {
+    id: completionId,
+    source: 'request',
+    requestId: request.id,
+    requesterUsername: request.requesterUsername,
+    activity: buildProjectActivityItemFromUnansweredRequest(request, project, viewerUsername),
+    historyState,
+    historyStateLabel: historyStateMeta.label,
+    historyStateDescription: historyStateMeta.description,
+    aggregateCompletionState: 'uncompleted' as const,
+    aggregateCompletionLabel: 'Unanswered',
+    aggregateCompletionTone: 'uncompleted' as const,
+    requesterCompletion: null,
+    participantCompletion
+  } satisfies ProjectServiceHistoryItem;
+}
+
+function rawProjectServiceRequestHasEnded(request: RawProjectServiceRequest) {
+  return !!request.endsAt && new Date(request.endsAt).getTime() < Date.now();
 }
 
 function buildProjectPhaseFiveState(
@@ -4076,7 +4518,7 @@ function buildProjectPhaseFiveState(
   const liveActivities = scheduledActivities
     .filter(({ activity }) => rawProjectActivityEndTime(activity) >= now)
     .map(({ item }) => item);
-  const history = scheduledActivities
+  const history: ProjectServiceHistoryItem[] = scheduledActivities
     .filter(({ activity }) => rawProjectActivityEndTime(activity) < now)
     .map(({ activity }) =>
       buildProjectServiceHistoryItemFromActivity(
@@ -4087,16 +4529,14 @@ function buildProjectPhaseFiveState(
       )
     );
 
-  if (projectMode === 'personal-service') {
-    for (const request of workflow.serviceRequests ?? []) {
-      if (
-        request.status !== 'accepted' ||
-        request.linkedActivityId ||
-        !canViewerSeePersonalServiceRequestHistory(slug, request)
-      ) {
-        continue;
-      }
+  for (const request of workflow.serviceRequests ?? []) {
+    const resolvedStatus = resolveProjectServiceRequestStatus(request, workflow.phaseFiveActivities);
 
+    if (request.linkedActivityId || !canViewerSeePastServiceRequestHistory(slug, projectMode, request)) {
+      continue;
+    }
+
+    if (resolvedStatus === 'accepted') {
       const activityItem = buildProjectActivityItemFromAcceptedRequest(request, project, viewerUsername);
 
       if (new Date(activityItem.endAt).getTime() < now) {
@@ -4111,6 +4551,19 @@ function buildProjectPhaseFiveState(
       } else {
         liveActivities.push(activityItem);
       }
+
+      continue;
+    }
+
+    if (resolvedStatus === 'open' && rawProjectServiceRequestHasEnded(request)) {
+      history.push(
+        buildProjectServiceHistoryItemFromUnansweredRequest(
+          request,
+          workflow,
+          project,
+          viewerUsername
+        )
+      );
     }
   }
 
@@ -4128,6 +4581,10 @@ function buildProjectServiceRequestSettingsChangeRequests(
   slug: string,
   projectMode: ProjectMode
 ) {
+  if (projectMode === 'personal-service') {
+    return [] as ProjectServiceRequestSettingsChangeRequest[];
+  }
+
   const workflow = readProjectWorkflowState(slug);
   const eligibleVoterCount = requestSettingsEligibleVoterCount(slug, projectMode);
   const quorumThresholdPercent = calculateProjectQuorumThreshold(eligibleVoterCount);
@@ -4186,7 +4643,9 @@ function buildProjectServiceRequestState(
   }
 
   const liveRequests = (workflow.serviceRequests ?? []).filter(
-    (request) => resolveProjectServiceRequestStatus(request, workflow.phaseFiveActivities) === 'open'
+    (request) =>
+      resolveProjectServiceRequestStatus(request, workflow.phaseFiveActivities) === 'open' &&
+      !rawProjectServiceRequestHasEnded(request)
   );
 
   return {
@@ -4302,18 +4761,20 @@ function revertableProjectPhaseIds(
   currentPhaseId: ProjectLifecyclePhaseId
 ) {
   if (projectMode === 'personal-service') {
-    return [] as Array<Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>>;
+    return currentPhaseId === 'phase-2'
+      ? (['phase-1'] as Array<Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>>)
+      : ([] as Array<Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>>);
   }
 
   if (currentPhaseId === 'phase-3') {
-    return ['phase-2'] as Array<Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>>;
+    return ['phase-2'] as Array<Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>>;
   }
 
   if (currentPhaseId === 'phase-5' || currentPhaseId === 'phase-6') {
-    return ['phase-2', 'phase-3'] as Array<Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>>;
+    return ['phase-2', 'phase-3'] as Array<Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>>;
   }
 
-  return [] as Array<Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>>;
+  return [] as Array<Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>>;
 }
 
 function buildProjectLifecycleNotes(
@@ -5701,8 +6162,12 @@ function toProjectRoleMember(
 function buildCommentHref(href: string, commentId: string) {
   const url = new URL(href, 'https://socialproduction.local');
 
-  if (url.pathname.startsWith('/projects/')) {
+  if (url.pathname.startsWith('/projects/') || url.pathname.startsWith('/events/')) {
     url.searchParams.set('tab', 'chat');
+    url.searchParams.set('comment', commentId);
+    url.hash = '';
+
+    return `${url.pathname}${url.search}`;
   }
 
   url.searchParams.set('comment', commentId);
@@ -6069,7 +6534,7 @@ function buildPublicCommentActivities(publicFeed: PublicFeedItem[]) {
       kind: 'activity',
       id: seed.id,
       subjectId: subject.id,
-      href: `${subject.href}?comment=${comment.id}#comment-${comment.id}`,
+      href: buildCommentHref(subject.href, comment.id),
       author,
       actionLabel: 'Commented on',
       subjectKind: subject.kind,
@@ -6192,16 +6657,33 @@ function buildPersonalFeedFixture(): PersonalFeedItem[] {
 
       return followedIds.has(authorId);
     })
-    .map(buildPublicActivityItem);
+    .map((item) => ({
+      ...buildPublicActivityItem(item),
+      feedSource: 'following'
+    }) satisfies PersonalFeedItem);
   const commentActivities = buildPublicCommentActivities(publicFeed).filter(
     (item) => followedIds.has(item.author.id) && !shouldHidePublicActivityFromPersonalFeeds(item.author.id)
-  );
+  ).map((item) => ({
+    ...item,
+    feedSource: 'following'
+  }) satisfies PersonalFeedItem);
 
   const followerPosts = socialPostsBase
     .filter((post) => followedIds.has(post.author.id))
-    .map(buildSocialPostItem);
+    .map((post) => ({
+      ...buildSocialPostItem(post),
+      feedSource: 'following'
+    }) satisfies PersonalFeedItem);
+  const discoveryPosts = socialPostsBase
+    .filter((post) => post.audience === 'public')
+    .filter((post) => !followedIds.has(post.author.id))
+    .filter((post) => viewerCanSeePersonalFeed(post.author.id))
+    .map((post) => ({
+      ...buildSocialPostItem(post),
+      feedSource: 'discovery'
+    }) satisfies PersonalFeedItem);
 
-  return [...followerPosts, ...publicActivities, ...commentActivities].sort(
+  return [...followerPosts, ...publicActivities, ...commentActivities, ...discoveryPosts].sort(
     (left, right) => +new Date(right.createdAt) - +new Date(left.createdAt)
   );
 }
@@ -6228,6 +6710,22 @@ function readScopeMembership(kind: ScopeKind, slug: string): ScopeMembershipConf
 
 function buildScopeMembers(kind: ScopeKind, slug: string) {
   return readScopeMembership(kind, slug).memberIds.map((userId) => toScopeMember(userId));
+}
+
+function buildBootstrapDirectory() {
+  const viewer = currentViewer();
+  const viewerHasPlatformMembership =
+    !!viewer && readScopeMembership('platform', platform.slug).memberIds.includes(viewer.id);
+
+  return {
+    platform: viewerHasPlatformMembership ? platformDirectory : null,
+    channels: viewer
+      ? channelDirectory.filter((item) => readScopeMembership('channel', item.slug).memberIds.includes(viewer.id))
+      : [],
+    communities: viewer
+      ? communityDirectory.filter((item) => readScopeMembership('community', item.slug).memberIds.includes(viewer.id))
+      : []
+  };
 }
 
 function scopePath(kind: ScopeKind, slug: string) {
@@ -6681,6 +7179,41 @@ function buildRightRailItems(): RightRailActivityItem[] {
         } satisfies RightRailActivityItem;
       });
     });
+  const requestItems = publicFeed
+    .filter((item): item is PublicProjectItem => item.kind === 'project')
+    .flatMap((item) => {
+      if (item.projectMode === 'productive') {
+        return [];
+      }
+
+      const memberIds = projectMembersBySlug[item.slug] ?? [];
+      const lifecycle = buildProjectLifecycle(item.slug, item.projectMode, memberIds.length);
+      const requestSystem = lifecycle.requestSystem;
+      const viewerIsDirectMember = memberIds.includes(viewer.id);
+      const activityPhaseId = activityPhaseIdForProject(item.projectMode);
+      const viewerCanSeeRequests = item.projectMode === 'personal-service'
+        ? isProjectCreator(item.slug, viewer.id)
+        : viewerIsDirectMember;
+
+      if (!viewerCanSeeRequests || lifecycle.currentPhaseId !== activityPhaseId || !requestSystem?.viewerCanReviewRequests) {
+        return [];
+      }
+
+      return requestSystem.requests.map((request) => ({
+        id: `rail-project-request-${item.slug}-${request.id}`,
+        subjectId: request.id,
+        kind: 'request' as const,
+        title: request.title,
+        href: `${item.href}?request=${request.id}#request-card-${request.id}`,
+        meta: `${item.title} · ${request.requesterUsername}`,
+        createdAt: request.createdAt,
+        countLabel: formatServiceRequestWindow(request.scheduledAt, request.endsAt) || 'Open request',
+        projectMode: item.projectMode,
+        projectSlug: item.slug,
+        requestId: request.id,
+        requesterUsername: request.requesterUsername
+      } satisfies RightRailActivityItem));
+    });
   const eventItems = publicFeed
     .filter((item): item is PublicEventItem => item.kind === 'event')
     .flatMap((item) => {
@@ -6720,7 +7253,7 @@ function buildRightRailItems(): RightRailActivityItem[] {
       } satisfies RightRailActivityItem];
     });
 
-  return [...projectItems, ...eventItems].sort(
+  return [...projectItems, ...eventItems, ...requestItems].sort(
     (left, right) => +new Date(right.createdAt) - +new Date(left.createdAt)
   );
 }
@@ -6950,11 +7483,7 @@ export function getBootstrapFixture(): BootstrapPayload {
       platform: true
     },
     unreadCounts: buildUnreadCounts(),
-    directory: {
-      platform: platformDirectory,
-      channels: channelDirectory,
-      communities: communityDirectory
-    },
+    directory: buildBootstrapDirectory(),
     activityRail: buildRightRailItems()
   };
 }
@@ -7457,6 +7986,10 @@ function canViewerRequestProjectServiceRequestSettingsChange(slug: string) {
 }
 
 function canViewerVoteOnProjectServiceRequestSettingsChange(slug: string) {
+  if (projectModeForSlug(slug) === 'personal-service') {
+    return false;
+  }
+
   return canViewerRequestProjectServiceRequestSettingsChange(slug);
 }
 
@@ -8266,21 +8799,14 @@ function buildProjectServiceHistoryItemById(slug: string, historyId: string) {
   );
 }
 
-function toggleUsernameMembership(usernames: string[], username: string) {
-  return usernames.includes(username)
-    ? usernames.filter((item) => item !== username)
-    : [...usernames, username];
-}
-
 export function requestMockProjectServiceRequestSettingsChange(
   slug: string,
   input: ProjectServiceRequestSettingsChangeInput
 ) {
   const viewer = currentViewer();
   const projectMode = projectModeForSlug(slug);
-  const trimmedReason = input.reason.trim();
 
-  if (!viewer || !trimmedReason || !canViewerRequestProjectServiceRequestSettingsChange(slug)) {
+  if (!viewer || !canViewerRequestProjectServiceRequestSettingsChange(slug)) {
     return;
   }
 
@@ -8295,6 +8821,18 @@ export function requestMockProjectServiceRequestSettingsChange(
   const currentSettings = resolvedProjectRequestSettingsForProject(slug, projectMode);
 
   if (projectRequestSettingsMatch(currentSettings, proposedSettings)) {
+    return;
+  }
+
+  if (projectMode === 'personal-service') {
+    workflow.requestSystemOverride = proposedSettings;
+    workflow.requestSettingsChangeRequests = [];
+    return;
+  }
+
+  const trimmedReason = input.reason.trim();
+
+  if (!trimmedReason) {
     return;
   }
 
@@ -8352,11 +8890,12 @@ export function setMockProjectServiceRequestSettingsChangeVote(
 export function setMockProjectServiceHistoryCompletion(
   slug: string,
   historyId: string,
-  role: ProjectServiceHistoryCompletionRole
+  role: ProjectServiceHistoryCompletionRole,
+  selection?: ProjectServiceHistoryCompletionChoice
 ) {
   const viewer = currentViewer();
 
-  if (!viewer) {
+  if (!viewer || !selection) {
     return;
   }
 
@@ -8367,22 +8906,28 @@ export function setMockProjectServiceHistoryCompletion(
   }
 
   const workflow = ensureProjectWorkflowState(slug);
+  const existingCompletion = normalizeRawServiceHistoryCompletion(
+    workflow.serviceHistoryCompletions?.[historyId]
+  );
   const completion =
     workflow.serviceHistoryCompletions?.[historyId] ??
     (workflow.serviceHistoryCompletions![historyId] = {
-      requesterDoneByUsernames: [],
-      participantDoneByUsernames: []
+      requesterSelectionsByUsername: {},
+      participantSelectionsByUsername: {}
     });
+
+  completion.requesterSelectionsByUsername = existingCompletion.requesterSelectionsByUsername;
+  completion.participantSelectionsByUsername = existingCompletion.participantSelectionsByUsername;
+  delete completion.requesterDoneByUsernames;
+  delete completion.participantDoneByUsernames;
 
   if (role === 'requester') {
     if (!historyItem.requesterCompletion?.viewerCanToggle) {
       return;
     }
 
-    completion.requesterDoneByUsernames = toggleUsernameMembership(
-      completion.requesterDoneByUsernames ?? [],
-      viewer.username
-    );
+    completion.requesterSelectionsByUsername ??= {};
+    completion.requesterSelectionsByUsername[viewer.username] = selection;
     return;
   }
 
@@ -8390,10 +8935,8 @@ export function setMockProjectServiceHistoryCompletion(
     return;
   }
 
-  completion.participantDoneByUsernames = toggleUsernameMembership(
-    completion.participantDoneByUsernames,
-    viewer.username
-  );
+  completion.participantSelectionsByUsername ??= {};
+  completion.participantSelectionsByUsername[viewer.username] = selection;
 }
 
 export function advanceMockProjectPhase(slug: string, closeNote?: string) {
@@ -8401,6 +8944,7 @@ export function advanceMockProjectPhase(slug: string, closeNote?: string) {
   const viewer = currentViewer();
   const projectMode = findPublicProjectItem(slug)?.projectMode ?? 'productive';
   const trimmedCloseNote = closeNote?.trim() ?? '';
+  const closingPhaseId = closePhaseIdForProject(projectMode);
 
   if (!config || !canViewerManageProjectPhase(slug)) {
     return;
@@ -8434,13 +8978,13 @@ export function advanceMockProjectPhase(slug: string, closeNote?: string) {
     return;
   }
 
-  if (nextPhaseId === closePhaseIdForProject(projectMode) && !trimmedCloseNote) {
+  if (nextPhaseId === closingPhaseId && !trimmedCloseNote) {
     return;
   }
 
   config.currentPhaseId = nextPhaseId;
 
-  if (nextPhaseId === closePhaseIdForProject(projectMode) && viewer && projectDetailExtras[slug]) {
+  if (nextPhaseId === closingPhaseId && trimmedCloseNote && viewer && projectDetailExtras[slug]) {
     projectDetailExtras[slug].updates = [
       {
         id: `project-update-close-${slug}-${Date.now()}`,
@@ -8456,7 +9000,7 @@ export function advanceMockProjectPhase(slug: string, closeNote?: string) {
 
 export function revertMockProjectPhase(
   slug: string,
-  targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>,
+  targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>,
   reason: string
 ) {
   const config = projectLifecycleBySlug[slug];
@@ -8485,6 +9029,19 @@ export function revertMockProjectPhase(
     },
     ...(workflow.revertHistory ?? [])
   ];
+
+  if (projectDetailExtras[slug]) {
+    projectDetailExtras[slug].updates = [
+      {
+        id: `project-update-return-${slug}-${Date.now()}`,
+        title: 'Return note',
+        body: trimmedReason,
+        authorUsername: viewer.username,
+        createdAt: new Date().toISOString()
+      },
+      ...projectDetailExtras[slug].updates
+    ];
+  }
 }
 
 export function toggleMockProjectManagerNomination(slug: string) {
@@ -8643,6 +9200,8 @@ export function toggleMockScopeMembership(kind: ScopeKind, slug: string) {
   membership.memberIds = viewerIsMember
     ? membership.memberIds.filter((userId) => userId !== viewer.id)
     : [viewer.id, ...membership.memberIds];
+
+  persistClientState();
 }
 
 function extractInviteToken(inviteValue: string) {
@@ -8778,6 +9337,7 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
   const viewer = currentViewer();
   const title = input.title.trim();
   const summary = input.summary.trim();
+  const locationLabel = projectLocationLabel(input.locationLabel);
   const channelTags = input.channelTags;
   const communityTags = input.communityTags;
   const isPlatformProject = channelTags.some((tag) => tag.slug === platform.slug);
@@ -8806,6 +9366,7 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
   const slug = uniqueSlug(title);
   const createdAt = new Date().toISOString();
   const id = `project-${slug}`;
+  const confidenceTargetId = `confidence-project-manager-${slug}-${viewer.id}`;
 
   publicFeedBase.unshift({
     kind: 'project',
@@ -8819,32 +9380,16 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
     summary,
     channelTags,
     communityTags,
-    stage:
-      input.projectMode === 'personal-service'
-        ? input.serviceRequestMode === 'direct'
-          ? 'Requests'
-          : input.serviceRequestMode === 'both'
-            ? 'Calendar + Requests'
-          : 'Calendar'
-        : 'Proposal',
-    locationLabel: projectLocationLabel(input.locationLabel),
+    stage: input.projectMode === 'personal-service' ? 'Activity' : 'Proposal',
+    locationLabel,
     voteCount: 0,
     activeVote: 0,
     signalCount: 0,
     commentCount: 0,
-    memberCount: input.projectMode === 'personal-service' ? 0 : 1,
+    memberCount: 1,
     lastActivityAt: createdAt
   });
-  projectMembersBySlug[slug] = [viewer.id];
-  projectMembershipSinceBySlug[slug] = {
-    ...(projectMembershipSinceBySlug[slug] ?? {}),
-    [viewer.id]: createdAt
-  };
-  projectManagersBySlug[slug] = {
-    managerIds: isPlatformProject ? [] : [viewer.id],
-    candidateIds: [],
-    confidenceTargetIdsByUserId: {}
-  };
+
   projectLifecycleBySlug[slug] = createProjectLifecycleConfig(input.projectMode);
   projectWorkflowStateBySlug[slug] = {
     signalCount: 0,
@@ -8858,17 +9403,33 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
     requestSettingsChangeRequests: [],
     serviceHistoryCompletions: {},
     revertHistory: [],
+    phaseChangeRequests: [],
     availabilitySummary:
       input.projectMode === 'personal-service' && input.serviceRequestMode !== 'direct'
         ? 'Availability will be coordinated directly through this service page.'
         : undefined,
     travelRadiusLabel:
       input.projectMode === 'personal-service' && input.serviceRequestMode !== 'direct'
-        ? projectLocationLabel(input.locationLabel)
+        ? locationLabel
         : undefined,
     serviceRequestMode:
       input.projectMode === 'personal-service' ? input.serviceRequestMode ?? 'both' : undefined
   };
+  projectMembersBySlug[slug] = [viewer.id];
+  projectMembershipSinceBySlug[slug] = {
+    [viewer.id]: createdAt
+  };
+
+  if (input.projectMode !== 'personal-service') {
+    projectManagersBySlug[slug] = {
+      managerIds: [viewer.id],
+      candidateIds: [],
+      confidenceTargetIdsByUserId: {
+        [viewer.id]: confidenceTargetId
+      }
+    };
+  }
+
   projectDetailExtras[slug] = {
     overview: createProjectOverview(input),
     updates: [],
@@ -8877,6 +9438,10 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
   };
   commentsBySubjectId[id] = [];
   seedVoteTarget(id, 0, 0);
+
+  if (input.projectMode !== 'personal-service') {
+    seedConfidenceTarget(confidenceTargetId, 0, 0, 0);
+  }
 
   return {
     ok: true,
@@ -9675,20 +10240,33 @@ function applyApprovedProjectPhaseChange(
   config.currentPhaseId = targetPhaseId;
 
   if (
-    ['phase-2', 'phase-3'].includes(targetPhaseId) &&
+    ['phase-1', 'phase-2', 'phase-3'].includes(targetPhaseId) &&
     phaseOrderForProjectMode(projectMode, targetPhaseId) < phaseOrderForProjectMode(projectMode, currentPhaseId)
   ) {
     const workflow = ensureProjectWorkflowState(slug);
     workflow.revertHistory = [
       {
         id: `project-revert-${slug}-${Date.now()}`,
-        targetPhaseId: targetPhaseId as Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>,
+        targetPhaseId: targetPhaseId as Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>,
         reason: trimmedReason,
         authorUsername,
         createdAt: new Date().toISOString()
       },
       ...(workflow.revertHistory ?? [])
     ];
+
+    if (projectDetailExtras[slug]) {
+      projectDetailExtras[slug].updates = [
+        {
+          id: `project-update-return-${slug}-${Date.now()}`,
+          title: 'Return note',
+          body: trimmedReason,
+          authorUsername,
+          createdAt: new Date().toISOString()
+        },
+        ...projectDetailExtras[slug].updates
+      ];
+    }
   }
 
   if (targetPhaseId === closePhaseIdForProject(projectMode) && projectDetailExtras[slug]) {

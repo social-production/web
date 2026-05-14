@@ -10,16 +10,18 @@
   <LiveChatPanel
     comments={data.discussion}
     emptyCopy="No project chat yet."
+    fitViewport={true}
     {highlightedCommentId}
     placeholder="Message the project..."
     subjectId={data.id}
     submitLabel="Send"
     title="# project-chat"
+    variant="message"
   />
 </section>
 
 <style>
   .chat-shell {
-    margin-top: 12px;
+    margin-top: 16px;
   }
 </style>

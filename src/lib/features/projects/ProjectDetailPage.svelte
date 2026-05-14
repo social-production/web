@@ -123,8 +123,8 @@
     position: relative;
     display: grid;
     gap: 0;
-    padding: 28px 16px 16px;
-    margin-top: 32px;
+    padding: 32px 16px 16px;
+    margin-top: 24px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
@@ -133,7 +133,7 @@
 
   .top-tab-row {
     display: inline-flex;
-    gap: 6px;
+    gap: 8px;
     padding: 2px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -142,7 +142,7 @@
     position: absolute;
     top: 0;
     left: 16px;
-    transform: translateY(-50%);
+    transform: translateY(-44%);
     z-index: 1;
     box-shadow: 0 10px 24px color-mix(in srgb, var(--page-bg) 82%, transparent);
   }

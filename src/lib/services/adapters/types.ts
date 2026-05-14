@@ -12,6 +12,7 @@ import type {
   EventPageData,
   PostPageData,
   ProjectActivityInput,
+  ProjectServiceHistoryCompletionChoice,
   ProjectServiceHistoryCompletionRole,
   ProjectApprovalVote,
   ProjectDistributionPlanInput,
@@ -130,7 +131,8 @@ export interface AppAdapter {
   toggleProjectServiceHistoryCompletion(
     projectSlug: string,
     historyId: string,
-    role: ProjectServiceHistoryCompletionRole
+    role: ProjectServiceHistoryCompletionRole,
+    selection?: ProjectServiceHistoryCompletionChoice
   ): Promise<void>;
   requestProjectPhaseChange(
     projectSlug: string,
@@ -145,7 +147,7 @@ export interface AppAdapter {
   advanceProjectPhase(projectSlug: string, closeNote?: string): Promise<void>;
   revertProjectPhase(
     projectSlug: string,
-    targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>,
+    targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>,
     reason: string
   ): Promise<void>;
   toggleProjectManagerNomination(projectSlug: string): Promise<void>;

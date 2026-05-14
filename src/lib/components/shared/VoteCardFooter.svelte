@@ -48,7 +48,7 @@
   }
 
   .vote-card-footer {
-    justify-content: flex-end;
+    justify-content: space-between;
   }
 
   .vote-chip {
@@ -72,6 +72,8 @@
   }
 
   .vote-card-meta {
+    margin-left: auto;
+    text-align: right;
     color: var(--text-soft);
     font-size: 12px;
   }

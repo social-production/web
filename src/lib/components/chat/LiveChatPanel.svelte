@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { addComment } from '$lib/services/queries/details';
   import type { DetailComment } from '$lib/types/detail';
@@ -27,14 +27,77 @@
   export let emptyCopy = 'No chat messages yet.';
   export let showHeader = true;
   export let embedded = false;
+  export let fitViewport = false;
   export let variant: 'chat' | 'message' = 'chat';
   export let onSubmitMessage: ((body: string) => Promise<void> | void) | null = null;
 
   let draftMessage = '';
+  let panelElement: HTMLElement | null = null;
   let chatLogElement: HTMLDivElement | null = null;
   let messageElements = new Map<string, HTMLElement>();
   let hasAutoScrolled = false;
+  let lastHighlightedCommentId: string | null = null;
   let lastAutoScrollKey = '';
+
+  function scrollChatLogToBottom() {
+    chatLogElement?.scrollTo({ top: chatLogElement.scrollHeight, behavior: 'auto' });
+  }
+
+  function centerMessageInChatLog(messageId: string) {
+    const target = messageElements.get(messageId);
+
+    if (!chatLogElement || !target) {
+      return;
+    }
+
+    const logBounds = chatLogElement.getBoundingClientRect();
+    const targetBounds = target.getBoundingClientRect();
+    const targetTop = targetBounds.top - logBounds.top + chatLogElement.scrollTop;
+    const nextScrollTop = Math.max(targetTop - chatLogElement.clientHeight / 2 + targetBounds.height / 2, 0);
+
+    chatLogElement.scrollTo({ top: nextScrollTop, behavior: 'smooth' });
+  }
+
+  async function clearHighlightedCommentTarget() {
+    if (!browser || !highlightedCommentId) {
+      return;
+    }
+
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.delete('comment');
+
+    if (nextUrl.hash.startsWith('#comment-')) {
+      nextUrl.hash = '';
+    }
+
+    await goto(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`, {
+      replaceState: true,
+      noScroll: true,
+      keepFocus: true
+    });
+  }
+
+  function visibleTopOffset() {
+    const topbarHeight = document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
+    return topbarHeight + 12;
+  }
+
+  function syncPanelHeight() {
+    if (!browser || !panelElement || embedded || !fitViewport) {
+      return;
+    }
+
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const topOffset = Math.max(panelElement.getBoundingClientRect().top, visibleTopOffset());
+    const nextHeight = Math.max(viewportHeight - topOffset, 320);
+    panelElement.style.setProperty('--chat-panel-height', `${Math.floor(nextHeight)}px`);
+
+    if (!highlightedCommentId) {
+      requestAnimationFrame(() => {
+        scrollChatLogToBottom();
+      });
+    }
+  }
 
   function flattenComments(items: DetailComment[]): ChatMessage[] {
     const flattened: ChatMessage[] = [];
@@ -61,6 +124,11 @@
       : flattenedComments;
   $: viewerUsername = $page.data.bootstrap?.viewer?.username ?? null;
 
+  $: if (highlightedCommentId !== lastHighlightedCommentId) {
+    lastHighlightedCommentId = highlightedCommentId;
+    hasAutoScrolled = false;
+  }
+
   $: if (!highlightedCommentId) {
     hasAutoScrolled = false;
   }
@@ -71,7 +139,7 @@
     if (target) {
       hasAutoScrolled = true;
       tick().then(() => {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        centerMessageInChatLog(highlightedCommentId);
       });
     }
   }
@@ -81,7 +149,13 @@
   $: if (browser && !highlightedCommentId && autoScrollKey !== lastAutoScrollKey) {
     lastAutoScrollKey = autoScrollKey;
     tick().then(() => {
-      chatLogElement?.scrollTo({ top: chatLogElement.scrollHeight, behavior: 'auto' });
+      scrollChatLogToBottom();
+    });
+  }
+
+  $: if (browser && panelElement && fitViewport && !embedded) {
+    tick().then(() => {
+      syncPanelHeight();
     });
   }
 
@@ -102,6 +176,12 @@
 
     draftMessage = '';
     await invalidateAll();
+
+    if (highlightedCommentId) {
+      await clearHighlightedCommentTarget();
+      await tick();
+      scrollChatLogToBottom();
+    }
   }
 
   function handleComposerKeydown(event: KeyboardEvent) {
@@ -131,7 +211,16 @@
   }
 </script>
 
-<section class:embedded class:headerless={!showHeader} class:message-variant={variant === 'message'} class="chat-panel">
+<svelte:window on:resize={syncPanelHeight} />
+
+<section
+  bind:this={panelElement}
+  class:embedded
+  class:fit-viewport={fitViewport && !embedded}
+  class:headerless={!showHeader}
+  class:message-variant={variant === 'message'}
+  class="chat-panel"
+>
   {#if showHeader}
     <div class="chat-header">
       <div>
@@ -193,7 +282,7 @@
 
   .chat-panel {
     grid-template-rows: auto minmax(0, 1fr) auto;
-    height: clamp(440px, 64vh, 720px);
+    height: min(780px, max(460px, calc(100dvh - 208px)));
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     overflow: hidden;
@@ -205,6 +294,11 @@
     min-height: 0;
     border: none;
     border-radius: 0;
+  }
+
+  .chat-panel.fit-viewport {
+    height: var(--chat-panel-height, calc(100dvh - 32px));
+    min-height: var(--chat-panel-height, 320px);
   }
 
   .chat-panel.headerless {
@@ -223,7 +317,7 @@
     min-height: 0;
     overflow-y: auto;
     background: var(--panel);
-    padding: 12px 16px 8px;
+    padding: 16px 16px 10px;
   }
 
   .chat-log-stack {
@@ -358,7 +452,12 @@
 
   @media (max-width: 780px) {
     .chat-panel {
-      height: clamp(480px, 72vh, 760px);
+      height: min(720px, max(420px, calc(100dvh - 168px)));
+    }
+
+    .chat-panel.fit-viewport {
+      height: var(--chat-panel-height, calc(100dvh - 24px));
+      min-height: var(--chat-panel-height, 320px);
     }
   }
 </style>

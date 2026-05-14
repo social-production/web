@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import CollapsibleServiceRequestCard from '$lib/components/cards/project-detail/CollapsibleServiceRequestCard.svelte';
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
+  import ProjectActivityHistorySection from '$lib/features/projects/detail/components/ProjectActivityHistorySection.svelte';
+  import ProjectActivityViewTabs from '$lib/features/projects/detail/components/ProjectActivityViewTabs.svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import {
@@ -12,13 +15,12 @@
     ProjectActivityRoleInput,
     ProjectApprovalVote,
     ProjectPageData,
+    ProjectServiceHistoryCompletionChoice,
     ProjectServiceHistoryCompletionRole,
-    ProjectServiceHistoryCompletionState,
     ProjectServiceRequestInput,
     ProjectServiceRequestSettingsChangeInput,
     ProjectServiceRequestStatus
   } from '$lib/types/detail';
-  import { formatRelativeTime } from '$lib/utils/time';
 
   type ActivityForm = {
     title: string;
@@ -36,12 +38,16 @@
     reason: string;
   };
 
+  type ComparableRequestSettings = Omit<RequestSettingsForm, 'reason'>;
+
   type ServiceTab = 'live' | 'history';
   type RequestSettingsVote = NonNullable<
     NonNullable<ProjectPageData['lifecycle']['requestSystem']>['settingsChangeRequests']
   >[number];
 
   export let data: ProjectPageData;
+  export let highlightedActivityId: string | null = null;
+  export let highlightedRequestId: string | null = null;
   export let showPersonalActivityComposer = false;
   export let showPersonalServiceRequestComposer = false;
   export let serviceRequestForm: ProjectServiceRequestInput;
@@ -65,7 +71,8 @@
   ) => void | Promise<void> = () => {};
   export let toggleHistoryCompletion: (
     historyId: string,
-    role: ProjectServiceHistoryCompletionRole
+    role: ProjectServiceHistoryCompletionRole,
+    selection?: ProjectServiceHistoryCompletionChoice
   ) => void | Promise<void> = () => {};
 
   function localDateTimeValue(value: string) {
@@ -105,16 +112,61 @@
     };
   }
 
-  function completionStatusText(summary: ProjectServiceHistoryCompletionState) {
-    if (summary.totalEligible === 0) {
-      return 'No one eligible has checked in yet.';
-    }
-
-    return `${summary.doneCount}/${summary.totalEligible} marked done`;
+  function resolveRequestSettings(
+    settings?: ComparableRequestSettings | NonNullable<ProjectPageData['lifecycle']['requestSystem']>['settings'] | null
+  ): ComparableRequestSettings {
+    return {
+      enabled: settings?.enabled ?? true,
+      requestMode: settings?.requestMode ?? 'calendar'
+    };
   }
 
-  function completionButtonLabel(summary: ProjectServiceHistoryCompletionState) {
-    return summary.viewerHasMarkedDone ? 'Undo done mark' : 'Mark done';
+  function requestSettingsMatch(
+    left: ComparableRequestSettings,
+    right: ComparableRequestSettings
+  ) {
+    return left.enabled === right.enabled && left.requestMode === right.requestMode;
+  }
+
+  function historyItemByActivityId(activityId: string) {
+    return data.lifecycle.phaseFive.history.find((item) => item.activity.id === activityId) ?? null;
+  }
+
+  function scrollHistoryCardIntoView(historyId: string) {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    document.getElementById(`history-card-${historyId}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
+
+  async function focusHistoryCard(historyId: string) {
+    if (historyHighlightResetHandle) {
+      clearTimeout(historyHighlightResetHandle);
+    }
+
+    highlightedHistoryId = historyId;
+    await tick();
+    scrollHistoryCardIntoView(historyId);
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollHistoryCardIntoView(historyId);
+        });
+      });
+    }
+
+    historyHighlightResetHandle = setTimeout(() => {
+      if (highlightedHistoryId === historyId) {
+        highlightedHistoryId = null;
+      }
+
+      historyHighlightResetHandle = null;
+    }, 1800);
   }
 
   async function openCalendarComposer() {
@@ -153,6 +205,14 @@
   }
 
   async function openCalendarComposerForActivity(activityId: string) {
+    const historyItem = historyItemByActivityId(activityId);
+
+    if (historyItem && historyItem.historyState !== 'request-only') {
+      activeTab = 'history';
+      await focusHistoryCard(historyItem.id);
+      return;
+    }
+
     if (!usesCalendar || data.lifecycle.phaseFive.viewerCanCreateActivities) {
       return;
     }
@@ -193,10 +253,36 @@
     await openPersonalServiceRequestComposer();
   }
 
-  function openRequestSettingsComposerPanel() {
+  function scrollComposerIntoView(element: HTMLElement | null) {
+    if (typeof window === 'undefined' || !element) {
+      return;
+    }
+
+    element.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
+
+  async function toggleRequestSettingsComposerPanel() {
+    const willOpen = !showRequestSettingsComposer;
+
+    if (!willOpen) {
+      closeRequestSettingsComposer();
+      return;
+    }
+
     requestSettingsForm = createRequestSettingsForm();
     showRequestSettingsComposer = true;
     showRequestSettingsVote = false;
+    await tick();
+    scrollComposerIntoView(requestSettingsComposerElement);
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        scrollComposerIntoView(requestSettingsComposerElement);
+      });
+    }
   }
 
   function closeRequestSettingsComposer() {
@@ -210,12 +296,12 @@
   }
 
   async function submitRequestSettingsChange() {
-    if (!requestSettingsForm.reason.trim()) {
+    if (!requestSettingsCanSubmit) {
       return;
     }
 
     await requestServiceRequestSettingsChange({
-      reason: requestSettingsForm.reason,
+      reason: '',
       enabled: requestSettingsForm.enabled,
       requestMode: requestSettingsForm.requestMode,
       allowOffScheduleRequests: requestSettingsForm.requestMode === 'both'
@@ -226,9 +312,12 @@
 
   let activeTab: ServiceTab = 'live';
   let selectedActivityId = '';
+  let highlightedHistoryId: string | null = null;
+  let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let showRequestSettingsComposer = false;
   let showRequestSettingsVote = false;
   let requestSettingsForm: RequestSettingsForm = createRequestSettingsForm();
+  let requestSettingsComposerElement: HTMLDivElement | null = null;
 
   $: usesCalendar = data.lifecycle.personalService?.usesCalendar ?? true;
   $: personalRequestMode = data.lifecycle.personalService?.requestMode ?? 'calendar';
@@ -252,6 +341,16 @@
   $: selfPlannedHistory = data.lifecycle.phaseFive.history.filter(
     (item) => item.source === 'self-planned'
   );
+  $: calendarActivities = [
+    ...data.lifecycle.phaseFive.activities,
+    ...data.lifecycle.phaseFive.history
+      .filter((item) => item.historyState !== 'request-only' && item.activity.statusTone === 'green')
+      .map((item) => item.activity)
+  ];
+  $: currentRequestSettings = resolveRequestSettings(data.lifecycle.requestSystem?.settings);
+  $: draftRequestSettings = resolveRequestSettings(requestSettingsForm);
+  $: requestSettingsChanged = !requestSettingsMatch(currentRequestSettings, draftRequestSettings);
+  $: requestSettingsCanSubmit = requestSettingsChanged;
   $: if (!showPersonalServiceRequestComposer) {
     selectedActivityId = '';
   }
@@ -261,12 +360,15 @@
   $: if (requestSettingsVoteCount === 0) {
     showRequestSettingsVote = false;
   }
+  $: if (highlightedActivityId || highlightedRequestId) {
+    activeTab = 'live';
+  }
 </script>
 
 <section class="phase-surface">
   {#if usesCalendar}
     <ProjectActivityCalendarCard
-      activities={data.lifecycle.phaseFive.activities}
+      activities={calendarActivities}
       canCreate={calendarCanCreate || (data.lifecycle.requestSystem?.viewerCanSubmitRequests ?? false)}
       createActive={calendarCreateActive}
       selectedDayIso={calendarSelectedDayIso}
@@ -293,25 +395,7 @@
     {/if}
   {/if}
 
-  <div class="tab-row" role="tablist" aria-label="Service activity view">
-    <button
-      class:active-tab={activeTab === 'live'}
-      class="tab-button"
-      type="button"
-      on:click={() => (activeTab = 'live')}
-    >
-      Live
-    </button>
-    <button
-      class:active-tab={activeTab === 'history'}
-      class="tab-button"
-      type="button"
-      on:click={() => (activeTab = 'history')}
-    >
-      History
-      <span>{data.lifecycle.phaseFive.history.length}</span>
-    </button>
-  </div>
+  <ProjectActivityViewTabs bind:activeTab ariaLabel="Service activity view" />
 
   {#if activeTab === 'live'}
     {#if data.lifecycle.requestSystem}
@@ -329,7 +413,12 @@
               </button>
             {/if}
             {#if data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}
-              <button class="secondary-button" type="button" on:click={openRequestSettingsComposerPanel}>
+              <button
+                class:active-toggle={showRequestSettingsComposer}
+                class="secondary-button"
+                type="button"
+                on:click={toggleRequestSettingsComposerPanel}
+              >
                 Edit request settings
               </button>
             {/if}
@@ -387,11 +476,11 @@
         {/if}
 
         {#if showRequestSettingsComposer && data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}
-          <div class="composer-card settings-panel">
+          <div bind:this={requestSettingsComposerElement} class="composer-card settings-panel">
             <div class="request-header-row">
               <div>
                 <h3>Edit request settings</h3>
-                <p>Each vote runs on its own and applies automatically once it reaches 70% approval and the required vote count.</p>
+                <p>These settings apply immediately because the project creator is the only person running this service.</p>
               </div>
             </div>
 
@@ -411,21 +500,21 @@
               </label>
             {/if}
 
-            <label>
-              <span class="field-inline-label">Reason</span>
-              <textarea
-                bind:value={requestSettingsForm.reason}
-                rows="3"
-                placeholder="Explain why the request flow should change right now."
-              ></textarea>
-            </label>
+            {#if !requestSettingsChanged}
+              <p class="field-help">Choose a different request setup before saving.</p>
+            {/if}
 
             <div class="composer-actions">
               <button class="secondary-button" type="button" on:click={closeRequestSettingsComposer}>
                 Cancel
               </button>
-              <button class="primary-button" type="button" on:click={submitRequestSettingsChange}>
-                Start vote
+              <button
+                class="primary-button"
+                disabled={!requestSettingsCanSubmit}
+                type="button"
+                on:click={submitRequestSettingsChange}
+              >
+                Save settings
               </button>
             </div>
           </div>
@@ -482,8 +571,12 @@
           {:else}
             <div class="card-rail">
               {#each sortedRequests as request}
-                <div class="rail-card">
-                  <CollapsibleServiceRequestCard request={request}>
+                <div id={`request-card-${request.id}`} class="rail-card">
+                  <CollapsibleServiceRequestCard
+                    request={request}
+                    expanded={highlightedRequestId === request.id}
+                    highlighted={highlightedRequestId === request.id}
+                  >
                     {#if request.status === 'open'}
                       <div class="binary-row review-actions">
                         <button class="vote-chip" type="button" on:click={() => updateRequestStatus(request.id, 'accepted')}>
@@ -557,8 +650,12 @@
       {:else}
         <div class="card-rail">
           {#each data.lifecycle.phaseFive.activities as activity (activity.id)}
-            <div class="rail-card">
-              <CollapsibleActivityCard activity={activity} />
+            <div id={`activity-card-${activity.id}`} class="rail-card">
+              <CollapsibleActivityCard
+                activity={activity}
+                expanded={highlightedActivityId === activity.id}
+                highlighted={highlightedActivityId === activity.id}
+              />
             </div>
           {/each}
         </div>
@@ -566,110 +663,23 @@
     </section>
   {:else}
     <div class="history-stack">
-      <section class="card-rail-section">
-        <div class="section-head">
-          <div class="section-copy">
-            <h3>Request history</h3>
-            <p>Past accepted requests and request-based activity.</p>
-          </div>
-        </div>
+      <ProjectActivityHistorySection
+        title="Request history"
+        description="Past accepted requests and request-based activity."
+        items={requestHistory}
+        emptyMessage="No request-based activity has moved into history yet."
+        {highlightedHistoryId}
+        {toggleHistoryCompletion}
+      />
 
-        {#if requestHistory.length === 0}
-          <div class="empty-card">No request-based activity has moved into history yet.</div>
-        {:else}
-          <div class="card-rail">
-            {#each requestHistory as item (item.id)}
-              <div class="rail-card">
-                <CollapsibleActivityCard
-                  activity={item.activity}
-                  badgeLabel="Completed"
-                  badgeClass="complete"
-                  readOnly={true}
-                >
-                  <div class="history-meta-row">
-                    <span>Requester: {item.requesterUsername}</span>
-                    <span>{formatRelativeTime(item.activity.endAt)}</span>
-                  </div>
-
-                  <div class="completion-grid">
-                    {#if item.requesterCompletion}
-                      <div class="completion-card">
-                        <strong>{item.requesterCompletion.label}</strong>
-                        <span>{completionStatusText(item.requesterCompletion)}</span>
-                        {#if item.requesterCompletion.viewerCanToggle}
-                          <button
-                            class="vote-chip"
-                            type="button"
-                            on:click={() => toggleHistoryCompletion(item.id, 'requester')}
-                          >
-                            {completionButtonLabel(item.requesterCompletion)}
-                          </button>
-                        {/if}
-                      </div>
-                    {/if}
-
-                    <div class="completion-card">
-                      <strong>{item.participantCompletion.label}</strong>
-                      <span>{completionStatusText(item.participantCompletion)}</span>
-                      {#if item.participantCompletion.viewerCanToggle}
-                        <button
-                          class="vote-chip"
-                          type="button"
-                          on:click={() => toggleHistoryCompletion(item.id, 'participants')}
-                        >
-                          {completionButtonLabel(item.participantCompletion)}
-                        </button>
-                      {/if}
-                    </div>
-                  </div>
-                </CollapsibleActivityCard>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </section>
-
-      <section class="card-rail-section">
-        <div class="section-head">
-          <div class="section-copy">
-            <h3>Self planned history</h3>
-            <p>Past availability or directly created service activity.</p>
-          </div>
-        </div>
-
-        {#if selfPlannedHistory.length === 0}
-          <div class="empty-card">No self-planned activity has moved into history yet.</div>
-        {:else}
-          <div class="card-rail">
-            {#each selfPlannedHistory as item (item.id)}
-              <div class="rail-card">
-                <CollapsibleActivityCard
-                  activity={item.activity}
-                  badgeLabel="Completed"
-                  badgeClass="complete"
-                  readOnly={true}
-                >
-                  <div class="completion-grid single-column">
-                    <div class="completion-card">
-                      <strong>{item.participantCompletion.label}</strong>
-                      <span>{completionStatusText(item.participantCompletion)}</span>
-                      {#if item.participantCompletion.viewerCanToggle}
-                        <button
-                          class="vote-chip"
-                          type="button"
-                          on:click={() => toggleHistoryCompletion(item.id, 'participants')}
-                        >
-                          {completionButtonLabel(item.participantCompletion)}
-                        </button>
-                      {/if}
-                    </div>
-                  </div>
-                </CollapsibleActivityCard>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </section>
+      <ProjectActivityHistorySection
+        title="Self planned history"
+        description="Past availability or directly created service activity."
+        items={selfPlannedHistory}
+        emptyMessage="No self-planned activity has moved into history yet."
+        {highlightedHistoryId}
+        {toggleHistoryCompletion}
+      />
     </div>
   {/if}
 </section>
@@ -679,8 +689,7 @@
   .surface-stack,
   .card-rail-section,
   .history-stack,
-  .composer-card,
-  .completion-grid {
+  .composer-card {
     display: grid;
     gap: 12px;
   }
@@ -690,8 +699,7 @@
   .composer-actions,
   .number-grid,
   .section-actions,
-  .vote-summary-row,
-  .history-meta-row {
+  .vote-summary-row {
     display: flex;
     gap: 12px;
     align-items: center;
@@ -699,15 +707,12 @@
   }
 
   .request-header-row,
-  .section-actions,
-  .history-meta-row {
+  .section-actions {
     justify-content: space-between;
   }
 
   .section-head,
-  .card-rail,
-  .tab-row,
-  .completion-card {
+  .card-rail {
     display: grid;
     gap: 12px;
   }
@@ -715,30 +720,6 @@
   .section-head {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
-  }
-
-  .tab-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .tab-button {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    padding: 11px 14px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-soft);
-    font-weight: 700;
-    text-align: left;
-  }
-
-  .tab-button.active-tab {
-    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 50%, var(--panel));
-    color: var(--text-main);
   }
 
   .card-rail {
@@ -754,21 +735,19 @@
   }
 
   .composer-card,
-  .empty-card,
-  .completion-card {
+  .empty-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
   }
 
-  .helper-card,
-  .completion-card {
+  .helper-card {
     background: var(--panel);
   }
 
-  .single-column {
-    grid-template-columns: minmax(0, 1fr);
+  .settings-panel {
+    scroll-margin-top: 92px;
   }
 
   .request-action-row {
@@ -890,6 +869,11 @@
     font-weight: 700;
   }
 
+  .field-help {
+    margin: 0;
+    font-size: 12px;
+  }
+
   .primary-button,
   .secondary-button,
   .vote-chip {
@@ -911,11 +895,16 @@
     color: var(--text-soft);
   }
 
+  .secondary-button.active-toggle {
+    border-color: color-mix(in srgb, var(--brand-strong) 62%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 46%, var(--panel));
+    color: var(--brand-strong);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 24%, transparent);
+  }
+
   @media (max-width: 760px) {
     .section-head,
-    .number-grid,
-    .tab-row,
-    .completion-grid {
+    .number-grid {
       grid-template-columns: 1fr;
     }
   }
