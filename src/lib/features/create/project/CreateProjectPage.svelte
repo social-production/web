@@ -56,11 +56,7 @@
       makeTagRef(value, 'community')
     ),
     stage: isPersonalServiceProject(selectedType)
-      ? serviceRequestMode === 'direct'
-        ? 'Requests'
-        : serviceRequestMode === 'both'
-          ? 'Calendar + Requests'
-        : 'Calendar'
+      ? 'Activity'
       : 'Proposal',
     locationLabel: `${locationLabel}${district.trim() ? ` · ${district.trim()}` : ''}`,
     voteCount: 0,

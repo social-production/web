@@ -1,6 +1,7 @@
 import { currentAdapter } from '$lib/services/adapters';
 import type {
   ProjectActivityInput,
+  ProjectServiceHistoryCompletionChoice,
   ProjectServiceHistoryCompletionRole,
   ProjectApprovalVote,
   ProjectDistributionPlanInput,
@@ -130,9 +131,10 @@ export function setProjectServiceRequestSettingsChangeVote(
 export function toggleProjectServiceHistoryCompletion(
   projectSlug: string,
   historyId: string,
-  role: ProjectServiceHistoryCompletionRole
+  role: ProjectServiceHistoryCompletionRole,
+  selection?: ProjectServiceHistoryCompletionChoice
 ) {
-  return currentAdapter.toggleProjectServiceHistoryCompletion(projectSlug, historyId, role);
+  return currentAdapter.toggleProjectServiceHistoryCompletion(projectSlug, historyId, role, selection);
 }
 
 export function requestProjectPhaseChange(
@@ -157,7 +159,7 @@ export function advanceProjectPhase(projectSlug: string, closeNote?: string) {
 
 export function revertProjectPhase(
   projectSlug: string,
-  targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>,
+  targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>,
   reason: string
 ) {
   return currentAdapter.revertProjectPhase(projectSlug, targetPhaseId, reason);

@@ -7,6 +7,7 @@
   import CollectiveServicePhaseSix from './phases/CollectiveServicePhaseSix.svelte';
   import type {
     ProjectActivityRoleInput,
+    ProjectServiceHistoryCompletionChoice,
     ProjectServiceHistoryCompletionRole,
     ProjectApprovalVote,
     ProjectImportanceVoteValue,
@@ -65,6 +66,7 @@
   export let activityForm: DraftActivityForm;
   export let serviceRequestForm: DraftServiceRequestForm;
   export let highlightedActivityId: string | null = null;
+  export let highlightedRequestId: string | null = null;
   export let selectedRequestActivityId: string | null = null;
   export let activityComposerElement: HTMLElement | null = null;
   export let serviceRequestComposerElement: HTMLElement | null = null;
@@ -127,7 +129,8 @@
   ) => void | Promise<void> = () => {};
   export let toggleHistoryCompletion: (
     historyId: string,
-    role: ProjectServiceHistoryCompletionRole
+    role: ProjectServiceHistoryCompletionRole,
+    selection?: ProjectServiceHistoryCompletionChoice
   ) => void | Promise<void> = () => {};
 </script>
 
@@ -175,6 +178,7 @@
     bind:activityStartInputElement
     {activityForm}
     {highlightedActivityId}
+    {highlightedRequestId}
     bind:selectedRequestActivityId
     openComposer={openActivityComposer}
     openComposerForDay={openActivityComposerForDay}

@@ -150,6 +150,7 @@ export interface PersonalPostItem {
   id: string;
   href: string;
   author: ViewerSummary;
+  feedSource?: 'following' | 'discovery';
   audience: 'followers' | 'public';
   voteTargetId: string;
   body: string;
@@ -166,6 +167,7 @@ export interface PersonalActivityItem {
   subjectId: string;
   href: string;
   author: ViewerSummary;
+  feedSource?: 'following' | 'discovery';
   actionLabel: string;
   subjectKind: Exclude<SubjectKind, 'post'>;
   subjectProjectMode?: ProjectMode;

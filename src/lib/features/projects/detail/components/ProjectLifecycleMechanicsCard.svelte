@@ -4,6 +4,14 @@
   export let phase: ProjectLifecyclePhase;
   export let progressLabel = '';
   export let showHowItWorks = false;
+
+  function phaseSubtitle(summary: string) {
+    const firstSentence = summary.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim();
+
+    return firstSentence && firstSentence.length > 0 ? firstSentence : summary.trim();
+  }
+
+  $: inlineSubtitle = phaseSubtitle(phase.summary);
 </script>
 
 <div class="phase-header">
@@ -19,18 +27,20 @@
 
   <div class="phase-copy">
     <div class="phase-title-row">
-      <h2>
-        <span>{phase.title}</span>
-        <button
-          class="phase-help-button"
-          type="button"
-          aria-label={showHowItWorks ? 'Hide how it works' : 'Show how it works'}
-          aria-expanded={showHowItWorks}
-          on:click={() => (showHowItWorks = !showHowItWorks)}
-        >
-          ?
-        </button>
-      </h2>
+      <h2>{phase.title}</h2>
+    </div>
+
+    <div class="phase-subtitle-row">
+      <p class="phase-subtitle">{inlineSubtitle}</p>
+      <button
+        class="phase-help-button"
+        type="button"
+        aria-label={showHowItWorks ? 'Hide how it works' : 'Show how it works'}
+        aria-expanded={showHowItWorks}
+        on:click={() => (showHowItWorks = !showHowItWorks)}
+      >
+        ?
+      </button>
     </div>
   </div>
 </div>
@@ -61,7 +71,8 @@
 
   .phase-line,
   .phase-badges,
-  .phase-title-row {
+  .phase-title-row,
+  .phase-subtitle-row {
     display: flex;
     gap: 12px;
     align-items: center;
@@ -89,10 +100,13 @@
   }
 
   .phase-title-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
     justify-content: flex-start;
+  }
+
+  .phase-subtitle-row {
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 8px;
   }
 
   .phase-help-button {
@@ -110,12 +124,16 @@
   }
 
   h2 {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
     margin: 0;
     font-size: 16px;
     color: var(--text-main);
+  }
+
+  .phase-subtitle {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-soft);
   }
 
   p,

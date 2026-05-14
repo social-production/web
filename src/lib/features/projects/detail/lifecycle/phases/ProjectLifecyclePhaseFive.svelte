@@ -119,7 +119,7 @@
       </div>
       <input bind:value={activityForm.locationLabel} maxlength="120" placeholder="Place" />
       <select bind:value={activityForm.linkedPlanPhaseId}>
-        <option value="">Choose stage</option>
+        <option value="" disabled>Choose stage</option>
         {#each data.lifecycle.phaseFive.selectablePlanPhases as stage}
           <option value={stage.id}>{stage.label}</option>
         {/each}

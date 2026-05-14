@@ -4,6 +4,7 @@
 
   export let request: ProjectServiceRequestItem;
   export let expanded = false;
+  export let highlighted = false;
 
   function sameCalendarDay(left: Date, right: Date) {
     return (
@@ -67,12 +68,18 @@
 
   let open = expanded;
 
-  $: if (expanded) {
+  $: if (expanded || highlighted) {
     open = true;
   }
 </script>
 
-<details bind:open={open} class:expanded={open} class="request-card-shell">
+<details
+  id={`request-${request.id}`}
+  bind:open={open}
+  class:expanded={open}
+  class:highlighted
+  class="request-card-shell"
+>
   <summary class="collapse-toggle">
     <div class="request-header">
       <div class="request-copy">
@@ -108,7 +115,8 @@
   }
 
   .request-card-shell:hover,
-  .request-card-shell.expanded {
+  .request-card-shell.expanded,
+  .request-card-shell.highlighted {
     border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 25%, transparent);
   }

@@ -52,6 +52,14 @@ export type ProjectServiceRequestStatus = 'open' | 'planned' | 'accepted' | 'dec
 export type ProjectServiceRequestMode = 'calendar' | 'direct' | 'both';
 export type ProjectServiceHistorySource = 'request' | 'self-planned';
 export type ProjectServiceHistoryCompletionRole = 'requester' | 'participants';
+export type ProjectServiceHistoryCompletionChoice = 'completed' | 'uncompleted';
+export type ProjectServiceHistoryState =
+  | 'unanswered-request'
+  | 'request-only'
+  | 'planned-activity'
+  | 'committed-activity'
+  | 'self-planned';
+export type ProjectServiceHistoryAggregateState = 'completed' | 'uncompleted' | 'mixed';
 
 export interface ShareTargetResult {
   ok: boolean;
@@ -202,6 +210,11 @@ export interface ProjectActivityItem {
 export interface ProjectServiceHistoryCompletionState {
   label: string;
   totalEligible: number;
+  completedCount: number;
+  uncompletedCount: number;
+  pendingCount: number;
+  viewerCanSet: boolean;
+  viewerSelection: ProjectServiceHistoryCompletionChoice | null;
   doneCount: number;
   viewerCanToggle: boolean;
   viewerHasMarkedDone: boolean;
@@ -213,6 +226,12 @@ export interface ProjectServiceHistoryItem {
   requestId: string | null;
   requesterUsername: string | null;
   activity: ProjectActivityItem;
+  historyState: ProjectServiceHistoryState;
+  historyStateLabel: string;
+  historyStateDescription: string;
+  aggregateCompletionState: ProjectServiceHistoryAggregateState;
+  aggregateCompletionLabel: string;
+  aggregateCompletionTone: 'complete' | 'mixed' | 'uncompleted';
   requesterCompletion: ProjectServiceHistoryCompletionState | null;
   participantCompletion: ProjectServiceHistoryCompletionState;
 }
@@ -277,7 +296,7 @@ export interface ProjectServiceRequestSettingsChangeRequest {
 
 export interface ProjectLifecycleRevertEntry {
   id: string;
-  targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>;
+  targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>;
   reason: string;
   authorUsername: string;
   createdAt: string;
@@ -382,7 +401,7 @@ export interface ProjectLifecycleData {
   nextPhaseId: ProjectLifecyclePhaseId | null;
   nextPhaseLabel: string | null;
   viewerCanRevertPhase: boolean;
-  revertablePhaseIds: Array<Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>>;
+  revertablePhaseIds: Array<Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>>;
   revertHistory: ProjectLifecycleRevertEntry[];
   requestSystem: ProjectServiceRequestState | null;
   personalService: PersonalServiceLifecycleData | null;

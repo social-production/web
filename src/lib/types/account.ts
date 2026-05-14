@@ -44,12 +44,34 @@ export interface ProfilePageData {
 
 export type AppearanceThemeMode = 'dark' | 'light';
 export type DefaultFeedMode = 'public' | 'personal';
+export type FeedSortPreference = 'popular' | 'recent';
+export type FeedWindowPreference = '12h' | '1d' | '7d' | '1m' | '1y' | 'all';
+export type PublicFeedScopePreference = 'home' | 'global';
+export type PublicFeedFilterPreference = 'all' | 'projects' | 'threads' | 'events';
+export type PersonalFeedScopePreference = 'following' | 'popular';
+export type PersonalFeedFilterPreference = 'all' | 'activity' | 'posts' | 'events';
+
+export interface PublicFeedPreferences {
+  scope: PublicFeedScopePreference;
+  filter: PublicFeedFilterPreference;
+  sort: FeedSortPreference;
+  window: FeedWindowPreference;
+}
+
+export interface PersonalFeedPreferences {
+  scope: PersonalFeedScopePreference;
+  filter: PersonalFeedFilterPreference;
+  sort: FeedSortPreference;
+  window: FeedWindowPreference;
+}
 
 export interface SettingsPageData {
   profileUsername: string;
   profileBio: string;
   appearanceThemeMode: AppearanceThemeMode;
   defaultFeed: DefaultFeedMode;
+  publicFeedPreferences: PublicFeedPreferences;
+  personalFeedPreferences: PersonalFeedPreferences;
   hidePublicActivityFromPersonalFeeds: boolean;
   hidePersonalFeedFromNonFollowers: boolean;
   requireFollowApproval: boolean;
@@ -59,6 +81,8 @@ export interface SettingsUpdateInput {
   profileBio?: string;
   appearanceThemeMode?: AppearanceThemeMode;
   defaultFeed?: DefaultFeedMode;
+  publicFeedPreferences?: PublicFeedPreferences;
+  personalFeedPreferences?: PersonalFeedPreferences;
   hidePublicActivityFromPersonalFeeds?: boolean;
   hidePersonalFeedFromNonFollowers?: boolean;
   requireFollowApproval?: boolean;

@@ -13,6 +13,9 @@
 
   let pendingSubjectId = '';
 
+  $: activityItems = items.filter((item) => item.kind !== 'request');
+  $: requestItems = items.filter((item) => item.kind === 'request');
+
   function requestClose() {
     dispatch('close');
   }
@@ -31,10 +34,17 @@
 
   async function handleOpenItem(item: RightRailActivityItem) {
     requestClose();
-    await goto(item.href, item.kind === 'project' ? { noScroll: true, keepFocus: true } : undefined);
+    await goto(
+      item.href,
+      item.kind === 'project' || item.kind === 'request' ? { noScroll: true, keepFocus: true } : undefined
+    );
   }
 
   async function handleRailParticipation(item: RightRailActivityItem) {
+    if (item.kind === 'request') {
+      return;
+    }
+
     if (item.kind === 'project') {
       if (!item.projectSlug || !item.activityId) {
         return;
@@ -75,69 +85,100 @@
 
 {#if compact}
   <div class="compact-rail-header">
-    <h2>Project Activity & Events</h2>
+    <h2>Activity, Events & Requests</h2>
     <button class="close-rail" type="button" on:click={requestClose}>Close</button>
   </div>
 {/if}
 
 <section class="rail-panel">
-  <h2>Project Activity & Events</h2>
-  <p class="section-subtitle">Project activity and related events from your memberships and scopes.</p>
-  <div class="snapshot-stack">
-    {#if items.length === 0}
-      <div class="snapshot-row">
-        <strong>No activity yet</strong>
-        <span>Tagged project activity, invites, and related events will appear here when they match your memberships.</span>
-      </div>
-    {:else}
-      {#each items as item}
-        <article class="snapshot-row activity-row">
-          <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
-            <div class="activity-topline">
-              <SubjectTablet kind={item.kind} projectMode={item.projectMode ?? 'productive'} />
-              <span class="snapshot-time">
-                {item.kind === 'event' && item.timeLabel ? item.timeLabel : formatCalendarTime(item.createdAt)}
-              </span>
-            </div>
-            <strong>{item.title}</strong>
-            <span>{item.meta}</span>
-          </button>
+  <section class="rail-section">
+    <h2>Project Activity & Events</h2>
+    <p class="section-subtitle">Project activity and related events from your memberships and scopes.</p>
+    <div class:snapshot-scroll={activityItems.length > 5} class="snapshot-stack">
+      {#if activityItems.length === 0}
+        <div class="snapshot-row">
+          <strong>No activity yet</strong>
+          <span>Tagged project activity, invites, and related events will appear here when they match your memberships.</span>
+        </div>
+      {:else}
+        {#each activityItems as item}
+          <article class="snapshot-row activity-row">
+            <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
+              <div class="activity-topline">
+                <SubjectTablet kind={item.kind === 'event' ? 'event' : 'project'} projectMode={item.projectMode ?? 'productive'} />
+                <span class="snapshot-time">
+                  {item.kind === 'event' && item.timeLabel ? item.timeLabel : formatCalendarTime(item.createdAt)}
+                </span>
+              </div>
+              <strong>{item.title}</strong>
+              <span>{item.meta}</span>
+            </button>
 
-          <div class="event-footer">
-            <span class="event-going">{item.countLabel}</span>
-            <button
-              aria-label={
-                item.kind === 'project'
-                  ? item.viewerAssignedRoleLabel
-                    ? `Leave ${item.title}`
-                    : `Open ${item.title}`
-                  : item.viewerIsParticipating
-                    ? `Leave ${item.title}`
-                    : `Join ${item.title}`
-              }
-              class:attendance-state={isRailActionActive(item)}
-              class="attendance-button"
-              disabled={pendingSubjectId === item.subjectId || isRailActionDisabled(item)}
-              type="button"
-              on:click|stopPropagation={() => handleRailParticipation(item)}
-            >
-              {#if item.kind === 'project'}
-                {#if item.viewerAssignedRoleLabel}
-                  Going
-                {:else if item.projectHasOpenRole === false}
-                  Full
+            <div class="event-footer">
+              <span class="event-going">{item.countLabel}</span>
+              <button
+                aria-label={
+                  item.kind === 'project'
+                    ? item.viewerAssignedRoleLabel
+                      ? `Leave ${item.title}`
+                      : `Open ${item.title}`
+                    : item.viewerIsParticipating
+                      ? `Leave ${item.title}`
+                      : `Join ${item.title}`
+                }
+                class:attendance-state={isRailActionActive(item)}
+                class="attendance-button"
+                disabled={pendingSubjectId === item.subjectId || isRailActionDisabled(item)}
+                type="button"
+                on:click|stopPropagation={() => handleRailParticipation(item)}
+              >
+                {#if item.kind === 'project'}
+                  {#if item.viewerAssignedRoleLabel}
+                    Going
+                  {:else if item.projectHasOpenRole === false}
+                    Full
+                  {:else}
+                    +
+                  {/if}
                 {:else}
-                  +
+                  {item.viewerIsParticipating ? 'Going' : '+'}
                 {/if}
-              {:else}
-                {item.viewerIsParticipating ? 'Going' : '+'}
+              </button>
+            </div>
+          </article>
+        {/each}
+      {/if}
+    </div>
+  </section>
+
+  <section class="rail-section rail-section-requests">
+    <h2>Requests</h2>
+    <p class="section-subtitle">Open service requests from projects you help run.</p>
+    <div class:snapshot-scroll={requestItems.length > 5} class="snapshot-stack">
+      {#if requestItems.length === 0}
+        <div class="snapshot-row">
+          <strong>No open requests</strong>
+          <span>Service requests you can review will appear here and open the matching project card.</span>
+        </div>
+      {:else}
+        {#each requestItems as item}
+          <article class="snapshot-row activity-row request-row">
+            <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
+              <div class="activity-topline">
+                <SubjectTablet kind="project" projectMode={item.projectMode ?? 'collective-service'} />
+                <span class="snapshot-time">{formatCalendarTime(item.createdAt)}</span>
+              </div>
+              <strong>{item.title}</strong>
+              <span>{item.meta}</span>
+              {#if item.countLabel}
+                <span class="event-going request-detail">{item.countLabel}</span>
               {/if}
             </button>
-          </div>
-        </article>
-      {/each}
-    {/if}
-  </div>
+          </article>
+        {/each}
+      {/if}
+    </div>
+  </section>
 </section>
 
 <style>
@@ -160,8 +201,20 @@
   }
 
   .rail-panel {
+    display: grid;
+    gap: 16px;
     padding: 0 0 12px;
     border-bottom: 1px solid var(--panel-border);
+  }
+
+  .rail-section {
+    display: grid;
+    gap: 10px;
+  }
+
+  .rail-section-requests {
+    padding-top: 4px;
+    border-top: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
   }
 
   .rail-panel h2 {
@@ -179,6 +232,12 @@
   .snapshot-stack {
     display: grid;
     gap: 6px;
+  }
+
+  .snapshot-stack.snapshot-scroll {
+    max-height: 31rem;
+    overflow-y: auto;
+    padding-right: 4px;
   }
 
   .snapshot-row {
@@ -250,6 +309,10 @@
     font-size: 12px;
     font-weight: 700;
     min-width: 0;
+  }
+
+  .request-detail {
+    display: block;
   }
 
   .attendance-button,

@@ -7,6 +7,8 @@
   import ProductiveLifecyclePhaseSix from './phases/ProductiveLifecyclePhaseSix.svelte';
   import type {
     ProjectActivityRoleInput,
+    ProjectServiceHistoryCompletionChoice,
+    ProjectServiceHistoryCompletionRole,
     ProjectApprovalVote,
     ProjectImportanceVoteValue,
     ProjectLifecyclePhaseId,
@@ -40,13 +42,6 @@
     note: string;
   };
 
-  type DraftServiceRequestForm = {
-    title: string;
-    body: string;
-    scheduledAt: string;
-    endsAt: string;
-  };
-
   export let data: ProjectPageData;
   export let activePhaseId: ProjectLifecyclePhaseId;
   export let importanceOptions: Array<{ value: ProjectImportanceVoteValue; label: string }> = [];
@@ -58,7 +53,6 @@
   export let productionForm: DraftPlanForm;
   export let distributionForm: DraftPlanForm;
   export let activityForm: DraftActivityForm;
-  export let serviceRequestForm: DraftServiceRequestForm;
   export let highlightedActivityId: string | null = null;
   export let activityComposerElement: HTMLElement | null = null;
   export let activityStartInputElement: HTMLInputElement | null = null;
@@ -96,9 +90,13 @@
   export let openActivityComposerForDay: (isoDay: string) => void | Promise<void> = () => {};
   export let focusActivityCard: (activityId: string) => void | Promise<void> = () => {};
   export let submitActivity: () => void | Promise<void> = () => {};
-  export let submitServiceRequest: () => void | Promise<void> = () => {};
   export let updateActivityCommitment: (activityId: string, roleLabel: string | null) => void | Promise<void> =
     () => {};
+  export let toggleHistoryCompletion: (
+    historyId: string,
+    role: ProjectServiceHistoryCompletionRole,
+    selection?: ProjectServiceHistoryCompletionChoice
+  ) => void | Promise<void> = () => {};
 </script>
 
 {#if activePhaseId === 'phase-1'}
@@ -147,11 +145,10 @@
     openComposer={openActivityComposer}
     openComposerForDay={openActivityComposerForDay}
     {focusActivityCard}
-    {serviceRequestForm}
     bind:showComposer={showPhaseFiveComposer}
     {submitActivity}
-    {submitServiceRequest}
     changecommitment={updateActivityCommitment}
+    {toggleHistoryCompletion}
   />
 {:else}
   <ProductiveLifecyclePhaseSix projectMode={data.projectMode} />

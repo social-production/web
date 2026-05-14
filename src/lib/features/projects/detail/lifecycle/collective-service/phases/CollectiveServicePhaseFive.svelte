@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import CollapsibleServiceRequestCard from '$lib/components/cards/project-detail/CollapsibleServiceRequestCard.svelte';
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
+  import ProjectActivityHistorySection from '$lib/features/projects/detail/components/ProjectActivityHistorySection.svelte';
+  import ProjectActivityViewTabs from '$lib/features/projects/detail/components/ProjectActivityViewTabs.svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
@@ -9,13 +12,12 @@
     formatProjectVoteRequirement,
     formatProjectVoteSummary
   } from '$lib/utils/projectVotes';
-  import { formatRelativeTime } from '$lib/utils/time';
   import type {
     ProjectActivityRoleInput,
     ProjectApprovalVote,
     ProjectPageData,
+    ProjectServiceHistoryCompletionChoice,
     ProjectServiceHistoryCompletionRole,
-    ProjectServiceHistoryCompletionState,
     ProjectServiceRequestItem,
     ProjectServiceRequestPlanInput,
     ProjectServiceRequestSettingsChangeInput,
@@ -58,6 +60,8 @@
     reason: string;
   };
 
+  type ComparableRequestSettings = Omit<RequestSettingsForm, 'reason'>;
+
   type ServiceTab = 'live' | 'history';
   type RequestSettingsVote = NonNullable<
     NonNullable<ProjectPageData['lifecycle']['requestSystem']>['settingsChangeRequests']
@@ -74,6 +78,7 @@
   export let showComposer = false;
   export let showRequestComposer = false;
   export let highlightedActivityId: string | null = null;
+  export let highlightedRequestId: string | null = null;
   export let selectedRequestActivityId: string | null = null;
   export let activityComposerElement: HTMLElement | null = null;
   export let serviceRequestComposerElement: HTMLElement | null = null;
@@ -106,7 +111,8 @@
   ) => void | Promise<void> = () => {};
   export let toggleHistoryCompletion: (
     historyId: string,
-    role: ProjectServiceHistoryCompletionRole
+    role: ProjectServiceHistoryCompletionRole,
+    selection?: ProjectServiceHistoryCompletionChoice
   ) => void | Promise<void> = () => {};
 
   function createDraftActivityRole(label = ''): ProjectActivityRoleInput {
@@ -121,7 +127,7 @@
       title: request?.title ?? '',
       locationLabel: data.locationLabel,
       roleRequirements: [createDraftActivityRole('Service lead')],
-      linkedPlanPhaseId: null,
+      linkedPlanPhaseId: '',
       note: request?.body ?? ''
     };
   }
@@ -135,6 +141,31 @@
       allowOffScheduleRequests: settings?.allowOffScheduleRequests ?? false,
       reason: ''
     };
+  }
+
+  function resolveRequestSettings(
+    settings?: ComparableRequestSettings | NonNullable<ProjectPageData['lifecycle']['requestSystem']>['settings'] | null
+  ): ComparableRequestSettings {
+    const enabled = settings?.enabled ?? false;
+    const requestMode = settings?.requestMode ?? 'both';
+
+    return {
+      enabled,
+      requestMode,
+      allowOffScheduleRequests:
+        enabled && requestMode === 'both' ? (settings?.allowOffScheduleRequests ?? false) : false
+    };
+  }
+
+  function requestSettingsMatch(
+    left: ComparableRequestSettings,
+    right: ComparableRequestSettings
+  ) {
+    return (
+      left.enabled === right.enabled &&
+      left.requestMode === right.requestMode &&
+      left.allowOffScheduleRequests === right.allowOffScheduleRequests
+    );
   }
 
   function formatRequestedWindow(start?: string, end?: string) {
@@ -172,16 +203,45 @@
     return `left: ${left}px; top: ${top}px; width: ${maxWidth}; transform: none;`;
   }
 
-  function completionStatusText(summary: ProjectServiceHistoryCompletionState) {
-    if (summary.totalEligible === 0) {
-      return 'No one eligible has checked in yet.';
-    }
-
-    return `${summary.doneCount}/${summary.totalEligible} marked done`;
+  function historyItemByActivityId(activityId: string) {
+    return data.lifecycle.phaseFive.history.find((item) => item.activity.id === activityId) ?? null;
   }
 
-  function completionButtonLabel(summary: ProjectServiceHistoryCompletionState) {
-    return summary.viewerHasMarkedDone ? 'Undo done mark' : 'Mark done';
+  function scrollHistoryCardIntoView(historyId: string) {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    document.getElementById(`history-card-${historyId}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
+
+  async function focusHistoryCard(historyId: string) {
+    if (historyHighlightResetHandle) {
+      clearTimeout(historyHighlightResetHandle);
+    }
+
+    highlightedHistoryId = historyId;
+    await tick();
+    scrollHistoryCardIntoView(historyId);
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollHistoryCardIntoView(historyId);
+        });
+      });
+    }
+
+    historyHighlightResetHandle = setTimeout(() => {
+      if (highlightedHistoryId === historyId) {
+        highlightedHistoryId = null;
+      }
+
+      historyHighlightResetHandle = null;
+    }, 1800);
   }
 
   function closeComposer() {
@@ -200,6 +260,17 @@
   function closeRequestPlanning() {
     planningRequestId = null;
     resetRequestPlanningForm();
+  }
+
+  function scrollComposerIntoView(element: HTMLElement | null) {
+    if (typeof window === 'undefined' || !element) {
+      return;
+    }
+
+    element.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
   }
 
   async function openRequestPlanning(request: ProjectServiceRequestItem) {
@@ -309,6 +380,15 @@
   }
 
   async function handleActivitySelection(activityId: string, anchor?: CalendarActionAnchor) {
+    const historyItem = historyItemByActivityId(activityId);
+
+    if (historyItem && historyItem.historyState !== 'request-only') {
+      activeTab = 'history';
+      closeCalendarActionTarget();
+      await focusHistoryCard(historyItem.id);
+      return;
+    }
+
     if (showRequestComposer) {
       activeTab = 'live';
       closeCalendarActionTarget();
@@ -377,9 +457,11 @@
       return;
     }
 
+    const activityId = calendarActionTarget.activityId;
+
     activeTab = 'live';
     closeCalendarActionTarget();
-    await focusActivityCard(calendarActionTarget.activityId);
+    await focusActivityCard(activityId);
   }
 
   async function chooseRequestServiceForActivity() {
@@ -387,15 +469,32 @@
       return;
     }
 
+    const activityId = calendarActionTarget.activityId;
+
     activeTab = 'live';
     closeCalendarActionTarget();
-    await openRequestComposerForActivity(calendarActionTarget.activityId);
+    await openRequestComposerForActivity(activityId);
   }
 
-  function openRequestSettingsComposerPanel() {
+  async function toggleRequestSettingsComposerPanel() {
+    const willOpen = !showRequestSettingsComposer;
+
+    if (!willOpen) {
+      closeRequestSettingsComposer();
+      return;
+    }
+
     requestSettingsForm = createRequestSettingsForm();
     showRequestSettingsComposer = true;
     showRequestSettingsVote = false;
+    await tick();
+    scrollComposerIntoView(requestSettingsComposerElement);
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        scrollComposerIntoView(requestSettingsComposerElement);
+      });
+    }
   }
 
   function closeRequestSettingsComposer() {
@@ -409,7 +508,7 @@
   }
 
   async function submitRequestSettingsChange() {
-    if (!requestSettingsForm.reason.trim()) {
+    if (!requestSettingsCanSubmit) {
       return;
     }
 
@@ -428,11 +527,14 @@
   let calendarActionTarget: CalendarActionTarget = null;
   let calendarActionAnchor: CalendarActionAnchor | null = null;
   let actionPickerElement: HTMLDivElement | null = null;
+  let highlightedHistoryId: string | null = null;
+  let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let planningRequestId: string | null = null;
   let requestPlanningForm: RequestPlanningForm = createRequestPlanningForm();
   let showRequestSettingsComposer = false;
   let showRequestSettingsVote = false;
   let requestSettingsForm: RequestSettingsForm = createRequestSettingsForm();
+  let requestSettingsComposerElement: HTMLDivElement | null = null;
 
   $: minimumParticipants = minimumParticipantsForRoles(activityForm.roleRequirements);
   $: requestPlanningMinimumParticipants = minimumParticipantsForRoles(
@@ -460,11 +562,24 @@
   $: selfPlannedHistory = data.lifecycle.phaseFive.history.filter(
     (item) => item.source === 'self-planned'
   );
+  $: calendarActivities = [
+    ...data.lifecycle.phaseFive.activities,
+    ...data.lifecycle.phaseFive.history
+      .filter((item) => item.historyState !== 'request-only' && item.activity.statusTone === 'green')
+      .map((item) => item.activity)
+  ];
+  $: currentRequestSettings = resolveRequestSettings(data.lifecycle.requestSystem?.settings);
+  $: draftRequestSettings = resolveRequestSettings(requestSettingsForm);
+  $: requestSettingsChanged = !requestSettingsMatch(currentRequestSettings, draftRequestSettings);
+  $: requestSettingsCanSubmit = requestSettingsChanged && requestSettingsForm.reason.trim().length > 0;
   $: if (!showRequestSettingsComposer) {
     requestSettingsForm = createRequestSettingsForm();
   }
   $: if (requestSettingsVoteCount === 0) {
     showRequestSettingsVote = false;
+  }
+  $: if (highlightedActivityId || highlightedRequestId) {
+    activeTab = 'live';
   }
 </script>
 
@@ -537,7 +652,7 @@
   {/if}
 
   <ProjectActivityCalendarCard
-    activities={data.lifecycle.phaseFive.activities}
+    activities={calendarActivities}
     canCreate={hasQuickAction}
     createActive={showComposer || showRequestComposer || calendarActionTarget?.kind === 'general'}
     createAriaLabel="Open activity or request actions"
@@ -548,25 +663,7 @@
     activitySelect={handleActivitySelection}
   />
 
-  <div class="tab-row" role="tablist" aria-label="Service activity view">
-    <button
-      class:active-tab={activeTab === 'live'}
-      class="tab-button"
-      type="button"
-      on:click={() => (activeTab = 'live')}
-    >
-      Live
-    </button>
-    <button
-      class:active-tab={activeTab === 'history'}
-      class="tab-button"
-      type="button"
-      on:click={() => (activeTab = 'history')}
-    >
-      History
-      <span>{data.lifecycle.phaseFive.history.length}</span>
-    </button>
-  </div>
+  <ProjectActivityViewTabs bind:activeTab ariaLabel="Service activity view" />
 
   {#if activeTab === 'live'}
     {#if data.lifecycle.requestSystem}
@@ -584,7 +681,12 @@
               </button>
             {/if}
             {#if data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}
-              <button class="secondary-button" type="button" on:click={openRequestSettingsComposerPanel}>
+              <button
+                class:active-toggle={showRequestSettingsComposer}
+                class="secondary-button"
+                type="button"
+                on:click={toggleRequestSettingsComposerPanel}
+              >
                 Edit request settings
               </button>
             {/if}
@@ -642,7 +744,7 @@
         {/if}
 
         {#if showRequestSettingsComposer && data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}
-          <div class="composer-card settings-panel">
+          <div bind:this={requestSettingsComposerElement} class="composer-card settings-panel">
             <div class="request-header-row">
               <div>
                 <h3>Edit request settings</h3>
@@ -673,12 +775,19 @@
               {/if}
             {/if}
 
+            {#if !requestSettingsChanged}
+              <p class="field-help">Choose a different request setup before adding a reason or starting a vote.</p>
+            {/if}
+
             <label>
               <span class="field-inline-label">Reason</span>
               <textarea
                 bind:value={requestSettingsForm.reason}
+                disabled={!requestSettingsChanged}
                 rows="3"
-                placeholder="Explain why the request flow should change right now."
+                placeholder={requestSettingsChanged
+                  ? 'Explain why the request flow should change right now.'
+                  : 'Choose a different request setup to unlock the reason field.'}
               ></textarea>
             </label>
 
@@ -686,7 +795,12 @@
               <button class="secondary-button" type="button" on:click={closeRequestSettingsComposer}>
                 Cancel
               </button>
-              <button class="primary-button" type="button" on:click={submitRequestSettingsChange}>
+              <button
+                class="primary-button"
+                disabled={!requestSettingsCanSubmit}
+                type="button"
+                on:click={submitRequestSettingsChange}
+              >
                 Start vote
               </button>
             </div>
@@ -731,8 +845,12 @@
         {:else}
           <div class="card-rail">
             {#each sortedRequests as request}
-              <div class="rail-card">
-                <CollapsibleServiceRequestCard request={request} expanded={planningRequestId === request.id}>
+              <div id={`request-card-${request.id}`} class="rail-card">
+                <CollapsibleServiceRequestCard
+                  request={request}
+                  expanded={planningRequestId === request.id || highlightedRequestId === request.id}
+                  highlighted={highlightedRequestId === request.id}
+                >
                   {#if data.lifecycle.requestSystem.viewerCanReviewRequests && request.status === 'open'}
                     <div class="composer-actions review-actions">
                       <button class="vote-chip" type="button" on:click={() => openRequestPlanning(request)}>
@@ -753,7 +871,7 @@
                       <input bind:value={requestPlanningForm.title} maxlength="120" placeholder="Scheduled activity title" />
                       <input bind:value={requestPlanningForm.locationLabel} maxlength="120" placeholder="Place" />
                       <select bind:value={requestPlanningForm.linkedPlanPhaseId}>
-                        <option value="">Choose stage</option>
+                        <option value="" disabled>Choose stage</option>
                         {#each data.lifecycle.phaseFive.selectablePlanPhases as stage}
                           <option value={stage.id}>{stage.label}</option>
                         {/each}
@@ -816,7 +934,7 @@
           </div>
           <input bind:value={activityForm.locationLabel} maxlength="120" placeholder="Place" />
           <select bind:value={activityForm.linkedPlanPhaseId}>
-            <option value="">Choose stage</option>
+            <option value="" disabled>Choose stage</option>
             {#each data.lifecycle.phaseFive.selectablePlanPhases as stage}
               <option value={stage.id}>{stage.label}</option>
             {/each}
@@ -849,6 +967,7 @@
             <div id={`activity-card-${activity.id}`} class="rail-card">
               <CollapsibleActivityCard
                 activity={activity}
+                expanded={highlightedActivityId === activity.id}
                 highlighted={highlightedActivityId === activity.id}
                 changecommitment={changecommitment}
               />
@@ -859,110 +978,23 @@
     </section>
   {:else}
     <div class="history-stack">
-      <section class="card-rail-section">
-        <div class="section-head">
-          <div class="section-copy">
-            <h3>Request history</h3>
-            <p>Requests that moved into past activity.</p>
-          </div>
-        </div>
+      <ProjectActivityHistorySection
+        title="Request history"
+        description="Requests that moved into past activity."
+        items={requestHistory}
+        emptyMessage="No request-based activity has moved into history yet."
+        {highlightedHistoryId}
+        {toggleHistoryCompletion}
+      />
 
-        {#if requestHistory.length === 0}
-          <div class="empty-card">No request-based activity has moved into history yet.</div>
-        {:else}
-          <div class="card-rail">
-            {#each requestHistory as item (item.id)}
-              <div class="rail-card">
-                <CollapsibleActivityCard
-                  activity={item.activity}
-                  badgeLabel="Completed"
-                  badgeClass="complete"
-                  readOnly={true}
-                >
-                  <div class="history-meta-row">
-                    <span>Requester: {item.requesterUsername}</span>
-                    <span>{formatRelativeTime(item.activity.endAt)}</span>
-                  </div>
-
-                  <div class="completion-grid">
-                    {#if item.requesterCompletion}
-                      <div class="completion-card">
-                        <strong>{item.requesterCompletion.label}</strong>
-                        <span>{completionStatusText(item.requesterCompletion)}</span>
-                        {#if item.requesterCompletion.viewerCanToggle}
-                          <button
-                            class="vote-chip"
-                            type="button"
-                            on:click={() => toggleHistoryCompletion(item.id, 'requester')}
-                          >
-                            {completionButtonLabel(item.requesterCompletion)}
-                          </button>
-                        {/if}
-                      </div>
-                    {/if}
-
-                    <div class="completion-card">
-                      <strong>{item.participantCompletion.label}</strong>
-                      <span>{completionStatusText(item.participantCompletion)}</span>
-                      {#if item.participantCompletion.viewerCanToggle}
-                        <button
-                          class="vote-chip"
-                          type="button"
-                          on:click={() => toggleHistoryCompletion(item.id, 'participants')}
-                        >
-                          {completionButtonLabel(item.participantCompletion)}
-                        </button>
-                      {/if}
-                    </div>
-                  </div>
-                </CollapsibleActivityCard>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </section>
-
-      <section class="card-rail-section">
-        <div class="section-head">
-          <div class="section-copy">
-            <h3>Self planned history</h3>
-            <p>Past activity the collective created directly.</p>
-          </div>
-        </div>
-
-        {#if selfPlannedHistory.length === 0}
-          <div class="empty-card">No self-planned activity has moved into history yet.</div>
-        {:else}
-          <div class="card-rail">
-            {#each selfPlannedHistory as item (item.id)}
-              <div class="rail-card">
-                <CollapsibleActivityCard
-                  activity={item.activity}
-                  badgeLabel="Completed"
-                  badgeClass="complete"
-                  readOnly={true}
-                >
-                  <div class="completion-grid single-column">
-                    <div class="completion-card">
-                      <strong>{item.participantCompletion.label}</strong>
-                      <span>{completionStatusText(item.participantCompletion)}</span>
-                      {#if item.participantCompletion.viewerCanToggle}
-                        <button
-                          class="vote-chip"
-                          type="button"
-                          on:click={() => toggleHistoryCompletion(item.id, 'participants')}
-                        >
-                          {completionButtonLabel(item.participantCompletion)}
-                        </button>
-                      {/if}
-                    </div>
-                  </div>
-                </CollapsibleActivityCard>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </section>
+      <ProjectActivityHistorySection
+        title="Self planned history"
+        description="Past activity the collective created directly."
+        items={selfPlannedHistory}
+        emptyMessage="No self-planned activity has moved into history yet."
+        {highlightedHistoryId}
+        {toggleHistoryCompletion}
+      />
     </div>
   {/if}
 </section>
@@ -974,8 +1006,7 @@
   .composer-card,
   .mechanics-card,
   .surface-stack,
-  .number-grid,
-  .completion-grid {
+  .number-grid {
     display: grid;
     gap: 12px;
   }
@@ -983,8 +1014,7 @@
   .request-header-row,
   .composer-actions,
   .vote-summary-row,
-  .section-actions,
-  .history-meta-row {
+  .section-actions {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
@@ -993,16 +1023,13 @@
 
   .request-header-row,
   .composer-actions,
-  .section-actions,
-  .history-meta-row {
+  .section-actions {
     justify-content: space-between;
   }
 
   .section-head,
   .card-rail,
-  .action-picker-grid,
-  .tab-row,
-  .completion-card {
+  .action-picker-grid {
     display: grid;
     gap: 12px;
   }
@@ -1015,30 +1042,6 @@
   .section-copy h3,
   .section-copy p {
     margin: 0;
-  }
-
-  .tab-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .tab-button {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    padding: 11px 14px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-soft);
-    font-weight: 700;
-    text-align: left;
-  }
-
-  .tab-button.active-tab {
-    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 50%, var(--panel));
-    color: var(--text-main);
   }
 
   .card-rail {
@@ -1084,20 +1087,11 @@
 
   .composer-card,
   .empty-card,
-  .mechanics-card,
-  .completion-card {
+  .mechanics-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
-  }
-
-  .completion-card {
-    background: var(--panel);
-  }
-
-  .single-column {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .number-grid {
@@ -1182,6 +1176,7 @@
 
   .settings-panel {
     background: color-mix(in srgb, var(--brand-soft) 24%, var(--panel-strong));
+    scroll-margin-top: 92px;
   }
 
   .vote-request-card {
@@ -1267,6 +1262,11 @@
     font-weight: 700;
   }
 
+  .field-help {
+    margin: 0;
+    font-size: 12px;
+  }
+
   .primary-button,
   .secondary-button,
   .vote-chip {
@@ -1288,11 +1288,17 @@
     color: var(--text-soft);
   }
 
+  .secondary-button.active-toggle {
+    border-color: color-mix(in srgb, var(--brand-strong) 62%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 46%, var(--panel));
+    color: var(--brand-strong);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 24%, transparent);
+  }
+
   @media (max-width: 760px) {
     .section-head,
     .number-grid,
-    .tab-row,
-    .completion-grid {
+    .action-picker-grid {
       grid-template-columns: 1fr;
     }
 

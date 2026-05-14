@@ -83,7 +83,7 @@
           <span>Up to {activity.maximumParticipants} total</span>
         {/if}
         {#if !open}
-          <span class="creator-tag">{activity.authorUsername}</span>
+          <a class="creator-link creator-tag" href={`/profile/${activity.authorUsername}`}>{activity.authorUsername}</a>
         {/if}
       </span>
     </div>
@@ -132,7 +132,7 @@
       </div>
       <slot />
       <div class="expanded-footer">
-        <span class="creator-tag">{activity.authorUsername}</span>
+        <a class="creator-link creator-tag" href={`/profile/${activity.authorUsername}`}>{activity.authorUsername}</a>
       </div>
     </div>
   {/if}
@@ -208,6 +208,10 @@
     color: var(--text-main);
     font-size: 11px;
     font-weight: 700;
+  }
+
+  .creator-link {
+    text-decoration: none;
   }
 
   .activity-body {

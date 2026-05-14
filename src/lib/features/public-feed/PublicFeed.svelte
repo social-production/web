@@ -1,17 +1,117 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { page } from '$app/stores';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import PublicFeedCard from '$lib/components/cards/public-feed/PublicFeedCard.svelte';
+  import { getSettings, updateSettings } from '$lib/services/queries/account';
+  import type {
+    FeedSortPreference,
+    FeedWindowPreference,
+    PublicFeedFilterPreference,
+    PublicFeedPreferences,
+    PublicFeedScopePreference
+  } from '$lib/types/account';
   import type { PublicFeedItem } from '$lib/types/feed';
 
   export let items: PublicFeedItem[];
 
-  type PublicFilter = 'all' | 'projects' | 'threads' | 'events';
-  type FeedSort = 'popular' | 'recent';
-  type FeedWindow = '12h' | '1d' | '7d' | '1m' | '1y' | 'all';
+  type PublicScope = PublicFeedScopePreference;
+  type PublicFilter = PublicFeedFilterPreference;
+  type FeedSort = FeedSortPreference;
+  type FeedWindow = FeedWindowPreference;
 
-  let activeFilter: PublicFilter = 'all';
-  let activeSort: FeedSort = 'popular';
-  let activeWindow: FeedWindow = 'all';
+  const defaultPreferences: PublicFeedPreferences = {
+    scope: 'home',
+    filter: 'all',
+    sort: 'popular',
+    window: 'all'
+  };
+
+  let activeScope: PublicScope = defaultPreferences.scope;
+  let activeFilter: PublicFilter = defaultPreferences.filter;
+  let activeSort: FeedSort = defaultPreferences.sort;
+  let activeWindow: FeedWindow = defaultPreferences.window;
+  let preferencesReady = false;
+  let isHydratingPreferences = false;
+  let lastHydratedViewerId = '';
+  let lastPersistedPreferences = preferenceSignature(defaultPreferences);
+
+  function preferenceSignature(preferences: PublicFeedPreferences) {
+    return [preferences.scope, preferences.filter, preferences.sort, preferences.window].join(':');
+  }
+
+  function currentPreferences(): PublicFeedPreferences {
+    return {
+      scope: activeScope,
+      filter: activeFilter,
+      sort: activeSort,
+      window: activeWindow
+    };
+  }
+
+  function applyPreferences(preferences?: Partial<PublicFeedPreferences> | null) {
+    const next: PublicFeedPreferences = {
+      ...defaultPreferences,
+      ...(preferences ?? {})
+    };
+
+    isHydratingPreferences = true;
+    activeScope = next.scope;
+    activeFilter = next.filter;
+    activeSort = next.sort;
+    activeWindow = next.window;
+    lastPersistedPreferences = preferenceSignature(next);
+    isHydratingPreferences = false;
+  }
+
+  async function hydratePreferences() {
+    const settings = await getSettings();
+    applyPreferences(settings?.publicFeedPreferences);
+    preferencesReady = true;
+  }
+
+  async function persistPreferences() {
+    if (!preferencesReady || isHydratingPreferences || !$page.data.bootstrap?.viewer) {
+      return;
+    }
+
+    const preferences = currentPreferences();
+    const signature = preferenceSignature(preferences);
+
+    if (signature === lastPersistedPreferences) {
+      return;
+    }
+
+    await updateSettings({ publicFeedPreferences: preferences });
+    lastPersistedPreferences = signature;
+  }
+
+  function handlePreferencesChange() {
+    void persistPreferences();
+  }
+
+  function matchesScope(
+    item: PublicFeedItem,
+    scope: PublicScope,
+    followedChannelSlugs: Set<string>,
+    followedCommunitySlugs: Set<string>,
+    viewerHasPlatformMembership: boolean
+  ) {
+    if (scope === 'global') {
+      return true;
+    }
+
+    return (
+      item.channelTags.some((tag) =>
+        tag.slug === 'platform' ? viewerHasPlatformMembership : followedChannelSlugs.has(tag.slug)
+      ) ||
+      item.communityTags.some((tag) => followedCommunitySlugs.has(tag.slug))
+    );
+  }
+
+  function slugSet(links: Array<{ slug: string }> | undefined) {
+    return new Set<string>((links ?? []).map((link) => link.slug));
+  }
 
   function matchesFilter(item: PublicFeedItem, filter: PublicFilter) {
     if (filter === 'all') {
@@ -66,12 +166,30 @@
     return itemTimestamp(right) - itemTimestamp(left);
   }
 
-  $: referenceTime = items.reduce((max, item) => Math.max(max, itemTimestamp(item)), 0);
+  $: viewerId = $page.data.bootstrap?.viewer?.id ?? '';
+  $: if (viewerId !== lastHydratedViewerId) {
+    lastHydratedViewerId = viewerId;
+    preferencesReady = false;
+    applyPreferences($page.data.settings?.publicFeedPreferences);
+    preferencesReady = true;
+  }
+  $: followedChannelSlugs = slugSet($page.data.bootstrap?.directory.channels as Array<{ slug: string }> | undefined);
+  $: followedCommunitySlugs = slugSet($page.data.bootstrap?.directory.communities as Array<{ slug: string }> | undefined);
+  $: viewerHasPlatformMembership = !!$page.data.bootstrap?.directory.platform;
+  $: if (!$page.data.bootstrap?.viewer && activeScope === 'home') {
+    activeScope = 'global';
+  }
+  $: referenceTime = Date.now();
   $: visibleItems = items
+    .filter((item) => matchesScope(item, activeScope, followedChannelSlugs, followedCommunitySlugs, viewerHasPlatformMembership))
     .filter((item) => matchesFilter(item, activeFilter))
     .filter((item) => matchesWindow(item, activeWindow, referenceTime))
     .slice()
     .sort((left, right) => compareItems(left, right, activeSort));
+
+  onMount(() => {
+    void hydratePreferences();
+  });
 </script>
 
 <section class="feed-page">
@@ -82,19 +200,24 @@
 
   <section class="toolbar-card">
     <div class="controls-row">
-      <select aria-label="Filter public feed" bind:value={activeFilter}>
+      <select aria-label="Choose public feed scope" bind:value={activeScope} on:change={handlePreferencesChange}>
+        <option value="home">Home</option>
+        <option value="global">Global</option>
+      </select>
+
+      <select aria-label="Filter public feed" bind:value={activeFilter} on:change={handlePreferencesChange}>
         <option value="all">All items</option>
         <option value="projects">Projects</option>
         <option value="threads">Threads</option>
         <option value="events">Events</option>
       </select>
 
-      <select aria-label="Sort public feed by" bind:value={activeSort}>
+      <select aria-label="Sort public feed by" bind:value={activeSort} on:change={handlePreferencesChange}>
         <option value="popular">Most popular</option>
         <option value="recent">Most recent</option>
       </select>
 
-      <select aria-label="Public feed time window" bind:value={activeWindow}>
+      <select aria-label="Public feed time window" bind:value={activeWindow} on:change={handlePreferencesChange}>
         <option value="12h">Last 12 hours</option>
         <option value="1d">1 day</option>
         <option value="7d">7 days</option>
@@ -108,7 +231,7 @@
   <div class="stack">
     {#if visibleItems.length === 0}
       <section class="empty-card">
-        <p>No public items match this filter yet.</p>
+        <p>{activeScope === 'home' ? 'No items from your followed channels, communities, or platform membership match this filter yet.' : 'No public items match this filter yet.'}</p>
       </section>
     {:else}
       {#each visibleItems as item}
@@ -133,7 +256,7 @@
   }
 
   .toolbar-card {
-    padding: 16px;
+    padding: 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
@@ -141,15 +264,16 @@
 
   .controls-row {
     display: grid;
-    grid-template-columns: repeat(3, minmax(150px, 184px));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
-    justify-content: start;
+    width: 100%;
   }
 
   .controls-row select {
     min-width: 0;
-    height: 38px;
-    padding: 0 12px;
+    height: 34px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 
   .empty-card {

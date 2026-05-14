@@ -13,6 +13,24 @@ The goal is not to finalize the whole backend. The goal is to know which fake en
 
 The frontend should be able to point at fake backend responses first and then keep the same adapter calls when the real backend logic replaces them.
 
+## Frontend Data Boundary
+
+Hydrated frontend data must stay on one path:
+
+- routes and feature components call query helpers under `src/lib/services/queries`
+- query helpers call an adapter implementation
+- adapter implementations can talk to a temporary backend, a future FastAPI backend, or a later driver-backed transport
+
+The important rule is that routes and Svelte feature code should not import mock fixtures or adapter internals directly.
+
+That keeps the frontend stable while the transport changes from today's dev adapter to a future adapter -> driver -> backend chain.
+
+Practical implications:
+
+- page and layout hydration should be assembled through queries, not hardwired inside routes or components
+- transport-specific response quirks should stop at the adapter boundary
+- if a UI surface needs a new hydrated shape, add or extend a query helper instead of reaching into fixture files
+
 ## First Backend Goal
 
 Support the shell and the first read-heavy surfaces before full write flows.

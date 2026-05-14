@@ -248,8 +248,8 @@ export const devAdapter: AppAdapter = {
     setMockProjectServiceRequestSettingsChangeVote(projectSlug, requestId, vote);
   },
 
-  async toggleProjectServiceHistoryCompletion(projectSlug, historyId, role) {
-    setMockProjectServiceHistoryCompletion(projectSlug, historyId, role);
+  async toggleProjectServiceHistoryCompletion(projectSlug, historyId, role, selection) {
+    setMockProjectServiceHistoryCompletion(projectSlug, historyId, role, selection);
   },
 
   async requestProjectPhaseChange(projectSlug, targetPhaseId, reason) {

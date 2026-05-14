@@ -32,7 +32,7 @@ export interface ScopeDirectory {
 export interface RightRailActivityItem {
   id: string;
   subjectId: string;
-  kind: 'project' | 'event';
+  kind: 'project' | 'event' | 'request';
   title: string;
   href: string;
   meta: string;
@@ -43,6 +43,8 @@ export interface RightRailActivityItem {
   projectMode?: ProjectMode;
   projectSlug?: string;
   activityId?: string;
+  requestId?: string;
+  requesterUsername?: string;
   activityRoleLabels?: string[];
   viewerAssignedRoleLabel?: string | null;
   projectHasOpenRole?: boolean;
