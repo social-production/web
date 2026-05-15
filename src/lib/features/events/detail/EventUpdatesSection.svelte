@@ -69,7 +69,7 @@
     updatePending = true;
 
     try {
-      await requestEventUpdate(data.slug, '', draftUpdateBody);
+      await requestEventUpdate(data.slug, draftUpdateBody);
       draftUpdateBody = '';
       showUpdateComposer = false;
       await invalidateAll();
@@ -184,7 +184,7 @@
           Cancel
         </button>
         <button class="primary-button" disabled={updatePending} type="button" on:click={submitUpdate}>
-          Submit update request
+          Propose update
         </button>
       </div>
     </div>
@@ -196,7 +196,7 @@
         <article class="surface-card vote-request-card">
           <div class="vote-card-top">
             <div class="vote-card-copy">
-              <span class="vote-kicker">Update request</span>
+              <span class="vote-kicker">Update decision</span>
             </div>
             <span class="vote-requirement">
               {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}
@@ -252,7 +252,7 @@
           Cancel
         </button>
         <button class="primary-button" disabled={editPending} type="button" on:click={submitEdit}>
-          Submit edit request
+          Propose edit
         </button>
       </div>
     </div>
@@ -264,8 +264,7 @@
         <article class="surface-card vote-request-card">
           <div class="vote-card-top">
             <div class="vote-card-copy">
-              <span class="vote-kicker">Edit request</span>
-              <strong>{request.title}</strong>
+              <span class="vote-kicker">Edit decision</span>
             </div>
             <span class="vote-requirement">
               {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}

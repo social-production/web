@@ -37,11 +37,11 @@
 
   $: primaryHeading = data.isPrivate ? 'Event editors' : 'Event members';
   $: primaryCopy = data.isPrivate
-    ? 'Private events keep change requests with the creator and any members the creator promotes to editor.'
-    : 'Public event members can submit and vote on update and detail edit requests.';
+    ? 'Private events keep change decisions with the creator and any members the creator promotes to editor.'
+    : 'Public event members can propose and vote on update and detail edit decisions.';
   $: secondaryHeading = data.isPrivate ? 'Other members' : 'Attendees';
   $: secondaryCopy = data.isPrivate
-    ? 'Members can attend normally, and the creator can grant edit access when they need help managing requests.'
+    ? 'Members can attend normally, and the creator can grant edit access when they need help managing decisions.'
     : 'Everyone going to the event stays visible here so event governance matches the actual attendee group.';
 
   $: sections = data.isPrivate
@@ -98,8 +98,8 @@
 
 <MemberListPanel
   description={data.isPrivate
-    ? 'Private events keep change requests with the creator and any members the creator promotes to editor.'
-    : 'Public event members can submit and vote on update and detail edit requests.'}
+    ? 'Private events keep change decisions with the creator and any members the creator promotes to editor.'
+    : 'Public event members can propose and vote on update and detail edit decisions.'}
   on:action={handleMemberAction}
   {panelId}
   {sections}

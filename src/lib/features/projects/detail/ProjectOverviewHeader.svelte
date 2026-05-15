@@ -68,7 +68,7 @@
 </div>
 
 <h1>{data.title}</h1>
-<p class="overview-copy">{data.overview}</p>
+<p class="overview-copy">{data.description}</p>
 
 <section class="meta-block" aria-label="Project overview details">
   <ul class="project-meta-list">

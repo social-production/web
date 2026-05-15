@@ -100,10 +100,10 @@
     }
 
     if (isClosingTransition()) {
-      return personalDirectPhaseChange ? 'Close service' : 'Request close';
+      return personalDirectPhaseChange ? 'Close service' : 'Close';
     }
 
-    return personalDirectPhaseChange ? 'Advance project' : 'Request advance';
+    return personalDirectPhaseChange ? 'Advance project' : 'Advance';
   }
 
   function nextPhasePlaceholder() {
@@ -119,11 +119,11 @@
   function requestKindLabel(request: ProjectLifecyclePhaseChangeRequest) {
     switch (request.kind) {
       case 'close':
-        return 'Close request';
+        return 'Close decision';
       case 'return':
-        return 'Return request';
+        return 'Return decision';
       default:
-        return 'Advance request';
+        return 'Advance decision';
     }
   }
 
@@ -239,7 +239,7 @@
               type="button"
               on:click={toggleRevertComposer}
             >
-              {personalDirectPhaseChange ? 'Return to active' : 'Request return'}
+              {personalDirectPhaseChange ? 'Return to active' : 'Return'}
             </button>
           {/if}
           {#if !personalDirectPhaseChange && returnRequests.length > 0}
@@ -274,7 +274,7 @@
     {#if showRevertComposer && (personalDirectPhaseChange ? canDirectReturn : data.lifecycle.viewerCanRequestPhaseChanges) && data.lifecycle.revertablePhaseIds.length > 0}
       <div bind:this={revertComposerElement} class="mechanics-card change-action-panel">
         <div class="composer-card">
-          <h3>{personalDirectPhaseChange ? 'Return to active' : 'Request return'}</h3>
+          <h3>{personalDirectPhaseChange ? 'Return to active' : 'Return'}</h3>
           <label>
             <span class="field-inline-label">Return to</span>
             <select bind:value={revertTargetPhaseId}>
@@ -296,7 +296,7 @@
           <div class="composer-actions">
             <button class="secondary-button" type="button" on:click={closeRevertComposer}>Cancel</button>
             <button class="primary-button" type="button" on:click={submitRevertRequest}>
-              {personalDirectPhaseChange ? 'Return to active' : 'Submit request'}
+              {personalDirectPhaseChange ? 'Return to active' : 'Return'}
             </button>
           </div>
         </div>

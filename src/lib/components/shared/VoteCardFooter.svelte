@@ -6,6 +6,7 @@
   export let createdAt: string;
   export let activeVote: ProjectApprovalVote | null = null;
   export let canVote = false;
+  export let showMeta = true;
   export let onVote: (vote: ProjectApprovalVote | null) => void | Promise<void> = () => {};
 
   async function setVote(vote: ProjectApprovalVote) {
@@ -13,7 +14,7 @@
   }
 </script>
 
-<div class="vote-card-footer">
+<div class:actions-only={!showMeta} class="vote-card-footer">
   {#if canVote}
     <div class="vote-card-actions">
       <button
@@ -35,7 +36,9 @@
     </div>
   {/if}
 
-  <span class="vote-card-meta">{authorUsername} · {formatRelativeTime(createdAt)}</span>
+  {#if showMeta}
+    <span class="vote-card-meta">{authorUsername} · {formatRelativeTime(createdAt)}</span>
+  {/if}
 </div>
 
 <style>
@@ -49,6 +52,10 @@
 
   .vote-card-footer {
     justify-content: space-between;
+  }
+
+  .vote-card-footer.actions-only {
+    justify-content: flex-start;
   }
 
   .vote-chip {

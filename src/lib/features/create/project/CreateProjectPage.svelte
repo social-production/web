@@ -23,7 +23,7 @@
 
   let selectedType: ProjectMode = 'productive';
   let title = '';
-  let summary = '';
+  let description = '';
   let locationLabel = '';
   let district = '';
   let primaryChannel = '';
@@ -46,7 +46,7 @@
     authorUsername: viewer?.username ?? 'patchbay',
     projectMode: selectedType,
     summary:
-      summary.trim() ||
+      description.trim() ||
       'Describe the project so need, labor interest, and overlap stay visible before planning begins.',
     channelTags: [
       ...(primaryChannel.trim() ? [makeTagRef(primaryChannel.trim(), 'channel')] : []),
@@ -73,7 +73,7 @@
 
   $: canSubmit =
     title.trim().length > 0 &&
-    summary.trim().length > 0 &&
+    description.trim().length > 0 &&
     primaryChannel.trim().length > 0 &&
     viewerCanCreatePlatformProject;
 
@@ -96,7 +96,7 @@
     try {
       const result = await createProject({
         title,
-        summary,
+        description,
         locationLabel: `${locationLabel}${district.trim() ? ` · ${district.trim()}` : ''}`,
         projectMode: selectedType,
         channelTags: projectPreview.channelTags,
@@ -188,8 +188,8 @@
         </label>
 
         <label>
-          <span class="field-label">Summary</span>
-          <textarea bind:value={summary} rows="3"></textarea>
+          <span class="field-label">Description</span>
+          <textarea bind:value={description} rows="5"></textarea>
         </label>
 
         <label>

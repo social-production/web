@@ -33,7 +33,7 @@
 
   let draftUpdateBody = '';
   let draftEditTitle = data.title;
-  let draftEditDescription = data.overview || data.summary;
+  let draftEditDescription = data.description;
   let showUpdateComposer = false;
   let showUpdateVotes = false;
   let showEditComposer = false;
@@ -43,10 +43,6 @@
   let updateVotesElement: HTMLElement | null = null;
   let editVotesElement: HTMLElement | null = null;
   let editComposerElement: HTMLElement | null = null;
-
-  function projectSummaryFromDescription(description: string) {
-    return description.length <= 180 ? description : `${description.slice(0, 177).trimEnd()}...`;
-  }
 
   function scrollElementIntoView(element: HTMLElement | null) {
     if (!element) {
@@ -79,7 +75,7 @@
       if (isPersonalServiceProject(data.projectMode)) {
         await addProjectUpdate(data.slug, '', draftUpdateBody);
       } else {
-        await requestProjectUpdate(data.slug, '', draftUpdateBody);
+        await requestProjectUpdate(data.slug, draftUpdateBody);
       }
 
       draftUpdateBody = '';
@@ -100,12 +96,10 @@
     editPending = true;
 
     try {
-      const summary = projectSummaryFromDescription(description);
-
       if (isPersonalServiceProject(data.projectMode)) {
-        await updateProjectDetails(data.slug, draftEditTitle, summary, description);
+        await updateProjectDetails(data.slug, draftEditTitle, description);
       } else {
-        await requestProjectEdit(data.slug, draftEditTitle, summary, description);
+        await requestProjectEdit(data.slug, draftEditTitle, description);
       }
 
       showEditComposer = false;
@@ -146,7 +140,7 @@
 
     if (showEditComposer) {
       draftEditTitle = data.title;
-      draftEditDescription = data.overview || data.summary;
+      draftEditDescription = data.description;
       showUpdateComposer = false;
       showUpdateVotes = false;
       showEditVotes = false;
@@ -184,10 +178,10 @@
   $: canRequestEdit = canEditDirect || data.viewerCanRequestEdit;
   $: updateActionLabel = isPersonalServiceProject(data.projectMode)
     ? 'Post update'
-    : 'Submit update request';
+    : 'Propose update';
   $: editActionLabel = isPersonalServiceProject(data.projectMode)
     ? 'Save details'
-    : 'Submit edit request';
+    : 'Propose edit';
 </script>
 
 <section class="updates-shell" id="updates">
@@ -227,7 +221,7 @@
         <article class="surface-card vote-request-card">
           <div class="vote-card-top">
             <div class="vote-card-copy">
-              <span class="vote-kicker">Update request</span>
+              <span class="vote-kicker">Update decision</span>
             </div>
             <span class="vote-requirement">
               {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}
@@ -295,8 +289,7 @@
         <article class="surface-card vote-request-card">
           <div class="vote-card-top">
             <div class="vote-card-copy">
-              <span class="vote-kicker">Edit request</span>
-              <strong>{request.title}</strong>
+              <span class="vote-kicker">Edit decision</span>
             </div>
             <span class="vote-requirement">
               {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}
@@ -304,7 +297,7 @@
           </div>
 
           <div class="edit-request-copy">
-            <p>{request.overview}</p>
+            <p>{request.description}</p>
           </div>
 
           <div class="vote-summary-row">

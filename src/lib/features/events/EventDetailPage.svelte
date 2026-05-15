@@ -4,6 +4,7 @@
   import { page } from '$app/stores';
   import { tick } from 'svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
+  import EventHistoryTab from '$lib/features/events/detail/EventHistoryTab.svelte';
   import EventMembersPanel from '$lib/features/events/detail/EventMembersPanel.svelte';
   import EventOverviewHeader from '$lib/features/events/detail/EventOverviewHeader.svelte';
   import EventUpdatesSection from '$lib/features/events/detail/EventUpdatesSection.svelte';
@@ -15,7 +16,7 @@
   let highlightedUpdateId: string | null = null;
   let lastRouteSignature = '';
   let showMembersPanel = false;
-  let activeTab: 'overview' | 'chat' = 'overview';
+  let activeTab: 'overview' | 'chat' | 'history' = 'overview';
 
   function readCommentTarget(url: URL) {
     if (url.hash.startsWith('#comment-')) {
@@ -33,7 +34,7 @@
     return url.searchParams.get('update');
   }
 
-  function selectTab(tab: 'overview' | 'chat') {
+  function selectTab(tab: 'overview' | 'chat' | 'history') {
     activeTab = tab;
 
     if (!browser) {
@@ -42,10 +43,10 @@
 
     const nextUrl = new URL(window.location.href);
 
-    if (tab === 'chat') {
-      nextUrl.searchParams.set('tab', 'chat');
-    } else {
+    if (tab === 'overview') {
       nextUrl.searchParams.delete('tab');
+    } else {
+      nextUrl.searchParams.set('tab', tab);
     }
 
     void goto(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`, {
@@ -88,7 +89,14 @@
       lastRouteSignature = routeSignature;
       highlightedCommentId = readCommentTarget($page.url);
       highlightedUpdateId = readUpdateTarget($page.url);
-      activeTab = $page.url.searchParams.get('tab') === 'chat' || !!highlightedCommentId ? 'chat' : 'overview';
+      const requestedTab = $page.url.searchParams.get('tab');
+      activeTab = highlightedCommentId
+        ? 'chat'
+        : requestedTab === 'history'
+          ? 'history'
+          : requestedTab === 'chat'
+            ? 'chat'
+            : 'overview';
     }
   }
 </script>
@@ -114,6 +122,15 @@
       >
         Chat
       </button>
+      <button
+        class:active-tab={activeTab === 'history'}
+        class="top-tab"
+        role="tab"
+        type="button"
+        on:click={() => selectTab('history')}
+      >
+        History
+      </button>
     </div>
 
     {#if activeTab === 'overview'}
@@ -127,7 +144,7 @@
       {#if showMembersPanel}
         <EventMembersPanel {data} panelId="event-members-panel" />
       {/if}
-    {:else}
+    {:else if activeTab === 'chat'}
       <section class="chat-shell">
         <LiveChatPanel
           comments={data.discussion}
@@ -141,6 +158,8 @@
           variant="message"
         />
       </section>
+    {:else}
+      <EventHistoryTab {data} />
     {/if}
   </section>
 </section>

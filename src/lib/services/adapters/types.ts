@@ -145,7 +145,7 @@ export interface AppAdapter {
     requestId: string,
     vote: ProjectApprovalVote | null
   ): Promise<void>;
-  requestProjectUpdate(projectSlug: string, title: string, body: string): Promise<void>;
+  requestProjectUpdate(projectSlug: string, body: string): Promise<void>;
   setProjectUpdateVote(
     projectSlug: string,
     requestId: string,
@@ -154,14 +154,12 @@ export interface AppAdapter {
   updateProjectDetails(
     projectSlug: string,
     title: string,
-    summary: string,
-    overview: string
+    description: string
   ): Promise<void>;
   requestProjectEdit(
     projectSlug: string,
     title: string,
-    summary: string,
-    overview: string
+    description: string
   ): Promise<void>;
   setProjectEditVote(
     projectSlug: string,
@@ -182,7 +180,7 @@ export interface AppAdapter {
   submitReport(subjectId: string, targetId: string, reason: string, details: string): Promise<void>;
   setReportVote(targetId: string, vote: ContentReportVote): Promise<void>;
   addProjectUpdate(projectSlug: string, title: string, body: string): Promise<void>;
-  requestEventUpdate(eventSlug: string, title: string, body: string): Promise<void>;
+  requestEventUpdate(eventSlug: string, body: string): Promise<void>;
   setEventUpdateVote(
     eventSlug: string,
     requestId: string,

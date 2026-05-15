@@ -26,7 +26,7 @@ export interface CreateResult {
 
 export interface CreateProjectInput {
   title: string;
-  summary: string;
+  description: string;
   locationLabel: string;
   projectMode: ProjectMode;
   channelTags: TagRef[];
