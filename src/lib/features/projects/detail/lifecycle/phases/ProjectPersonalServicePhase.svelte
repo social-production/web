@@ -1,5 +1,6 @@
 <script lang="ts">
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
+  import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import type {
     ProjectActivityRoleInput,
     ProjectPageData,
@@ -258,12 +259,22 @@
 
     {#if data.lifecycle.requestSystem?.viewerCanSubmitRequests && allowsDirectRequests && !requestScheduleRequired}
       <div class="composer-actions request-action-row">
-        <button class="secondary-button" type="button" on:click={openDirectRequestComposer}>New direct request</button>
+        <span class="request-action-label">New direct request</span>
+        <RoundPlusButton
+          active={showPersonalServiceRequestComposer}
+          ariaLabel="Open direct request form"
+          action={openDirectRequestComposer}
+        />
       </div>
     {/if}
   {:else if data.lifecycle.requestSystem?.viewerCanSubmitRequests}
     <div class="composer-actions request-action-row">
-      <button class="primary-button" type="button" on:click={openPersonalServiceRequestComposer}>New request</button>
+      <span class="request-action-label">New request</span>
+      <RoundPlusButton
+        active={showPersonalServiceRequestComposer}
+        ariaLabel="Open request form"
+        action={openPersonalServiceRequestComposer}
+      />
     </div>
   {/if}
 

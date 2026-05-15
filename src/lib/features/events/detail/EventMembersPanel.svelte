@@ -1,313 +1,107 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
-  import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import { toggleEventManagerNomination } from '$lib/services/queries/details';
-  import { setVote } from '$lib/services/queries/feeds';
+  import MemberListPanel from '$lib/components/shared/MemberListPanel.svelte';
+  import { grantEventEditAccess, revokeEventEditAccess } from '$lib/services/queries/details';
   import type { EventPageData, EventRoleMember } from '$lib/types/detail';
-  import type { VoteDirection } from '$lib/types/feed';
 
   export let data: EventPageData;
+  export let panelId = 'event-members-panel';
 
-  let managerTogglePending = false;
-  let showRoleRules = false;
+  let editorActionPendingId: string | null = null;
 
-  function meetsConfidenceThreshold(member: EventRoleMember) {
-    return !!member.confidenceReviewCount && (member.confidenceRatio ?? 0) >= 70;
+  function isCreator(member: EventRoleMember) {
+    return member.username === data.createdByUsername;
   }
 
-  function roleStatusLabel(member: EventRoleMember) {
-    if (member.isManagerCandidate) {
-      return meetsConfidenceThreshold(member) ? 'Candidate at threshold' : 'Candidate below threshold';
-    }
+  async function handleGrantEditAccess(userId: string) {
+    editorActionPendingId = userId;
 
-    if (member.confidenceReviewCount && !meetsConfidenceThreshold(member)) {
-      return 'Under review';
+    try {
+      await grantEventEditAccess(data.slug, userId);
+      await invalidateAll();
+    } finally {
+      editorActionPendingId = null;
     }
-
-    return 'Event manager';
   }
 
-  async function handleManagerConfidenceVote(
-    member: EventRoleMember,
-    event: CustomEvent<{ vote: VoteDirection }>
-  ) {
-    if (!member.confidenceTargetId) {
+  async function handleRevokeEditAccess(userId: string) {
+    editorActionPendingId = userId;
+
+    try {
+      await revokeEventEditAccess(data.slug, userId);
+      await invalidateAll();
+    } finally {
+      editorActionPendingId = null;
+    }
+  }
+
+  $: primaryHeading = data.isPrivate ? 'Event editors' : 'Event members';
+  $: primaryCopy = data.isPrivate
+    ? 'Private events keep change requests with the creator and any members the creator promotes to editor.'
+    : 'Public event members can submit and vote on update and detail edit requests.';
+  $: secondaryHeading = data.isPrivate ? 'Other members' : 'Attendees';
+  $: secondaryCopy = data.isPrivate
+    ? 'Members can attend normally, and the creator can grant edit access when they need help managing requests.'
+    : 'Everyone going to the event stays visible here so event governance matches the actual attendee group.';
+
+  $: sections = data.isPrivate
+    ? [
+        {
+          title: primaryHeading,
+          description: primaryCopy,
+          emptyCopy: 'No editors are assigned yet.',
+          members: data.eventEditors.map((member) => ({
+            id: member.id,
+            username: member.username,
+            badges: isCreator(member) ? ['Creator', 'Can edit'] : ['Can edit'],
+            actionLabel: data.viewerCanManageEditors && !isCreator(member) ? 'Remove edit access' : undefined,
+            actionKind: data.viewerCanManageEditors && !isCreator(member) ? 'revoke' : undefined,
+            actionTone: 'danger' as const,
+            actionDisabled: editorActionPendingId === member.id
+          }))
+        },
+        {
+          title: secondaryHeading,
+          description: secondaryCopy,
+          emptyCopy: 'No additional members are marked as going yet.',
+          members: data.members.map((member) => ({
+            id: member.id,
+            username: member.username,
+            actionLabel: data.viewerCanManageEditors ? 'Grant edit access' : undefined,
+            actionKind: data.viewerCanManageEditors ? 'grant' : undefined,
+            actionDisabled: editorActionPendingId === member.id
+          }))
+        }
+      ]
+    : [
+        {
+          emptyCopy: 'No one is marked as going yet.',
+          members: data.members.map((member) => ({
+            id: member.id,
+            username: member.username,
+            badges: isCreator(member) ? ['Creator'] : undefined
+          }))
+        }
+      ];
+
+  async function handleMemberAction(event: CustomEvent<{ memberId: string; actionKind: string }>) {
+    if (event.detail.actionKind === 'grant') {
+      await handleGrantEditAccess(event.detail.memberId);
       return;
     }
 
-    await setVote(member.confidenceTargetId, event.detail.vote);
-    await invalidateAll();
-  }
-
-  async function handleManagerNominationToggle() {
-    managerTogglePending = true;
-
-    try {
-      await toggleEventManagerNomination(data.slug);
-      await invalidateAll();
-    } finally {
-      managerTogglePending = false;
+    if (event.detail.actionKind === 'revoke') {
+      await handleRevokeEditAccess(event.detail.memberId);
     }
   }
-
-  $: managerToggleLabel = !data.viewerCanToggleManagerNomination
-    ? 'Only public event members can become event managers'
-    : data.viewerIsEventManager
-      ? 'Step back from event manager'
-      : data.viewerIsManagerCandidate
-        ? 'Withdraw manager request'
-        : 'Become event manager';
 </script>
 
-<section class="members-panel">
-  <div class="members-header">
-    <div class="section-header compact-header">
-      <h2>Event managers</h2>
-      <p>Event managers coordinate attendance, logistics, and updates. People attending the event enter the role through visible confidence voting.</p>
-    </div>
-    <div class="header-actions">
-      <button class:active={showRoleRules} class="secondary-button" type="button" on:click={() => (showRoleRules = !showRoleRules)}>
-        {showRoleRules ? 'Hide role rules' : 'How it works'}
-      </button>
-      <button
-        class="secondary-button"
-        disabled={!data.viewerCanToggleManagerNomination || managerTogglePending}
-        type="button"
-        on:click={handleManagerNominationToggle}
-      >
-        {managerToggleLabel}
-      </button>
-    </div>
-  </div>
-
-  {#if showRoleRules}
-    <div class="rules-card">
-      <h3>How event manager roles work</h3>
-      <ul>
-        <li>Anyone already going to the event can nominate themselves for event manager.</li>
-        <li>Attendees vote confidence using the same visible vote strip shown beside each nomination.</li>
-        <li>A candidate clears into the role once confidence reaches 70% with visible reviews.</li>
-        <li>Managers below threshold stay visible as under review until the event group renews or removes the role.</li>
-      </ul>
-    </div>
-  {/if}
-
-  <div class="members-scroll-shell">
-    <div class="stack">
-      {#if data.eventManagers.length === 0}
-        <div class="empty-card">
-          <p>No one has cleared the 70% manager confidence threshold yet.</p>
-        </div>
-      {:else}
-        {#each data.eventManagers as member}
-          <div class="person-row confidence-row">
-            <div class="person-copy">
-              <a class="person-link" href={`/profile/${member.username}`}>
-                <strong>{member.username}</strong>
-              </a>
-              <div class="confidence-summary">
-                <span class={`status-chip ${meetsConfidenceThreshold(member) ? 'healthy' : 'warning'}`}>
-                  {roleStatusLabel(member)}
-                </span>
-                <span class:healthy={meetsConfidenceThreshold(member)} class:warning={!meetsConfidenceThreshold(member)}>
-                  {member.confidenceRatio}% confidence
-                </span>
-                <span>{member.confidenceReviewCount} reviews</span>
-              </div>
-            </div>
-
-            {#if member.confidenceTargetId}
-              <VoteStrip
-                activeVote={member.confidenceActiveVote ?? 0}
-                count={member.confidenceVoteCount ?? 0}
-                on:vote={(event) => handleManagerConfidenceVote(member, event)}
-              />
-            {/if}
-          </div>
-        {/each}
-      {/if}
-    </div>
-
-    <div class="members-divider"></div>
-
-    <div class="section-header compact-header">
-      <h2>Other members</h2>
-      <p>Everyone else going to the event stays listed here. Manager requests keep their confidence vote visible until they cross the 70% threshold.</p>
-    </div>
-
-    <div class="stack">
-      {#if data.members.length === 0}
-        <div class="empty-card">
-          <p>No additional members listed yet.</p>
-        </div>
-      {:else}
-        {#each data.members as member}
-          <div class="person-row confidence-row">
-            <div class="person-copy">
-              <a class="person-link" href={`/profile/${member.username}`}>
-                <strong>{member.username}</strong>
-              </a>
-
-              {#if member.isManagerCandidate}
-                <div class="confidence-summary">
-                  <span class={`status-chip ${meetsConfidenceThreshold(member) ? 'healthy' : 'warning'}`}>
-                    {roleStatusLabel(member)}
-                  </span>
-                  <span class="warning">
-                    Manager request
-                    {#if member.confidenceReviewCount}
-                      · {member.confidenceRatio}% confidence
-                    {:else}
-                      · awaiting reviews
-                    {/if}
-                  </span>
-                  {#if member.confidenceReviewCount}
-                    <span>{member.confidenceReviewCount} reviews</span>
-                  {/if}
-                </div>
-              {/if}
-            </div>
-
-            {#if member.confidenceTargetId}
-              <VoteStrip
-                activeVote={member.confidenceActiveVote ?? 0}
-                count={member.confidenceVoteCount ?? 0}
-                on:vote={(event) => handleManagerConfidenceVote(member, event)}
-              />
-            {/if}
-          </div>
-        {/each}
-      {/if}
-    </div>
-  </div>
-</section>
-
-<style>
-  .members-panel,
-  .members-scroll-shell,
-  .stack,
-  .section-header,
-  .person-copy {
-    display: grid;
-    gap: 14px;
-  }
-
-  .members-header,
-  .confidence-row,
-  .confidence-summary,
-  .header-actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .members-header,
-  .confidence-row {
-    justify-content: space-between;
-  }
-
-  .members-panel {
-    padding: 22px 0 26px;
-    margin-bottom: 26px;
-    border-bottom: 1px solid var(--panel-border);
-  }
-
-  .members-scroll-shell {
-    max-height: 420px;
-    overflow-y: auto;
-    padding-right: 6px;
-    scrollbar-gutter: stable;
-  }
-
-  .person-row,
-  .empty-card,
-  .rules-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-  }
-
-  h2,
-  h3,
-  strong {
-    font-size: 14px;
-    color: var(--text-main);
-  }
-
-  p,
-  span {
-    color: var(--text-soft);
-    line-height: 1.45;
-  }
-
-  .person-link {
-    color: var(--text-main);
-    font-weight: 700;
-  }
-
-  .confidence-summary {
-    font-size: 12px;
-    line-height: 1.4;
-  }
-
-  .status-chip {
-    padding: 4px 8px;
-    border-radius: 999px;
-    border: 1px solid var(--panel-border);
-    font-size: 10px;
-    font-weight: 700;
-  }
-
-  .status-chip.healthy {
-    background: color-mix(in srgb, var(--brand-soft) 75%, var(--panel));
-    color: var(--brand-strong);
-  }
-
-  .status-chip.warning {
-    background: color-mix(in srgb, var(--accent-warm) 18%, var(--panel));
-    color: var(--accent-warm-strong);
-  }
-
-  .confidence-summary .healthy {
-    color: var(--brand-strong);
-  }
-
-  .confidence-summary .warning {
-    color: var(--accent-warm-strong);
-  }
-
-  .secondary-button {
-    padding: 8px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .secondary-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .members-divider {
-    padding-top: 12px;
-    border-top: 1px solid var(--panel-border);
-  }
-
-  ul {
-    margin: 0;
-    padding-left: 18px;
-    color: var(--text-soft);
-    line-height: 1.5;
-  }
-
-  @media (max-width: 760px) {
-    .members-header {
-      align-items: stretch;
-    }
-  }
-</style>
+<MemberListPanel
+  description={data.isPrivate
+    ? 'Private events keep change requests with the creator and any members the creator promotes to editor.'
+    : 'Public event members can submit and vote on update and detail edit requests.'}
+  on:action={handleMemberAction}
+  {panelId}
+  {sections}
+  title="Event members"
+/>

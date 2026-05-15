@@ -24,6 +24,9 @@ import type {
   SettingsUpdateInput
 } from '$lib/types/account';
 import type {
+  ContentReportReason,
+  ContentReportSummary,
+  ContentReportVote,
   DetailComment,
   DetailMember,
   DetailUpdate,
@@ -45,6 +48,10 @@ import type {
   ProjectLifecyclePhase,
   ProjectLifecyclePhaseId,
   ProjectLifecycleRevertEntry,
+  EventEditRequest,
+  EventUpdateRequest,
+  ProjectEditRequest,
+  ProjectUpdateRequest,
   ProjectPlanPhaseItem,
   ProjectPlanValueAssessment,
   ProjectPlanVoteSummary,
@@ -434,12 +441,7 @@ type DynamicScopePageMeta = {
   description: string;
   note?: string;
   badges: string[];
-  moderationLabel: string;
-  membersNote: string;
-  moderatorsNote: string;
   emptyFeedText: string;
-  moderatorUserIds: string[];
-  moderatorConfidenceTargetIdsByUserId?: Record<string, string>;
 };
 
 const createdChannelScopeMetaBySlug: Record<string, DynamicScopePageMeta> = {};
@@ -1279,16 +1281,16 @@ const projectManagersBySlug: Record<string, RoleConfig> = {
   }
 };
 
-const eventManagersBySlug: Record<string, RoleConfig> = {
+const eventWorkflowStateBySlug: Record<string, EventWorkflowState> = {
   'tool-library-spring-swap-social': {
-    managerIds: ['user-tool'],
-    candidateIds: [],
-    confidenceTargetIdsByUserId: {}
+    editorUserIds: ['user-tool'],
+    updateRequests: [],
+    editRequests: []
   },
   'retrofit-night-walk': {
-    managerIds: ['user-mika'],
-    candidateIds: [],
-    confidenceTargetIdsByUserId: {}
+    editorUserIds: ['user-mika'],
+    updateRequests: [],
+    editRequests: []
   }
 };
 
@@ -2044,6 +2046,8 @@ type RawProjectPlanBase = {
   title: string;
   authorUsername: string;
   createdAt: string;
+  demandSignalSnapshot?: number;
+  demandConsiderationNote?: string;
   overallVotesByUserId: Record<string, ProjectApprovalVote>;
   valueVotesByValueId: Record<string, Record<string, ProjectApprovalVote>>;
 };
@@ -2076,6 +2080,8 @@ type RawDistributionPlan = RawProjectPlanBase & {
   requestMode?: 'calendar' | 'direct' | 'both';
   allowOffScheduleRequests?: boolean;
 };
+
+const demandSignalAssessmentValueId = '__demand-signal__';
 
 type RawProjectServiceRequest = {
   id: string;
@@ -2128,6 +2134,43 @@ type RawProjectPhaseChangeRequest = {
   votesByUserId: Record<string, ProjectApprovalVote>;
 };
 
+type RawProjectUpdateRequest = {
+  id: string;
+  title: string;
+  body: string;
+  authorUsername: string;
+  createdAt: string;
+  votesByUserId: Record<string, ProjectApprovalVote>;
+};
+
+type RawProjectEditRequest = {
+  id: string;
+  title: string;
+  summary: string;
+  overview: string;
+  authorUsername: string;
+  createdAt: string;
+  votesByUserId: Record<string, ProjectApprovalVote>;
+};
+
+type RawEventUpdateRequest = {
+  id: string;
+  title: string;
+  body: string;
+  authorUsername: string;
+  createdAt: string;
+  votesByUserId: Record<string, ProjectApprovalVote>;
+};
+
+type RawEventEditRequest = {
+  id: string;
+  title: string;
+  description: string;
+  authorUsername: string;
+  createdAt: string;
+  votesByUserId: Record<string, ProjectApprovalVote>;
+};
+
 type RawProjectActivity = {
   id: string;
   title: string;
@@ -2161,9 +2204,17 @@ type ProjectWorkflowState = {
   serviceHistoryCompletions?: Record<string, RawProjectServiceHistoryCompletion>;
   revertHistory?: RawProjectRevertEntry[];
   phaseChangeRequests?: RawProjectPhaseChangeRequest[];
+  updateRequests?: RawProjectUpdateRequest[];
+  editRequests?: RawProjectEditRequest[];
   availabilitySummary?: string;
   travelRadiusLabel?: string;
   serviceRequestMode?: 'calendar' | 'direct' | 'both';
+};
+
+type EventWorkflowState = {
+  editorUserIds: string[];
+  updateRequests?: RawEventUpdateRequest[];
+  editRequests?: RawEventEditRequest[];
 };
 
 const importanceVoteLabels: Record<ProjectImportanceVoteValue, string> = {
@@ -3765,6 +3816,143 @@ function buildProjectPhaseChangeRequests(
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
 
+function buildProjectUpdateRequests(
+  slug: string,
+  quorumThresholdPercent: number,
+  memberCount: number
+) {
+  const workflow = readProjectWorkflowState(slug);
+
+  if (!workflow) {
+    return [] as ProjectUpdateRequest[];
+  }
+
+  return (workflow.updateRequests ?? [])
+    .map((request) => {
+      const voteSummary = buildProjectVoteSummary(
+        request.votesByUserId,
+        quorumThresholdPercent,
+        memberCount
+      );
+
+      return {
+        id: request.id,
+        title: request.title,
+        body: request.body,
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+        voteSummary,
+        passesApprovalThreshold: phaseChangePassesApprovalThreshold(voteSummary),
+        canStillPass: thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)
+      } satisfies ProjectUpdateRequest;
+    })
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
+function buildProjectEditRequests(
+  slug: string,
+  quorumThresholdPercent: number,
+  memberCount: number
+) {
+  const workflow = readProjectWorkflowState(slug);
+
+  if (!workflow) {
+    return [] as ProjectEditRequest[];
+  }
+
+  return (workflow.editRequests ?? [])
+    .map((request) => {
+      const voteSummary = buildProjectVoteSummary(
+        request.votesByUserId,
+        quorumThresholdPercent,
+        memberCount
+      );
+
+      return {
+        id: request.id,
+        title: request.title,
+        summary: request.summary,
+        overview: request.overview,
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+        voteSummary,
+        passesApprovalThreshold: phaseChangePassesApprovalThreshold(voteSummary),
+        canStillPass: thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)
+      } satisfies ProjectEditRequest;
+    })
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
+function buildEventUpdateRequests(
+  slug: string,
+  quorumThresholdPercent: number,
+  eligibleVoterCount: number
+) {
+  const workflow = eventWorkflowStateBySlug[slug];
+
+  if (!workflow) {
+    return [] as EventUpdateRequest[];
+  }
+
+  return (workflow.updateRequests ?? [])
+    .map((request) => {
+      const voteSummary = buildProjectVoteSummary(
+        request.votesByUserId,
+        quorumThresholdPercent,
+        eligibleVoterCount
+      );
+
+      return {
+        id: request.id,
+        title: request.title,
+        body: request.body,
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+        voteSummary,
+        passesApprovalThreshold: phaseChangePassesApprovalThreshold(voteSummary),
+        canStillPass: thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)
+      } satisfies EventUpdateRequest;
+    })
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
+function buildEventEditRequests(
+  slug: string,
+  quorumThresholdPercent: number,
+  eligibleVoterCount: number
+) {
+  const workflow = eventWorkflowStateBySlug[slug];
+
+  if (!workflow) {
+    return [] as EventEditRequest[];
+  }
+
+  return (workflow.editRequests ?? [])
+    .map((request) => {
+      const voteSummary = buildProjectVoteSummary(
+        request.votesByUserId,
+        quorumThresholdPercent,
+        eligibleVoterCount
+      );
+
+      return {
+        id: request.id,
+        title: request.title,
+        description: request.description,
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+        voteSummary,
+        passesApprovalThreshold: phaseChangePassesApprovalThreshold(voteSummary),
+        canStillPass: thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)
+      } satisfies EventEditRequest;
+    })
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
 function uniqueUsernames(usernames: string[]) {
   return Array.from(new Set(usernames.filter(Boolean)));
 }
@@ -4208,14 +4396,32 @@ function buildProjectValues(slug: string): ProjectValueItem[] {
 function buildProjectValueAssessments(
   values: ProjectValueItem[],
   votesByValueId: Record<string, Record<string, ProjectApprovalVote>>,
+  demandVotesByUserId: Record<string, ProjectApprovalVote>,
   quorumThresholdPercent: number,
   memberCount: number
 ) {
-  return values.map((value) => ({
-    valueId: value.id,
-    valueLabel: value.label,
-    ...buildProjectVoteSummary(votesByValueId[value.id] ?? {}, quorumThresholdPercent, memberCount)
-  })) satisfies ProjectPlanValueAssessment[];
+  return [
+    {
+      valueId: demandSignalAssessmentValueId,
+      valueLabel: 'Demand signal considered',
+      ...buildProjectVoteSummary(demandVotesByUserId, quorumThresholdPercent, memberCount)
+    },
+    ...values.map((value) => ({
+      valueId: value.id,
+      valueLabel: value.label,
+      ...buildProjectVoteSummary(votesByValueId[value.id] ?? {}, quorumThresholdPercent, memberCount)
+    }))
+  ] satisfies ProjectPlanValueAssessment[];
+}
+
+function defaultDemandVotesForAuthor(authorUsername: string) {
+  const authorId = userByUsername(authorUsername)?.id ?? null;
+
+  return authorId
+    ? {
+        [authorId]: 'yes' as ProjectApprovalVote
+      }
+    : {};
 }
 
 function buildProductionPlanPhases(plan: RawProductionPlan): ProjectPlanPhaseItem[] {
@@ -4277,12 +4483,21 @@ function buildProductionPlans(
     authorUsername: plan.authorUsername,
     createdAt: plan.createdAt,
     description: plan.description ?? plan.outputSummary,
+    demandSignalSnapshot: plan.demandSignalSnapshot ?? null,
+    demandConsiderationNote:
+      plan.demandConsiderationNote?.trim() || 'Legacy plan. No demand note was recorded when this plan was created.',
     planPhases: buildProductionPlanPhases(plan),
     outputSummary: plan.outputSummary,
     materialsSummary: plan.materialsSummary,
     totalCostLabel: plan.totalCostLabel,
     acquisitionsSummary: plan.acquisitionsSummary,
-    valueAssessments: buildProjectValueAssessments(values, plan.valueVotesByValueId, quorumThresholdPercent, memberCount),
+    valueAssessments: buildProjectValueAssessments(
+      values,
+      plan.valueVotesByValueId,
+      plan.valueVotesByValueId[demandSignalAssessmentValueId] ?? defaultDemandVotesForAuthor(plan.authorUsername),
+      quorumThresholdPercent,
+      memberCount
+    ),
     overallApproval: buildProjectVoteSummary(plan.overallVotesByUserId, quorumThresholdPercent, memberCount),
     isLeading: false
   }));
@@ -4317,6 +4532,9 @@ function buildDistributionPlans(
     authorUsername: plan.authorUsername,
     createdAt: plan.createdAt,
     description: plan.description ?? plan.distributionSummary,
+    demandSignalSnapshot: plan.demandSignalSnapshot ?? null,
+    demandConsiderationNote:
+      plan.demandConsiderationNote?.trim() || 'Legacy plan. No demand note was recorded when this plan was created.',
     totalCostLabel: plan.totalCostLabel ?? 'No direct cost',
     planPhases: buildDistributionPlanPhases(plan),
     distributionSummary: plan.distributionSummary,
@@ -4325,7 +4543,13 @@ function buildDistributionPlans(
     requestSystemEnabled: plan.requestSystemEnabled ?? false,
     requestMode: plan.requestMode ?? 'both',
     allowOffScheduleRequests: plan.allowOffScheduleRequests ?? false,
-    valueAssessments: buildProjectValueAssessments(values, plan.valueVotesByValueId, quorumThresholdPercent, memberCount),
+    valueAssessments: buildProjectValueAssessments(
+      values,
+      plan.valueVotesByValueId,
+      plan.valueVotesByValueId[demandSignalAssessmentValueId] ?? defaultDemandVotesForAuthor(plan.authorUsername),
+      quorumThresholdPercent,
+      memberCount
+    ),
     overallApproval: buildProjectVoteSummary(plan.overallVotesByUserId, quorumThresholdPercent, memberCount),
     isLeading: false
   }));
@@ -4952,10 +5176,11 @@ function buildProjectLifecycle(
     memberCount
   );
   const viewerCanRequestPhaseChanges =
-    (memberState.viewerIsMember || memberState.viewerIsProjectManager) &&
+    projectMode !== 'personal-service' &&
+    memberState.viewerIsMember &&
     requestableProjectPhaseTargetIds(config.currentPhaseId, projectMode).length > 0;
   const viewerCanVoteOnPhaseChanges =
-    memberState.viewerIsMember || memberState.viewerIsProjectManager;
+    projectMode !== 'personal-service' && memberState.viewerIsMember;
   const canAdvancePhaseNow = nextPhaseId ? canAdvanceMockProjectPhaseNow(slug, projectMode) : false;
 
   return {
@@ -4973,12 +5198,19 @@ function buildProjectLifecycle(
     viewerCanRequestPhaseChanges,
     viewerCanVoteOnPhaseChanges,
     phaseChangeRequests,
-    viewerCanAdvancePhase: memberState.viewerIsProjectManager && !!nextPhaseId && canAdvancePhaseNow,
+    viewerCanAdvancePhase:
+      projectMode === 'personal-service' &&
+      memberState.viewerIsProjectManager &&
+      !!nextPhaseId &&
+      canAdvancePhaseNow,
     nextPhaseId,
     nextPhaseLabel: nextPhaseId
       ? phaseBlueprints.find((phase) => phase.id === nextPhaseId)?.title ?? null
       : null,
-    viewerCanRevertPhase: memberState.viewerIsProjectManager && revertablePhaseIds.length > 0,
+    viewerCanRevertPhase:
+      projectMode === 'personal-service' &&
+      memberState.viewerIsProjectManager &&
+      revertablePhaseIds.length > 0,
     revertablePhaseIds,
     revertHistory: buildProjectRevertHistory(slug),
     requestSystem,
@@ -5641,6 +5873,25 @@ const commentsBySubjectId: Record<string, DetailComment[]> = {
   ]
 };
 
+type MockReportTargetKind = 'subject' | 'comment' | 'direct-message' | 'group-message';
+
+type MockContentReport = {
+  id: string;
+  subjectId: string;
+  targetId: string;
+  targetKind: MockReportTargetKind;
+  reason: ContentReportReason;
+  description: string;
+  reporterUserId: string;
+  reportedAuthorUserId: string | null;
+  eligibleUserIds: string[];
+  votesByUserId: Record<string, ContentReportVote>;
+  createdAt: string;
+  resolution: 'open' | 'hidden' | 'removed';
+};
+
+const contentReportsByTargetId: Record<string, MockContentReport> = {};
+
 function seedCommentVotes(comments: DetailComment[]) {
   for (const comment of comments) {
     seedVoteTarget(comment.id, comment.voteCount, comment.activeVote);
@@ -6076,20 +6327,10 @@ function toScopeMember(userId: string, confidenceTargetId?: string): ScopeMember
   };
 }
 
-function createScopeConfidenceTargetId(
-  kind: Extract<ScopeKind, 'channel' | 'community'>,
-  slug: string,
-  userId: string
-) {
-  return `confidence-${kind}-${slug}-${userId}`;
-}
-
 function createDefaultScopeMeta(
   kind: Extract<ScopeKind, 'channel' | 'community'>,
   description: string,
-  joinPolicy: 'open' | 'invite_only',
-  creatorId: string,
-  confidenceTargetId: string
+  joinPolicy: 'open' | 'invite_only'
 ): DynamicScopePageMeta {
   const isChannel = kind === 'channel';
 
@@ -6097,26 +6338,14 @@ function createDefaultScopeMeta(
     description,
     note:
       !isChannel && joinPolicy === 'invite_only'
-        ? 'This community is invite-only right now, so only members can see the feed and moderator list.'
+        ? 'This community is invite-only right now, so only members can see the feed.'
         : undefined,
     badges: isChannel
       ? ['Topic channel']
       : [joinPolicy === 'invite_only' ? 'Invite-only community' : 'Open community'],
-    moderationLabel: 'Moderators',
-    membersNote: isChannel
-      ? 'Members can participate in discussion and stay discoverable without crowding the header.'
-      : 'Members stay visible here without crowding the community header.',
-    moderatorsNote:
-      joinPolicy === 'invite_only'
-        ? 'Moderators are visible to members and stay accountable through confidence voting once you have access.'
-        : 'Moderators should keep at least 70% positive confidence to stay in role, so the confidence vote stays visible here.',
     emptyFeedText: isChannel
       ? 'No content matches this channel right now.'
-      : 'No content matches this community right now.',
-    moderatorUserIds: [creatorId],
-    moderatorConfidenceTargetIdsByUserId: {
-      [creatorId]: confidenceTargetId
-    }
+      : 'No content matches this community right now.'
   };
 }
 
@@ -6278,10 +6507,10 @@ function buildLinkedChats(viewer: ViewerSummary): MessageLinkedChat[] {
     .filter((item): item is PublicProjectItem => item.kind === 'project')
     .filter((item) => (projectMembersBySlug[item.slug] ?? []).includes(viewer.id))
     .map((item) => {
-      const comments = commentsBySubjectId[item.id] ?? [];
-      const latestCommentItem = latestComment(comments);
+      const rawComments = commentsBySubjectId[item.id] ?? [];
+      const latestCommentItem = latestComment(rawComments);
       const lastMessageAt =
-        newestTimestamp(latestCommentTimestamp(comments), item.lastActivityAt, item.createdAt) ??
+        newestTimestamp(latestCommentTimestamp(rawComments), item.lastActivityAt, item.createdAt) ??
         item.createdAt;
 
       return {
@@ -6295,7 +6524,7 @@ function buildLinkedChats(viewer: ViewerSummary): MessageLinkedChat[] {
           ? summarizeChatPreview(latestCommentItem.body, latestCommentItem.authorUsername)
           : 'No messages yet.',
         lastMessageAt,
-        comments
+        comments: mapCommentsWithReports(rawComments)
       } satisfies MessageLinkedChat;
     });
   const eventChats = publicFeed
@@ -6311,10 +6540,10 @@ function buildLinkedChats(viewer: ViewerSummary): MessageLinkedChat[] {
       );
     })
     .map((item) => {
-      const comments = commentsBySubjectId[item.id] ?? [];
-      const latestCommentItem = latestComment(comments);
+      const rawComments = commentsBySubjectId[item.id] ?? [];
+      const latestCommentItem = latestComment(rawComments);
       const lastMessageAt =
-        newestTimestamp(latestCommentTimestamp(comments), item.lastActivityAt, item.createdAt) ??
+        newestTimestamp(latestCommentTimestamp(rawComments), item.lastActivityAt, item.createdAt) ??
         item.createdAt;
 
       return {
@@ -6328,7 +6557,7 @@ function buildLinkedChats(viewer: ViewerSummary): MessageLinkedChat[] {
           ? summarizeChatPreview(latestCommentItem.body, latestCommentItem.authorUsername)
           : 'No messages yet.',
         lastMessageAt,
-        comments
+        comments: mapCommentsWithReports(rawComments)
       } satisfies MessageLinkedChat;
     });
 
@@ -6343,6 +6572,409 @@ function meetsConfidenceThreshold(confidenceRatio?: number, reviewCount?: number
 
 function countComments(comments: DetailComment[]): number {
   return comments.reduce((total, comment) => total + 1 + countComments(comment.replies), 0);
+}
+
+function uniqueUserIds(userIds: Array<string | null | undefined>) {
+  return Array.from(new Set(userIds.filter((userId): userId is string => !!userId)));
+}
+
+function collectCommentAuthorIds(comments: DetailComment[]): string[] {
+  return comments.flatMap((comment) => {
+    const authorId = userByUsername(comment.authorUsername)?.id;
+
+    return authorId ? [authorId, ...collectCommentAuthorIds(comment.replies)] : collectCommentAuthorIds(comment.replies);
+  });
+}
+
+function userCanSeePersonalFeedForViewer(viewerUserId: string, profileUserId: string) {
+  const profileSettings = settingsForUser(profileUserId);
+
+  if (!profileSettings?.hidePersonalFeedFromNonFollowers) {
+    return true;
+  }
+
+  return viewerUserId === profileUserId || followingIdsFor(viewerUserId).includes(profileUserId);
+}
+
+function userCanSeeFollowersPostsForViewer(viewerUserId: string, profileUserId: string) {
+  return (
+    userCanSeePersonalFeedForViewer(viewerUserId, profileUserId) &&
+    (viewerUserId === profileUserId || followingIdsFor(viewerUserId).includes(profileUserId))
+  );
+}
+
+function findRawPublicFeedItemById(subjectId: string) {
+  return publicFeedBase.find((item) => item.id === subjectId) ?? null;
+}
+
+function findRawSocialPostById(subjectId: string) {
+  return socialPostsBase.find((item) => item.id === subjectId) ?? null;
+}
+
+function resolveSubjectAuthorUserId(subjectId: string) {
+  const publicItem = findRawPublicFeedItemById(subjectId);
+
+  if (publicItem) {
+    return publicItem.kind === 'event'
+      ? userByUsername(publicItem.createdByUsername)?.id ?? null
+      : userByUsername(publicItem.authorUsername)?.id ?? null;
+  }
+
+  return findRawSocialPostById(subjectId)?.author.id ?? null;
+}
+
+function buildDiscussionEligibleVoterIds(subjectId: string, excludedUserId: string | null) {
+  const publicItem = findRawPublicFeedItemById(subjectId);
+
+  if (publicItem?.kind === 'thread') {
+    return users.map((user) => user.id).filter((userId) => userId !== excludedUserId);
+  }
+
+  const socialPost = findRawSocialPostById(subjectId);
+
+  if (socialPost) {
+    return users
+      .filter((user) =>
+        socialPost.audience === 'followers'
+          ? userCanSeeFollowersPostsForViewer(user.id, socialPost.author.id)
+          : userCanSeePersonalFeedForViewer(user.id, socialPost.author.id)
+      )
+      .map((user) => user.id)
+      .filter((userId) => userId !== excludedUserId);
+  }
+
+  return uniqueUserIds([
+    ...collectCommentAuthorIds(commentsBySubjectId[subjectId] ?? []),
+    currentViewer()?.id ?? null
+  ]).filter((userId) => userId !== excludedUserId);
+}
+
+function buildEligibleVoterIdsForSubject(subjectId: string, excludedUserId: string | null) {
+  const publicItem = findRawPublicFeedItemById(subjectId);
+
+  if (publicItem?.kind === 'project') {
+    const memberState = buildProjectMemberState(publicItem.slug);
+
+    return uniqueUserIds([
+      ...memberState.projectManagers.map((member) => member.id),
+      ...memberState.members.map((member) => member.id)
+    ]).filter((userId) => userId !== excludedUserId);
+  }
+
+  if (publicItem?.kind === 'event') {
+    const memberState = buildEventMemberState(publicItem);
+
+    return uniqueUserIds([
+      ...memberState.eventEditors.map((member) => member.id),
+      ...memberState.members.map((member) => member.id)
+    ]).filter((userId) => userId !== excludedUserId);
+  }
+
+  return buildDiscussionEligibleVoterIds(subjectId, excludedUserId);
+}
+
+function findConversationForReportSubject(subjectId: string) {
+  return currentMessageConversationsState().find((conversation) => conversation.id === subjectId) ?? null;
+}
+
+function resolveReportTargetContext(subjectId: string, targetId: string) {
+  const conversation = findConversationForReportSubject(subjectId);
+
+  if (conversation) {
+    const message = conversation.messages.find((entry) => entry.id === targetId);
+
+    if (message) {
+      return {
+        targetKind: conversation.kind === 'direct' ? ('direct-message' as const) : ('group-message' as const),
+        authorUserId: message.sender.id,
+        eligibleUserIds: uniqueUserIds(conversation.participants.map((participant) => participant.id)).filter(
+          (userId) => userId !== message.sender.id
+        )
+      };
+    }
+  }
+
+  const comment = findCommentById(commentsBySubjectId[subjectId] ?? [], targetId);
+
+  if (comment) {
+    const authorUserId = userByUsername(comment.authorUsername)?.id ?? null;
+
+    return {
+      targetKind: 'comment' as const,
+      authorUserId,
+      eligibleUserIds: buildEligibleVoterIdsForSubject(subjectId, authorUserId)
+    };
+  }
+
+  const authorUserId = resolveSubjectAuthorUserId(targetId);
+
+  if (targetId === subjectId && (findRawPublicFeedItemById(targetId) || findRawSocialPostById(targetId))) {
+    return {
+      targetKind: 'subject' as const,
+      authorUserId,
+      eligibleUserIds: buildEligibleVoterIdsForSubject(subjectId, authorUserId)
+    };
+  }
+
+  return null;
+}
+
+function reportAgeMs(createdAt: string | null | undefined) {
+  if (!createdAt) {
+    return 0;
+  }
+
+  const parsed = new Date(createdAt).getTime();
+
+  if (Number.isNaN(parsed)) {
+    return 0;
+  }
+
+  return Math.max(Date.now() - parsed, 0);
+}
+
+function spamAgeRatioBoost(ageMs: number) {
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  if (ageMs < dayMs) {
+    return 0;
+  }
+
+  if (ageMs < dayMs * 7) {
+    return 0.1;
+  }
+
+  if (ageMs < dayMs * 30) {
+    return 0.2;
+  }
+
+  if (ageMs < dayMs * 180) {
+    return 0.3;
+  }
+
+  return 0.4;
+}
+
+function spamEngagementRatioBoost(engagementScore: number) {
+  if (engagementScore < 2) {
+    return 0;
+  }
+
+  if (engagementScore < 8) {
+    return 0.05;
+  }
+
+  if (engagementScore < 20) {
+    return 0.1;
+  }
+
+  if (engagementScore < 50) {
+    return 0.15;
+  }
+
+  return 0.2;
+}
+
+function reportSpamSignals(report: MockContentReport) {
+  const publicItem = findRawPublicFeedItemById(report.targetId);
+
+  if (publicItem) {
+    return {
+      createdAt: publicItem.createdAt,
+      engagementScore: Math.abs(publicItem.voteCount) + publicItem.commentCount * 2
+    };
+  }
+
+  const socialPost = findRawSocialPostById(report.targetId);
+
+  if (socialPost) {
+    return {
+      createdAt: socialPost.createdAt,
+      engagementScore: Math.abs(socialPost.voteCount) + socialPost.commentCount * 2
+    };
+  }
+
+  const comment = findCommentById(commentsBySubjectId[report.subjectId] ?? [], report.targetId);
+
+  if (comment) {
+    return {
+      createdAt: comment.createdAt,
+      engagementScore: Math.abs(comment.voteCount) + countComments(comment.replies) * 2
+    };
+  }
+
+  const conversation = findConversationForReportSubject(report.subjectId);
+  const message = conversation?.messages.find((entry) => entry.id === report.targetId) ?? null;
+
+  if (message) {
+    return {
+      createdAt: message.createdAt,
+      engagementScore: 0
+    };
+  }
+
+  return {
+    createdAt: null,
+    engagementScore: 0
+  };
+}
+
+function reportVotesRequired(report: MockContentReport) {
+  const eligibleCount = Math.max(report.eligibleUserIds.length, 1);
+
+  if (report.reason === 'serious-harm') {
+    return Math.max(1, Math.ceil(eligibleCount * 0.5));
+  }
+
+  const { createdAt, engagementScore } = reportSpamSignals(report);
+  const requiredRatio = Math.min(
+    0.95,
+    0.5 + spamAgeRatioBoost(reportAgeMs(createdAt)) + spamEngagementRatioBoost(engagementScore)
+  );
+
+  return Math.max(1, Math.min(eligibleCount, Math.ceil(eligibleCount * requiredRatio)));
+}
+
+function reportVoteCounts(report: MockContentReport) {
+  const votes = Object.values(report.votesByUserId);
+
+  return {
+    yesCount: votes.filter((vote) => vote === 'yes').length,
+    noCount: votes.filter((vote) => vote === 'no').length
+  };
+}
+
+function reportRemainingVotes(report: MockContentReport) {
+  const { yesCount, noCount } = reportVoteCounts(report);
+
+  return Math.max(report.eligibleUserIds.length - yesCount - noCount, 0);
+}
+
+function reportIsApproved(report: MockContentReport) {
+  const { yesCount, noCount } = reportVoteCounts(report);
+
+  return yesCount >= reportVotesRequired(report) && yesCount > noCount;
+}
+
+function reportCanStillPass(report: MockContentReport) {
+  const { yesCount, noCount } = reportVoteCounts(report);
+  const maxPossibleYes = yesCount + reportRemainingVotes(report);
+
+  return maxPossibleYes >= reportVotesRequired(report) && maxPossibleYes > noCount;
+}
+
+function updateConversationAfterMessageRemoval(conversation: MessageConversation) {
+  const latestMessage = conversation.messages[conversation.messages.length - 1] ?? null;
+
+  conversation.preview = latestMessage
+    ? summarizeChatPreview(
+        latestMessage.body,
+        conversation.kind === 'group' ? latestMessage.sender.username : undefined
+      )
+    : 'No messages yet.';
+  conversation.lastMessageAt = latestMessage?.createdAt ?? '';
+  conversation.unreadCount = Math.min(conversation.unreadCount, conversation.messages.length);
+}
+
+function removeMessageFromConversations(targetId: string) {
+  for (const conversations of Object.values(messageConversationsByUserId)) {
+    for (const conversation of conversations) {
+      const messageIndex = conversation.messages.findIndex((message) => message.id === targetId);
+
+      if (messageIndex === -1) {
+        continue;
+      }
+
+      conversation.messages.splice(messageIndex, 1);
+      updateConversationAfterMessageRemoval(conversation);
+    }
+  }
+}
+
+function removeCommentById(comments: DetailComment[], commentId: string): boolean {
+  const commentIndex = comments.findIndex((comment) => comment.id === commentId);
+
+  if (commentIndex !== -1) {
+    comments.splice(commentIndex, 1);
+    return true;
+  }
+
+  return comments.some((comment) => removeCommentById(comment.replies, commentId));
+}
+
+function reconcileContentReport(report: MockContentReport) {
+  if (!reportIsApproved(report)) {
+    report.resolution = 'open';
+
+    if (!reportCanStillPass(report)) {
+      delete contentReportsByTargetId[report.targetId];
+    }
+
+    return;
+  }
+
+  if (report.targetKind === 'subject') {
+    report.resolution = 'open';
+    return;
+  }
+
+  if (report.targetKind === 'group-message' || report.reason === 'serious-harm') {
+    report.resolution = 'hidden';
+    return;
+  }
+
+  report.resolution = 'removed';
+
+  if (report.targetKind === 'comment') {
+    removeCommentById(commentsBySubjectId[report.subjectId] ?? [], report.targetId);
+  }
+}
+
+function buildContentReportSummary(targetId: string): ContentReportSummary | null {
+  const report = contentReportsByTargetId[targetId];
+
+  if (!report) {
+    return null;
+  }
+
+  const viewerId = currentViewer()?.id ?? null;
+  const { yesCount, noCount } = reportVoteCounts(report);
+
+  return {
+    id: report.id,
+    subjectId: report.subjectId,
+    targetId: report.targetId,
+    reason: report.reason,
+    description: report.description,
+    createdAt: report.createdAt,
+    authorUsername: userById(report.reporterUserId)?.username ?? patchbayUser.username,
+    resolution: report.resolution,
+    voteSummary: {
+      yesCount,
+      noCount,
+      activeVote: viewerId ? report.votesByUserId[viewerId] ?? null : null,
+      eligibleVoterCount: report.eligibleUserIds.length,
+      votesRequired: reportVotesRequired(report)
+    }
+  };
+}
+
+function mapCommentsWithReports(comments: DetailComment[]): DetailComment[] {
+  return comments.map((comment) => ({
+    ...comment,
+    report: buildContentReportSummary(comment.id),
+    replies: mapCommentsWithReports(comment.replies)
+  }));
+}
+
+function conversationWithReports(conversation: MessageConversation): MessageConversation {
+  return {
+    ...conversation,
+    messages: conversation.messages.map((message) => ({
+      ...message,
+      report: buildContentReportSummary(message.id)
+    }))
+  };
 }
 
 function buildUnreadCounts() {
@@ -6708,10 +7340,6 @@ function readScopeMembership(kind: ScopeKind, slug: string): ScopeMembershipConf
   );
 }
 
-function buildScopeMembers(kind: ScopeKind, slug: string) {
-  return readScopeMembership(kind, slug).memberIds.map((userId) => toScopeMember(userId));
-}
-
 function buildBootstrapDirectory() {
   const viewer = currentViewer();
   const viewerHasPlatformMembership =
@@ -6781,58 +7409,15 @@ function buildProjectMemberState(slug: string) {
     };
   }
 
-  const platformManagedProject = isPlatformTaggedProject(slug);
-  const managerConfig = platformManagedProject
-    ? {
-        managerIds: platformBoardMemberIds,
-        candidateIds: [],
-        confidenceTargetIdsByUserId: platformBoardConfidenceTargetIdsByUserId
-      }
-    : projectManagersBySlug[slug] ?? {
-        managerIds: [],
-        candidateIds: [],
-        confidenceTargetIdsByUserId: {}
-      };
-  const explicitManagerIds = platformManagedProject
-    ? managerConfig.managerIds
-    : managerConfig.managerIds.filter((userId) => memberIds.includes(userId));
-  const candidateIds = managerConfig.candidateIds.filter(
-    (userId) => memberIds.includes(userId) && !explicitManagerIds.includes(userId)
-  );
-  const thresholdManagers = candidateIds
-    .map((userId) =>
-      toProjectRoleMember(userId, managerConfig.confidenceTargetIdsByUserId[userId], true)
-    )
-    .filter((member) =>
-      meetsConfidenceThreshold(member.confidenceRatio, member.confidenceReviewCount)
-    );
-  const managerIds = new Set([...explicitManagerIds, ...thresholdManagers.map((member) => member.id)]);
-  const projectManagers = [
-    ...explicitManagerIds.map((userId) =>
-      toProjectRoleMember(userId, managerConfig.confidenceTargetIdsByUserId[userId])
-    ),
-    ...thresholdManagers
-  ];
-
   return {
     memberCount: memberIds.length,
-    projectManagers,
-    members: memberIds
-      .filter((userId) => !managerIds.has(userId))
-      .map((userId) =>
-        toProjectRoleMember(
-          userId,
-          managerConfig.confidenceTargetIdsByUserId[userId],
-          candidateIds.includes(userId)
-        )
-      ),
+    projectManagers: [],
+    members: memberIds.map((userId) => toProjectRoleMember(userId)),
     viewerIsMember: !!viewer && memberIds.includes(viewer.id),
     viewerCanToggleMembership: !!viewer,
-    viewerCanToggleManagerNomination:
-      !platformManagedProject && !!viewer && memberIds.includes(viewer.id),
-    viewerIsManagerCandidate:
-      !platformManagedProject && !!viewer && candidateIds.includes(viewer.id),
-    viewerIsProjectManager: !!viewer && managerIds.has(viewer.id)
+    viewerCanToggleManagerNomination: false,
+    viewerIsManagerCandidate: false,
+    viewerIsProjectManager: false
   };
 }
 
@@ -6848,71 +7433,56 @@ function buildEventMemberState(item: PublicEventItem) {
   const participation =
     eventParticipationById[item.id] ??
     (eventParticipationById[item.id] = { goingUserIds: [], invitedUserIds: [] });
+  const workflow = ensureEventWorkflowState(item.slug, creatorId);
   const memberIds = Array.from(
     new Set([...(creatorId ? [creatorId] : []), ...participation.goingUserIds])
   );
-  const managerConfig = eventManagersBySlug[item.slug] ?? {
-    managerIds: creatorId ? [creatorId] : [],
-    candidateIds: [],
-    confidenceTargetIdsByUserId: {}
-  };
-  const explicitManagerIds = managerConfig.managerIds.filter((userId) => memberIds.includes(userId));
-  const candidateIds = managerConfig.candidateIds.filter(
-    (userId) => memberIds.includes(userId) && !explicitManagerIds.includes(userId)
-  );
-  const thresholdManagers = candidateIds
-    .map((userId) =>
-      toProjectRoleMember(userId, managerConfig.confidenceTargetIdsByUserId[userId], true)
-    )
-    .filter((member) =>
-      meetsConfidenceThreshold(member.confidenceRatio, member.confidenceReviewCount)
-    );
-  const managerIds = new Set([...explicitManagerIds, ...thresholdManagers.map((member) => member.id)]);
-  const viewerIsGoing = !!viewer && memberIds.includes(viewer.id);
+  const editorIds = item.isPrivate
+    ? Array.from(new Set(workflow.editorUserIds.filter((userId) => memberIds.includes(userId))))
+    : [];
+  const editorIdSet = new Set(editorIds);
+  const viewerIsGoing = !!viewer && (memberIds.includes(viewer.id) || viewer.id === creatorId);
   const viewerCanToggleGoing =
     !!viewer && (!item.isPrivate || viewerIsGoing || participation.invitedUserIds.includes(viewer.id));
+  const viewerHasEventEditAccess =
+    !!viewer && (item.isPrivate ? editorIdSet.has(viewer.id) : memberIds.includes(viewer.id));
+  const viewerCanManageEditors = !!viewer && !!creatorId && item.isPrivate && viewer.id === creatorId;
 
   return {
-    eventManagers: [
-      ...explicitManagerIds.map((userId) => toProjectRoleMember(userId)),
-      ...thresholdManagers
-    ],
+    eventEditors: item.isPrivate ? editorIds.map((userId) => toProjectRoleMember(userId)) : [],
     members: memberIds
-      .filter((userId) => !managerIds.has(userId))
-      .map((userId) =>
-        toProjectRoleMember(
-          userId,
-          managerConfig.confidenceTargetIdsByUserId[userId],
-          candidateIds.includes(userId)
-        )
-      ),
+      .filter((userId) => !item.isPrivate || !editorIdSet.has(userId))
+      .map((userId) => toProjectRoleMember(userId)),
     memberCount: memberIds.length,
+    eligibleVoterCount: item.isPrivate ? editorIds.length : memberIds.length,
     viewerIsGoing,
     viewerCanToggleGoing,
-    viewerCanToggleManagerNomination: !item.isPrivate && !!viewer && memberIds.includes(viewer.id),
-    viewerIsManagerCandidate: !!viewer && candidateIds.includes(viewer.id),
-    viewerIsEventManager: !!viewer && managerIds.has(viewer.id),
-    viewerCanInviteEventManagers: !!viewer && !!creatorId && item.isPrivate && viewer.id === creatorId,
-    availableManagerInvitees:
-      !!viewer && !!creatorId && item.isPrivate && viewer.id === creatorId
-        ? users.filter((user) => !managerIds.has(user.id)).map((user) => toDetailMember(user.id))
+    viewerHasEventEditAccess,
+    viewerCanManageEditors,
+    availableEditorInvitees:
+      viewerCanManageEditors
+        ? memberIds
+            .filter((userId) => userId !== creatorId && !editorIdSet.has(userId))
+            .map((userId) => toDetailMember(userId))
         : []
   };
 }
 
-function buildScopeStats(feed: PublicFeedItem[], members: ScopeMemberSummary[]): ScopeStats {
+function buildScopeStats(feed: PublicFeedItem[], memberCount: number): ScopeStats {
   return {
     projects: feed.filter((item) => item.kind === 'project').length,
     threads: feed.filter((item) => item.kind === 'thread').length,
     events: feed.filter((item) => item.kind === 'event').length,
-    members: members.length
+    members: memberCount
   };
 }
 
 function buildChannelScopeFixtures(): ScopePageData[] {
   const publicFeed = buildPublicFeedFixture();
-  const housingMembers = buildScopeMembers('channel', housingBuild.slug);
-  const mutualAidMembers = buildScopeMembers('channel', mutualAid.slug);
+  const housingFeed = filterByTag(publicFeed, housingBuild.slug, 'channel');
+  const housingMembership = buildScopeMembershipState('channel', housingBuild.slug);
+  const mutualAidFeed = filterByTag(publicFeed, mutualAid.slug, 'channel');
+  const mutualAidMembership = buildScopeMembershipState('channel', mutualAid.slug);
 
   return [
     {
@@ -6924,20 +7494,10 @@ function buildChannelScopeFixtures(): ScopePageData[] {
       note:
         'Channels are topic-based discovery surfaces. They are not the same thing as communities.',
       badges: ['Topic channel'],
-      moderationLabel: 'Moderators',
-      membersNote:
-        'Members can participate in discussion and stay discoverable without crowding the header.',
-      moderatorsNote:
-        'Moderators should keep at least 70% positive confidence to stay in role, so the confidence vote stays visible here.',
       emptyFeedText: 'No content matches this channel right now.',
-      membership: buildScopeMembershipState('channel', housingBuild.slug),
-      feed: filterByTag(publicFeed, housingBuild.slug, 'channel'),
-      members: housingMembers,
-      moderators: [
-        toScopeMember('user-mika', 'confidence-channel-housing-build-user-mika'),
-        toScopeMember('user-ember', 'confidence-channel-housing-build-user-ember')
-      ],
-      stats: buildScopeStats(filterByTag(publicFeed, housingBuild.slug, 'channel'), housingMembers)
+      membership: housingMembership,
+      feed: housingFeed,
+      stats: buildScopeStats(housingFeed, housingMembership.memberCount)
     },
     {
       kind: 'channel',
@@ -6946,27 +7506,20 @@ function buildChannelScopeFixtures(): ScopePageData[] {
       description:
         'Channels stay broad enough to gather repair work, local coordination, and standalone events without flattening them into one card type.',
       badges: ['Topic channel'],
-      moderationLabel: 'Moderators',
-      membersNote: 'Members stay visible here without taking over the content feed.',
-      moderatorsNote:
-        'Moderators should keep at least 70% positive confidence to stay in role, so the confidence vote stays visible here.',
       emptyFeedText: 'No content matches this channel right now.',
-      membership: buildScopeMembershipState('channel', mutualAid.slug),
-      feed: filterByTag(publicFeed, mutualAid.slug, 'channel'),
-      members: mutualAidMembers,
-      moderators: [
-        toScopeMember('user-tool', 'confidence-channel-mutual-aid-user-tool'),
-        toScopeMember('viewer-1', 'confidence-channel-mutual-aid-viewer-1')
-      ],
-      stats: buildScopeStats(filterByTag(publicFeed, mutualAid.slug, 'channel'), mutualAidMembers)
+      membership: mutualAidMembership,
+      feed: mutualAidFeed,
+      stats: buildScopeStats(mutualAidFeed, mutualAidMembership.memberCount)
     }
   ];
 }
 
 function buildCommunityScopeFixtures(): ScopePageData[] {
   const publicFeed = buildPublicFeedFixture();
-  const eastMarketMembers = buildScopeMembers('community', eastMarket.slug);
-  const toolLibraryMembers = buildScopeMembers('community', toolLibrary.slug);
+  const eastMarketFeed = filterByTag(publicFeed, eastMarket.slug, 'community');
+  const eastMarketMembership = buildScopeMembershipState('community', eastMarket.slug);
+  const toolLibraryFeed = filterByTag(publicFeed, toolLibrary.slug, 'community');
+  const toolLibraryMembership = buildScopeMembershipState('community', toolLibrary.slug);
 
   return [
     {
@@ -6976,19 +7529,10 @@ function buildCommunityScopeFixtures(): ScopePageData[] {
       description:
         'Communities stay people-centered while keeping tagged projects and discussion visible without turning into topic channels.',
       badges: ['Open community'],
-      moderationLabel: 'Moderators',
-      membersNote: 'Members stay visible here without crowding the community header.',
-      moderatorsNote:
-        'Moderators should keep at least 70% positive confidence to stay in role, so the confidence vote stays visible here.',
       emptyFeedText: 'No content matches this community right now.',
-      membership: buildScopeMembershipState('community', eastMarket.slug),
-      feed: filterByTag(publicFeed, eastMarket.slug, 'community'),
-      members: eastMarketMembers,
-      moderators: [
-        toScopeMember('user-mika', 'confidence-community-east-market-user-mika'),
-        toScopeMember('user-ember', 'confidence-community-east-market-user-ember')
-      ],
-      stats: buildScopeStats(filterByTag(publicFeed, eastMarket.slug, 'community'), eastMarketMembers)
+      membership: eastMarketMembership,
+      feed: eastMarketFeed,
+      stats: buildScopeStats(eastMarketFeed, eastMarketMembership.memberCount)
     },
     {
       kind: 'community',
@@ -6998,26 +7542,18 @@ function buildCommunityScopeFixtures(): ScopePageData[] {
         'This community holds the social coordination around the tool library while keeping its projects, threads, and events visible together.',
       note: 'This one is closed right now, so the feed stays locked unless you already have access.',
       badges: ['Invite-only community'],
-      moderationLabel: 'Moderators',
-      membersNote: 'Members stay visible here without crowding the community header.',
-      moderatorsNote:
-        'Moderators should keep at least 70% positive confidence to stay in role, so the confidence vote stays visible here.',
       emptyFeedText: 'No content matches this community right now.',
-      membership: buildScopeMembershipState('community', toolLibrary.slug),
-      feed: filterByTag(publicFeed, toolLibrary.slug, 'community'),
-      members: toolLibraryMembers,
-      moderators: [
-        toScopeMember('user-tool', 'confidence-community-tool-library-user-tool'),
-        toScopeMember('user-rowan', 'confidence-community-tool-library-user-rowan')
-      ],
-      stats: buildScopeStats(filterByTag(publicFeed, toolLibrary.slug, 'community'), toolLibraryMembers)
+      membership: toolLibraryMembership,
+      feed: toolLibraryFeed,
+      stats: buildScopeStats(toolLibraryFeed, toolLibraryMembership.memberCount)
     }
   ];
 }
 
 function buildPlatformScopeFixture(): ScopePageData {
   const publicFeed = buildPublicFeedFixture();
-  const platformMembers = buildScopeMembers('platform', platform.slug);
+  const platformFeed = filterByTag(publicFeed, platform.slug, 'channel');
+  const platformMembership = buildScopeMembershipState('platform', platform.slug);
   const boardMembers = buildPlatformBoardMembers();
 
   return {
@@ -7029,17 +7565,13 @@ function buildPlatformScopeFixture(): ScopePageData {
     note:
       'All users can read and post threads here. Coordination stays visible, but usernames stay just usernames.',
     badges: ['Collective governance'],
-    moderationLabel: 'Board members',
-    membersNote:
-      'Platform stays visible to the whole network, and people listed here are shown for context rather than rank.',
-    moderatorsNote:
+    boardNote:
       'Board members should keep at least 70% positive confidence to stay in role, so the confidence vote stays visible here.',
     emptyFeedText: 'No platform-tagged work is visible yet.',
-    membership: buildScopeMembershipState('platform', platform.slug),
-    feed: filterByTag(publicFeed, platform.slug, 'channel'),
-    members: platformMembers,
-    moderators: boardMembers,
-    stats: buildScopeStats(filterByTag(publicFeed, platform.slug, 'channel'), platformMembers)
+    membership: platformMembership,
+    feed: platformFeed,
+    boardMembers: boardMembers,
+    stats: buildScopeStats(platformFeed, platformMembership.memberCount)
   };
 }
 
@@ -7057,7 +7589,7 @@ function buildDynamicScopeFixture(
 
   const publicFeed = buildPublicFeedFixture();
   const feed = filterByTag(publicFeed, slug, kind);
-  const members = buildScopeMembers(kind, slug);
+  const membership = buildScopeMembershipState(kind, slug);
 
   return {
     kind,
@@ -7066,17 +7598,10 @@ function buildDynamicScopeFixture(
     description: meta.description,
     note: meta.note,
     badges: meta.badges,
-    moderationLabel: meta.moderationLabel,
-    membersNote: meta.membersNote,
-    moderatorsNote: meta.moderatorsNote,
     emptyFeedText: meta.emptyFeedText,
-    membership: buildScopeMembershipState(kind, slug),
+    membership,
     feed,
-    members,
-    moderators: meta.moderatorUserIds.map((userId) =>
-      toScopeMember(userId, meta.moderatorConfidenceTargetIdsByUserId?.[userId])
-    ),
-    stats: buildScopeStats(feed, members)
+    stats: buildScopeStats(feed, membership.memberCount)
   };
 }
 
@@ -7384,7 +7909,7 @@ function buildNotificationsFixture(): NotificationsPageData | null {
 
 function buildMessagesFixture(): MessagesPageData | null {
   const viewer = currentViewer();
-  const conversations = currentMessageConversationsState();
+  const conversations = currentMessageConversationsState().map(conversationWithReports);
 
   return viewer
     ? {
@@ -7593,12 +8118,30 @@ export function findProjectFixture(slug: string): ProjectPageData | null {
     item.projectMode,
     memberState.projectManagers.length + memberState.members.length
   );
+  const updateRequests = buildProjectUpdateRequests(
+    slug,
+    lifecycle.quorumThresholdPercent,
+    memberState.projectManagers.length + memberState.members.length
+  );
+  const editRequests = buildProjectEditRequests(
+    slug,
+    lifecycle.quorumThresholdPercent,
+    memberState.projectManagers.length + memberState.members.length
+  );
+  const report = buildContentReportSummary(item.id);
+  const isRemovedByReport = false;
 
   return {
     ...item,
     overview: extras.overview,
     lifecycle,
     updates: extras.updates,
+    updateRequests: updateRequests,
+    viewerCanRequestUpdate: canViewerRequestProjectUpdate(slug),
+    viewerCanVoteOnUpdateRequests: canViewerVoteOnProjectUpdate(slug),
+    editRequests: editRequests,
+    viewerCanRequestEdit: canViewerRequestProjectEdit(slug),
+    viewerCanVoteOnEditRequests: canViewerVoteOnProjectEdit(slug),
     projectManagers: memberState.projectManagers,
     members: memberState.members,
     viewerIsMember: memberState.viewerIsMember,
@@ -7608,8 +8151,11 @@ export function findProjectFixture(slug: string): ProjectPageData | null {
     viewerIsManagerCandidate: memberState.viewerIsManagerCandidate,
     viewerIsProjectManager: memberState.viewerIsProjectManager,
     shareContacts,
+    report,
+    isRemovedByReport,
+    commentCount: countComments(commentsBySubjectId[item.id] ?? []),
     discussionNote: extras.discussionNote,
-    discussion: commentsBySubjectId[item.id] ?? []
+    discussion: mapCommentsWithReports(commentsBySubjectId[item.id] ?? [])
   };
 }
 
@@ -7620,10 +8166,17 @@ export function findThreadFixture(slug: string): ThreadPageData | null {
     return null;
   }
 
+  const report = buildContentReportSummary(item.id);
+  const isRemovedByReport = false;
+
   return {
     ...item,
+    body: item.body,
+    commentCount: countComments(commentsBySubjectId[item.id] ?? []),
+    report,
+    isRemovedByReport,
     discussionNote: threadDiscussionNotes[slug] ?? 'Discussion stays visible here.',
-    discussion: commentsBySubjectId[item.id] ?? []
+    discussion: mapCommentsWithReports(commentsBySubjectId[item.id] ?? [])
   };
 }
 
@@ -7638,6 +8191,9 @@ export function findPostFixture(id: string): PostPageData | null {
     return null;
   }
 
+  const report = buildContentReportSummary(item.id);
+  const isRemovedByReport = false;
+
   return {
     id: item.id,
     authorUsername: item.author.username,
@@ -7646,10 +8202,12 @@ export function findPostFixture(id: string): PostPageData | null {
     audience: item.audience,
     voteCount: item.voteCount,
     activeVote: item.activeVote,
-    commentCount: item.commentCount,
+    commentCount: countComments(commentsBySubjectId[item.id] ?? []),
     createdAt: item.createdAt,
+    report,
+    isRemovedByReport,
     discussionNote: postDiscussionNotes[item.id] ?? 'Personal post discussion stays threaded here.',
-    discussion: commentsBySubjectId[item.id] ?? []
+    discussion: mapCommentsWithReports(commentsBySubjectId[item.id] ?? [])
   };
 }
 
@@ -7664,30 +8222,51 @@ export function findEventFixture(slug: string): EventPageData | null {
   }
 
   const shareContacts = buildShareContacts();
+  const quorumThresholdPercent = calculateProjectQuorumThreshold(memberState.eligibleVoterCount);
+  const updateRequests = buildEventUpdateRequests(
+    slug,
+    quorumThresholdPercent,
+    memberState.eligibleVoterCount
+  );
+  const editRequests = buildEventEditRequests(
+    slug,
+    quorumThresholdPercent,
+    memberState.eligibleVoterCount
+  );
+  const report = buildContentReportSummary(item.id);
+  const isRemovedByReport = false;
 
   return {
     ...item,
     memberCount: memberState.memberCount,
+    description: item.description,
     attendanceNote: extras.attendanceNote,
     agenda: extras.agenda,
     updates: extras.updates,
+    updateRequests: updateRequests,
+    viewerCanRequestUpdate: canViewerRequestEventUpdate(slug),
+    viewerCanVoteOnUpdateRequests: canViewerVoteOnEventUpdate(slug),
+    editRequests: editRequests,
+    viewerCanRequestEdit: canViewerRequestEventEdit(slug),
+    viewerCanVoteOnEditRequests: canViewerVoteOnEventEdit(slug),
     attendees: (participation?.goingUserIds ?? []).map((userId) => userById(userId)?.username ?? '').filter(Boolean),
     invitedUsernames: (participation?.invitedUserIds ?? [])
       .map((userId) => userById(userId)?.username ?? '')
       .filter(Boolean),
-    eventManagers: memberState.eventManagers,
+    eventEditors: memberState.eventEditors,
     members: memberState.members,
     viewerIsGoing: memberState.viewerIsGoing,
     viewerCanToggleGoing: memberState.viewerCanToggleGoing,
+    viewerHasEventEditAccess: memberState.viewerHasEventEditAccess,
+    viewerCanManageEditors: memberState.viewerCanManageEditors,
     viewerCanShare: !!currentViewer(),
-    viewerCanToggleManagerNomination: memberState.viewerCanToggleManagerNomination,
-    viewerIsManagerCandidate: memberState.viewerIsManagerCandidate,
-    viewerIsEventManager: memberState.viewerIsEventManager,
-    viewerCanInviteEventManagers: memberState.viewerCanInviteEventManagers,
-    availableManagerInvitees: memberState.availableManagerInvitees,
+    availableEditorInvitees: memberState.availableEditorInvitees,
     shareContacts,
+    report,
+    isRemovedByReport,
+    commentCount: countComments(commentsBySubjectId[item.id] ?? []),
     discussionNote: extras.discussionNote,
-    discussion: commentsBySubjectId[item.id] ?? []
+    discussion: mapCommentsWithReports(commentsBySubjectId[item.id] ?? [])
   };
 }
 
@@ -7779,17 +8358,18 @@ export function toggleMockEventGoing(eventId: string) {
     return;
   }
 
+  const workflow = ensureEventWorkflowState(event.slug, creatorId);
+
   if (participation.goingUserIds.includes(viewer.id)) {
     participation.goingUserIds = participation.goingUserIds.filter((userId) => userId !== viewer.id);
     delete (eventGoingSinceById[eventId] ?? {})[viewer.id];
 
-    if (eventManagersBySlug[event.slug]) {
-      eventManagersBySlug[event.slug].managerIds = eventManagersBySlug[event.slug].managerIds.filter(
-        (userId) => userId !== viewer.id
-      );
-      eventManagersBySlug[event.slug].candidateIds = eventManagersBySlug[event.slug].candidateIds.filter(
-        (userId) => userId !== viewer.id
-      );
+    if (creatorId !== viewer.id) {
+      removeUserFromEventRequestVotes(event.slug, viewer.id);
+
+      if (event.isPrivate) {
+        workflow.editorUserIds = workflow.editorUserIds.filter((userId) => userId !== viewer.id);
+      }
     }
 
     if (event.isPrivate && !participation.invitedUserIds.includes(viewer.id)) {
@@ -7876,7 +8456,9 @@ function ensureProjectWorkflowState(slug: string) {
       requestSettingsChangeRequests: [],
       serviceHistoryCompletions: {},
       revertHistory: [],
-      phaseChangeRequests: []
+      phaseChangeRequests: [],
+      updateRequests: [],
+      editRequests: []
     });
 
   workflow.serviceRequests ??= [];
@@ -7884,18 +8466,102 @@ function ensureProjectWorkflowState(slug: string) {
   workflow.serviceHistoryCompletions ??= {};
   workflow.revertHistory ??= [];
   workflow.phaseChangeRequests ??= [];
+  workflow.updateRequests ??= [];
+  workflow.editRequests ??= [];
 
   return workflow;
 }
 
+function ensureEventWorkflowState(slug: string, creatorId: string | null = null) {
+  const workflow =
+    eventWorkflowStateBySlug[slug] ??
+    (eventWorkflowStateBySlug[slug] = {
+      editorUserIds: creatorId ? [creatorId] : [],
+      updateRequests: [],
+      editRequests: []
+    });
+
+  workflow.editorUserIds = Array.from(
+    new Set([...(creatorId ? [creatorId] : []), ...(workflow.editorUserIds ?? [])])
+  );
+  workflow.updateRequests ??= [];
+  workflow.editRequests ??= [];
+
+  return workflow;
+}
+
+function removeUserFromEventRequestVotes(slug: string, userId: string) {
+  const workflow = eventWorkflowStateBySlug[slug];
+
+  if (!workflow) {
+    return;
+  }
+
+  for (const request of workflow.updateRequests ?? []) {
+    delete request.votesByUserId[userId];
+  }
+
+  for (const request of workflow.editRequests ?? []) {
+    delete request.votesByUserId[userId];
+  }
+}
+
 function canViewerRequestProjectPhaseChange(slug: string) {
+  if (projectModeForSlug(slug) === 'personal-service') {
+    return false;
+  }
+
   const memberState = buildProjectMemberState(slug);
 
-  return memberState.viewerIsMember || memberState.viewerIsProjectManager;
+  return memberState.viewerIsMember;
 }
 
 function canViewerVoteOnProjectPhaseChange(slug: string) {
   return canViewerRequestProjectPhaseChange(slug);
+}
+
+function canViewerRequestProjectUpdate(slug: string) {
+  if (projectModeForSlug(slug) === 'personal-service') {
+    return false;
+  }
+
+  return buildProjectMemberState(slug).viewerIsMember;
+}
+
+function canViewerVoteOnProjectUpdate(slug: string) {
+  return canViewerRequestProjectUpdate(slug);
+}
+
+function canViewerRequestProjectEdit(slug: string) {
+  if (projectModeForSlug(slug) === 'personal-service') {
+    return false;
+  }
+
+  return buildProjectMemberState(slug).viewerIsMember;
+}
+
+function canViewerVoteOnProjectEdit(slug: string) {
+  return canViewerRequestProjectEdit(slug);
+}
+
+function canViewerRequestEventUpdate(slug: string) {
+  const event = findPublicEventItem(slug);
+
+  return !!event && buildEventMemberState(event).viewerHasEventEditAccess;
+}
+
+function canViewerVoteOnEventUpdate(slug: string) {
+  return canViewerRequestEventUpdate(slug);
+}
+
+function canViewerRequestEventEdit(slug: string) {
+  const event = findPublicEventItem(slug);
+
+  return !!event && buildEventMemberState(event).viewerHasEventEditAccess;
+}
+
+function canViewerVoteOnEventEdit(slug: string) {
+  return canViewerRequestEventEdit(slug);
 }
 
 function projectModeForSlug(slug: string) {
@@ -7982,7 +8648,7 @@ function canViewerRequestProjectServiceRequestSettingsChange(slug: string) {
 
   const memberState = buildProjectMemberState(slug);
 
-  return memberState.viewerIsMember || memberState.viewerIsProjectManager;
+  return memberState.viewerIsMember;
 }
 
 function canViewerVoteOnProjectServiceRequestSettingsChange(slug: string) {
@@ -8033,7 +8699,11 @@ function canViewerReviewProjectServiceRequests(slug: string) {
     return !!currentViewer();
   }
 
-  return canViewerManageProjectPhase(slug);
+  if (projectMode === 'personal-service') {
+    return canViewerManageProjectPhase(slug);
+  }
+
+  return buildProjectMemberState(slug).viewerIsMember;
 }
 
 function findOverlappingPersonalServiceAvailabilityIndex(
@@ -8226,6 +8896,7 @@ export function addMockProjectProductionPlan(slug: string, input: ProjectProduct
   const workflow = ensureProjectWorkflowState(slug);
   const values = workflow.values;
   const description = input.description.trim();
+  const demandConsiderationNote = input.demandConsiderationNote.trim();
   const totalCostLabel = input.totalCostLabel.trim();
   const planPhases = input.planPhases
     .map((phase, index) => ({
@@ -8244,6 +8915,7 @@ export function addMockProjectProductionPlan(slug: string, input: ProjectProduct
     !canViewerEditProjectPhase(slug, 'phase-2') ||
     !input.title.trim() ||
     !description ||
+    !demandConsiderationNote ||
     !totalCostLabel ||
     planPhases.length === 0
   ) {
@@ -8262,6 +8934,8 @@ export function addMockProjectProductionPlan(slug: string, input: ProjectProduct
       authorUsername: viewer.username,
       createdAt: new Date().toISOString(),
       description,
+      demandSignalSnapshot: workflow.signalCount,
+      demandConsiderationNote,
       planPhases,
       outputSummary: description,
       materialsSummary: phaseDetailsSummary,
@@ -8271,7 +8945,10 @@ export function addMockProjectProductionPlan(slug: string, input: ProjectProduct
         [viewer.id]: 'yes'
       },
       valueVotesByValueId: Object.fromEntries(
-        values.map((value) => [value.id, { [viewer.id]: 'yes' as ProjectApprovalVote }])
+        [
+          [demandSignalAssessmentValueId, { [viewer.id]: 'yes' as ProjectApprovalVote }],
+          ...values.map((value) => [value.id, { [viewer.id]: 'yes' as ProjectApprovalVote }])
+        ]
       )
     },
     ...workflow.phaseTwoPlans
@@ -8283,6 +8960,7 @@ export function addMockProjectDistributionPlan(slug: string, input: ProjectDistr
   const workflow = ensureProjectWorkflowState(slug);
   const values = workflow.values;
   const description = input.description.trim();
+  const demandConsiderationNote = input.demandConsiderationNote.trim();
   const totalCostLabel = input.totalCostLabel.trim();
   const planPhases = input.planPhases
     .map((phase, index) => ({
@@ -8301,6 +8979,7 @@ export function addMockProjectDistributionPlan(slug: string, input: ProjectDistr
     !canViewerEditProjectPhase(slug, 'phase-3') ||
     !input.title.trim() ||
     !description ||
+    !demandConsiderationNote ||
     !totalCostLabel ||
     planPhases.length === 0
   ) {
@@ -8319,6 +8998,8 @@ export function addMockProjectDistributionPlan(slug: string, input: ProjectDistr
       authorUsername: viewer.username,
       createdAt: new Date().toISOString(),
       description,
+      demandSignalSnapshot: workflow.signalCount,
+      demandConsiderationNote,
       totalCostLabel,
       planPhases,
       distributionSummary: description,
@@ -8331,7 +9012,10 @@ export function addMockProjectDistributionPlan(slug: string, input: ProjectDistr
         [viewer.id]: 'yes'
       },
       valueVotesByValueId: Object.fromEntries(
-        values.map((value) => [value.id, { [viewer.id]: 'yes' as ProjectApprovalVote }])
+        [
+          [demandSignalAssessmentValueId, { [viewer.id]: 'yes' as ProjectApprovalVote }],
+          ...values.map((value) => [value.id, { [viewer.id]: 'yes' as ProjectApprovalVote }])
+        ]
       )
     },
     ...workflow.phaseThreePlans
@@ -9090,99 +9774,6 @@ export function toggleMockProjectManagerNomination(slug: string) {
   managerConfig.candidateIds = [viewer.id, ...managerConfig.candidateIds];
 }
 
-export function toggleMockEventManagerNomination(slug: string) {
-  const viewer = currentViewer();
-  const event = publicFeedBase.find(
-    (item): item is PublicEventItem => item.kind === 'event' && item.slug === slug
-  );
-
-  if (!viewer || !event || event.isPrivate) {
-    return;
-  }
-
-  const participation = eventParticipationById[event.id] ?? { goingUserIds: [], invitedUserIds: [] };
-
-  if (!participation.goingUserIds.includes(viewer.id)) {
-    return;
-  }
-
-  const managerConfig =
-    eventManagersBySlug[slug] ??
-    (eventManagersBySlug[slug] = {
-      managerIds: [],
-      candidateIds: [],
-      confidenceTargetIdsByUserId: {}
-    });
-  const viewerIsManager = managerConfig.managerIds.includes(viewer.id);
-  const viewerIsCandidate = managerConfig.candidateIds.includes(viewer.id);
-
-  if (viewerIsManager) {
-    managerConfig.managerIds = managerConfig.managerIds.filter((userId) => userId !== viewer.id);
-    return;
-  }
-
-  if (viewerIsCandidate) {
-    managerConfig.candidateIds = managerConfig.candidateIds.filter((userId) => userId !== viewer.id);
-    return;
-  }
-
-  const confidenceTargetId =
-    managerConfig.confidenceTargetIdsByUserId[viewer.id] ??
-    `confidence-event-manager-${slug}-${viewer.id}`;
-
-  managerConfig.confidenceTargetIdsByUserId[viewer.id] = confidenceTargetId;
-
-  if (!confidenceState.has(confidenceTargetId)) {
-    seedConfidenceTarget(confidenceTargetId, 0, 0, 0);
-  }
-
-  managerConfig.candidateIds = [viewer.id, ...managerConfig.candidateIds];
-}
-
-export function inviteMockEventManager(slug: string, userId: string) {
-  const viewer = currentViewer();
-  const event = publicFeedBase.find(
-    (item): item is PublicEventItem => item.kind === 'event' && item.slug === slug
-  );
-
-  if (!viewer || !event || !event.isPrivate) {
-    return;
-  }
-
-  const creatorId = userByUsername(event.createdByUsername)?.id;
-
-  if (!creatorId || viewer.id !== creatorId || !userById(userId)) {
-    return;
-  }
-
-  const participation =
-    eventParticipationById[event.id] ??
-    (eventParticipationById[event.id] = { goingUserIds: [], invitedUserIds: [] });
-  const managerConfig =
-    eventManagersBySlug[slug] ??
-    (eventManagersBySlug[slug] = {
-      managerIds: [creatorId],
-      candidateIds: [],
-      confidenceTargetIdsByUserId: {}
-    });
-
-  if (!participation.goingUserIds.includes(userId)) {
-    participation.goingUserIds = [...participation.goingUserIds, userId];
-    eventGoingSinceById[event.id] = {
-      ...(eventGoingSinceById[event.id] ?? {}),
-      [userId]: new Date().toISOString()
-    };
-  }
-
-  participation.invitedUserIds = participation.invitedUserIds.filter((inviteeId) => inviteeId !== userId);
-  delete (eventInvitedSinceById[event.id] ?? {})[userId];
-  managerConfig.candidateIds = managerConfig.candidateIds.filter((candidateId) => candidateId !== userId);
-
-  if (!managerConfig.managerIds.includes(userId)) {
-    managerConfig.managerIds = [userId, ...managerConfig.managerIds];
-  }
-}
-
 export function toggleMockScopeMembership(kind: ScopeKind, slug: string) {
   const viewer = currentViewer();
   const membership = scopeMembershipByKey[scopeMembershipKey(kind, slug)];
@@ -9551,7 +10142,6 @@ export function createMockEvent(input: CreateEventInput): CreateResult {
   const slug = uniqueSlug(title);
   const createdAt = new Date().toISOString();
   const id = `event-${slug}`;
-  const confidenceTargetId = `confidence-event-manager-${slug}-${viewer.id}`;
 
   publicFeedBase.unshift({
     kind: 'event',
@@ -9595,16 +10185,13 @@ export function createMockEvent(input: CreateEventInput): CreateResult {
   eventInvitedSinceById[id] = Object.fromEntries(
     invitedUserIds.map((userId) => [userId, createdAt])
   );
-  eventManagersBySlug[slug] = {
-    managerIds: [viewer.id],
-    candidateIds: [],
-    confidenceTargetIdsByUserId: {
-      [viewer.id]: confidenceTargetId
-    }
+  eventWorkflowStateBySlug[slug] = {
+    editorUserIds: [viewer.id],
+    updateRequests: [],
+    editRequests: []
   };
   commentsBySubjectId[id] = [];
   seedVoteTarget(id, 0, 0);
-  seedConfidenceTarget(confidenceTargetId, 0, 0, 0);
 
   return {
     ok: true,
@@ -9680,8 +10267,6 @@ export function createMockChannel(input: CreateChannelInput): CreateResult {
   }
 
   const slug = uniqueScopeSlug(name, 'channel');
-  const confidenceTargetId = createScopeConfidenceTargetId('channel', slug, viewer.id);
-
   channelDirectory.unshift({
     slug,
     label: name,
@@ -9694,11 +10279,8 @@ export function createMockChannel(input: CreateChannelInput): CreateResult {
   createdChannelScopeMetaBySlug[slug] = createDefaultScopeMeta(
     'channel',
     description,
-    'open',
-    viewer.id,
-    confidenceTargetId
+    'open'
   );
-  seedConfidenceTarget(confidenceTargetId, 0, 0, 0);
 
   return {
     ok: true,
@@ -9726,8 +10308,6 @@ export function createMockCommunity(input: CreateCommunityInput): CreateResult {
   }
 
   const slug = uniqueScopeSlug(name, 'community');
-  const confidenceTargetId = createScopeConfidenceTargetId('community', slug, viewer.id);
-
   communityDirectory.unshift({
     slug,
     label: name,
@@ -9745,11 +10325,8 @@ export function createMockCommunity(input: CreateCommunityInput): CreateResult {
   createdCommunityScopeMetaBySlug[slug] = createDefaultScopeMeta(
     'community',
     description,
-    input.joinPolicy,
-    viewer.id,
-    confidenceTargetId
+    input.joinPolicy
   );
-  seedConfidenceTarget(confidenceTargetId, 0, 0, 0);
 
   return {
     ok: true,
@@ -9790,21 +10367,105 @@ export function addMockComment(subjectId: string, body: string, parentId?: strin
   comments.unshift(comment);
 }
 
+export function submitMockReport(subjectId: string, targetId: string, reason: string, details: string) {
+  const viewer = currentViewer();
+  const trimmedReason = reason.trim() as ContentReportReason;
+  const trimmedDetails = details.trim();
+
+  if (
+    !viewer ||
+    !subjectId.trim() ||
+    !targetId.trim() ||
+    (trimmedReason !== 'spam' && trimmedReason !== 'serious-harm')
+  ) {
+    return;
+  }
+
+  const existingReport = contentReportsByTargetId[targetId];
+
+  if (existingReport) {
+    if (existingReport.resolution !== 'removed' && existingReport.eligibleUserIds.includes(viewer.id)) {
+      existingReport.votesByUserId[viewer.id] = 'yes';
+      reconcileContentReport(existingReport);
+    }
+
+    return;
+  }
+
+  const context = resolveReportTargetContext(subjectId, targetId);
+
+  if (!context || context.authorUserId === viewer.id) {
+    return;
+  }
+
+  if (context.targetKind === 'direct-message') {
+    removeMessageFromConversations(targetId);
+    return;
+  }
+
+  const createdAt = new Date().toISOString();
+  const report: MockContentReport = {
+    id: `report-${targetId}-${Date.now()}`,
+    subjectId,
+    targetId,
+    targetKind: context.targetKind,
+    reason: trimmedReason,
+    description: trimmedDetails,
+    reporterUserId: viewer.id,
+    reportedAuthorUserId: context.authorUserId,
+    eligibleUserIds: context.eligibleUserIds,
+    votesByUserId: context.eligibleUserIds.includes(viewer.id)
+      ? {
+          [viewer.id]: 'yes'
+        }
+      : {},
+    createdAt,
+    resolution: 'open'
+  };
+
+  contentReportsByTargetId[targetId] = report;
+  reconcileContentReport(report);
+}
+
+export function setMockReportVote(targetId: string, vote: ContentReportVote) {
+  const viewer = currentViewer();
+  const report = contentReportsByTargetId[targetId];
+
+  if (
+    !viewer ||
+    !report ||
+    report.resolution === 'removed' ||
+    !report.eligibleUserIds.includes(viewer.id)
+  ) {
+    return;
+  }
+
+  report.votesByUserId[viewer.id] = vote;
+  reconcileContentReport(report);
+}
+
 export function addMockProjectUpdate(slug: string, title: string, body: string) {
   const viewer = currentViewer();
   const extras = projectDetailExtras[slug];
-  const trimmedTitle = title.trim();
   const trimmedBody = body.trim();
+  const nextTitle = resolvedUpdateTitle(title, body);
   const memberState = buildProjectMemberState(slug);
+  const projectMode = projectModeForSlug(slug);
 
-  if (!viewer || !extras || !trimmedTitle || !trimmedBody || !memberState.viewerIsProjectManager) {
+  if (
+    !viewer ||
+    !extras ||
+    !trimmedBody ||
+    projectMode !== 'personal-service' ||
+    !memberState.viewerIsProjectManager
+  ) {
     return;
   }
 
   extras.updates = [
     {
       id: `project-update-${slug}-${Date.now()}`,
-      title: trimmedTitle,
+      title: nextTitle,
       body: trimmedBody,
       authorUsername: viewer.username,
       createdAt: new Date().toISOString()
@@ -9813,30 +10474,405 @@ export function addMockProjectUpdate(slug: string, title: string, body: string) 
   ];
 }
 
-export function addMockEventUpdate(slug: string, title: string, body: string) {
-  const viewer = currentViewer();
-  const event = publicFeedBase.find(
-    (item): item is PublicEventItem => item.kind === 'event' && item.slug === slug
-  );
-  const extras = eventDetailExtras[slug];
+function resolvedUpdateTitle(title: string, body: string) {
   const trimmedTitle = title.trim();
-  const trimmedBody = body.trim();
-  const memberState = event ? buildEventMemberState(event) : null;
 
-  if (!viewer || !event || !extras || !trimmedTitle || !trimmedBody || !memberState?.viewerIsEventManager) {
+  if (trimmedTitle) {
+    return trimmedTitle;
+  }
+
+  const normalizedBody = body.trim().replace(/\s+/g, ' ');
+
+  if (normalizedBody.length <= 72) {
+    return normalizedBody;
+  }
+
+  return `${normalizedBody.slice(0, 69).trimEnd()}...`;
+}
+
+function applyProjectDetailsChange(
+  slug: string,
+  title: string,
+  summary: string,
+  overview: string,
+  updatedAt = new Date().toISOString()
+) {
+  const item = findPublicProjectItem(slug);
+  const extras = projectDetailExtras[slug];
+
+  if (!item || !extras) {
+    return false;
+  }
+
+  item.title = title;
+  item.summary = summary;
+  item.lastActivityAt = updatedAt;
+  extras.overview = overview;
+
+  return true;
+}
+
+function maybeApplyApprovedProjectUpdate(slug: string, requestId: string) {
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.updateRequests?.find((item) => item.id === requestId);
+  const extras = projectDetailExtras[slug];
+
+  if (!request || !extras) {
+    return;
+  }
+
+  const memberState = buildProjectMemberState(slug);
+  const memberCount = memberState.projectManagers.length + memberState.members.length;
+  const voteSummary = buildProjectVoteSummary(
+    request.votesByUserId,
+    calculateProjectQuorumThreshold(memberCount),
+    memberCount
+  );
+
+  if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    workflow.updateRequests = (workflow.updateRequests ?? []).filter((item) => item.id !== requestId);
+    return;
+  }
+
+  if (!voteSummary.meetsQuorum || !phaseChangePassesApprovalThreshold(voteSummary)) {
     return;
   }
 
   extras.updates = [
     {
-      id: `event-update-${slug}-${Date.now()}`,
-      title: trimmedTitle,
-      body: trimmedBody,
-      authorUsername: viewer.username,
+      id: `project-update-${slug}-${Date.now()}`,
+      title: request.title,
+      body: request.body,
+      authorUsername: request.authorUsername,
       createdAt: new Date().toISOString()
     },
     ...extras.updates
   ];
+  workflow.updateRequests = (workflow.updateRequests ?? []).filter((item) => item.id !== requestId);
+}
+
+function maybeApplyApprovedProjectEdit(slug: string, requestId: string) {
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.editRequests?.find((item) => item.id === requestId);
+
+  if (!request) {
+    return;
+  }
+
+  const memberState = buildProjectMemberState(slug);
+  const memberCount = memberState.projectManagers.length + memberState.members.length;
+  const voteSummary = buildProjectVoteSummary(
+    request.votesByUserId,
+    calculateProjectQuorumThreshold(memberCount),
+    memberCount
+  );
+
+  if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    workflow.editRequests = (workflow.editRequests ?? []).filter((item) => item.id !== requestId);
+    return;
+  }
+
+  if (!voteSummary.meetsQuorum || !phaseChangePassesApprovalThreshold(voteSummary)) {
+    return;
+  }
+
+  applyProjectDetailsChange(
+    slug,
+    request.title,
+    request.summary,
+    request.overview,
+    new Date().toISOString()
+  );
+  workflow.editRequests = (workflow.editRequests ?? []).filter((item) => item.id !== requestId);
+}
+
+export function updateMockProjectDetails(
+  slug: string,
+  title: string,
+  summary: string,
+  overview: string
+) {
+  const viewer = currentViewer();
+  const trimmedTitle = title.trim();
+  const trimmedSummary = summary.trim();
+  const trimmedOverview = overview.trim();
+
+  if (
+    !viewer ||
+    projectModeForSlug(slug) !== 'personal-service' ||
+    !trimmedTitle ||
+    !trimmedSummary ||
+    !trimmedOverview ||
+    !isProjectCreator(slug, viewer.id)
+  ) {
+    return;
+  }
+
+  applyProjectDetailsChange(
+    slug,
+    trimmedTitle,
+    trimmedSummary,
+    trimmedOverview,
+    new Date().toISOString()
+  );
+}
+
+function applyEventDetailsChange(
+  slug: string,
+  title: string,
+  description: string,
+  updatedAt = new Date().toISOString()
+) {
+  const event = findPublicEventItem(slug);
+
+  if (!event) {
+    return false;
+  }
+
+  event.title = title;
+  event.description = description;
+  event.lastActivityAt = updatedAt;
+
+  return true;
+}
+
+function maybeApplyApprovedEventUpdate(slug: string, requestId: string) {
+  const event = findPublicEventItem(slug);
+  const extras = eventDetailExtras[slug];
+
+  if (!event || !extras) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const request = workflow.updateRequests?.find((item) => item.id === requestId);
+
+  if (!request) {
+    return;
+  }
+
+  const memberState = buildEventMemberState(event);
+  const voteSummary = buildProjectVoteSummary(
+    request.votesByUserId,
+    calculateProjectQuorumThreshold(memberState.eligibleVoterCount),
+    memberState.eligibleVoterCount
+  );
+
+  if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    workflow.updateRequests = (workflow.updateRequests ?? []).filter((item) => item.id !== requestId);
+    return;
+  }
+
+  if (!voteSummary.meetsQuorum || !phaseChangePassesApprovalThreshold(voteSummary)) {
+    return;
+  }
+
+  const createdAt = new Date().toISOString();
+  extras.updates = [
+    {
+      id: `event-update-${slug}-${Date.now()}`,
+      title: request.title,
+      body: request.body,
+      authorUsername: request.authorUsername,
+      createdAt
+    },
+    ...extras.updates
+  ];
+  event.lastActivityAt = createdAt;
+  workflow.updateRequests = (workflow.updateRequests ?? []).filter((item) => item.id !== requestId);
+}
+
+function maybeApplyApprovedEventEdit(slug: string, requestId: string) {
+  const event = findPublicEventItem(slug);
+
+  if (!event) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const request = workflow.editRequests?.find((item) => item.id === requestId);
+
+  if (!request) {
+    return;
+  }
+
+  const memberState = buildEventMemberState(event);
+  const voteSummary = buildProjectVoteSummary(
+    request.votesByUserId,
+    calculateProjectQuorumThreshold(memberState.eligibleVoterCount),
+    memberState.eligibleVoterCount
+  );
+
+  if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    workflow.editRequests = (workflow.editRequests ?? []).filter((item) => item.id !== requestId);
+    return;
+  }
+
+  if (!voteSummary.meetsQuorum || !phaseChangePassesApprovalThreshold(voteSummary)) {
+    return;
+  }
+
+  applyEventDetailsChange(slug, request.title, request.description, new Date().toISOString());
+  workflow.editRequests = (workflow.editRequests ?? []).filter((item) => item.id !== requestId);
+}
+
+export function requestMockEventUpdate(slug: string, title: string, body: string) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+  const extras = eventDetailExtras[slug];
+  const trimmedBody = body.trim();
+  const nextTitle = resolvedUpdateTitle(title, body);
+
+  if (!viewer || !event || !extras || !trimmedBody || !canViewerRequestEventUpdate(slug)) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const requestId = `event-update-request-${slug}-${Date.now()}`;
+  workflow.updateRequests = [
+    {
+      id: requestId,
+      title: nextTitle,
+      body: trimmedBody,
+      authorUsername: viewer.username,
+      createdAt: new Date().toISOString(),
+      votesByUserId: {
+        [viewer.id]: 'yes'
+      }
+    },
+    ...(workflow.updateRequests ?? [])
+  ];
+
+  maybeApplyApprovedEventUpdate(slug, requestId);
+}
+
+export function setMockEventUpdateVote(
+  slug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+
+  if (!viewer || !event || !canViewerVoteOnEventUpdate(slug)) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const request = workflow.updateRequests?.find((item) => item.id === requestId);
+
+  if (!request) {
+    return;
+  }
+
+  if (vote) {
+    request.votesByUserId[viewer.id] = vote;
+  } else {
+    delete request.votesByUserId[viewer.id];
+  }
+
+  maybeApplyApprovedEventUpdate(slug, requestId);
+}
+
+export function requestMockEventEdit(slug: string, title: string, description: string) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+  const trimmedTitle = title.trim();
+  const trimmedDescription = description.trim();
+
+  if (
+    !viewer ||
+    !event ||
+    !trimmedTitle ||
+    !trimmedDescription ||
+    !canViewerRequestEventEdit(slug)
+  ) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const requestId = `event-edit-request-${slug}-${Date.now()}`;
+  workflow.editRequests = [
+    {
+      id: requestId,
+      title: trimmedTitle,
+      description: trimmedDescription,
+      authorUsername: viewer.username,
+      createdAt: new Date().toISOString(),
+      votesByUserId: {
+        [viewer.id]: 'yes'
+      }
+    },
+    ...(workflow.editRequests ?? [])
+  ];
+
+  maybeApplyApprovedEventEdit(slug, requestId);
+}
+
+export function setMockEventEditVote(
+  slug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+
+  if (!viewer || !event || !canViewerVoteOnEventEdit(slug)) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const request = workflow.editRequests?.find((item) => item.id === requestId);
+
+  if (!request) {
+    return;
+  }
+
+  if (vote) {
+    request.votesByUserId[viewer.id] = vote;
+  } else {
+    delete request.votesByUserId[viewer.id];
+  }
+
+  maybeApplyApprovedEventEdit(slug, requestId);
+}
+
+export function grantMockEventEditAccess(slug: string, userId: string) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+  const creatorId = event ? userByUsername(event.createdByUsername)?.id ?? null : null;
+
+  if (!viewer || !event || !event.isPrivate || !creatorId || viewer.id !== creatorId || userId === creatorId) {
+    return;
+  }
+
+  const memberState = buildEventMemberState(event);
+
+  if (!memberState.members.some((member) => member.id === userId)) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, creatorId);
+  workflow.editorUserIds = Array.from(new Set([...workflow.editorUserIds, userId]));
+}
+
+export function revokeMockEventEditAccess(slug: string, userId: string) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+  const creatorId = event ? userByUsername(event.createdByUsername)?.id ?? null : null;
+
+  if (!viewer || !event || !event.isPrivate || !creatorId || viewer.id !== creatorId || userId === creatorId) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, creatorId);
+
+  if (!workflow.editorUserIds.includes(userId)) {
+    return;
+  }
+
+  workflow.editorUserIds = workflow.editorUserIds.filter((editorId) => editorId !== userId);
+  removeUserFromEventRequestVotes(slug, userId);
 }
 
 export function shareMockProjectWithUser(slug: string, username: string): ShareTargetResult {
@@ -10379,6 +11415,87 @@ export function requestMockProjectPhaseChange(
   maybeApplyApprovedProjectPhaseChange(slug, requestId);
 }
 
+export function requestMockProjectUpdate(slug: string, title: string, body: string) {
+  const viewer = currentViewer();
+  const extras = projectDetailExtras[slug];
+  const projectMode = projectModeForSlug(slug);
+  const trimmedBody = body.trim();
+  const nextTitle = resolvedUpdateTitle(title, body);
+
+  if (
+    !viewer ||
+    !extras ||
+    projectMode === 'personal-service' ||
+    !trimmedBody ||
+    !canViewerRequestProjectUpdate(slug)
+  ) {
+    return;
+  }
+
+  const workflow = ensureProjectWorkflowState(slug);
+  const requestId = `project-update-request-${slug}-${Date.now()}`;
+  workflow.updateRequests = [
+    {
+      id: requestId,
+      title: nextTitle,
+      body: trimmedBody,
+      authorUsername: viewer.username,
+      createdAt: new Date().toISOString(),
+      votesByUserId: {
+        [viewer.id]: 'yes'
+      }
+    },
+    ...(workflow.updateRequests ?? [])
+  ];
+
+  maybeApplyApprovedProjectUpdate(slug, requestId);
+}
+
+export function requestMockProjectEdit(
+  slug: string,
+  title: string,
+  summary: string,
+  overview: string
+) {
+  const viewer = currentViewer();
+  const extras = projectDetailExtras[slug];
+  const projectMode = projectModeForSlug(slug);
+  const trimmedTitle = title.trim();
+  const trimmedSummary = summary.trim();
+  const trimmedOverview = overview.trim();
+
+  if (
+    !viewer ||
+    !extras ||
+    projectMode === 'personal-service' ||
+    !trimmedTitle ||
+    !trimmedSummary ||
+    !trimmedOverview ||
+    !canViewerRequestProjectEdit(slug)
+  ) {
+    return;
+  }
+
+  const workflow = ensureProjectWorkflowState(slug);
+  const requestId = `project-edit-request-${slug}-${Date.now()}`;
+  workflow.editRequests = [
+    {
+      id: requestId,
+      title: trimmedTitle,
+      summary: trimmedSummary,
+      overview: trimmedOverview,
+      authorUsername: viewer.username,
+      createdAt: new Date().toISOString(),
+      votesByUserId: {
+        [viewer.id]: 'yes'
+      }
+    },
+    ...(workflow.editRequests ?? [])
+  ];
+
+  maybeApplyApprovedProjectEdit(slug, requestId);
+}
+
 export function setMockProjectPhaseChangeVote(
   slug: string,
   requestId: string,
@@ -10399,4 +11516,48 @@ export function setMockProjectPhaseChangeVote(
   }
 
   maybeApplyApprovedProjectPhaseChange(slug, requestId);
+}
+
+export function setMockProjectUpdateVote(
+  slug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.updateRequests?.find((item) => item.id === requestId);
+
+  if (!viewer || !request || !canViewerVoteOnProjectUpdate(slug)) {
+    return;
+  }
+
+  if (vote) {
+    request.votesByUserId[viewer.id] = vote;
+  } else {
+    delete request.votesByUserId[viewer.id];
+  }
+
+  maybeApplyApprovedProjectUpdate(slug, requestId);
+}
+
+export function setMockProjectEditVote(
+  slug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.editRequests?.find((item) => item.id === requestId);
+
+  if (!viewer || !request || !canViewerVoteOnProjectEdit(slug)) {
+    return;
+  }
+
+  if (vote) {
+    request.votesByUserId[viewer.id] = vote;
+  } else {
+    delete request.votesByUserId[viewer.id];
+  }
+
+  maybeApplyApprovedProjectEdit(slug, requestId);
 }

@@ -2,6 +2,7 @@
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { tick } from 'svelte';
   import ProjectChatTab from '$lib/features/projects/detail/ProjectChatTab.svelte';
   import ProjectLifecyclePanel from '$lib/features/projects/detail/ProjectLifecyclePanel.svelte';
   import ProjectMembersPanel from '$lib/features/projects/detail/ProjectMembersPanel.svelte';
@@ -56,6 +57,36 @@
     });
   }
 
+  function scrollElementIntoView(element: HTMLElement | null) {
+    if (!browser || !element) {
+      return;
+    }
+
+    const topbarHeight = document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
+    const topOffset = topbarHeight + 28;
+    const nextTop = window.scrollY + element.getBoundingClientRect().top - topOffset;
+
+    window.scrollTo({
+      top: Math.max(nextTop, 0),
+      behavior: 'smooth'
+    });
+  }
+
+  async function handleMembersPanelOpen() {
+    if (isPersonalServiceProject(data.projectMode)) {
+      return;
+    }
+
+    if (showMembersPanel) {
+      showMembersPanel = false;
+      return;
+    }
+
+    showMembersPanel = true;
+    await tick();
+    scrollElementIntoView(document.getElementById('project-members-panel'));
+  }
+
   $: {
     const routeSignature = `${$page.url.pathname}${$page.url.search}${$page.url.hash}`;
 
@@ -101,10 +132,10 @@
         {data}
         {highlightedUpdateId}
         {showMembersPanel}
-        on:togglemembers={() => (showMembersPanel = !showMembersPanel)}
+        on:togglemembers={handleMembersPanelOpen}
       />
       {#if showMembersPanel && !isPersonalServiceProject(data.projectMode)}
-        <ProjectMembersPanel {data} />
+        <ProjectMembersPanel {data} panelId="project-members-panel" />
       {/if}
       <ProjectLifecyclePanel {data} />
     {:else}

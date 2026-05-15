@@ -37,13 +37,10 @@ export interface ScopePageData {
   description: string;
   note?: string;
   badges: string[];
-  moderationLabel: string;
-  membersNote: string;
-  moderatorsNote: string;
+  boardNote?: string;
   emptyFeedText: string;
   membership: ScopeMembershipState;
   feed: PublicFeedItem[];
-  members: ScopeMemberSummary[];
-  moderators: ScopeMemberSummary[];
+  boardMembers?: ScopeMemberSummary[];
   stats: ScopeStats;
 }

@@ -80,7 +80,7 @@
   onMount(async () => {
     const scope = await getPlatform();
 
-    platformBoardMemberIds = scope?.moderators.map((member) => member.id) ?? [];
+    platformBoardMemberIds = scope?.boardMembers?.map((member) => member.id) ?? [];
   });
 
   async function handleCreate() {

@@ -14,6 +14,7 @@
   type DraftPlanForm = {
     title: string;
     description: string;
+    demandConsiderationNote: string;
     totalCostLabel: string;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;
@@ -62,6 +63,10 @@
     return collectiveService ? 'Describe the overall access plan.' : 'Describe the overall distribution plan.';
   }
 
+  function demandPlaceholder() {
+    return 'Explain whether this plan meets the current demand signal. If it does not, explain the gap and why.';
+  }
+
   function statusLabel(planId: string) {
     if (planId !== winningPlanId) {
       return null;
@@ -81,6 +86,12 @@
       <div class="composer-card">
         <input bind:value={form.title} maxlength="120" placeholder="Plan title" />
         <textarea bind:value={form.description} rows="3" placeholder={descriptionPlaceholder()}></textarea>
+        <div class="demand-context-card">
+          <strong>Current demand signal</strong>
+          <span>{data.signalCount} demand signals are active right now.</span>
+          <span>State whether this plan actually meets that demand and, if not, why it still falls short.</span>
+        </div>
+        <textarea bind:value={form.demandConsiderationNote} rows="3" placeholder={demandPlaceholder()}></textarea>
         <div class="step-stack">
           {#each form.planPhases as phase, index}
             <div class="step-card">
@@ -154,6 +165,7 @@
   .phase-surface,
   .surface-stack,
   .composer-card,
+  .demand-context-card,
   .step-stack,
   .step-card {
     display: grid;
@@ -179,6 +191,7 @@
   }
 
   .composer-card,
+  .demand-context-card,
   .empty-card,
   .step-card {
     padding: 16px;
@@ -236,6 +249,7 @@
   }
 
   .checkbox-row span,
+  .demand-context-card span,
   .field-inline-label,
   strong {
     color: var(--text-main);

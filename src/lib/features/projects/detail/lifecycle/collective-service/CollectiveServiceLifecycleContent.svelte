@@ -28,6 +28,7 @@
   type DraftPlanForm = {
     title: string;
     description: string;
+    demandConsiderationNote: string;
     totalCostLabel: string;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;

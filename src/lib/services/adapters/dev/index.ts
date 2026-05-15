@@ -51,23 +51,33 @@ import {
   sendMockMessage,
   startMockDirectMessage,
   addMockProjectUpdate,
-  addMockEventUpdate,
-  inviteMockEventManager,
+  grantMockEventEditAccess,
+  setMockReportVote,
   setMockVote,
+  submitMockReport,
+  setMockEventEditVote,
+  setMockEventUpdateVote,
   setMockProjectPlanOverallVote,
   setMockProjectPlanValueVote,
+  setMockProjectEditVote,
   setMockProjectPhaseChangeVote,
+  setMockProjectUpdateVote,
   setMockProjectServiceRequestSettingsChangeVote,
   setMockProjectValueImportance,
   setMockProjectServiceRequestStatus,
+  requestMockProjectEdit,
   requestMockProjectPhaseChange,
+  requestMockProjectUpdate,
+  requestMockEventEdit,
+  requestMockEventUpdate,
+  revokeMockEventEditAccess,
   toggleMockEventGoing,
-  toggleMockEventManagerNomination,
   advanceMockProjectPhase,
   revertMockProjectPhase,
   toggleMockProjectManagerNomination,
   toggleMockProjectMembership,
   toggleMockScopeMembership,
+  updateMockProjectDetails,
   updateMockSettings
 } from '$lib/services/adapters/dev/data';
 
@@ -260,6 +270,26 @@ export const devAdapter: AppAdapter = {
     setMockProjectPhaseChangeVote(projectSlug, requestId, vote);
   },
 
+  async requestProjectUpdate(projectSlug, title, body) {
+    requestMockProjectUpdate(projectSlug, title, body);
+  },
+
+  async setProjectUpdateVote(projectSlug, requestId, vote) {
+    setMockProjectUpdateVote(projectSlug, requestId, vote);
+  },
+
+  async updateProjectDetails(projectSlug, title, summary, overview) {
+    updateMockProjectDetails(projectSlug, title, summary, overview);
+  },
+
+  async requestProjectEdit(projectSlug, title, summary, overview) {
+    requestMockProjectEdit(projectSlug, title, summary, overview);
+  },
+
+  async setProjectEditVote(projectSlug, requestId, vote) {
+    setMockProjectEditVote(projectSlug, requestId, vote);
+  },
+
   async advanceProjectPhase(projectSlug, closeNote) {
     advanceMockProjectPhase(projectSlug, closeNote);
   },
@@ -270,14 +300,6 @@ export const devAdapter: AppAdapter = {
 
   async toggleProjectManagerNomination(projectSlug) {
     toggleMockProjectManagerNomination(projectSlug);
-  },
-
-  async toggleEventManagerNomination(eventSlug) {
-    toggleMockEventManagerNomination(eventSlug);
-  },
-
-  async inviteEventManager(eventSlug, userId) {
-    inviteMockEventManager(eventSlug, userId);
   },
 
   async toggleScopeMembership(kind, slug) {
@@ -296,12 +318,40 @@ export const devAdapter: AppAdapter = {
     addMockComment(subjectId, body, parentId);
   },
 
+  async submitReport(subjectId, targetId, reason, details) {
+    submitMockReport(subjectId, targetId, reason, details);
+  },
+
+  async setReportVote(targetId, vote) {
+    setMockReportVote(targetId, vote);
+  },
+
   async addProjectUpdate(projectSlug, title, body) {
     addMockProjectUpdate(projectSlug, title, body);
   },
 
-  async addEventUpdate(eventSlug, title, body) {
-    addMockEventUpdate(eventSlug, title, body);
+  async requestEventUpdate(eventSlug, title, body) {
+    requestMockEventUpdate(eventSlug, title, body);
+  },
+
+  async setEventUpdateVote(eventSlug, requestId, vote) {
+    setMockEventUpdateVote(eventSlug, requestId, vote);
+  },
+
+  async requestEventEdit(eventSlug, title, description) {
+    requestMockEventEdit(eventSlug, title, description);
+  },
+
+  async setEventEditVote(eventSlug, requestId, vote) {
+    setMockEventEditVote(eventSlug, requestId, vote);
+  },
+
+  async grantEventEditAccess(eventSlug, userId) {
+    grantMockEventEditAccess(eventSlug, userId);
+  },
+
+  async revokeEventEditAccess(eventSlug, userId) {
+    revokeMockEventEditAccess(eventSlug, userId);
   },
 
   async shareProjectWithUser(projectSlug, username) {

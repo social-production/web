@@ -14,6 +14,29 @@ export interface DetailMember {
   bio?: string;
 }
 
+export type ContentReportReason = 'spam' | 'serious-harm';
+export type ContentReportVote = 'yes' | 'no';
+
+export interface ContentReportVoteSummary {
+  yesCount: number;
+  noCount: number;
+  activeVote: ContentReportVote | null;
+  eligibleVoterCount: number;
+  votesRequired: number;
+}
+
+export interface ContentReportSummary {
+  id: string;
+  subjectId: string;
+  targetId: string;
+  reason: ContentReportReason;
+  description: string;
+  createdAt: string;
+  authorUsername: string;
+  resolution: 'open' | 'hidden' | 'removed';
+  voteSummary: ContentReportVoteSummary;
+}
+
 export interface RoleMember extends DetailMember {
   confidenceTargetId?: string;
   confidenceVoteCount?: number;
@@ -33,6 +56,7 @@ export interface DetailComment {
   createdAt: string;
   voteCount: number;
   activeVote: VoteDirection;
+  report?: ContentReportSummary | null;
   replies: DetailComment[];
 }
 
@@ -109,6 +133,7 @@ export interface ProjectPlanValueAssessment extends ProjectPlanVoteSummary {
 export interface ProjectProductionPlanInput {
   title: string;
   description: string;
+  demandConsiderationNote: string;
   totalCostLabel: string;
   planPhases: ProjectPlanPhaseInput[];
   outputSummary?: string;
@@ -119,6 +144,7 @@ export interface ProjectProductionPlanInput {
 export interface ProjectDistributionPlanInput {
   title: string;
   description: string;
+  demandConsiderationNote: string;
   totalCostLabel: string;
   planPhases: ProjectPlanPhaseInput[];
   distributionSummary?: string;
@@ -141,6 +167,8 @@ export interface ProjectProductionPlan {
   authorUsername: string;
   createdAt: string;
   description: string;
+  demandSignalSnapshot: number | null;
+  demandConsiderationNote: string;
   planPhases: ProjectPlanPhaseItem[];
   outputSummary: string;
   materialsSummary: string;
@@ -157,6 +185,8 @@ export interface ProjectDistributionPlan {
   authorUsername: string;
   createdAt: string;
   description: string;
+  demandSignalSnapshot: number | null;
+  demandConsiderationNote: string;
   totalCostLabel: string;
   planPhases: ProjectPlanPhaseItem[];
   distributionSummary: string;
@@ -316,6 +346,55 @@ export interface ProjectLifecyclePhaseChangeRequest {
   canStillPass: boolean;
 }
 
+export interface ProjectUpdateRequest {
+  id: string;
+  title: string;
+  body: string;
+  authorUsername: string;
+  createdAt: string;
+  approvalThresholdPercent: number;
+  voteSummary: ProjectPlanVoteSummary;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
+}
+
+export interface ProjectEditRequest {
+  id: string;
+  title: string;
+  summary: string;
+  overview: string;
+  authorUsername: string;
+  createdAt: string;
+  approvalThresholdPercent: number;
+  voteSummary: ProjectPlanVoteSummary;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
+}
+
+export interface EventUpdateRequest {
+  id: string;
+  title: string;
+  body: string;
+  authorUsername: string;
+  createdAt: string;
+  approvalThresholdPercent: number;
+  voteSummary: ProjectPlanVoteSummary;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
+}
+
+export interface EventEditRequest {
+  id: string;
+  title: string;
+  description: string;
+  authorUsername: string;
+  createdAt: string;
+  approvalThresholdPercent: number;
+  voteSummary: ProjectPlanVoteSummary;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
+}
+
 export interface ProjectPhaseOneData {
   values: ProjectValueItem[];
   viewerCanSignalDemand: boolean;
@@ -432,6 +511,12 @@ export interface ProjectPageData {
   overview: string;
   lifecycle: ProjectLifecycleData;
   updates: DetailUpdate[];
+  updateRequests: ProjectUpdateRequest[];
+  viewerCanRequestUpdate: boolean;
+  viewerCanVoteOnUpdateRequests: boolean;
+  editRequests: ProjectEditRequest[];
+  viewerCanRequestEdit: boolean;
+  viewerCanVoteOnEditRequests: boolean;
   projectManagers: ProjectRoleMember[];
   members: ProjectRoleMember[];
   viewerIsMember: boolean;
@@ -441,6 +526,8 @@ export interface ProjectPageData {
   viewerIsManagerCandidate: boolean;
   viewerIsProjectManager: boolean;
   shareContacts: DetailMember[];
+  report: ContentReportSummary | null;
+  isRemovedByReport: boolean;
   discussionNote: string;
   discussion: DetailComment[];
 }
@@ -457,6 +544,8 @@ export interface ThreadPageData {
   activeVote: VoteDirection;
   commentCount: number;
   lastActivityAt: string;
+  report: ContentReportSummary | null;
+  isRemovedByReport: boolean;
   discussionNote: string;
   discussion: DetailComment[];
 }
@@ -471,6 +560,8 @@ export interface PostPageData {
   activeVote: VoteDirection;
   commentCount: number;
   createdAt: string;
+  report: ContentReportSummary | null;
+  isRemovedByReport: boolean;
   discussionNote: string;
   discussion: DetailComment[];
 }
@@ -497,19 +588,25 @@ export interface EventPageData {
   attendanceNote: string;
   agenda: string[];
   updates: DetailUpdate[];
+  updateRequests: EventUpdateRequest[];
+  viewerCanRequestUpdate: boolean;
+  viewerCanVoteOnUpdateRequests: boolean;
+  editRequests: EventEditRequest[];
+  viewerCanRequestEdit: boolean;
+  viewerCanVoteOnEditRequests: boolean;
   attendees: string[];
   invitedUsernames: string[];
-  eventManagers: EventRoleMember[];
+  eventEditors: EventRoleMember[];
   members: EventRoleMember[];
   viewerIsGoing: boolean;
   viewerCanToggleGoing: boolean;
+  viewerHasEventEditAccess: boolean;
+  viewerCanManageEditors: boolean;
   viewerCanShare: boolean;
-  viewerCanToggleManagerNomination: boolean;
-  viewerIsManagerCandidate: boolean;
-  viewerIsEventManager: boolean;
-  viewerCanInviteEventManagers: boolean;
-  availableManagerInvitees: DetailMember[];
+  availableEditorInvitees: DetailMember[];
   shareContacts: DetailMember[];
+  report: ContentReportSummary | null;
+  isRemovedByReport: boolean;
   discussionNote: string;
   discussion: DetailComment[];
 }

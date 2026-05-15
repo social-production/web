@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
@@ -25,8 +26,15 @@
       <SubjectTablet kind="thread" />
     </div>
 
-    <div class="tag-stack">
-      <TagList columns={4} tags={combinedTags} />
+    <div class="header-actions">
+      <TagList tags={combinedTags} />
+      <ReportControl
+        itemLabel="thread"
+        report={data.report}
+        ownerUsername={data.authorUsername}
+        subjectId={data.id}
+        targetId={data.id}
+      />
     </div>
   </div>
 
@@ -44,14 +52,14 @@
 </section>
 
 <style>
-  .overview-shell,
-  .tag-stack {
+  .overview-shell {
     display: grid;
     gap: 16px;
   }
 
   .header-row,
   .chips,
+  .header-actions,
   .overview-footer-row {
     display: flex;
     gap: 12px;
@@ -61,6 +69,26 @@
 
   .header-row {
     justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .chips {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .header-actions {
+    flex: 0 1 auto;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .header-actions :global(.tag-list) {
+    justify-content: flex-end;
+  }
+
+  :global(.report-control) {
+    flex: 0 0 auto;
   }
 
   h1 {

@@ -30,7 +30,6 @@
   class:highlighted={isHighlighted}
   class="update-card"
 >
-  <strong class="update-title">{update.title}</strong>
   <p class="update-body">{update.body}</p>
   <div class="update-meta">
     <a class="inline-link" href={`/profile/${update.authorUsername}`}>{update.authorUsername}</a>
@@ -54,11 +53,6 @@
     border-color: var(--brand);
     background: var(--brand-soft);
     box-shadow: inset 0 0 0 1px var(--brand);
-  }
-
-  .update-title {
-    color: var(--text-main);
-    font-size: 14px;
   }
 
   .update-body,
