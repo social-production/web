@@ -270,20 +270,20 @@ export const devAdapter: AppAdapter = {
     setMockProjectPhaseChangeVote(projectSlug, requestId, vote);
   },
 
-  async requestProjectUpdate(projectSlug, title, body) {
-    requestMockProjectUpdate(projectSlug, title, body);
+  async requestProjectUpdate(projectSlug, body) {
+    requestMockProjectUpdate(projectSlug, body);
   },
 
   async setProjectUpdateVote(projectSlug, requestId, vote) {
     setMockProjectUpdateVote(projectSlug, requestId, vote);
   },
 
-  async updateProjectDetails(projectSlug, title, summary, overview) {
-    updateMockProjectDetails(projectSlug, title, summary, overview);
+  async updateProjectDetails(projectSlug, title, description) {
+    updateMockProjectDetails(projectSlug, title, description);
   },
 
-  async requestProjectEdit(projectSlug, title, summary, overview) {
-    requestMockProjectEdit(projectSlug, title, summary, overview);
+  async requestProjectEdit(projectSlug, title, description) {
+    requestMockProjectEdit(projectSlug, title, description);
   },
 
   async setProjectEditVote(projectSlug, requestId, vote) {
@@ -330,8 +330,8 @@ export const devAdapter: AppAdapter = {
     addMockProjectUpdate(projectSlug, title, body);
   },
 
-  async requestEventUpdate(eventSlug, title, body) {
-    requestMockEventUpdate(eventSlug, title, body);
+  async requestEventUpdate(eventSlug, body) {
+    requestMockEventUpdate(eventSlug, body);
   },
 
   async setEventUpdateVote(eventSlug, requestId, vote) {

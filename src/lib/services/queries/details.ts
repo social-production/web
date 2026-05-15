@@ -153,8 +153,8 @@ export function setProjectPhaseChangeVote(
   return currentAdapter.setProjectPhaseChangeVote(projectSlug, requestId, vote);
 }
 
-export function requestProjectUpdate(projectSlug: string, title: string, body: string) {
-  return currentAdapter.requestProjectUpdate(projectSlug, title, body);
+export function requestProjectUpdate(projectSlug: string, body: string) {
+  return currentAdapter.requestProjectUpdate(projectSlug, body);
 }
 
 export function setProjectUpdateVote(
@@ -168,19 +168,17 @@ export function setProjectUpdateVote(
 export function updateProjectDetails(
   projectSlug: string,
   title: string,
-  summary: string,
-  overview: string
+  description: string
 ) {
-  return currentAdapter.updateProjectDetails(projectSlug, title, summary, overview);
+  return currentAdapter.updateProjectDetails(projectSlug, title, description);
 }
 
 export function requestProjectEdit(
   projectSlug: string,
   title: string,
-  summary: string,
-  overview: string
+  description: string
 ) {
-  return currentAdapter.requestProjectEdit(projectSlug, title, summary, overview);
+  return currentAdapter.requestProjectEdit(projectSlug, title, description);
 }
 
 export function setProjectEditVote(
@@ -223,8 +221,8 @@ export function addProjectUpdate(projectSlug: string, title: string, body: strin
   return currentAdapter.addProjectUpdate(projectSlug, title, body);
 }
 
-export function requestEventUpdate(eventSlug: string, title: string, body: string) {
-  return currentAdapter.requestEventUpdate(eventSlug, title, body);
+export function requestEventUpdate(eventSlug: string, body: string) {
+  return currentAdapter.requestEventUpdate(eventSlug, body);
 }
 
 export function setEventUpdateVote(

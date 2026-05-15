@@ -348,7 +348,6 @@ export interface ProjectLifecyclePhaseChangeRequest {
 
 export interface ProjectUpdateRequest {
   id: string;
-  title: string;
   body: string;
   authorUsername: string;
   createdAt: string;
@@ -361,8 +360,7 @@ export interface ProjectUpdateRequest {
 export interface ProjectEditRequest {
   id: string;
   title: string;
-  summary: string;
-  overview: string;
+  description: string;
   authorUsername: string;
   createdAt: string;
   approvalThresholdPercent: number;
@@ -373,7 +371,6 @@ export interface ProjectEditRequest {
 
 export interface EventUpdateRequest {
   id: string;
-  title: string;
   body: string;
   authorUsername: string;
   createdAt: string;
@@ -393,6 +390,71 @@ export interface EventEditRequest {
   voteSummary: ProjectPlanVoteSummary;
   passesApprovalThreshold: boolean;
   canStillPass: boolean;
+}
+
+export type DecisionHistoryStatus = 'open' | 'approved' | 'rejected';
+export type DecisionHistoryEntryKind =
+  | 'project-phase-change'
+  | 'project-update'
+  | 'project-edit'
+  | 'project-request-settings-change'
+  | 'event-update'
+  | 'event-edit';
+
+export interface DecisionHistoryFieldChange {
+  label: string;
+  before: string;
+  after: string;
+}
+
+export interface DecisionHistoryPhaseChangePayload {
+  type: 'phase-change';
+  changeKind: 'advance' | 'return' | 'close';
+  fromPhaseId: ProjectLifecyclePhaseId;
+  fromPhaseLabel: string;
+  toPhaseId: ProjectLifecyclePhaseId;
+  toPhaseLabel: string;
+  reason: string;
+}
+
+export interface DecisionHistoryUpdatePayload {
+  type: 'update';
+  body: string;
+  appliedUpdateId: string | null;
+}
+
+export interface DecisionHistoryEditPayload {
+  type: 'edit';
+  changes: DecisionHistoryFieldChange[];
+}
+
+export interface DecisionHistorySettingsChangePayload {
+  type: 'settings-change';
+  reason: string;
+  previousSettings: ProjectServiceRequestSettings;
+  proposedSettings: ProjectServiceRequestSettings;
+}
+
+export type DecisionHistoryPayload =
+  | DecisionHistoryPhaseChangePayload
+  | DecisionHistoryUpdatePayload
+  | DecisionHistoryEditPayload
+  | DecisionHistorySettingsChangePayload;
+
+export interface DecisionHistoryEntry {
+  id: string;
+  entityKind: 'project' | 'event';
+  kind: DecisionHistoryEntryKind;
+  kindLabel: string;
+  createdAt: string;
+  authorUsername: string;
+  status: DecisionHistoryStatus;
+  approvalThresholdPercent: number;
+  voteSummary: ProjectPlanVoteSummary;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
+  canVote: boolean;
+  payload: DecisionHistoryPayload;
 }
 
 export interface ProjectPhaseOneData {
@@ -497,7 +559,7 @@ export interface ProjectPageData {
   title: string;
   authorUsername: string;
   projectMode: ProjectMode;
-  summary: string;
+  description: string;
   channelTags: TagRef[];
   communityTags: TagRef[];
   stage: string;
@@ -508,7 +570,6 @@ export interface ProjectPageData {
   commentCount: number;
   memberCount: number;
   lastActivityAt: string;
-  overview: string;
   lifecycle: ProjectLifecycleData;
   updates: DetailUpdate[];
   updateRequests: ProjectUpdateRequest[];
@@ -517,6 +578,7 @@ export interface ProjectPageData {
   editRequests: ProjectEditRequest[];
   viewerCanRequestEdit: boolean;
   viewerCanVoteOnEditRequests: boolean;
+  history: DecisionHistoryEntry[];
   projectManagers: ProjectRoleMember[];
   members: ProjectRoleMember[];
   viewerIsMember: boolean;
@@ -594,6 +656,7 @@ export interface EventPageData {
   editRequests: EventEditRequest[];
   viewerCanRequestEdit: boolean;
   viewerCanVoteOnEditRequests: boolean;
+  history: DecisionHistoryEntry[];
   attendees: string[];
   invitedUsernames: string[];
   eventEditors: EventRoleMember[];

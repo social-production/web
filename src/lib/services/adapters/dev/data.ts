@@ -27,6 +27,10 @@ import type {
   ContentReportReason,
   ContentReportSummary,
   ContentReportVote,
+  DecisionHistoryEntry,
+  DecisionHistoryEntryKind,
+  DecisionHistoryFieldChange,
+  DecisionHistoryStatus,
   DetailComment,
   DetailMember,
   DetailUpdate,
@@ -2136,7 +2140,6 @@ type RawProjectPhaseChangeRequest = {
 
 type RawProjectUpdateRequest = {
   id: string;
-  title: string;
   body: string;
   authorUsername: string;
   createdAt: string;
@@ -2146,8 +2149,7 @@ type RawProjectUpdateRequest = {
 type RawProjectEditRequest = {
   id: string;
   title: string;
-  summary: string;
-  overview: string;
+  description: string;
   authorUsername: string;
   createdAt: string;
   votesByUserId: Record<string, ProjectApprovalVote>;
@@ -2155,7 +2157,6 @@ type RawProjectEditRequest = {
 
 type RawEventUpdateRequest = {
   id: string;
-  title: string;
   body: string;
   authorUsername: string;
   createdAt: string;
@@ -2206,6 +2207,7 @@ type ProjectWorkflowState = {
   phaseChangeRequests?: RawProjectPhaseChangeRequest[];
   updateRequests?: RawProjectUpdateRequest[];
   editRequests?: RawProjectEditRequest[];
+  decisionHistory?: RawDecisionHistoryEntry[];
   availabilitySummary?: string;
   travelRadiusLabel?: string;
   serviceRequestMode?: 'calendar' | 'direct' | 'both';
@@ -2215,6 +2217,44 @@ type EventWorkflowState = {
   editorUserIds: string[];
   updateRequests?: RawEventUpdateRequest[];
   editRequests?: RawEventEditRequest[];
+  decisionHistory?: RawDecisionHistoryEntry[];
+};
+
+type RawDecisionHistoryPayload =
+  | {
+      type: 'phase-change';
+      changeKind: 'advance' | 'return' | 'close';
+      fromPhaseId: ProjectLifecyclePhaseId;
+      toPhaseId: ProjectLifecyclePhaseId;
+      reason: string;
+    }
+  | {
+      type: 'update';
+      body: string;
+      appliedUpdateId?: string | null;
+    }
+  | {
+      type: 'edit';
+      changes: DecisionHistoryFieldChange[];
+    }
+  | {
+      type: 'settings-change';
+      reason: string;
+      previousSettings: RawProjectRequestSystemSettings;
+      proposedSettings: RawProjectRequestSystemSettings;
+    };
+
+type RawDecisionHistoryEntry = {
+  id: string;
+  entityKind: 'project' | 'event';
+  kind: DecisionHistoryEntryKind;
+  createdAt: string;
+  authorUsername: string;
+  status: DecisionHistoryStatus;
+  approvalThresholdPercent: number;
+  payload: RawDecisionHistoryPayload;
+  finalVotesByUserId?: Record<string, ProjectApprovalVote>;
+  finalEligibleVoterCount?: number;
 };
 
 const importanceVoteLabels: Record<ProjectImportanceVoteValue, string> = {
@@ -3837,7 +3877,6 @@ function buildProjectUpdateRequests(
 
       return {
         id: request.id,
-        title: request.title,
         body: request.body,
         authorUsername: request.authorUsername,
         createdAt: request.createdAt,
@@ -3872,8 +3911,7 @@ function buildProjectEditRequests(
       return {
         id: request.id,
         title: request.title,
-        summary: request.summary,
-        overview: request.overview,
+        description: request.description,
         authorUsername: request.authorUsername,
         createdAt: request.createdAt,
         approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
@@ -3906,7 +3944,6 @@ function buildEventUpdateRequests(
 
       return {
         id: request.id,
-        title: request.title,
         body: request.body,
         authorUsername: request.authorUsername,
         createdAt: request.createdAt,
@@ -4839,6 +4876,201 @@ function buildProjectServiceRequestSettingsChangeRequests(
     });
 }
 
+type DecisionHistoryLiveState = {
+  voteSummary: ProjectPlanVoteSummary;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
+  canVote: boolean;
+};
+
+function projectLifecyclePhaseTitle(projectMode: ProjectMode, phaseId: ProjectLifecyclePhaseId) {
+  return (
+    projectLifecyclePhaseBlueprintsForMode(projectMode).find((phase) => phase.id === phaseId)?.title ?? phaseId
+  );
+}
+
+function buildResolvedDecisionHistoryVoteSummary(entry: RawDecisionHistoryEntry) {
+  if (!entry.finalVotesByUserId || entry.finalEligibleVoterCount == null) {
+    return null;
+  }
+
+  return buildProjectVoteSummary(
+    entry.finalVotesByUserId,
+    calculateProjectQuorumThreshold(entry.finalEligibleVoterCount),
+    entry.finalEligibleVoterCount
+  );
+}
+
+function buildDecisionHistoryPayload(
+  payload: RawDecisionHistoryPayload,
+  projectMode: ProjectMode | null
+): DecisionHistoryEntry['payload'] {
+  switch (payload.type) {
+    case 'phase-change':
+      return {
+        type: 'phase-change',
+        changeKind: payload.changeKind,
+        fromPhaseId: payload.fromPhaseId,
+        fromPhaseLabel: projectMode
+          ? projectLifecyclePhaseTitle(projectMode, payload.fromPhaseId)
+          : payload.fromPhaseId,
+        toPhaseId: payload.toPhaseId,
+        toPhaseLabel: projectMode
+          ? projectLifecyclePhaseTitle(projectMode, payload.toPhaseId)
+          : payload.toPhaseId,
+        reason: payload.reason
+      };
+    case 'settings-change':
+      return {
+        type: 'settings-change',
+        reason: payload.reason,
+        previousSettings: buildProjectRequestSettingsHistorySnapshot(
+          projectMode ?? 'collective-service',
+          payload.previousSettings
+        ),
+        proposedSettings: buildProjectRequestSettingsHistorySnapshot(
+          projectMode ?? 'collective-service',
+          payload.proposedSettings
+        )
+      };
+    case 'update':
+      return {
+        type: 'update',
+        body: payload.body,
+        appliedUpdateId: payload.appliedUpdateId ?? null
+      };
+    default:
+      return {
+        type: 'edit',
+        changes: payload.changes
+      };
+  }
+}
+
+function buildDecisionHistoryEntryFromRecord(
+  entry: RawDecisionHistoryEntry,
+  openStateById: Map<string, DecisionHistoryLiveState>,
+  projectMode: ProjectMode | null
+) {
+  const liveState = entry.status === 'open' ? openStateById.get(entry.id) ?? null : null;
+  const voteSummary = liveState?.voteSummary ?? buildResolvedDecisionHistoryVoteSummary(entry);
+
+  if (!voteSummary) {
+    return null;
+  }
+
+  return {
+    id: entry.id,
+    entityKind: entry.entityKind,
+    kind: entry.kind,
+    kindLabel: decisionHistoryLabel(entry.kind, entry.payload),
+    createdAt: entry.createdAt,
+    authorUsername: entry.authorUsername,
+    status: entry.status,
+    approvalThresholdPercent: entry.approvalThresholdPercent,
+    voteSummary,
+    passesApprovalThreshold:
+      liveState?.passesApprovalThreshold ?? phaseChangePassesApprovalThreshold(voteSummary),
+    canStillPass:
+      liveState?.canStillPass ?? thresholdVoteCanStillPass(voteSummary, entry.approvalThresholdPercent),
+    canVote: liveState?.canVote ?? false,
+    payload: buildDecisionHistoryPayload(entry.payload, projectMode)
+  } satisfies DecisionHistoryEntry;
+}
+
+function buildProjectDecisionHistory(
+  slug: string,
+  lifecycle: ProjectLifecycleData,
+  updateRequests: ProjectUpdateRequest[],
+  editRequests: ProjectEditRequest[],
+  viewerCanVoteOnUpdateRequests: boolean,
+  viewerCanVoteOnEditRequests: boolean
+) {
+  const workflow = ensureProjectWorkflowState(slug);
+  const projectMode = projectModeForSlug(slug);
+  const openStateById = new Map<string, DecisionHistoryLiveState>();
+
+  ensureProjectDecisionHistorySeeded(slug);
+
+  for (const request of lifecycle.phaseChangeRequests) {
+    openStateById.set(request.id, {
+      voteSummary: request.voteSummary,
+      passesApprovalThreshold: request.passesApprovalThreshold,
+      canStillPass: request.canStillPass,
+      canVote: lifecycle.viewerCanVoteOnPhaseChanges
+    });
+  }
+
+  for (const request of updateRequests) {
+    openStateById.set(request.id, {
+      voteSummary: request.voteSummary,
+      passesApprovalThreshold: request.passesApprovalThreshold,
+      canStillPass: request.canStillPass,
+      canVote: viewerCanVoteOnUpdateRequests
+    });
+  }
+
+  for (const request of editRequests) {
+    openStateById.set(request.id, {
+      voteSummary: request.voteSummary,
+      passesApprovalThreshold: request.passesApprovalThreshold,
+      canStillPass: request.canStillPass,
+      canVote: viewerCanVoteOnEditRequests
+    });
+  }
+
+  for (const request of lifecycle.requestSystem?.settingsChangeRequests ?? []) {
+    openStateById.set(request.id, {
+      voteSummary: request.voteSummary,
+      passesApprovalThreshold: request.passesApprovalThreshold,
+      canStillPass: request.canStillPass,
+      canVote: lifecycle.requestSystem?.viewerCanVoteOnSettingsChanges ?? false
+    });
+  }
+
+  return [...(workflow.decisionHistory ?? [])]
+    .map((entry) => buildDecisionHistoryEntryFromRecord(entry, openStateById, projectMode))
+    .filter((entry): entry is DecisionHistoryEntry => !!entry)
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
+function buildEventDecisionHistory(
+  slug: string,
+  creatorId: string | null,
+  updateRequests: EventUpdateRequest[],
+  editRequests: EventEditRequest[],
+  viewerCanVoteOnUpdateRequests: boolean,
+  viewerCanVoteOnEditRequests: boolean
+) {
+  const workflow = ensureEventWorkflowState(slug, creatorId);
+  const openStateById = new Map<string, DecisionHistoryLiveState>();
+
+  ensureEventDecisionHistorySeeded(slug, creatorId);
+
+  for (const request of updateRequests) {
+    openStateById.set(request.id, {
+      voteSummary: request.voteSummary,
+      passesApprovalThreshold: request.passesApprovalThreshold,
+      canStillPass: request.canStillPass,
+      canVote: viewerCanVoteOnUpdateRequests
+    });
+  }
+
+  for (const request of editRequests) {
+    openStateById.set(request.id, {
+      voteSummary: request.voteSummary,
+      passesApprovalThreshold: request.passesApprovalThreshold,
+      canStillPass: request.canStillPass,
+      canVote: viewerCanVoteOnEditRequests
+    });
+  }
+
+  return [...(workflow.decisionHistory ?? [])]
+    .map((entry) => buildDecisionHistoryEntryFromRecord(entry, openStateById, null))
+    .filter((entry): entry is DecisionHistoryEntry => !!entry)
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
 function buildProjectServiceRequestState(
   slug: string,
   projectMode: ProjectMode,
@@ -5265,10 +5497,14 @@ function buildProjectLifecycle(
   };
 }
 
-const projectDetailExtras: Record<
-  string,
-  Pick<ProjectPageData, 'overview' | 'updates' | 'discussionNote' | 'discussion'>
-> = {
+type ProjectDetailExtra = {
+  overview: string;
+  updates: DetailUpdate[];
+  discussionNote: string;
+  discussion: DetailComment[];
+};
+
+const projectDetailExtras: Record<string, ProjectDetailExtra> = {
   'neighborhood-heat-pump-pilot': {
     overview:
       'This project is still in demand signalling so the first pilot stays small, legible, and finishable. The goal is to keep labor needs, vendor questions, and likely building candidates visible in one place before planning hardens.',
@@ -8128,12 +8364,21 @@ export function findProjectFixture(slug: string): ProjectPageData | null {
     lifecycle.quorumThresholdPercent,
     memberState.projectManagers.length + memberState.members.length
   );
+  const history = buildProjectDecisionHistory(
+    slug,
+    lifecycle,
+    updateRequests,
+    editRequests,
+    canViewerVoteOnProjectUpdate(slug),
+    canViewerVoteOnProjectEdit(slug)
+  );
   const report = buildContentReportSummary(item.id);
   const isRemovedByReport = false;
+  const { summary: _summary, ...projectItem } = item;
 
   return {
-    ...item,
-    overview: extras.overview,
+    ...projectItem,
+    description: extras.overview,
     lifecycle,
     updates: extras.updates,
     updateRequests: updateRequests,
@@ -8142,6 +8387,7 @@ export function findProjectFixture(slug: string): ProjectPageData | null {
     editRequests: editRequests,
     viewerCanRequestEdit: canViewerRequestProjectEdit(slug),
     viewerCanVoteOnEditRequests: canViewerVoteOnProjectEdit(slug),
+    history,
     projectManagers: memberState.projectManagers,
     members: memberState.members,
     viewerIsMember: memberState.viewerIsMember,
@@ -8233,6 +8479,14 @@ export function findEventFixture(slug: string): EventPageData | null {
     quorumThresholdPercent,
     memberState.eligibleVoterCount
   );
+  const history = buildEventDecisionHistory(
+    slug,
+    userByUsername(item.createdByUsername)?.id ?? null,
+    updateRequests,
+    editRequests,
+    canViewerVoteOnEventUpdate(slug),
+    canViewerVoteOnEventEdit(slug)
+  );
   const report = buildContentReportSummary(item.id);
   const isRemovedByReport = false;
 
@@ -8249,6 +8503,7 @@ export function findEventFixture(slug: string): EventPageData | null {
     editRequests: editRequests,
     viewerCanRequestEdit: canViewerRequestEventEdit(slug),
     viewerCanVoteOnEditRequests: canViewerVoteOnEventEdit(slug),
+    history,
     attendees: (participation?.goingUserIds ?? []).map((userId) => userById(userId)?.username ?? '').filter(Boolean),
     invitedUsernames: (participation?.invitedUserIds ?? [])
       .map((userId) => userById(userId)?.username ?? '')
@@ -8458,7 +8713,8 @@ function ensureProjectWorkflowState(slug: string) {
       revertHistory: [],
       phaseChangeRequests: [],
       updateRequests: [],
-      editRequests: []
+      editRequests: [],
+      decisionHistory: []
     });
 
   workflow.serviceRequests ??= [];
@@ -8468,6 +8724,7 @@ function ensureProjectWorkflowState(slug: string) {
   workflow.phaseChangeRequests ??= [];
   workflow.updateRequests ??= [];
   workflow.editRequests ??= [];
+  workflow.decisionHistory ??= [];
 
   return workflow;
 }
@@ -8478,7 +8735,8 @@ function ensureEventWorkflowState(slug: string, creatorId: string | null = null)
     (eventWorkflowStateBySlug[slug] = {
       editorUserIds: creatorId ? [creatorId] : [],
       updateRequests: [],
-      editRequests: []
+      editRequests: [],
+      decisionHistory: []
     });
 
   workflow.editorUserIds = Array.from(
@@ -8486,8 +8744,360 @@ function ensureEventWorkflowState(slug: string, creatorId: string | null = null)
   );
   workflow.updateRequests ??= [];
   workflow.editRequests ??= [];
+  workflow.decisionHistory ??= [];
 
   return workflow;
+}
+
+function decisionHistoryLabel(kind: DecisionHistoryEntryKind, payload: RawDecisionHistoryPayload) {
+  if (kind === 'project-phase-change' && payload.type === 'phase-change') {
+    switch (payload.changeKind) {
+      case 'close':
+        return 'Close decision';
+      case 'return':
+        return 'Return decision';
+      default:
+        return 'Advance decision';
+    }
+  }
+
+  switch (kind) {
+    case 'project-request-settings-change':
+      return 'Settings decision';
+    case 'project-update':
+    case 'event-update':
+      return 'Update decision';
+    default:
+      return 'Edit decision';
+  }
+}
+
+function projectPhaseChangeKind(
+  projectMode: ProjectMode,
+  fromPhaseId: ProjectLifecyclePhaseId,
+  toPhaseId: ProjectLifecyclePhaseId
+) {
+  const fromOrder = phaseOrderForProjectMode(projectMode, fromPhaseId);
+  const toOrder = phaseOrderForProjectMode(projectMode, toPhaseId);
+
+  if (toPhaseId === closePhaseIdForProject(projectMode) && toOrder > fromOrder) {
+    return 'close';
+  }
+
+  return toOrder > fromOrder ? 'advance' : 'return';
+}
+
+function buildDecisionHistoryFieldChanges(
+  previousTitle: string,
+  nextTitle: string,
+  previousDescription: string,
+  nextDescription: string
+) {
+  const changes: DecisionHistoryFieldChange[] = [];
+
+  if (previousTitle !== nextTitle) {
+    changes.push({
+      label: 'Title',
+      before: previousTitle,
+      after: nextTitle
+    });
+  }
+
+  if (previousDescription !== nextDescription) {
+    changes.push({
+      label: 'Description',
+      before: previousDescription,
+      after: nextDescription
+    });
+  }
+
+  if (changes.length > 0) {
+    return changes;
+  }
+
+  return [
+    {
+      label: 'Title',
+      before: previousTitle,
+      after: nextTitle
+    },
+    {
+      label: 'Description',
+      before: previousDescription,
+      after: nextDescription
+    }
+  ];
+}
+
+function copyVotesByUserId(votesByUserId: Record<string, ProjectApprovalVote>) {
+  return { ...votesByUserId };
+}
+
+function upsertDecisionHistoryEntry(
+  entries: RawDecisionHistoryEntry[],
+  entry: RawDecisionHistoryEntry | null
+) {
+  if (!entry || entries.some((item) => item.id === entry.id)) {
+    return;
+  }
+
+  entries.unshift(entry);
+}
+
+function buildProjectRequestSettingsHistorySnapshot(
+  projectMode: ProjectMode,
+  settings: RawProjectRequestSystemSettings
+): ProjectServiceRequestSettings {
+  return {
+    ...settings,
+    summary: projectRequestSettingsSummary(projectMode, settings)
+  };
+}
+
+function buildProjectPhaseChangeHistoryEntry(
+  slug: string,
+  request: RawProjectPhaseChangeRequest
+): RawDecisionHistoryEntry | null {
+  const config = projectLifecycleBySlug[slug];
+  const projectMode = projectModeForSlug(slug);
+
+  if (!config) {
+    return null;
+  }
+
+  return {
+    id: request.id,
+    entityKind: 'project',
+    kind: 'project-phase-change',
+    createdAt: request.createdAt,
+    authorUsername: request.authorUsername,
+    status: 'open',
+    approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+    payload: {
+      type: 'phase-change',
+      changeKind: projectPhaseChangeKind(projectMode, config.currentPhaseId, request.targetPhaseId),
+      fromPhaseId: config.currentPhaseId,
+      toPhaseId: request.targetPhaseId,
+      reason: request.reason
+    }
+  };
+}
+
+function buildProjectUpdateHistoryEntry(request: RawProjectUpdateRequest): RawDecisionHistoryEntry {
+  return {
+    id: request.id,
+    entityKind: 'project',
+    kind: 'project-update',
+    createdAt: request.createdAt,
+    authorUsername: request.authorUsername,
+    status: 'open',
+    approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+    payload: {
+      type: 'update',
+      body: request.body,
+      appliedUpdateId: null
+    }
+  };
+}
+
+function buildProjectEditHistoryEntry(
+  slug: string,
+  request: RawProjectEditRequest
+): RawDecisionHistoryEntry | null {
+  const item = findPublicProjectItem(slug);
+  const extras = projectDetailExtras[slug];
+
+  if (!item || !extras) {
+    return null;
+  }
+
+  return {
+    id: request.id,
+    entityKind: 'project',
+    kind: 'project-edit',
+    createdAt: request.createdAt,
+    authorUsername: request.authorUsername,
+    status: 'open',
+    approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+    payload: {
+      type: 'edit',
+      changes: buildDecisionHistoryFieldChanges(
+        item.title,
+        request.title,
+        extras.overview,
+        request.description
+      )
+    }
+  };
+}
+
+function buildProjectRequestSettingsHistoryEntry(
+  slug: string,
+  request: RawProjectServiceRequestSettingsChangeRequest
+): RawDecisionHistoryEntry {
+  const projectMode = projectModeForSlug(slug);
+  const currentSettings = resolvedProjectRequestSettingsForProject(slug, projectMode);
+
+  return {
+    id: request.id,
+    entityKind: 'project',
+    kind: 'project-request-settings-change',
+    createdAt: request.createdAt,
+    authorUsername: request.authorUsername,
+    status: 'open',
+    approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+    payload: {
+      type: 'settings-change',
+      reason: request.reason,
+      previousSettings: currentSettings,
+      proposedSettings: request.proposedSettings
+    }
+  };
+}
+
+function buildEventUpdateHistoryEntry(request: RawEventUpdateRequest): RawDecisionHistoryEntry {
+  return {
+    id: request.id,
+    entityKind: 'event',
+    kind: 'event-update',
+    createdAt: request.createdAt,
+    authorUsername: request.authorUsername,
+    status: 'open',
+    approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+    payload: {
+      type: 'update',
+      body: request.body,
+      appliedUpdateId: null
+    }
+  };
+}
+
+function buildEventEditHistoryEntry(
+  slug: string,
+  request: RawEventEditRequest
+): RawDecisionHistoryEntry | null {
+  const event = findPublicEventItem(slug);
+
+  if (!event) {
+    return null;
+  }
+
+  return {
+    id: request.id,
+    entityKind: 'event',
+    kind: 'event-edit',
+    createdAt: request.createdAt,
+    authorUsername: request.authorUsername,
+    status: 'open',
+    approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+    payload: {
+      type: 'edit',
+      changes: buildDecisionHistoryFieldChanges(
+        event.title,
+        request.title,
+        event.description,
+        request.description
+      )
+    }
+  };
+}
+
+function ensureProjectDecisionHistorySeeded(slug: string) {
+  const workflow = ensureProjectWorkflowState(slug);
+  const history = (workflow.decisionHistory ??= []);
+
+  for (const request of workflow.requestSettingsChangeRequests ?? []) {
+    upsertDecisionHistoryEntry(history, buildProjectRequestSettingsHistoryEntry(slug, request));
+  }
+
+  for (const request of workflow.phaseChangeRequests ?? []) {
+    upsertDecisionHistoryEntry(history, buildProjectPhaseChangeHistoryEntry(slug, request));
+  }
+
+  for (const request of workflow.updateRequests ?? []) {
+    upsertDecisionHistoryEntry(history, buildProjectUpdateHistoryEntry(request));
+  }
+
+  for (const request of workflow.editRequests ?? []) {
+    upsertDecisionHistoryEntry(history, buildProjectEditHistoryEntry(slug, request));
+  }
+}
+
+function ensureEventDecisionHistorySeeded(slug: string, creatorId: string | null = null) {
+  const workflow = ensureEventWorkflowState(slug, creatorId);
+  const history = (workflow.decisionHistory ??= []);
+
+  for (const request of workflow.updateRequests ?? []) {
+    upsertDecisionHistoryEntry(history, buildEventUpdateHistoryEntry(request));
+  }
+
+  for (const request of workflow.editRequests ?? []) {
+    upsertDecisionHistoryEntry(history, buildEventEditHistoryEntry(slug, request));
+  }
+}
+
+function finalizeDecisionHistoryEntry(
+  entries: RawDecisionHistoryEntry[],
+  entryId: string,
+  status: DecisionHistoryStatus,
+  votesByUserId: Record<string, ProjectApprovalVote>,
+  eligibleVoterCount: number,
+  updatePayload?: (payload: RawDecisionHistoryPayload) => void
+) {
+  const entry = entries.find((item) => item.id === entryId);
+
+  if (!entry) {
+    return;
+  }
+
+  entry.status = status;
+  entry.finalVotesByUserId = copyVotesByUserId(votesByUserId);
+  entry.finalEligibleVoterCount = eligibleVoterCount;
+
+  if (updatePayload) {
+    updatePayload(entry.payload);
+  }
+}
+
+function finalizeProjectDecisionHistoryEntry(
+  slug: string,
+  entryId: string,
+  status: DecisionHistoryStatus,
+  votesByUserId: Record<string, ProjectApprovalVote>,
+  eligibleVoterCount: number,
+  updatePayload?: (payload: RawDecisionHistoryPayload) => void
+) {
+  const workflow = ensureProjectWorkflowState(slug);
+  ensureProjectDecisionHistorySeeded(slug);
+  finalizeDecisionHistoryEntry(
+    workflow.decisionHistory ?? [],
+    entryId,
+    status,
+    votesByUserId,
+    eligibleVoterCount,
+    updatePayload
+  );
+}
+
+function finalizeEventDecisionHistoryEntry(
+  slug: string,
+  entryId: string,
+  status: DecisionHistoryStatus,
+  votesByUserId: Record<string, ProjectApprovalVote>,
+  eligibleVoterCount: number,
+  creatorId: string | null,
+  updatePayload?: (payload: RawDecisionHistoryPayload) => void
+) {
+  const workflow = ensureEventWorkflowState(slug, creatorId);
+  ensureEventDecisionHistorySeeded(slug, creatorId);
+  finalizeDecisionHistoryEntry(
+    workflow.decisionHistory ?? [],
+    entryId,
+    status,
+    votesByUserId,
+    eligibleVoterCount,
+    updatePayload
+  );
 }
 
 function removeUserFromEventRequestVotes(slug: string, userId: string) {
@@ -9444,6 +10054,13 @@ function maybeApplyApprovedProjectServiceRequestSettingsChange(slug: string, req
   );
 
   if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    finalizeProjectDecisionHistoryEntry(
+      slug,
+      requestId,
+      'rejected',
+      request.votesByUserId,
+      eligibleVoterCount
+    );
     workflow.requestSettingsChangeRequests = (workflow.requestSettingsChangeRequests ?? []).filter(
       (item) => item.id !== requestId
     );
@@ -9462,6 +10079,13 @@ function maybeApplyApprovedProjectServiceRequestSettingsChange(slug: string, req
         ? request.proposedSettings.requestMode === 'both'
         : request.proposedSettings.allowOffScheduleRequests
   };
+  finalizeProjectDecisionHistoryEntry(
+    slug,
+    requestId,
+    'approved',
+    request.votesByUserId,
+    eligibleVoterCount
+  );
   workflow.requestSettingsChangeRequests = (workflow.requestSettingsChangeRequests ?? []).filter(
     (item) => item.id !== requestId
   );
@@ -9532,19 +10156,24 @@ export function requestMockProjectServiceRequestSettingsChange(
 
   const createdAt = new Date().toISOString();
   const requestId = `project-request-settings-${slug}-${Date.now()}`;
+  const request: RawProjectServiceRequestSettingsChangeRequest = {
+    id: requestId,
+    reason: trimmedReason,
+    authorUsername: viewer.username,
+    createdAt,
+    proposedSettings,
+    votesByUserId: {
+      [viewer.id]: 'yes'
+    }
+  };
   workflow.requestSettingsChangeRequests = [
-    {
-      id: requestId,
-      reason: trimmedReason,
-      authorUsername: viewer.username,
-      createdAt,
-      proposedSettings,
-      votesByUserId: {
-        [viewer.id]: 'yes'
-      }
-    },
+    request,
     ...(workflow.requestSettingsChangeRequests ?? [])
   ];
+  upsertDecisionHistoryEntry(
+    workflow.decisionHistory ?? [],
+    buildProjectRequestSettingsHistoryEntry(slug, request)
+  );
 
   maybeApplyApprovedProjectServiceRequestSettingsChange(slug, requestId);
 }
@@ -9914,8 +10543,8 @@ function createProjectDiscussionNote(input: CreateProjectInput) {
   return 'Use chat here to keep planning, coordination, and follow-up attached to the project itself.';
 }
 
-function createProjectOverview(input: CreateProjectInput) {
-  const pieces = [input.summary.trim()];
+function createProjectDescription(input: CreateProjectInput) {
+  const pieces = [input.description.trim()];
 
   if (input.note?.trim()) {
     pieces.push(input.note.trim());
@@ -9927,7 +10556,7 @@ function createProjectOverview(input: CreateProjectInput) {
 export function createMockProject(input: CreateProjectInput): CreateResult {
   const viewer = currentViewer();
   const title = input.title.trim();
-  const summary = input.summary.trim();
+  const description = input.description.trim();
   const locationLabel = projectLocationLabel(input.locationLabel);
   const channelTags = input.channelTags;
   const communityTags = input.communityTags;
@@ -9940,10 +10569,10 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
     };
   }
 
-  if (!title || !summary || channelTags.length === 0) {
+  if (!title || !description || channelTags.length === 0) {
     return {
       ok: false,
-      error: 'Projects need a title, summary, and at least one channel tag.'
+      error: 'Projects need a title, description, and at least one channel tag.'
     };
   }
 
@@ -9968,7 +10597,7 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
     title,
     authorUsername: viewer.username,
     projectMode: input.projectMode,
-    summary,
+    summary: summarizeOverviewForFeed(description),
     channelTags,
     communityTags,
     stage: input.projectMode === 'personal-service' ? 'Activity' : 'Proposal',
@@ -10022,7 +10651,7 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
   }
 
   projectDetailExtras[slug] = {
-    overview: createProjectOverview(input),
+    overview: createProjectDescription(input),
     updates: [],
     discussionNote: createProjectDiscussionNote(input),
     discussion: []
@@ -10444,11 +11073,10 @@ export function setMockReportVote(targetId: string, vote: ContentReportVote) {
   reconcileContentReport(report);
 }
 
-export function addMockProjectUpdate(slug: string, title: string, body: string) {
+export function addMockProjectUpdate(slug: string, _title: string, body: string) {
   const viewer = currentViewer();
   const extras = projectDetailExtras[slug];
   const trimmedBody = body.trim();
-  const nextTitle = resolvedUpdateTitle(title, body);
   const memberState = buildProjectMemberState(slug);
   const projectMode = projectModeForSlug(slug);
 
@@ -10465,7 +11093,7 @@ export function addMockProjectUpdate(slug: string, title: string, body: string) 
   extras.updates = [
     {
       id: `project-update-${slug}-${Date.now()}`,
-      title: nextTitle,
+      title: '',
       body: trimmedBody,
       authorUsername: viewer.username,
       createdAt: new Date().toISOString()
@@ -10474,27 +11102,10 @@ export function addMockProjectUpdate(slug: string, title: string, body: string) 
   ];
 }
 
-function resolvedUpdateTitle(title: string, body: string) {
-  const trimmedTitle = title.trim();
-
-  if (trimmedTitle) {
-    return trimmedTitle;
-  }
-
-  const normalizedBody = body.trim().replace(/\s+/g, ' ');
-
-  if (normalizedBody.length <= 72) {
-    return normalizedBody;
-  }
-
-  return `${normalizedBody.slice(0, 69).trimEnd()}...`;
-}
-
 function applyProjectDetailsChange(
   slug: string,
   title: string,
-  summary: string,
-  overview: string,
+  description: string,
   updatedAt = new Date().toISOString()
 ) {
   const item = findPublicProjectItem(slug);
@@ -10505,9 +11116,9 @@ function applyProjectDetailsChange(
   }
 
   item.title = title;
-  item.summary = summary;
+  item.summary = summarizeOverviewForFeed(description);
   item.lastActivityAt = updatedAt;
-  extras.overview = overview;
+  extras.overview = description;
 
   return true;
 }
@@ -10530,6 +11141,7 @@ function maybeApplyApprovedProjectUpdate(slug: string, requestId: string) {
   );
 
   if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    finalizeProjectDecisionHistoryEntry(slug, requestId, 'rejected', request.votesByUserId, memberCount);
     workflow.updateRequests = (workflow.updateRequests ?? []).filter((item) => item.id !== requestId);
     return;
   }
@@ -10538,16 +11150,29 @@ function maybeApplyApprovedProjectUpdate(slug: string, requestId: string) {
     return;
   }
 
+  const updateId = `project-update-${slug}-${Date.now()}`;
   extras.updates = [
     {
-      id: `project-update-${slug}-${Date.now()}`,
-      title: request.title,
+      id: updateId,
+      title: '',
       body: request.body,
       authorUsername: request.authorUsername,
       createdAt: new Date().toISOString()
     },
     ...extras.updates
   ];
+  finalizeProjectDecisionHistoryEntry(
+    slug,
+    requestId,
+    'approved',
+    request.votesByUserId,
+    memberCount,
+    (payload) => {
+      if (payload.type === 'update') {
+        payload.appliedUpdateId = updateId;
+      }
+    }
+  );
   workflow.updateRequests = (workflow.updateRequests ?? []).filter((item) => item.id !== requestId);
 }
 
@@ -10568,6 +11193,7 @@ function maybeApplyApprovedProjectEdit(slug: string, requestId: string) {
   );
 
   if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    finalizeProjectDecisionHistoryEntry(slug, requestId, 'rejected', request.votesByUserId, memberCount);
     workflow.editRequests = (workflow.editRequests ?? []).filter((item) => item.id !== requestId);
     return;
   }
@@ -10579,42 +11205,33 @@ function maybeApplyApprovedProjectEdit(slug: string, requestId: string) {
   applyProjectDetailsChange(
     slug,
     request.title,
-    request.summary,
-    request.overview,
+    request.description,
     new Date().toISOString()
   );
+  finalizeProjectDecisionHistoryEntry(slug, requestId, 'approved', request.votesByUserId, memberCount);
   workflow.editRequests = (workflow.editRequests ?? []).filter((item) => item.id !== requestId);
 }
 
 export function updateMockProjectDetails(
   slug: string,
   title: string,
-  summary: string,
-  overview: string
+  description: string
 ) {
   const viewer = currentViewer();
   const trimmedTitle = title.trim();
-  const trimmedSummary = summary.trim();
-  const trimmedOverview = overview.trim();
+  const trimmedDescription = description.trim();
 
   if (
     !viewer ||
     projectModeForSlug(slug) !== 'personal-service' ||
     !trimmedTitle ||
-    !trimmedSummary ||
-    !trimmedOverview ||
+    !trimmedDescription ||
     !isProjectCreator(slug, viewer.id)
   ) {
     return;
   }
 
-  applyProjectDetailsChange(
-    slug,
-    trimmedTitle,
-    trimmedSummary,
-    trimmedOverview,
-    new Date().toISOString()
-  );
+  applyProjectDetailsChange(slug, trimmedTitle, trimmedDescription, new Date().toISOString());
 }
 
 function applyEventDetailsChange(
@@ -10659,6 +11276,14 @@ function maybeApplyApprovedEventUpdate(slug: string, requestId: string) {
   );
 
   if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    finalizeEventDecisionHistoryEntry(
+      slug,
+      requestId,
+      'rejected',
+      request.votesByUserId,
+      memberState.eligibleVoterCount,
+      userByUsername(event.createdByUsername)?.id ?? null
+    );
     workflow.updateRequests = (workflow.updateRequests ?? []).filter((item) => item.id !== requestId);
     return;
   }
@@ -10668,10 +11293,11 @@ function maybeApplyApprovedEventUpdate(slug: string, requestId: string) {
   }
 
   const createdAt = new Date().toISOString();
+  const updateId = `event-update-${slug}-${Date.now()}`;
   extras.updates = [
     {
-      id: `event-update-${slug}-${Date.now()}`,
-      title: request.title,
+      id: updateId,
+      title: '',
       body: request.body,
       authorUsername: request.authorUsername,
       createdAt
@@ -10679,6 +11305,19 @@ function maybeApplyApprovedEventUpdate(slug: string, requestId: string) {
     ...extras.updates
   ];
   event.lastActivityAt = createdAt;
+  finalizeEventDecisionHistoryEntry(
+    slug,
+    requestId,
+    'approved',
+    request.votesByUserId,
+    memberState.eligibleVoterCount,
+    userByUsername(event.createdByUsername)?.id ?? null,
+    (payload) => {
+      if (payload.type === 'update') {
+        payload.appliedUpdateId = updateId;
+      }
+    }
+  );
   workflow.updateRequests = (workflow.updateRequests ?? []).filter((item) => item.id !== requestId);
 }
 
@@ -10704,6 +11343,14 @@ function maybeApplyApprovedEventEdit(slug: string, requestId: string) {
   );
 
   if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    finalizeEventDecisionHistoryEntry(
+      slug,
+      requestId,
+      'rejected',
+      request.votesByUserId,
+      memberState.eligibleVoterCount,
+      userByUsername(event.createdByUsername)?.id ?? null
+    );
     workflow.editRequests = (workflow.editRequests ?? []).filter((item) => item.id !== requestId);
     return;
   }
@@ -10713,15 +11360,22 @@ function maybeApplyApprovedEventEdit(slug: string, requestId: string) {
   }
 
   applyEventDetailsChange(slug, request.title, request.description, new Date().toISOString());
+  finalizeEventDecisionHistoryEntry(
+    slug,
+    requestId,
+    'approved',
+    request.votesByUserId,
+    memberState.eligibleVoterCount,
+    userByUsername(event.createdByUsername)?.id ?? null
+  );
   workflow.editRequests = (workflow.editRequests ?? []).filter((item) => item.id !== requestId);
 }
 
-export function requestMockEventUpdate(slug: string, title: string, body: string) {
+export function requestMockEventUpdate(slug: string, body: string) {
   const viewer = currentViewer();
   const event = findPublicEventItem(slug);
   const extras = eventDetailExtras[slug];
   const trimmedBody = body.trim();
-  const nextTitle = resolvedUpdateTitle(title, body);
 
   if (!viewer || !event || !extras || !trimmedBody || !canViewerRequestEventUpdate(slug)) {
     return;
@@ -10729,19 +11383,20 @@ export function requestMockEventUpdate(slug: string, title: string, body: string
 
   const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
   const requestId = `event-update-request-${slug}-${Date.now()}`;
+  const request: RawEventUpdateRequest = {
+    id: requestId,
+    body: trimmedBody,
+    authorUsername: viewer.username,
+    createdAt: new Date().toISOString(),
+    votesByUserId: {
+      [viewer.id]: 'yes'
+    }
+  };
   workflow.updateRequests = [
-    {
-      id: requestId,
-      title: nextTitle,
-      body: trimmedBody,
-      authorUsername: viewer.username,
-      createdAt: new Date().toISOString(),
-      votesByUserId: {
-        [viewer.id]: 'yes'
-      }
-    },
+    request,
     ...(workflow.updateRequests ?? [])
   ];
+  upsertDecisionHistoryEntry(workflow.decisionHistory ?? [], buildEventUpdateHistoryEntry(request));
 
   maybeApplyApprovedEventUpdate(slug, requestId);
 }
@@ -10792,19 +11447,21 @@ export function requestMockEventEdit(slug: string, title: string, description: s
 
   const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
   const requestId = `event-edit-request-${slug}-${Date.now()}`;
+  const request: RawEventEditRequest = {
+    id: requestId,
+    title: trimmedTitle,
+    description: trimmedDescription,
+    authorUsername: viewer.username,
+    createdAt: new Date().toISOString(),
+    votesByUserId: {
+      [viewer.id]: 'yes'
+    }
+  };
   workflow.editRequests = [
-    {
-      id: requestId,
-      title: trimmedTitle,
-      description: trimmedDescription,
-      authorUsername: viewer.username,
-      createdAt: new Date().toISOString(),
-      votesByUserId: {
-        [viewer.id]: 'yes'
-      }
-    },
+    request,
     ...(workflow.editRequests ?? [])
   ];
+  upsertDecisionHistoryEntry(workflow.decisionHistory ?? [], buildEventEditHistoryEntry(slug, request));
 
   maybeApplyApprovedEventEdit(slug, requestId);
 }
@@ -11338,6 +11995,7 @@ function maybeApplyApprovedProjectPhaseChange(slug: string, requestId: string) {
   );
 
   if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    finalizeProjectDecisionHistoryEntry(slug, requestId, 'rejected', request.votesByUserId, memberCount);
     workflow.phaseChangeRequests = (workflow.phaseChangeRequests ?? []).filter(
       (item) => item.id !== requestId
     );
@@ -11360,6 +12018,7 @@ function maybeApplyApprovedProjectPhaseChange(slug: string, requestId: string) {
   }
 
   applyApprovedProjectPhaseChange(slug, request.targetPhaseId, request.reason, request.authorUsername);
+  finalizeProjectDecisionHistoryEntry(slug, requestId, 'approved', request.votesByUserId, memberCount);
   workflow.phaseChangeRequests = (workflow.phaseChangeRequests ?? []).filter(
     (item) => item.id !== requestId
   );
@@ -11398,29 +12057,33 @@ export function requestMockProjectPhaseChange(
 
   const createdAt = new Date().toISOString();
   const requestId = `project-phase-change-${slug}-${Date.now()}`;
+  const request: RawProjectPhaseChangeRequest = {
+    id: requestId,
+    targetPhaseId,
+    reason: trimmedReason,
+    authorUsername: viewer.username,
+    createdAt,
+    votesByUserId: {
+      [viewer.id]: 'yes'
+    }
+  };
   workflow.phaseChangeRequests = [
-    {
-      id: requestId,
-      targetPhaseId,
-      reason: trimmedReason,
-      authorUsername: viewer.username,
-      createdAt,
-      votesByUserId: {
-        [viewer.id]: 'yes'
-      }
-    },
+    request,
     ...(workflow.phaseChangeRequests ?? [])
   ];
+  upsertDecisionHistoryEntry(
+    workflow.decisionHistory ?? [],
+    buildProjectPhaseChangeHistoryEntry(slug, request)
+  );
 
   maybeApplyApprovedProjectPhaseChange(slug, requestId);
 }
 
-export function requestMockProjectUpdate(slug: string, title: string, body: string) {
+export function requestMockProjectUpdate(slug: string, body: string) {
   const viewer = currentViewer();
   const extras = projectDetailExtras[slug];
   const projectMode = projectModeForSlug(slug);
   const trimmedBody = body.trim();
-  const nextTitle = resolvedUpdateTitle(title, body);
 
   if (
     !viewer ||
@@ -11434,19 +12097,20 @@ export function requestMockProjectUpdate(slug: string, title: string, body: stri
 
   const workflow = ensureProjectWorkflowState(slug);
   const requestId = `project-update-request-${slug}-${Date.now()}`;
+  const request: RawProjectUpdateRequest = {
+    id: requestId,
+    body: trimmedBody,
+    authorUsername: viewer.username,
+    createdAt: new Date().toISOString(),
+    votesByUserId: {
+      [viewer.id]: 'yes'
+    }
+  };
   workflow.updateRequests = [
-    {
-      id: requestId,
-      title: nextTitle,
-      body: trimmedBody,
-      authorUsername: viewer.username,
-      createdAt: new Date().toISOString(),
-      votesByUserId: {
-        [viewer.id]: 'yes'
-      }
-    },
+    request,
     ...(workflow.updateRequests ?? [])
   ];
+  upsertDecisionHistoryEntry(workflow.decisionHistory ?? [], buildProjectUpdateHistoryEntry(request));
 
   maybeApplyApprovedProjectUpdate(slug, requestId);
 }
@@ -11454,23 +12118,20 @@ export function requestMockProjectUpdate(slug: string, title: string, body: stri
 export function requestMockProjectEdit(
   slug: string,
   title: string,
-  summary: string,
-  overview: string
+  description: string
 ) {
   const viewer = currentViewer();
   const extras = projectDetailExtras[slug];
   const projectMode = projectModeForSlug(slug);
   const trimmedTitle = title.trim();
-  const trimmedSummary = summary.trim();
-  const trimmedOverview = overview.trim();
+  const trimmedDescription = description.trim();
 
   if (
     !viewer ||
     !extras ||
     projectMode === 'personal-service' ||
     !trimmedTitle ||
-    !trimmedSummary ||
-    !trimmedOverview ||
+    !trimmedDescription ||
     !canViewerRequestProjectEdit(slug)
   ) {
     return;
@@ -11478,20 +12139,21 @@ export function requestMockProjectEdit(
 
   const workflow = ensureProjectWorkflowState(slug);
   const requestId = `project-edit-request-${slug}-${Date.now()}`;
+  const request: RawProjectEditRequest = {
+    id: requestId,
+    title: trimmedTitle,
+    description: trimmedDescription,
+    authorUsername: viewer.username,
+    createdAt: new Date().toISOString(),
+    votesByUserId: {
+      [viewer.id]: 'yes'
+    }
+  };
   workflow.editRequests = [
-    {
-      id: requestId,
-      title: trimmedTitle,
-      summary: trimmedSummary,
-      overview: trimmedOverview,
-      authorUsername: viewer.username,
-      createdAt: new Date().toISOString(),
-      votesByUserId: {
-        [viewer.id]: 'yes'
-      }
-    },
+    request,
     ...(workflow.editRequests ?? [])
   ];
+  upsertDecisionHistoryEntry(workflow.decisionHistory ?? [], buildProjectEditHistoryEntry(slug, request));
 
   maybeApplyApprovedProjectEdit(slug, requestId);
 }
