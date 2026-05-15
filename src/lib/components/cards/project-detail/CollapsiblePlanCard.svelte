@@ -37,6 +37,18 @@
 
   {#if open}
     <div class="plan-phase-stack">
+      <div class="demand-context-card">
+        <strong>Demand at submission</strong>
+        <span class="plan-description">
+          {#if plan.demandSignalSnapshot === null}
+            Legacy plan. No demand snapshot was recorded when this plan was created.
+          {:else}
+            {plan.demandSignalSnapshot} demand signals were active when this plan was posted.
+          {/if}
+        </span>
+        <p>{plan.demandConsiderationNote}</p>
+      </div>
+
       {#each plan.planPhases as phase}
         <div class="step-card">
           <strong>Stage: {phase.title}</strong>
@@ -76,8 +88,8 @@
     </div>
 
     <div class="evaluation-divider">
-      <strong>Value criteria</strong>
-      <span>The evaluation zone starts here, after the plan itself and its total cost.</span>
+      <strong>Demand and value criteria</strong>
+      <span>The evaluation zone starts with whether the plan accounts for current demand, then moves through the shared values.</span>
     </div>
 
     <div class="assessment-stack">
@@ -215,6 +227,7 @@
   }
 
   .evaluation-divider,
+  .demand-context-card,
   .step-card,
   .assessment-row,
   .overall-actions-row {

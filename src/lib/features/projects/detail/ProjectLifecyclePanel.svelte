@@ -106,12 +106,14 @@
   let productionForm = {
     title: '',
     description: '',
+    demandConsiderationNote: '',
     totalCostLabel: fundingPhaseCopy,
     planPhases: [createDraftPlanPhase()]
   };
   let distributionForm = {
     title: '',
     description: '',
+    demandConsiderationNote: '',
     totalCostLabel: fundingPhaseCopy,
     planPhases: [createDraftPlanPhase()],
     requestSystemEnabled: false,
@@ -390,6 +392,7 @@
     if (
       !productionForm.title.trim() ||
       !productionForm.description.trim() ||
+      !productionForm.demandConsiderationNote.trim() ||
       !productionForm.totalCostLabel.trim() ||
       planPhases.length === 0
     ) {
@@ -400,6 +403,7 @@
       addProjectProductionPlan(data.slug, {
         title: productionForm.title,
         description: productionForm.description,
+        demandConsiderationNote: productionForm.demandConsiderationNote,
         totalCostLabel: productionForm.totalCostLabel,
         planPhases
       })
@@ -407,6 +411,7 @@
     productionForm = {
       title: '',
       description: '',
+      demandConsiderationNote: '',
       totalCostLabel: fundingPhaseCopy,
       planPhases: [createDraftPlanPhase()]
     };
@@ -421,6 +426,7 @@
     if (
       !distributionForm.title.trim() ||
       !distributionForm.description.trim() ||
+      !distributionForm.demandConsiderationNote.trim() ||
       !distributionForm.totalCostLabel.trim() ||
       planPhases.length === 0
     ) {
@@ -431,6 +437,7 @@
       addProjectDistributionPlan(data.slug, {
         title: distributionForm.title,
         description: distributionForm.description,
+        demandConsiderationNote: distributionForm.demandConsiderationNote,
         totalCostLabel: distributionForm.totalCostLabel,
         planPhases,
         requestSystemEnabled: distributionForm.requestSystemEnabled,
@@ -441,6 +448,7 @@
     distributionForm = {
       title: '',
       description: '',
+      demandConsiderationNote: '',
       totalCostLabel: fundingPhaseCopy,
       planPhases: [createDraftPlanPhase()],
       requestSystemEnabled: false,

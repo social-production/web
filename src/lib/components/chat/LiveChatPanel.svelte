@@ -2,10 +2,11 @@
   import { browser } from '$app/environment';
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
-  import { addComment } from '$lib/services/queries/details';
-  import type { DetailComment } from '$lib/types/detail';
+  import ReportComposerModal from '$lib/components/shared/ReportComposerModal.svelte';
+  import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
+  import { addComment, setReportVote, submitReport } from '$lib/services/queries/details';
+  import type { ContentReportSummary, DetailComment } from '$lib/types/detail';
   import { tick } from 'svelte';
-  import { formatRelativeTime } from '$lib/utils/time';
 
   type ChatMessage = {
     id: string;
@@ -13,6 +14,7 @@
     body: string;
     createdAt: string;
     isOwn?: boolean;
+    report?: ContentReportSummary | null;
     showAuthor?: boolean;
   };
 
@@ -31,6 +33,8 @@
   export let variant: 'chat' | 'message' = 'chat';
   export let onSubmitMessage: ((body: string) => Promise<void> | void) | null = null;
 
+  type ReportReason = 'spam' | 'serious-harm';
+
   let draftMessage = '';
   let panelElement: HTMLElement | null = null;
   let chatLogElement: HTMLDivElement | null = null;
@@ -38,6 +42,107 @@
   let hasAutoScrolled = false;
   let lastHighlightedCommentId: string | null = null;
   let lastAutoScrollKey = '';
+  let reportTargetMessage: ChatMessage | null = null;
+  let reportReason: ReportReason = 'spam';
+  let reportDetails = '';
+  let reportPending = false;
+  let revealedMessageIds = new Set<string>();
+
+  function formatMessageTime(value: string) {
+    const date = new Date(value);
+    const deltaMs = Date.now() - date.getTime();
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    const minutes = Math.max(Math.round(deltaMs / 60000), 1);
+
+    if (minutes < 60) {
+      return `${minutes}m`;
+    }
+
+    const hours = Math.round(minutes / 60);
+
+    if (hours < 24) {
+      return `${hours}h`;
+    }
+
+    const days = Math.round(hours / 24);
+
+    if (days < 7) {
+      return `${days}d`;
+    }
+
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    const year = `${date.getFullYear()}`;
+
+    return `${month}/${day}/${year}`;
+  }
+
+  function openReportComposer(message: ChatMessage) {
+    reportTargetMessage = message;
+    reportReason = 'spam';
+    reportDetails = '';
+  }
+
+  function closeReportComposer() {
+    reportTargetMessage = null;
+    reportReason = 'spam';
+    reportDetails = '';
+  }
+
+  function supportsHiddenToggle(message: ChatMessage) {
+    return message.report?.reason === 'serious-harm' || message.report?.resolution === 'hidden';
+  }
+
+  function messageBodyIsHidden(message: ChatMessage) {
+    return supportsHiddenToggle(message) && !revealedMessageIds.has(message.id);
+  }
+
+  function revealMessageBody(messageId: string) {
+    const nextIds = new Set(revealedMessageIds);
+
+    if (nextIds.has(messageId)) {
+      nextIds.delete(messageId);
+    } else {
+      nextIds.add(messageId);
+    }
+
+    revealedMessageIds = nextIds;
+  }
+
+  async function submitActiveReport() {
+    if (!subjectId || !reportTargetMessage) {
+      return;
+    }
+
+    reportPending = true;
+
+    try {
+      await submitReport(subjectId, reportTargetMessage.id, reportReason, reportDetails);
+      closeReportComposer();
+      await invalidateAll();
+    } finally {
+      reportPending = false;
+    }
+  }
+
+  async function voteOnActiveReport(targetId: string, vote: 'yes' | 'no') {
+    if (!targetId) {
+      return;
+    }
+
+    reportPending = true;
+
+    try {
+      await setReportVote(targetId, vote);
+      await invalidateAll();
+    } finally {
+      reportPending = false;
+    }
+  }
 
   function scrollChatLogToBottom() {
     chatLogElement?.scrollTo({ top: chatLogElement.scrollHeight, behavior: 'auto' });
@@ -107,7 +212,8 @@
         id: item.id,
         authorUsername: item.authorUsername,
         body: item.body,
-        createdAt: item.createdAt
+        createdAt: item.createdAt,
+        report: item.report ?? null
       });
       flattened.push(...flattenComments(item.replies));
     }
@@ -246,17 +352,55 @@
             use:registerMessageElement={message.id}
           >
             <div class="message-copy">
-              {#if message.showAuthor ?? true}
-                <a class="author-link" href={`/profile/${message.authorUsername}`}>{message.authorUsername}</a>
+              <div class="message-top-row">
+                {#if message.showAuthor ?? true}
+                  <a class="author-link" href={`/profile/${message.authorUsername}`}>{message.authorUsername}</a>
+                {/if}
+                {#if subjectId}
+                  <div class="message-actions" aria-label="Message actions">
+                    <ReportMenu
+                      blockedMessage={viewerUsername === message.authorUsername ? "You can't report yourself" : ''}
+                      itemLabel={variant === 'message' ? 'message' : 'comment'}
+                      pending={reportPending}
+                      report={message.report ?? null}
+                      on:compose={() => openReportComposer(message)}
+                      on:vote={(event) => voteOnActiveReport(message.report?.targetId ?? '', event.detail.vote)}
+                    />
+                  </div>
+                {/if}
+              </div>
+              {#if supportsHiddenToggle(message)}
+                <button
+                  aria-expanded={revealedMessageIds.has(message.id)}
+                  class="hidden-toggle"
+                  type="button"
+                  on:click={() => revealMessageBody(message.id)}
+                >
+                  <span class="hidden-plus">{revealedMessageIds.has(message.id) ? '−' : '+'}</span>
+                  <span>{revealedMessageIds.has(message.id) ? 'Hide' : 'Hidden'}</span>
+                </button>
               {/if}
-              <p>{message.body}</p>
+
+              <p class:hidden-message-body={supportsHiddenToggle(message) && messageBodyIsHidden(message)}>
+                {message.body}
+              </p>
             </div>
-            <span class="message-time">{formatRelativeTime(message.createdAt)}</span>
+            <span class="message-time">{formatMessageTime(message.createdAt)}</span>
           </article>
         {/each}
       {/if}
     </div>
   </div>
+
+  <ReportComposerModal
+    bind:description={reportDetails}
+    bind:reason={reportReason}
+    itemLabel={variant === 'message' ? 'message' : 'comment'}
+    open={!!reportTargetMessage}
+    pending={reportPending}
+    on:close={closeReportComposer}
+    on:submit={submitActiveReport}
+  />
 
   <div class="composer-card">
     <div class="composer-input-shell">
@@ -329,8 +473,8 @@
 
   .chat-message {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 86px;
-    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
     align-items: end;
     padding: 0;
     border: none;
@@ -340,11 +484,11 @@
   }
 
   .message-copy {
-    gap: 2px;
+    gap: 6px;
     width: fit-content;
-    max-width: min(80%, 52rem);
+    max-width: min(calc(100% - 4.75rem), 52rem);
     justify-self: start;
-    padding: 8px 11px;
+    padding: 7px 11px 8px;
     border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
     border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--panel-strong) 84%, white 16%);
@@ -358,10 +502,6 @@
 
   .chat-message.highlighted .message-copy {
     box-shadow: inset 0 0 0 1px var(--brand);
-  }
-
-  .chat-message.own .message-copy {
-    text-align: right;
   }
 
   .chat-panel.message-variant .author-link {
@@ -394,7 +534,32 @@
   }
 
   .message-copy p {
+    margin: 0;
     color: var(--text-main);
+    white-space: pre-wrap;
+  }
+
+  .hidden-message-body {
+    display: none;
+  }
+
+  .message-top-row,
+  .message-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .message-top-row {
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .message-actions {
+    margin-left: auto;
+    justify-content: flex-end;
+    flex-shrink: 0;
   }
 
   .composer-card {
@@ -402,16 +567,41 @@
   }
 
   .message-time {
+    align-self: end;
+    justify-self: end;
+    width: 10.75ch;
+    min-width: 10.75ch;
     color: var(--text-soft);
     font-size: 11px;
     line-height: 1.2;
-    width: 86px;
-    min-width: 86px;
-    align-self: end;
-    padding-bottom: 8px;
     white-space: nowrap;
-    text-align: right;
     font-variant-numeric: tabular-nums;
+    padding-bottom: 2px;
+    text-align: right;
+  }
+
+  .hidden-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .hidden-plus {
+    display: inline-grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border: 1px solid var(--panel-border);
+    border-radius: 50%;
+    font-size: 16px;
+    line-height: 1;
   }
 
   textarea {

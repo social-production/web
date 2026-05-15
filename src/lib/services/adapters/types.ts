@@ -11,6 +11,7 @@ import type {
 import type {
   EventPageData,
   PostPageData,
+  ContentReportVote,
   ProjectActivityInput,
   ProjectServiceHistoryCompletionChoice,
   ProjectServiceHistoryCompletionRole,
@@ -144,6 +145,29 @@ export interface AppAdapter {
     requestId: string,
     vote: ProjectApprovalVote | null
   ): Promise<void>;
+  requestProjectUpdate(projectSlug: string, title: string, body: string): Promise<void>;
+  setProjectUpdateVote(
+    projectSlug: string,
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  updateProjectDetails(
+    projectSlug: string,
+    title: string,
+    summary: string,
+    overview: string
+  ): Promise<void>;
+  requestProjectEdit(
+    projectSlug: string,
+    title: string,
+    summary: string,
+    overview: string
+  ): Promise<void>;
+  setProjectEditVote(
+    projectSlug: string,
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
   advanceProjectPhase(projectSlug: string, closeNote?: string): Promise<void>;
   revertProjectPhase(
     projectSlug: string,
@@ -151,14 +175,27 @@ export interface AppAdapter {
     reason: string
   ): Promise<void>;
   toggleProjectManagerNomination(projectSlug: string): Promise<void>;
-  toggleEventManagerNomination(eventSlug: string): Promise<void>;
-  inviteEventManager(eventSlug: string, userId: string): Promise<void>;
   toggleScopeMembership(kind: ScopeKind, slug: string): Promise<void>;
   redeemScopeInvite(kind: ScopeKind, slug: string, inviteValue: string): Promise<boolean>;
   setVote(targetId: string, vote: VoteDirection): Promise<void>;
   addComment(subjectId: string, body: string, parentId?: string): Promise<void>;
+  submitReport(subjectId: string, targetId: string, reason: string, details: string): Promise<void>;
+  setReportVote(targetId: string, vote: ContentReportVote): Promise<void>;
   addProjectUpdate(projectSlug: string, title: string, body: string): Promise<void>;
-  addEventUpdate(eventSlug: string, title: string, body: string): Promise<void>;
+  requestEventUpdate(eventSlug: string, title: string, body: string): Promise<void>;
+  setEventUpdateVote(
+    eventSlug: string,
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  requestEventEdit(eventSlug: string, title: string, description: string): Promise<void>;
+  setEventEditVote(
+    eventSlug: string,
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  grantEventEditAccess(eventSlug: string, userId: string): Promise<void>;
+  revokeEventEditAccess(eventSlug: string, userId: string): Promise<void>;
   shareProjectWithUser(projectSlug: string, username: string): Promise<ShareTargetResult>;
   shareEventWithUser(eventSlug: string, username: string): Promise<ShareTargetResult>;
   markNotificationRead(notificationId: string): Promise<void>;

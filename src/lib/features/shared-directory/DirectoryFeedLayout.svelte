@@ -18,7 +18,7 @@
   let activeFilter: 'all' | 'projects' | 'threads' | 'events' = 'all';
   let activeSort: FeedSort = 'popular';
   let activeWindow: FeedWindow = 'all';
-  let showModeratorsPanel = false;
+  let showBoardPanel = false;
   let showInvitePanel = false;
   let membershipPending = false;
   let inviteDraft = '';
@@ -27,12 +27,9 @@
   let inviteFeedbackTone: 'soft' | 'warning' = 'soft';
   let lastInviteParam = '';
 
-  $: viewerCanSeeModerators =
-    pageData.kind !== 'community' ||
-    pageData.membership.joinPolicy !== 'invite_only' ||
-    pageData.membership.viewerIsMember;
-  $: if (!viewerCanSeeModerators && showModeratorsPanel) {
-    showModeratorsPanel = false;
+  $: showRolePanel = pageData.kind === 'platform' && (pageData.boardMembers?.length ?? 0) > 0;
+  $: if (!showRolePanel && showBoardPanel) {
+    showBoardPanel = false;
   }
   $: referenceTime = pageData.feed.reduce((max, item) => Math.max(max, itemTimestamp(item)), 0);
   $: filteredFeed = pageData.feed
@@ -118,9 +115,9 @@
     return (member.confidenceRatio ?? 0) >= 70;
   }
 
-  function moderatorStatusLabel(member: ScopeMemberSummary) {
+  function boardStatusLabel(member: ScopeMemberSummary) {
     if (member.confidenceRatio === undefined) {
-      return pageData.kind === 'platform' ? 'Recorded board seat' : 'Recorded moderator seat';
+      return 'Recorded board seat';
     }
 
     return meetsConfidenceThreshold(member) ? 'Above threshold' : 'Under review';
@@ -253,15 +250,15 @@
       {/if}
     </div>
 
-    {#if viewerCanSeeModerators}
+    {#if showRolePanel}
       <div class="header-actions">
         <button
-          class:active={showModeratorsPanel}
+          class:active={showBoardPanel}
           class="tab-chip"
           type="button"
-          on:click={() => (showModeratorsPanel = !showModeratorsPanel)}
+          on:click={() => (showBoardPanel = !showBoardPanel)}
         >
-          {pageData.moderationLabel}
+          Board members
         </button>
       </div>
     {/if}
@@ -336,18 +333,16 @@
     </section>
   {/if}
 
-  {#if viewerCanSeeModerators && showModeratorsPanel}
+  {#if showRolePanel && showBoardPanel}
     <section class="people-card">
-      <h2>{pageData.moderationLabel}</h2>
-      <p class="panel-copy">{pageData.moderatorsNote}</p>
+      <h2>Board members</h2>
+      <p class="panel-copy">{pageData.boardNote}</p>
 
       <div class="role-rules-card">
-        <h3>{pageData.kind === 'platform' ? 'How board roles work' : 'How moderation roles work'}</h3>
+        <h3>How board roles work</h3>
         <ul>
           <li>
-            {pageData.kind === 'platform'
-              ? 'Board members oversee platform-tagged work and the eventual conversion of completed collective funds into real nonprofit-held assets.'
-              : 'Moderators are scope-level roles for discussion health, membership boundaries, and visible coordination.'}
+            Board members oversee platform-tagged work and the eventual conversion of completed collective funds into real nonprofit-held assets.
           </li>
           <li>Confidence voting stays visible on every role holder so members can see whether the role remains above the 70% threshold.</li>
           <li>Roles below threshold stay visible as under review until the scope renews or replaces them.</li>
@@ -355,12 +350,12 @@
       </div>
 
       <div class="people-stack">
-        {#if pageData.moderators.length === 0}
+        {#if !pageData.boardMembers || pageData.boardMembers.length === 0}
           <div class="person-row">
-            <strong>No {pageData.moderationLabel.toLowerCase()} listed yet.</strong>
+            <strong>No board members listed yet.</strong>
           </div>
         {:else}
-          {#each pageData.moderators as member}
+          {#each pageData.boardMembers as member}
             <div class="person-row confidence-row">
               <div class="person-copy">
                 <a class="person-link" href={`/profile/${member.username}`}>
@@ -370,7 +365,7 @@
                 {#if member.confidenceRatio !== undefined}
                   <div class="confidence-summary">
                     <span class={`status-chip ${meetsConfidenceThreshold(member) ? 'healthy' : 'warning'}`}>
-                      {moderatorStatusLabel(member)}
+                      {boardStatusLabel(member)}
                     </span>
                     <span class:healthy={meetsConfidenceThreshold(member)} class:warning={!meetsConfidenceThreshold(member)}>
                       {member.confidenceRatio}% confidence
@@ -380,7 +375,7 @@
                 {/if}
               </div>
 
-              {#if member.confidenceTargetId && viewerCanSeeModerators}
+              {#if member.confidenceTargetId && showRolePanel}
                 <VoteStrip
                   activeVote={member.confidenceActiveVote ?? 0}
                   count={member.confidenceVoteCount ?? 0}

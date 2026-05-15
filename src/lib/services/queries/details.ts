@@ -153,6 +153,44 @@ export function setProjectPhaseChangeVote(
   return currentAdapter.setProjectPhaseChangeVote(projectSlug, requestId, vote);
 }
 
+export function requestProjectUpdate(projectSlug: string, title: string, body: string) {
+  return currentAdapter.requestProjectUpdate(projectSlug, title, body);
+}
+
+export function setProjectUpdateVote(
+  projectSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setProjectUpdateVote(projectSlug, requestId, vote);
+}
+
+export function updateProjectDetails(
+  projectSlug: string,
+  title: string,
+  summary: string,
+  overview: string
+) {
+  return currentAdapter.updateProjectDetails(projectSlug, title, summary, overview);
+}
+
+export function requestProjectEdit(
+  projectSlug: string,
+  title: string,
+  summary: string,
+  overview: string
+) {
+  return currentAdapter.requestProjectEdit(projectSlug, title, summary, overview);
+}
+
+export function setProjectEditVote(
+  projectSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setProjectEditVote(projectSlug, requestId, vote);
+}
+
 export function advanceProjectPhase(projectSlug: string, closeNote?: string) {
   return currentAdapter.advanceProjectPhase(projectSlug, closeNote);
 }
@@ -169,24 +207,52 @@ export function toggleProjectManagerNomination(projectSlug: string) {
   return currentAdapter.toggleProjectManagerNomination(projectSlug);
 }
 
-export function toggleEventManagerNomination(eventSlug: string) {
-  return currentAdapter.toggleEventManagerNomination(eventSlug);
-}
-
-export function inviteEventManager(eventSlug: string, userId: string) {
-  return currentAdapter.inviteEventManager(eventSlug, userId);
-}
-
 export function addComment(subjectId: string, body: string, parentId?: string) {
   return currentAdapter.addComment(subjectId, body, parentId);
+}
+
+export function submitReport(subjectId: string, targetId: string, reason: string, details: string) {
+  return currentAdapter.submitReport(subjectId, targetId, reason, details);
+}
+
+export function setReportVote(targetId: string, vote: 'yes' | 'no') {
+  return currentAdapter.setReportVote(targetId, vote);
 }
 
 export function addProjectUpdate(projectSlug: string, title: string, body: string) {
   return currentAdapter.addProjectUpdate(projectSlug, title, body);
 }
 
-export function addEventUpdate(eventSlug: string, title: string, body: string) {
-  return currentAdapter.addEventUpdate(eventSlug, title, body);
+export function requestEventUpdate(eventSlug: string, title: string, body: string) {
+  return currentAdapter.requestEventUpdate(eventSlug, title, body);
+}
+
+export function setEventUpdateVote(
+  eventSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setEventUpdateVote(eventSlug, requestId, vote);
+}
+
+export function requestEventEdit(eventSlug: string, title: string, description: string) {
+  return currentAdapter.requestEventEdit(eventSlug, title, description);
+}
+
+export function setEventEditVote(
+  eventSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setEventEditVote(eventSlug, requestId, vote);
+}
+
+export function grantEventEditAccess(eventSlug: string, userId: string) {
+  return currentAdapter.grantEventEditAccess(eventSlug, userId);
+}
+
+export function revokeEventEditAccess(eventSlug: string, userId: string) {
+  return currentAdapter.revokeEventEditAccess(eventSlug, userId);
 }
 
 export function shareProjectWithUser(projectSlug: string, username: string) {

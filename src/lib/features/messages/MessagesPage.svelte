@@ -53,6 +53,7 @@
         body: message.body,
         createdAt: message.createdAt,
         isOwn: message.isOwn,
+        report: message.report ?? null,
         showAuthor: activeConversation.kind === 'group'
       }))
     : [];
@@ -614,6 +615,7 @@
           onSubmitMessage={submitConversationMessage}
           placeholder="Write a message..."
           showHeader={false}
+          subjectId={activeConversation.id}
           submitLabel="Send"
           variant="message"
         />
@@ -625,6 +627,7 @@
           onSubmitMessage={submitLinkedChatMessage}
           placeholder={activeLinkedChat.kind === 'project' ? 'Message the project...' : 'Message attendees...'}
           showHeader={false}
+          subjectId={activeLinkedChat.subjectId}
           submitLabel="Send"
         />
       {/if}

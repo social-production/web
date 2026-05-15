@@ -28,7 +28,7 @@
 </script>
 
 <section class="discussion-shell" id="comments">
-  <div class="composer-toggle-row">
+  <div class="composer-toggle-anchor">
     <RoundPlusButton active={showComposer} ariaLabel="Add comment" action={toggleComposer} />
   </div>
 
@@ -62,15 +62,14 @@
   .stack,
   .composer-card {
     display: grid;
-    gap: 14px;
+    gap: 10px;
   }
 
   .discussion-shell {
     position: relative;
-    padding-top: 18px;
+    padding-top: 0;
   }
 
-  .composer-toggle-row,
   .composer-actions {
     display: flex;
     gap: 12px;
@@ -78,30 +77,33 @@
     flex-wrap: wrap;
   }
 
-  .composer-toggle-row {
+  .composer-toggle-anchor {
     position: absolute;
     top: 0;
     left: 50%;
-    justify-content: center;
     transform: translate(-50%, -50%);
-    z-index: 1;
+    z-index: 2;
   }
 
   .composer-card,
   .empty-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
+    padding: 10px 0;
+    border: none;
+    border-radius: 0;
+    background: var(--panel);
+  }
+
+  .composer-card {
+    margin-top: 10px;
   }
 
   textarea {
     width: 100%;
-    min-height: 120px;
-    padding: 12px;
+    min-height: 96px;
+    padding: 10px 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: var(--panel);
+    background: white;
     color: var(--text-main);
     resize: vertical;
   }

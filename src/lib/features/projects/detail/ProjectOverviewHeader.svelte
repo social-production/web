@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
@@ -54,8 +55,15 @@
     <SubjectTablet kind="project" projectMode={data.projectMode} />
   </div>
 
-  <div class="tag-stack">
-    <TagList columns={4} tags={combinedTags} />
+  <div class="header-actions">
+    <TagList tags={combinedTags} />
+    <ReportControl
+      itemLabel="project"
+      report={data.report}
+      ownerUsername={data.authorUsername}
+      subjectId={data.id}
+      targetId={data.id}
+    />
   </div>
 </div>
 
@@ -134,7 +142,8 @@
 
 <style>
   .header-row,
-  .chips {
+  .chips,
+  .header-actions {
     display: flex;
     gap: 12px;
     align-items: center;
@@ -143,11 +152,26 @@
 
   .header-row {
     justify-content: space-between;
+    align-items: flex-start;
   }
 
-  .tag-stack {
-    display: grid;
-    gap: 12px;
+  .chips {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .header-actions {
+    flex: 0 1 auto;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .header-actions :global(.tag-list) {
+    justify-content: flex-end;
+  }
+
+  :global(.report-control) {
+    flex: 0 0 auto;
   }
 
   h1 {

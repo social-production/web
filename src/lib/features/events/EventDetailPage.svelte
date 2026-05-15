@@ -2,6 +2,7 @@
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { tick } from 'svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import EventMembersPanel from '$lib/features/events/detail/EventMembersPanel.svelte';
   import EventOverviewHeader from '$lib/features/events/detail/EventOverviewHeader.svelte';
@@ -54,6 +55,32 @@
     });
   }
 
+  function scrollElementIntoView(element: HTMLElement | null) {
+    if (!browser || !element) {
+      return;
+    }
+
+    const topbarHeight = document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
+    const topOffset = topbarHeight + 28;
+    const nextTop = window.scrollY + element.getBoundingClientRect().top - topOffset;
+
+    window.scrollTo({
+      top: Math.max(nextTop, 0),
+      behavior: 'smooth'
+    });
+  }
+
+  async function handleMembersPanelOpen() {
+    if (showMembersPanel) {
+      showMembersPanel = false;
+      return;
+    }
+
+    showMembersPanel = true;
+    await tick();
+    scrollElementIntoView(document.getElementById('event-members-panel'));
+  }
+
   $: {
     const routeSignature = `${$page.url.pathname}${$page.url.search}${$page.url.hash}`;
 
@@ -95,10 +122,10 @@
         {data}
         {highlightedUpdateId}
         {showMembersPanel}
-        on:togglemembers={() => (showMembersPanel = !showMembersPanel)}
+        on:togglemembers={handleMembersPanelOpen}
       />
       {#if showMembersPanel}
-        <EventMembersPanel {data} />
+        <EventMembersPanel {data} panelId="event-members-panel" />
       {/if}
     {:else}
       <section class="chat-shell">

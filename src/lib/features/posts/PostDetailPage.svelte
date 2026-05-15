@@ -5,6 +5,7 @@
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import LinkedPostBody from '$lib/components/shared/LinkedPostBody.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { setVote } from '$lib/services/queries/feeds';
   import type { PostPageData } from '$lib/types/detail';
@@ -32,13 +33,23 @@
 <section class="page">
   <section class="hero-card">
     <div class="identity-row">
-      <AvatarBadge size="md" username={data.authorUsername} />
-      <div class="identity-copy">
-        <div class="name-line">
-          <a class="inline-link" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>
-          <span class="chip post">Post</span>
+      <div class="identity-main">
+        <AvatarBadge size="md" username={data.authorUsername} />
+        <div class="identity-copy">
+          <div class="name-line">
+            <a class="inline-link" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>
+            <span class="chip post">Post</span>
+          </div>
         </div>
       </div>
+
+      <ReportControl
+        itemLabel="post"
+        report={data.report}
+        ownerUsername={data.authorUsername}
+        subjectId={data.id}
+        targetId={data.id}
+      />
     </div>
 
     <LinkedPostBody body={data.body} links={data.linkedSubjects ?? []} variant="detail" />
@@ -82,6 +93,17 @@
 
   .engagement-row {
     justify-content: space-between;
+  }
+
+  .identity-row {
+    justify-content: space-between;
+  }
+
+  .identity-main {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
   }
 
   .identity-copy {
