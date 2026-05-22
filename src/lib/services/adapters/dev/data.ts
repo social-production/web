@@ -1,17 +1,33 @@
 import { browser } from '$app/environment';
 import {
   isPersonalServiceProject,
+  projectSubjectLabel,
+  projectSubtypeLabel,
+  projectSubtypeOptions,
   projectFeedPhaseLabel,
   supportsProjectDemandSignals,
   supportsProjectPlanning
 } from '$lib/features/projects/projectMode';
+import {
+  calculateRequiredVotes,
+  calculateGovernanceQuorum,
+  GOVERNANCE_APPROVAL_THRESHOLD_PERCENT
+} from '$lib/services/governance/rules';
 import type {
   BootstrapPayload,
   RightRailActivityItem,
   ScopeDirectoryItem,
   ViewerSummary
 } from '$lib/types/bootstrap';
-import type { PlatformAssetsPageData } from '$lib/types/assets';
+import type {
+  AssetAttachedRecord,
+  AssetContainedUnitRecord,
+  AssetGovernanceData,
+  AssetGovernanceVoteSummary,
+  AssetProjectReference,
+  LandAssetRecord,
+  PlatformAssetsPageData
+} from '$lib/types/assets';
 import type {
   AuthResult,
   PersonalFeedPreferences,
@@ -34,7 +50,18 @@ import type {
   DetailComment,
   DetailMember,
   DetailUpdate,
+  EventPlan,
+  EventPlanInput,
+  EventPlanPhaseItem,
+  EventPlanSchedule,
+  EventPlanScheduleInput,
+  EventLifecycleData,
+  EventLifecyclePhase,
+  EventLifecyclePhaseChangeRequest,
+  EventLifecyclePhaseId,
   EventPageData,
+  GovernanceSignalSummary,
+  GovernanceSignalType,
   PostPageData,
   ProjectActivityPlanPhaseOption,
   ProjectServiceHistoryCompletionChoice,
@@ -51,18 +78,51 @@ import type {
   ProjectLifecyclePhaseChangeRequest,
   ProjectLifecyclePhase,
   ProjectLifecyclePhaseId,
+  ProjectPhaseChangeRequestOptions,
+  ProjectConversionTarget,
+  ProjectConversionTargetInput,
   ProjectLifecycleRevertEntry,
   EventEditRequest,
   EventUpdateRequest,
+  ProjectAcquisitionBundle,
+  ProjectAcquisitionConfirmationFrame,
+  ProjectAcquisitionExecutionFrame,
+  ProjectAcquisitionExecutionInput,
+  ProjectAcquisitionPendingAsset,
+  ProjectAcquisitionPlanBundle,
+  ProjectAcquisitionPlanBundleInput,
   ProjectEditRequest,
+  ProjectAcquisitionPreviewFund,
+  ProjectAcquisitionPreviewItem,
+  ProjectAcquisitionPurchaseRow,
+  ProjectAcquisitionPurchaseRowInput,
+  ProjectAcquisitionServiceDestinationType,
+  ProjectInventoryFrameData,
+  ProjectLinkCandidate,
+  ProjectManualLinkRequest,
+  ProjectManualLinkVoteState,
   ProjectUpdateRequest,
+  ProjectLinksFrameData,
   ProjectPlanPhaseItem,
   ProjectPlanValueAssessment,
   ProjectPlanVoteSummary,
   ProjectPageData,
+  ProjectPhaseFourData,
+  ProjectPlaceholderSection,
+  ProjectRequestFrame,
   ProjectProductionPlan,
   ProjectProductionPlanInput,
   ProjectRoleMember,
+  ProjectSoftwareBlockedPullRequest,
+  ProjectSoftwareMergeCapabilityChangeRequest,
+  ProjectSoftwareMergeCapabilityMember,
+  ProjectSoftwareRepositoryRecord,
+  ProjectSoftwareRepositoryReplacementRequest,
+  ProjectSoftwareGovernanceData,
+  ProjectSoftwarePullRequest,
+  ProjectSoftwarePullRequestInput,
+  ProjectSoftwareMergeCapabilityChangeInput,
+  ProjectSoftwareRepositoryReplacementInput,
   ProjectServiceRequestInput,
   ProjectServiceRequestItem,
   ProjectServiceRequestMode,
@@ -95,6 +155,7 @@ import type {
   CreateThreadInput,
   PostBodyLink,
   ProjectMode,
+  ProjectSubtype,
   PersonalFeedItem,
   PersonalPostItem,
   PublicEventItem,
@@ -104,6 +165,11 @@ import type {
   TagRef,
   VoteDirection
 } from '$lib/types/feed';
+import {
+  eventActivityFitsSchedule,
+  eventScheduleIsValid,
+  eventScheduleStartsInFuture
+} from '$lib/utils/eventSchedule';
 import { canProjectVoteStillPass } from '$lib/utils/projectVotes';
 import type { SearchPageData, SearchResultItem } from '$lib/types/search';
 import type {
@@ -146,6 +212,48 @@ const users: ViewerSummary[] = [
 
 const usersById = new Map<string, ViewerSummary>();
 const usersByUsername = new Map<string, ViewerSummary>();
+
+const WEEKLY_ACTIVE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const BOARD_GRACE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+const BOARD_STANDING_VOTE_CLEAR_WINDOW_MS = 100 * 24 * 60 * 60 * 1000;
+
+function isoDaysAgo(days: number) {
+  const value = new Date();
+  value.setUTCDate(value.getUTCDate() - days);
+  return value.toISOString();
+}
+
+const lastMeaningfulActionAtByUserId: Record<string, string> = {
+  'viewer-1': isoDaysAgo(1),
+  'user-rowan': isoDaysAgo(2),
+  'user-tool': isoDaysAgo(4),
+  'user-mika': isoDaysAgo(5),
+  'user-ember': isoDaysAgo(11)
+};
+
+const boardStandingGraceStartedAtByTargetId: Record<string, string> = {};
+const syntheticConfidenceVoteLastActiveAtByUserId: Record<string, string> = {};
+const platformBoardState: {
+  seatedUserIds: string[];
+  confidenceTargetIdsByUserId: Record<string, string>;
+} = {
+  seatedUserIds: ['user-mika', 'user-ember'],
+  confidenceTargetIdsByUserId: {}
+};
+const activePlatformBoardUserIds = new Set<string>(platformBoardState.seatedUserIds);
+
+const seededProjectSubtypeBySlug: Record<string, ProjectSubtype> = {
+  'release-governance': 'software',
+  'tool-library-land-stewardship': 'asset-management',
+  'tool-library-storage': 'asset-management',
+  'east-market-land-stewardship': 'asset-management',
+  'east-market-cold-storage': 'asset-management',
+  'retrofit-materials-shed-service': 'asset-management'
+};
+
+const seededSoftwareRepositoryUrlByProjectSlug: Record<string, string> = {
+  'platform-release-governance-round': 'https://code.social-production.example/platform/release-governance'
+};
 
 function rebuildUserIndexes() {
   usersById.clear();
@@ -281,19 +389,312 @@ const communityDirectory: ScopeDirectoryItem[] = [
   }
 ];
 
+function buildContainedAssetUnits(
+  assetTitle: string,
+  seeds: Array<
+    Pick<AssetContainedUnitRecord, 'statusLabel' | 'locationLabel' | 'summary'> & {
+      currentBorrowerLabel?: string | null;
+    }
+  >
+): AssetContainedUnitRecord[] {
+  return seeds.map((seed, index) => ({
+    id: `${assetTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-unit-${index + 1}`,
+    label: `${assetTitle} ${index + 1}`,
+    statusLabel: seed.statusLabel,
+    locationLabel: seed.locationLabel,
+    summary: seed.summary,
+    currentBorrowerLabel: seed.currentBorrowerLabel ?? null
+  }));
+}
+
 const platformAssetsFixture: PlatformAssetsPageData = {
   featureOpen: false,
   intro:
     'Assets stays under the platform because land, storage, and collective funds need public stewardship before they become live means of production in common.',
+  featureFrames: [
+    {
+      id: 'asset-provenance',
+      title: 'Asset provenance',
+      body:
+        'Every asset page is framed to carry a permanent custody and status history once live asset operations open.',
+      statusLabel: 'Frame only'
+    },
+    {
+      id: 'borrowing-and-requests',
+      title: 'Borrowing and request flows',
+      body:
+        'Borrowing requests, project-use requests, and delivery coordination will live as separate modules attached to asset and project detail surfaces.',
+      statusLabel: 'Frame only'
+    },
+    {
+      id: 'non-land-assets',
+      title: 'Non-land asset records',
+      body:
+        'Land records are live as placeholders now, while non-land asset pages are framed to slot into the same detail architecture later without route churn.',
+      statusLabel: 'Frame only'
+    }
+  ],
   landAssets: [
     {
       id: 'land-tool-library-campus',
       slug: 'tool-library-campus',
       title: 'Tool Library Campus Lot',
       locationLabel: 'North side tool library block',
-      acreageLabel: '0.7 acres',
+      sizeLabel: '0.0028 km2',
+      statusLabel: 'Closed preview',
       stewardshipNote:
         'This land record groups the workshop building, open repair yard, and adjacent storage area under one stewardship record so collective services can attach cleanly.',
+      currentCustodianLabel: 'Platform stewardship preview',
+      homeLandAssetLabel: 'Tool Library Campus Lot',
+      historySummary:
+        'Full provenance, borrowing, damage, and custody history will be recorded here once the live asset registry opens.',
+      governance: buildAssetGovernanceData('land-tool-library-campus'),
+      attachedAssets: [
+        {
+          id: 'asset-tool-library-workbench-set',
+          slug: 'workshop-bench-set',
+          title: 'Workshop bench set',
+          typeLabel: 'Non-land asset preview',
+          statusLabel: 'Fake preview asset',
+          custodyLabel: 'Held under Tool Library Campus Lot',
+          summary:
+            'A seeded preview of a shared workshop-bench asset record that would return to this land asset when not checked out to active work.',
+          locationLabel: 'Tool Library workshop floor',
+          currentCustodianLabel: 'Tool Library Land Stewardship Service',
+          homeLandAssetLabel: 'Tool Library Campus Lot',
+          parentLandAssetSlug: 'tool-library-campus',
+          parentLandAssetTitle: 'Tool Library Campus Lot',
+          stewardshipNote:
+            'This seeded non-land asset represents shared fixed work surfaces that return to the workshop floor between repair and teaching sessions.',
+          historySummary:
+            'A full attachment, borrowing, damage, and maintenance history will appear here once the non-land registry opens.',
+          governance: buildAssetGovernanceData('asset-tool-library-workbench-set'),
+          requestFrames: [
+            {
+              id: 'asset-use',
+              title: 'Workshop-use request preview',
+              body:
+                'Fake preview only: repair and teaching projects would request this bench set here before scheduling hands-on sessions.',
+              statusLabel: 'Fake preview'
+            },
+            {
+              id: 'delivery',
+              title: 'Bench transfer preview',
+              body:
+                'Fake preview only: any temporary move of these benches to another site would record a delivery handoff here.',
+              statusLabel: 'Fake preview'
+            }
+          ],
+          detailSections: [
+            {
+              id: 'maintenance-history',
+              title: 'Maintenance history',
+              body:
+                'This section is reserved for bench repairs, surface resurfacing, and any safety checks tied to the shared workshop set.',
+              statusLabel: 'Fake preview'
+            },
+            {
+              id: 'use-log',
+              title: 'Use log',
+              body:
+                'Confirmed project-use sessions, teaching blocks, and return timestamps will be listed here once the registry opens.',
+              statusLabel: 'Fake preview'
+            }
+          ],
+          managementProjects: [
+            {
+              id: 'asset-project-tool-library-land-stewardship-bench',
+              title: 'Tool Library Land Stewardship Service',
+              projectMode: 'collective-service',
+              relationshipLabel: 'Primary stewardship service',
+              statusLabel: 'Preview seed',
+              summary:
+                'The land stewardship service remains responsible for physical upkeep and placement of the workshop bench set.',
+              href: null
+            }
+          ],
+          storageProjects: [
+            {
+              id: 'asset-project-tool-library-storage-bench',
+              title: 'Tool Library Storage Facility Service',
+              projectMode: 'collective-service',
+              relationshipLabel: 'Overflow storage when not installed',
+              statusLabel: 'Preview seed',
+              summary:
+                'Overflow bench parts and replacement surfaces are held by the storage service when they are not on the floor.',
+              href: null
+            }
+          ],
+          linkedProjects: [
+            {
+              id: 'project-repair-cafe-bench-use',
+              title: 'Repair Cafe Shift Grid',
+              projectMode: 'collective-service',
+              relationshipLabel: 'Current user of this shared work surface',
+              statusLabel: 'Existing project',
+              summary:
+                'Repair-cafe shifts depend on this bench set for intake triage and hands-on repair work.',
+              href: '/projects/repair-cafe-shift-grid'
+            }
+          ],
+          href: '/platform/assets/tool-library-campus/attached/workshop-bench-set'
+        },
+        {
+          id: 'asset-tool-library-intake-carts',
+          slug: 'repair-intake-cart',
+          title: 'Repair intake cart',
+          typeLabel: 'Asset',
+          quantityLabel: 'x 5',
+          totalQuantity: 5,
+          availableQuantity: 3,
+          containedUnits: buildContainedAssetUnits('Repair intake cart', [
+            {
+              statusLabel: 'Available',
+              locationLabel: 'Tool Library front room',
+              summary: 'Ready for intake or handoff use today.'
+            },
+            {
+              statusLabel: 'Available',
+              locationLabel: 'Tool Library front room',
+              summary: 'Ready for intake or handoff use today.'
+            },
+            {
+              statusLabel: 'Available',
+              locationLabel: 'Tool Library intake lane',
+              summary: 'Held near the intake lane for heavy-dropoff days.'
+            },
+            {
+              statusLabel: 'Borrowed',
+              locationLabel: 'Neighborhood cleanup route',
+              summary: 'Currently out on a cleanup run and expected back next week.',
+              currentBorrowerLabel: 'patchbay'
+            },
+            {
+              statusLabel: 'Reserved',
+              locationLabel: 'Tool Library front room',
+              summary: 'Held back for overlapping childcare check-in coverage.'
+            }
+          ]),
+          statusLabel: 'Fake preview asset',
+          custodyLabel: 'Assigned to Tool Library Storage Facility Service',
+          summary:
+            'A seeded preview of rolling intake carts that could be borrowed between the repair floor and the front-room check-in service.',
+          locationLabel: 'Tool Library front room and intake lane',
+          currentCustodianLabel: 'Tool Library Storage Facility Service',
+          homeLandAssetLabel: 'Tool Library Campus Lot',
+          parentLandAssetSlug: 'tool-library-campus',
+          parentLandAssetTitle: 'Tool Library Campus Lot',
+          stewardshipNote:
+            'These rolling carts move between front-room intake and workshop staging while still tracing back to the tool-library land record.',
+          historySummary:
+            'A full movement, damage, and return history will appear here once attached asset tracking is live.',
+          governance: buildAssetGovernanceData('asset-tool-library-intake-carts'),
+          requestFrames: [
+            {
+              id: 'borrowing',
+              title: 'Cart borrowing preview',
+              body:
+                'Fake preview only: members would request temporary cart use here when moving heavy repair intake between rooms.',
+              statusLabel: 'Fake preview'
+            },
+            {
+              id: 'delivery',
+              title: 'Intake handoff preview',
+              body:
+                'Fake preview only: delivery-style handoffs between the front room and workshop floor would be recorded here.',
+              statusLabel: 'Fake preview'
+            }
+          ],
+          detailSections: [
+            {
+              id: 'movement-log',
+              title: 'Movement log',
+              body:
+                'This section will record where each cart moved, who moved it, and when it returned to intake or storage.',
+              statusLabel: 'Fake preview'
+            },
+            {
+              id: 'repair-log',
+              title: 'Repair log',
+              body:
+                'Wheel replacements, handle repairs, and condition checks will appear here once the non-land asset registry opens.',
+              statusLabel: 'Fake preview'
+            }
+          ],
+          managementProjects: [],
+          storageProjects: [
+            {
+              id: 'asset-project-tool-library-storage-carts',
+              title: 'Tool Library Storage Facility Service',
+              projectMode: 'collective-service',
+              relationshipLabel: 'Primary storage service',
+              statusLabel: 'Preview seed',
+              summary:
+                'The storage service keeps custody of the intake carts when they are not in circulation.',
+              href: null
+            }
+          ],
+          linkedProjects: [
+            {
+              id: 'project-childcare-checkin-carts',
+              title: 'Childcare Check-in Desk Service',
+              projectMode: 'collective-service',
+              relationshipLabel: 'Occasional shared front-room use',
+              statusLabel: 'Existing project',
+              summary:
+                'The front-room service can temporarily borrow carts when intake materials need to move quickly during overlapping events.',
+              href: '/projects/childcare-checkin-desk-service'
+            }
+          ],
+          href: '/platform/assets/tool-library-campus/attached/repair-intake-cart'
+        }
+      ],
+      requestFrames: [
+        {
+          id: 'borrowing',
+          title: 'Borrowing preview for this site',
+          body:
+            'Fake preview only: individual borrowers would request attached non-land assets here, with expected return dates and steward follow-up visible on the record.',
+          statusLabel: 'Fake preview'
+        },
+        {
+          id: 'asset-use',
+          title: 'Project-use asset request preview',
+          body:
+            'Fake preview only: projects needing workshop space or attached equipment would send availability requests here before their plans became voteable.',
+          statusLabel: 'Fake preview'
+        },
+        {
+          id: 'delivery',
+          title: 'Delivery handoff preview',
+          body:
+            'Fake preview only: delivery services would record pickup and return handoffs here when assets moved between sites.',
+          statusLabel: 'Fake preview'
+        }
+      ],
+      detailSections: [
+        {
+          id: 'provenance-history',
+          title: 'Provenance history',
+          body:
+            'This section is reserved for the permanent chronological record of transfers, borrowing, damage, and stewardship changes tied to this land asset.',
+          statusLabel: 'Frame only'
+        },
+        {
+          id: 'attached-assets',
+          title: 'Attached non-land assets',
+          body:
+            'Non-land assets that live on or return to this site will appear here as individual records with their own detail pages.',
+          statusLabel: 'Frame only'
+        },
+        {
+          id: 'requests',
+          title: 'Requests and borrowing',
+          body:
+            'Borrowing requests, project-use requests, and delivery handoffs will be grouped here once those coordination and governance flows are active.',
+          statusLabel: 'Frame only'
+        }
+      ],
       managementProjects: [
         {
           id: 'asset-project-tool-library-land-stewardship',
@@ -346,9 +747,265 @@ const platformAssetsFixture: PlatformAssetsPageData = {
       slug: 'east-market-commons',
       title: 'East Market Commons Lot',
       locationLabel: 'East Market retrofit and pickup cluster',
-      acreageLabel: '1.3 acres',
+      sizeLabel: '0.0053 km2',
+      statusLabel: 'Closed preview',
       stewardshipNote:
         'This lot ties together retrofit staging space, a future shared cold-storage pad, and pickup lanes that multiple neighborhood services already depend on.',
+      currentCustodianLabel: 'Platform stewardship preview',
+      homeLandAssetLabel: 'East Market Commons Lot',
+      historySummary:
+        'Full provenance, borrowing, damage, and custody history will be recorded here once the live asset registry opens.',
+      governance: buildAssetGovernanceData('land-east-market-commons'),
+      attachedAssets: [
+        {
+          id: 'asset-east-market-cold-racks',
+          slug: 'cold-storage-rack-set',
+          title: 'Cold-storage rack set',
+          typeLabel: 'Non-land asset preview',
+          statusLabel: 'Fake preview asset',
+          custodyLabel: 'Assigned to East Market Cold Storage Service',
+          summary:
+            'A seeded preview of insulated storage racks that would stay attached to this site when not checked out for project use.',
+          locationLabel: 'East Market cold pad',
+          currentCustodianLabel: 'East Market Cold Storage Service',
+          homeLandAssetLabel: 'East Market Commons Lot',
+          parentLandAssetSlug: 'east-market-commons',
+          parentLandAssetTitle: 'East Market Commons Lot',
+          stewardshipNote:
+            'These racks stay under commons custody but can be reserved by storage and distribution work that depends on temporary cold holding.',
+          historySummary:
+            'A full availability, condition, and transfer history will appear here once attached asset pages are live.',
+          governance: buildAssetGovernanceData('asset-east-market-cold-racks'),
+          requestFrames: [
+            {
+              id: 'asset-use',
+              title: 'Cold-storage use preview',
+              body:
+                'Fake preview only: projects needing temporary cold holding would request rack access here before scheduling pickups.',
+              statusLabel: 'Fake preview'
+            },
+            {
+              id: 'delivery',
+              title: 'Cold-chain handoff preview',
+              body:
+                'Fake preview only: pickup and return handoffs for cold-storage runs would be tracked here.',
+              statusLabel: 'Fake preview'
+            }
+          ],
+          detailSections: [
+            {
+              id: 'temperature-log',
+              title: 'Temperature and condition log',
+              body:
+                'This section will record maintenance checks, temperature incidents, and cleaning rounds for the shared rack set.',
+              statusLabel: 'Fake preview'
+            },
+            {
+              id: 'reservation-history',
+              title: 'Reservation history',
+              body:
+                'Approved cold-storage reservations and project-use windows will appear here once the registry opens.',
+              statusLabel: 'Fake preview'
+            }
+          ],
+          managementProjects: [],
+          storageProjects: [
+            {
+              id: 'asset-project-east-market-cold-racks-storage',
+              title: 'East Market Cold Storage Service',
+              projectMode: 'collective-service',
+              relationshipLabel: 'Primary storage service',
+              statusLabel: 'Preview seed',
+              summary:
+                'The cold-storage service keeps custody of the rack set and manages availability windows for shared use.',
+              href: null
+            }
+          ],
+          linkedProjects: [
+            {
+              id: 'project-ride-coordination-cold-racks',
+              title: 'Neighborhood Ride Coordination Service',
+              projectMode: 'collective-service',
+              relationshipLabel: 'Supports cooled pickup windows',
+              statusLabel: 'Existing project',
+              summary:
+                'Dispatch work at East Market can route time-sensitive pickups through this rack set before riders depart.',
+              href: '/projects/neighborhood-ride-coordination-service'
+            }
+          ],
+          href: '/platform/assets/east-market-commons/attached/cold-storage-rack-set'
+        },
+        {
+          id: 'asset-east-market-retrofit-tables',
+          slug: 'retrofit-staging-tables',
+          title: 'Retrofit staging table',
+          typeLabel: 'Asset',
+          quantityLabel: 'x 6',
+          totalQuantity: 6,
+          availableQuantity: 4,
+          containedUnits: buildContainedAssetUnits('Retrofit staging table', [
+            {
+              statusLabel: 'Available',
+              locationLabel: 'East Market staging shed',
+              summary: 'Ready for build-day staging.'
+            },
+            {
+              statusLabel: 'Available',
+              locationLabel: 'East Market staging shed',
+              summary: 'Ready for build-day staging.'
+            },
+            {
+              statusLabel: 'Available',
+              locationLabel: 'East Market staging shed',
+              summary: 'Ready for build-day staging.'
+            },
+            {
+              statusLabel: 'Available',
+              locationLabel: 'East Market retrofit pad',
+              summary: 'Already set near the active build lane.'
+            },
+            {
+              statusLabel: 'Reserved',
+              locationLabel: 'East Market retrofit pad',
+              summary: 'Assigned to the next hallway air-sealing setup window.'
+            },
+            {
+              statusLabel: 'Maintenance',
+              locationLabel: 'Retrofit Materials Shed Service',
+              summary: 'Waiting on a clamp replacement before it returns to the active set.'
+            }
+          ]),
+          statusLabel: 'Fake preview asset',
+          custodyLabel: 'Held under East Market Commons Lot',
+          summary:
+            'A seeded preview of shared staging tables that could move between retrofit and delivery work while keeping a permanent provenance record.',
+          locationLabel: 'East Market staging shed',
+          currentCustodianLabel: 'East Market Land Stewardship Service',
+          homeLandAssetLabel: 'East Market Commons Lot',
+          parentLandAssetSlug: 'east-market-commons',
+          parentLandAssetTitle: 'East Market Commons Lot',
+          stewardshipNote:
+            'These staging tables return to the commons lot between build-day use, deliveries, and storage reshuffles.',
+          historySummary:
+            'A full movement and maintenance history will appear here once attached asset pages are live.',
+          governance: buildAssetGovernanceData('asset-east-market-retrofit-tables'),
+          requestFrames: [
+            {
+              id: 'asset-use',
+              title: 'Build-day use preview',
+              body:
+                'Fake preview only: productive projects would reserve these tables here before staging install kits and safety gear.',
+              statusLabel: 'Fake preview'
+            },
+            {
+              id: 'borrowing',
+              title: 'Short-term borrowing preview',
+              body:
+                'Fake preview only: short internal loans between East Market services would be recorded here with expected return timing.',
+              statusLabel: 'Fake preview'
+            }
+          ],
+          detailSections: [
+            {
+              id: 'movement-log',
+              title: 'Movement log',
+              body:
+                'This section will record when the tables move from storage to staging and back again after productive work closes.',
+              statusLabel: 'Fake preview'
+            },
+            {
+              id: 'condition-log',
+              title: 'Condition log',
+              body:
+                'Surface wear, repairs, and replacement-part swaps will appear here once the registry opens.',
+              statusLabel: 'Fake preview'
+            }
+          ],
+          managementProjects: [
+            {
+              id: 'asset-project-east-market-land-staging-tables',
+              title: 'East Market Land Stewardship Service',
+              projectMode: 'collective-service',
+              relationshipLabel: 'Primary stewardship service',
+              statusLabel: 'Preview seed',
+              summary:
+                'The land stewardship service manages where the staging tables live when they are not assigned to productive work.',
+              href: null
+            }
+          ],
+          storageProjects: [
+            {
+              id: 'asset-project-east-market-material-shed-tables',
+              title: 'Retrofit Materials Shed Service',
+              projectMode: 'collective-service',
+              relationshipLabel: 'Primary storage service',
+              statusLabel: 'Preview seed',
+              summary:
+                'The materials shed service keeps replacement legs, clamps, and protective coverings for the shared tables.',
+              href: null
+            }
+          ],
+          linkedProjects: [
+            {
+              id: 'project-air-sealing-tables',
+              title: 'Hallway Air-Sealing Build Day',
+              projectMode: 'productive',
+              relationshipLabel: 'Current productive user',
+              statusLabel: 'Existing project',
+              summary:
+                'The current build day uses these staging tables for tools, safety checks, and material sorting.',
+              href: '/projects/hallway-air-sealing-build-day'
+            }
+          ],
+          href: '/platform/assets/east-market-commons/attached/retrofit-staging-tables'
+        }
+      ],
+      requestFrames: [
+        {
+          id: 'borrowing',
+          title: 'Borrowing preview for this site',
+          body:
+            'Fake preview only: individual borrowers would request attached non-land assets here, with expected return dates and steward follow-up visible on the record.',
+          statusLabel: 'Fake preview'
+        },
+        {
+          id: 'asset-use',
+          title: 'Project-use asset request preview',
+          body:
+            'Fake preview only: projects needing cold storage, staging space, or site access would send availability requests here before plans advanced.',
+          statusLabel: 'Fake preview'
+        },
+        {
+          id: 'delivery',
+          title: 'Delivery handoff preview',
+          body:
+            'Fake preview only: delivery services would record pickup and return handoffs here when assets moved between East Market and other sites.',
+          statusLabel: 'Fake preview'
+        }
+      ],
+      detailSections: [
+        {
+          id: 'provenance-history',
+          title: 'Provenance history',
+          body:
+            'This section is reserved for the permanent chronological record of transfers, borrowing, damage, and stewardship changes tied to this land asset.',
+          statusLabel: 'Frame only'
+        },
+        {
+          id: 'attached-assets',
+          title: 'Attached non-land assets',
+          body:
+            'Non-land assets that live on or return to this site will appear here as individual records with their own detail pages.',
+          statusLabel: 'Frame only'
+        },
+        {
+          id: 'requests',
+          title: 'Requests and borrowing',
+          body:
+            'Borrowing requests, project-use requests, and delivery handoffs will be grouped here once those coordination and governance flows are active.',
+          statusLabel: 'Frame only'
+        }
+      ],
       managementProjects: [
         {
           id: 'asset-project-east-market-land-stewardship',
@@ -441,6 +1098,1017 @@ const platformAssetsFixture: PlatformAssetsPageData = {
   ]
 };
 
+type ExplicitAssetServiceProjectSeed = {
+  slug: string;
+  title: string;
+  authorUsername: string;
+  projectSubtype: Extract<ProjectSubtype, 'asset-management'>;
+  summary: string;
+  locationLabel: string;
+  channelTags: TagRef[];
+  communityTags: TagRef[];
+  memberIds: string[];
+  createdAt: string;
+  lastActivityAt: string;
+  updateTitle: string;
+  updateBody: string;
+  activityScheduledAt: string;
+  activityEndsAt: string;
+  activityNote: string;
+};
+
+const explicitAssetServiceProjectSeeds: ExplicitAssetServiceProjectSeed[] = [
+  {
+    slug: 'tool-library-land-stewardship',
+    title: 'Tool Library Land Stewardship Service',
+    authorUsername: 'toolorbit',
+    projectSubtype: 'asset-management',
+    summary:
+      'A live stewardship surface for access windows, upkeep work, and custody rules across the Tool Library Campus Lot.',
+    locationLabel: 'Tool Library Campus Lot',
+    channelTags: [mutualAid],
+    communityTags: [toolLibrary],
+    memberIds: ['viewer-1', 'user-tool', 'user-rowan', 'user-mika'],
+    createdAt: '2026-04-26T13:20:00Z',
+    lastActivityAt: '2026-05-01T15:10:00Z',
+    updateTitle: 'Weekly site walk published',
+    updateBody:
+      'The next stewardship walk now pairs surface cleanup with a cart-placement review so attached assets stop drifting between intake and repair zones.',
+    activityScheduledAt: '2026-05-03T15:00:00Z',
+    activityEndsAt: '2026-05-03T17:00:00Z',
+    activityNote:
+      'Stewards are checking access routes, surface wear, and where shared carts should return after use.'
+  },
+  {
+    slug: 'tool-library-storage',
+    title: 'Tool Library Storage Facility Service',
+    authorUsername: 'rowanloop',
+    projectSubtype: 'asset-management',
+    summary:
+      'An active storage service for intake shelves, overflow bins, and shared asset custody across the Tool Library campus.',
+    locationLabel: 'Tool Library campus outbuilding',
+    channelTags: [mutualAid],
+    communityTags: [toolLibrary],
+    memberIds: ['viewer-1', 'user-tool', 'user-rowan', 'user-mika'],
+    createdAt: '2026-04-27T12:10:00Z',
+    lastActivityAt: '2026-05-01T16:25:00Z',
+    updateTitle: 'Overflow shelf labels tightened',
+    updateBody:
+      'Shelf labels now match the intake cart and bench-part custody notes so members can tell what is requestable versus reserve stock at a glance.',
+    activityScheduledAt: '2026-05-04T17:00:00Z',
+    activityEndsAt: '2026-05-04T19:00:00Z',
+    activityNote:
+      'This intake window rechecks tagged shelves, reserve stock, and which requests need linked delivery support.'
+  },
+  {
+    slug: 'east-market-land-stewardship',
+    title: 'East Market Land Stewardship Service',
+    authorUsername: 'rowanloop',
+    projectSubtype: 'asset-management',
+    summary:
+      'A live stewardship surface for scheduling, upkeep, and on-land asset placement across the East Market Commons Lot.',
+    locationLabel: 'East Market Commons Lot',
+    channelTags: [mutualAid],
+    communityTags: [eastMarket],
+    memberIds: ['viewer-1', 'user-rowan', 'user-mika', 'user-ember'],
+    createdAt: '2026-04-27T09:50:00Z',
+    lastActivityAt: '2026-05-01T12:20:00Z',
+    updateTitle: 'Staging layout review reopened',
+    updateBody:
+      'The next stewardship round now includes where retrofit tables should sit between build days so the lot stays readable to both storage and activity crews.',
+    activityScheduledAt: '2026-05-03T12:00:00Z',
+    activityEndsAt: '2026-05-03T14:00:00Z',
+    activityNote:
+      'Stewards are checking access lanes, table placement, and cold-pad clearance before the next build cycle.'
+  },
+  {
+    slug: 'east-market-cold-storage',
+    title: 'East Market Cold Storage Service',
+    authorUsername: 'rowanloop',
+    projectSubtype: 'asset-management',
+    summary:
+      'An active storage service for shared cold-holding gear, reserve stock, and request handoff at the East Market cold pad.',
+    locationLabel: 'East Market cold pad',
+    channelTags: [mutualAid],
+    communityTags: [eastMarket],
+    memberIds: ['viewer-1', 'user-rowan', 'user-ember'],
+    createdAt: '2026-04-28T10:30:00Z',
+    lastActivityAt: '2026-05-01T18:05:00Z',
+    updateTitle: 'Pickup reserve shelf kept open',
+    updateBody:
+      'One reserve shelf now stays open for urgent chilled handoffs so regular requests do not consume the full rack set.',
+    activityScheduledAt: '2026-05-04T18:00:00Z',
+    activityEndsAt: '2026-05-04T20:00:00Z',
+    activityNote:
+      'The cold-storage intake window confirms available rack space, reserve stock, and any linked delivery handoff needed for pickups.'
+  },
+  {
+    slug: 'retrofit-materials-shed-service',
+    title: 'Retrofit Materials Shed Service',
+    authorUsername: 'patchbay',
+    projectSubtype: 'asset-management',
+    summary:
+      'An active storage service for retrofit materials, staging tables, and protective gear held on the East Market lot.',
+    locationLabel: 'East Market staging shed',
+    channelTags: [housingBuild],
+    communityTags: [eastMarket],
+    memberIds: ['viewer-1', 'user-rowan', 'user-tool', 'user-mika'],
+    createdAt: '2026-04-28T14:15:00Z',
+    lastActivityAt: '2026-05-01T17:15:00Z',
+    updateTitle: 'Table reserve count posted',
+    updateBody:
+      'The shed now shows how many retrofit staging tables are immediately requestable versus held back for the next build day.',
+    activityScheduledAt: '2026-05-04T16:00:00Z',
+    activityEndsAt: '2026-05-04T18:00:00Z',
+    activityNote:
+      'This handoff window rechecks tables, protective coverings, and which outgoing requests need a delivery service linked in.'
+  }
+];
+
+const assetServiceProjectHrefByTitle = Object.fromEntries(
+  explicitAssetServiceProjectSeeds.map((seed) => [seed.title, `/projects/${seed.slug}`])
+);
+
+function explicitAssetServiceApprovalVotes(memberIds: string[]) {
+  return Object.fromEntries(memberIds.map((userId) => [userId, 'yes' as const]));
+}
+
+function explicitAssetServiceSignalVotes(memberIds: string[]) {
+  return Object.fromEntries(memberIds.map((userId) => [userId, 4]));
+}
+
+function explicitAssetServiceMemberUsernames(memberIds: string[]) {
+  return memberIds
+    .map((userId) => userById(userId)?.username)
+    .filter((username): username is string => !!username);
+}
+
+function explicitAssetServiceValueLabel(seed: ExplicitAssetServiceProjectSeed) {
+  return `Keep land access, shared asset custody, pickup timing, and reserve stock legible through ${seed.title}.`;
+}
+
+function explicitAssetServiceProjectStatus(seed: ExplicitAssetServiceProjectSeed) {
+  return `${seed.title} is already coordinating live custody, handoff, and stewardship work for ${seed.locationLabel}.`;
+}
+
+function buildExplicitAssetServiceActivity(seed: ExplicitAssetServiceProjectSeed): RawProjectActivity {
+  const memberUsernames = explicitAssetServiceMemberUsernames(seed.memberIds);
+
+  return {
+    id: `project-activity-${seed.slug}-1`,
+    title: `${seed.title} coordination window`,
+    authorUsername: seed.authorUsername,
+    scheduledAt: seed.activityScheduledAt,
+    endsAt: seed.activityEndsAt,
+    locationLabel: seed.locationLabel,
+    minimumParticipants: 2,
+    linkedPlanPhaseId: `production-plan-${seed.slug}-1-phase-1`,
+    roles: [
+      {
+        label: 'Asset coordination',
+        requiredCount: 1,
+        assignedUsernames: memberUsernames.slice(0, 1)
+      },
+      {
+        label: 'Inventory handling',
+        requiredCount: 1,
+        assignedUsernames: memberUsernames.slice(1, 2)
+      }
+    ],
+    note: seed.activityNote
+  };
+}
+
+const explicitAssetServiceProjectFeedItems: PublicProjectItem[] = explicitAssetServiceProjectSeeds.map((seed) => ({
+  kind: 'project',
+  id: `project-${seed.slug}`,
+  slug: seed.slug,
+  href: `/projects/${seed.slug}`,
+  createdAt: seed.createdAt,
+  title: seed.title,
+  authorUsername: seed.authorUsername,
+  projectMode: 'collective-service',
+  projectSubtype: seed.projectSubtype,
+  summary: seed.summary,
+  channelTags: seed.channelTags,
+  communityTags: seed.communityTags,
+  stage: 'Activity',
+  locationLabel: seed.locationLabel,
+  voteCount: seed.memberIds.length * 7,
+  activeVote: 1,
+  signalCount: seed.memberIds.length * 12,
+  commentCount: 0,
+  memberCount: seed.memberIds.length,
+  lastActivityAt: seed.lastActivityAt
+}));
+
+const explicitAssetServiceProjectMembersBySlug = Object.fromEntries(
+  explicitAssetServiceProjectSeeds.map((seed) => [seed.slug, seed.memberIds])
+);
+
+const explicitAssetServiceProjectManagersBySlug = Object.fromEntries(
+  explicitAssetServiceProjectSeeds.map((seed) => [
+    seed.slug,
+    {
+      managerIds: [seed.memberIds[1] ?? seed.memberIds[0]],
+      candidateIds: [],
+      confidenceTargetIdsByUserId: {}
+    }
+  ])
+);
+
+const explicitAssetServiceProjectLifecycleBySlug = Object.fromEntries(
+  explicitAssetServiceProjectSeeds.map((seed) => [
+    seed.slug,
+    {
+      currentPhaseId: 'phase-5',
+      phases: {
+        'phase-5': {
+          projectStatus: explicitAssetServiceProjectStatus(seed)
+        },
+        'phase-6': {
+          projectStatus:
+            'This service stays open while the linked land or attached assets still need active stewardship and request handling.'
+        }
+      }
+    }
+  ])
+);
+
+const explicitAssetServiceProjectWorkflowBySlug = Object.fromEntries(
+  explicitAssetServiceProjectSeeds.map((seed) => {
+    const valueId = `value-${seed.slug}-1`;
+    const approvalVotes = explicitAssetServiceApprovalVotes(seed.memberIds);
+
+    return [
+      seed.slug,
+      {
+        signalCount: seed.memberIds.length * 12,
+        signalUserIds: seed.memberIds,
+        values: [
+          {
+            id: valueId,
+            label: explicitAssetServiceValueLabel(seed),
+            authorUsername: seed.authorUsername,
+            votesByUserId: explicitAssetServiceSignalVotes(seed.memberIds)
+          }
+        ],
+        phaseTwoPlans: [
+          {
+            id: `production-plan-${seed.slug}-1`,
+            title: `${seed.title} operating model`,
+            authorUsername: seed.authorUsername,
+            createdAt: seed.createdAt,
+            outputSummary: seed.summary,
+            materialsSummary:
+              'Needs recurring coordination windows, clear custody notes, and visible request rules so land and non-land assets stay legible.',
+            totalCostLabel: '$0 direct spend',
+            acquisitionsSummary:
+              'Uses already-held land and asset records that are seeded directly through the adapter-backed mock data.',
+            overallVotesByUserId: approvalVotes,
+            valueVotesByValueId: {
+              [valueId]: approvalVotes
+            }
+          }
+        ],
+        phaseThreePlans: [
+          {
+            id: `distribution-plan-${seed.slug}-1`,
+            title: 'Asset management access and handoff flow',
+            authorUsername: seed.authorUsername,
+            createdAt: seed.lastActivityAt,
+            distributionSummary:
+              `Keep land access, asset custody, and request handling visible through one asset-management surface for ${seed.locationLabel}.`,
+            accessSummary:
+              'Members can request site use, asset use, or handoff support directly from this project page, with service members coordinating the resulting work.',
+            reserveSummary:
+              'Keep a small reserve buffer and one visible coordination window so urgent requests do not consume the full inventory.',
+            requestSystemEnabled: true,
+            requestMode: 'both',
+            allowOffScheduleRequests: true,
+            overallVotesByUserId: approvalVotes,
+            valueVotesByValueId: {
+              [valueId]: approvalVotes
+            }
+          }
+        ],
+        phaseFiveActivities: [buildExplicitAssetServiceActivity(seed)],
+        serviceRequests: []
+      }
+    ];
+  })
+);
+
+const explicitAssetServiceProjectDetailExtras: Record<string, ProjectDetailExtra> = Object.fromEntries(
+  explicitAssetServiceProjectSeeds.map((seed) => [
+    seed.slug,
+    {
+      overview: seed.summary,
+      updates: [
+        {
+          id: `project-update-${seed.slug}-1`,
+          title: seed.updateTitle,
+          body: seed.updateBody,
+          authorUsername: seed.authorUsername,
+          createdAt: seed.lastActivityAt
+        }
+      ],
+      discussionNote:
+        `Use chat to coordinate site access, asset custody, reserve stock, and any handoff work tied to ${seed.locationLabel}.`,
+      discussion: []
+    }
+  ])
+);
+
+function buildAssetGovernanceVoteSummary(
+  eligibleVoterCount: number,
+  yesCount: number,
+  noCount: number,
+  note: string
+): AssetGovernanceVoteSummary {
+  const votesRequired =
+    eligibleVoterCount <= 0
+      ? 0
+      : Math.ceil((eligibleVoterCount * GOVERNANCE_APPROVAL_THRESHOLD_PERCENT) / 100);
+  const approvalPercent = yesCount + noCount <= 0 ? 0 : Math.round((yesCount / (yesCount + noCount)) * 100);
+  const votesRemaining = Math.max(votesRequired - (yesCount + noCount), 0);
+
+  return {
+    yesCount,
+    noCount,
+    eligibleVoterCount,
+    approvalPercent,
+    votesRequired,
+    votesRemaining,
+    statusLabel:
+      yesCount >= votesRequired
+        ? 'Approved'
+        : votesRemaining === 0 && yesCount < votesRequired
+          ? 'Rejected'
+          : 'Pending',
+    note
+  };
+}
+
+function emptyAssetGovernanceData(): AssetGovernanceData {
+  return {
+    availabilityRequests: [],
+    borrowingPolicies: [],
+    borrowingRequests: [],
+    deliveryRequests: [],
+    provenanceTimeline: []
+  };
+}
+
+function buildAssetGovernanceData(assetId: string): AssetGovernanceData {
+  switch (assetId) {
+    case 'land-tool-library-campus':
+      return {
+        availabilityRequests: [
+          {
+            id: 'availability-tool-library-benches-approved',
+            assetLabel: 'Workshop bench set',
+            title: 'Repair cafe workshop-use window',
+            statusLabel: 'Approved availability',
+            requestingPartyLabel: 'Repair Cafe Shift Grid',
+            requestedAtLabel: 'Opened May 2',
+            timeframeLabel: 'May 9 to May 30 repair shifts',
+            managingProjectLabel: 'Tool Library Land Stewardship Service',
+            summary:
+              'The stewardship team confirmed that the fixed bench set stays reserved for recurring repair-cafe intake and triage blocks this month.',
+            outcomeNote:
+              'Approved requests unlock the linked plan or shift scheduling without needing a second availability check.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              2,
+              0,
+              'The site stewards cleared the required threshold for recurring repair-cafe use.'
+            )
+          },
+          {
+            id: 'availability-tool-library-carts-pending',
+            assetLabel: 'Repair intake carts',
+            title: 'Front-room overlap request',
+            statusLabel: 'Pending availability vote',
+            requestingPartyLabel: 'Childcare Check-in Desk Service',
+            requestedAtLabel: 'Opened May 14',
+            timeframeLabel: 'Two overlapping event mornings next week',
+            managingProjectLabel: 'Tool Library Storage Facility Service',
+            summary:
+              'The childcare desk requested two carts during overlapping intake windows so supplies can move between the front room and workshop.',
+            outcomeNote:
+              'The request stays pending until the storage service decides whether enough carts remain available for repair intake.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              1,
+              0,
+              'One more yes vote would clear the storage-service threshold.'
+            )
+          }
+        ],
+        borrowingPolicies: [
+          {
+            id: 'policy-tool-library-benches',
+            assetLabel: 'Workshop bench set',
+            statusLabel: 'Active policy',
+            policyLabel: 'Project use only',
+            managingProjectLabel: 'Tool Library Land Stewardship Service',
+            decidedAtLabel: 'Last changed Apr 29',
+            summary:
+              'The fixed bench set stays reserved for project or service work because the benches are installed infrastructure, not portable library items.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              3,
+              0,
+              'All seeded land stewards supported keeping the bench set in project-use-only custody.'
+            )
+          },
+          {
+            id: 'policy-tool-library-carts',
+            assetLabel: 'Repair intake carts',
+            statusLabel: 'Active policy',
+            policyLabel: 'Individual borrowing permitted',
+            managingProjectLabel: 'Tool Library Storage Facility Service',
+            decidedAtLabel: 'Last changed May 3',
+            summary:
+              'The rolling carts can be borrowed directly when members need to move materials between the front room, workshop floor, and nearby pickup lane.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              2,
+              1,
+              'The storage team approved individual borrowing with one dissent about cart wear.'
+            )
+          }
+        ],
+        borrowingRequests: [
+          {
+            id: 'borrowing-tool-library-carts-active',
+            assetLabel: 'Repair intake carts',
+            title: 'Community cleanup cart loan',
+            statusLabel: 'Borrowed by individual',
+            borrowerLabel: 'patchbay',
+            requestedAtLabel: 'Requested May 11',
+            expectedReturnLabel: 'Due back May 18',
+            purpose: 'Move donated repair items from the alley drop-off to the intake room during the neighborhood cleanup.',
+            currentCustodyLabel: 'Currently in patchbay custody',
+            coordinationNote:
+              'Storage stewards coordinated pickup at the front room and asked for a photo on return so wheel condition stays visible on the record.'
+          },
+          {
+            id: 'borrowing-tool-library-carts-overdue',
+            assetLabel: 'Repair intake carts',
+            title: 'Overflow event cart return',
+            statusLabel: 'Overdue return',
+            borrowerLabel: 'quietember',
+            requestedAtLabel: 'Requested Apr 28',
+            expectedReturnLabel: 'Due back May 4',
+            purpose: 'Move childcare sign-in bins during a crowded mutual-aid pickup window.',
+            currentCustodyLabel: 'Still assigned to quietember',
+            coordinationNote:
+              'The storage team is still messaging the borrower directly. No penalty applies, but the overdue state remains public until the cart returns.',
+            responsiblePartyLabel: 'quietember'
+          }
+        ],
+        deliveryRequests: [
+          {
+            id: 'delivery-tool-library-benches-completed',
+            assetLabel: 'Workshop bench set',
+            title: 'Bench parts return from overflow storage',
+            statusLabel: 'Completed delivery',
+            requesterLabel: 'Tool Library Land Stewardship Service',
+            requestedAtLabel: 'Requested May 1',
+            neededByLabel: 'Completed May 2',
+            originLabel: 'Tool Library Storage Facility Service',
+            destinationLabel: 'Tool Library workshop floor',
+            assignedVolunteerLabel: 'toolorbit',
+            summary:
+              'Replacement surfaces and brackets were returned from overflow storage so the bench set could be reopened for repair shifts.'
+          }
+        ],
+        provenanceTimeline: [
+          {
+            id: 'provenance-tool-library-land-1',
+            title: 'Land stewardship record created',
+            statusLabel: 'Land record opened',
+            happenedAtLabel: 'Apr 25',
+            actorLabel: 'platform stewardship preview',
+            summary: 'The campus lot was entered as the home land record for workshop, intake, and overflow storage assets.',
+            locationLabel: 'Tool Library Campus Lot',
+            custodyLabel: 'Platform stewardship preview'
+          },
+          {
+            id: 'provenance-tool-library-land-2',
+            title: 'Bench surfaces returned from storage',
+            statusLabel: 'Completed delivery',
+            happenedAtLabel: 'May 2',
+            actorLabel: 'toolorbit',
+            summary: 'Overflow bench surfaces returned from storage and were reinstalled on the workshop floor.',
+            locationLabel: 'Tool Library workshop floor',
+            custodyLabel: 'Tool Library Land Stewardship Service'
+          },
+          {
+            id: 'provenance-tool-library-land-3',
+            title: 'Intake cart marked overdue',
+            statusLabel: 'Overdue custody state',
+            happenedAtLabel: 'May 4',
+            actorLabel: 'Tool Library Storage Facility Service',
+            summary: 'One intake cart remained off-site past its expected return and now shows an overdue public custody state.',
+            locationLabel: 'Borrower off-site use',
+            custodyLabel: 'quietember'
+          }
+        ]
+      };
+    case 'asset-tool-library-workbench-set':
+      return {
+        availabilityRequests: [
+          {
+            id: 'availability-bench-set-approved',
+            assetLabel: 'Workshop bench set',
+            title: 'Repair cafe bench reservation',
+            statusLabel: 'Approved availability',
+            requestingPartyLabel: 'Repair Cafe Shift Grid',
+            requestedAtLabel: 'Opened May 2',
+            timeframeLabel: 'Recurring Friday repair shifts',
+            managingProjectLabel: 'Tool Library Land Stewardship Service',
+            summary:
+              'The bench set was approved for recurring repair-cafe use after stewards confirmed no conflicting workshop maintenance windows.',
+            outcomeNote: 'The approved request now appears as active project use on the asset record.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              2,
+              0,
+              'The stewardship vote cleared the threshold for recurring use.'
+            )
+          }
+        ],
+        borrowingPolicies: [
+          {
+            id: 'policy-bench-set',
+            assetLabel: 'Workshop bench set',
+            statusLabel: 'Active policy',
+            policyLabel: 'Project use only',
+            managingProjectLabel: 'Tool Library Land Stewardship Service',
+            decidedAtLabel: 'Last changed Apr 29',
+            summary: 'The bench set stays in project custody because it is installed workshop infrastructure.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              3,
+              0,
+              'All seeded stewards supported the project-use-only policy.'
+            )
+          }
+        ],
+        borrowingRequests: [],
+        deliveryRequests: [
+          {
+            id: 'delivery-bench-set-return',
+            assetLabel: 'Workshop bench set',
+            title: 'Bench surface return from overflow storage',
+            statusLabel: 'Completed delivery',
+            requesterLabel: 'Tool Library Land Stewardship Service',
+            requestedAtLabel: 'Requested May 1',
+            neededByLabel: 'Completed May 2',
+            originLabel: 'Overflow shelf zone',
+            destinationLabel: 'Workshop floor',
+            assignedVolunteerLabel: 'toolorbit',
+            summary: 'Replacement surfaces returned from storage and were reinstalled before the next repair shift opened.'
+          }
+        ],
+        provenanceTimeline: [
+          {
+            id: 'provenance-bench-1',
+            title: 'Bench set entered into common custody',
+            statusLabel: 'Asset registered',
+            happenedAtLabel: 'Apr 25',
+            actorLabel: 'platform stewardship preview',
+            summary: 'The fixed workshop benches were entered as a permanent shared asset under the tool-library land record.',
+            locationLabel: 'Tool Library workshop floor',
+            custodyLabel: 'Tool Library Land Stewardship Service'
+          },
+          {
+            id: 'provenance-bench-2',
+            title: 'Repair-cafe use window confirmed',
+            statusLabel: 'Project use approved',
+            happenedAtLabel: 'May 2',
+            actorLabel: 'Tool Library Land Stewardship Service',
+            summary: 'The stewardship vote cleared recurring repair-cafe use for the current month.',
+            locationLabel: 'Tool Library workshop floor',
+            custodyLabel: 'Repair Cafe Shift Grid'
+          }
+        ]
+      };
+    case 'asset-tool-library-intake-carts':
+      return {
+        availabilityRequests: [
+          {
+            id: 'availability-carts-pending',
+            assetLabel: 'Repair intake carts',
+            title: 'Childcare overlap request',
+            statusLabel: 'Pending availability vote',
+            requestingPartyLabel: 'Childcare Check-in Desk Service',
+            requestedAtLabel: 'Opened May 14',
+            timeframeLabel: 'Two front-room event mornings',
+            managingProjectLabel: 'Tool Library Storage Facility Service',
+            summary: 'The childcare desk asked to reserve two carts during overlapping intake windows while repair intake stays active.',
+            outcomeNote: 'The request remains pending until the storage team confirms enough carts stay on site for repair intake.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              1,
+              0,
+              'One more yes vote would approve the overlap request.'
+            )
+          }
+        ],
+        borrowingPolicies: [
+          {
+            id: 'policy-carts',
+            assetLabel: 'Repair intake carts',
+            statusLabel: 'Active policy',
+            policyLabel: 'Individual borrowing permitted',
+            managingProjectLabel: 'Tool Library Storage Facility Service',
+            decidedAtLabel: 'Last changed May 3',
+            summary: 'Portable carts can be borrowed directly when members need to move shared materials between nearby rooms or pickup lanes.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              2,
+              1,
+              'The storage team approved borrowing with one dissent about wear and tear.'
+            )
+          }
+        ],
+        borrowingRequests: [
+          {
+            id: 'borrowing-carts-active',
+            assetLabel: 'Repair intake carts',
+            title: 'Community cleanup cart loan',
+            statusLabel: 'Borrowed by individual',
+            borrowerLabel: 'patchbay',
+            requestedAtLabel: 'Requested May 11',
+            expectedReturnLabel: 'Due back May 18',
+            purpose: 'Move donated repair items from the alley drop-off to the intake room during a neighborhood cleanup.',
+            currentCustodyLabel: 'Currently in patchbay custody',
+            coordinationNote: 'Storage stewards coordinated pickup at the front room and asked for a photo on return to confirm wheel condition.'
+          },
+          {
+            id: 'borrowing-carts-overdue',
+            assetLabel: 'Repair intake carts',
+            title: 'Overlapping event overflow cart',
+            statusLabel: 'Overdue return',
+            borrowerLabel: 'quietember',
+            requestedAtLabel: 'Requested Apr 28',
+            expectedReturnLabel: 'Due back May 4',
+            purpose: 'Move check-in bins during a crowded mutual-aid pickup window.',
+            currentCustodyLabel: 'Still assigned to quietember',
+            coordinationNote: 'The storage team is still coordinating a return directly with the borrower. The overdue state remains public until the cart returns.',
+            responsiblePartyLabel: 'quietember'
+          }
+        ],
+        deliveryRequests: [
+          {
+            id: 'delivery-carts-handoff',
+            assetLabel: 'Repair intake carts',
+            title: 'Front-room to workshop handoff',
+            statusLabel: 'Completed delivery',
+            requesterLabel: 'Tool Library Storage Facility Service',
+            requestedAtLabel: 'Requested May 6',
+            neededByLabel: 'Completed May 6',
+            originLabel: 'Tool Library front room',
+            destinationLabel: 'Workshop floor',
+            assignedVolunteerLabel: 'samira.l',
+            summary: 'Two carts moved from check-in to the workshop floor for a heavy repair-intake day.'
+          }
+        ],
+        provenanceTimeline: [
+          {
+            id: 'provenance-carts-1',
+            title: 'Borrowing policy switched to direct borrowing',
+            statusLabel: 'Borrowing policy approved',
+            happenedAtLabel: 'May 3',
+            actorLabel: 'Tool Library Storage Facility Service',
+            summary: 'The storage team approved direct individual borrowing for the portable carts.',
+            locationLabel: 'Tool Library front room',
+            custodyLabel: 'Tool Library Storage Facility Service'
+          },
+          {
+            id: 'provenance-carts-2',
+            title: 'Cart loan opened for cleanup run',
+            statusLabel: 'Borrowed by individual',
+            happenedAtLabel: 'May 11',
+            actorLabel: 'patchbay',
+            summary: 'A cart left storage for a neighborhood cleanup and remains in active borrower custody until return.',
+            locationLabel: 'Borrower off-site use',
+            custodyLabel: 'patchbay'
+          },
+          {
+            id: 'provenance-carts-3',
+            title: 'Second cart marked overdue',
+            statusLabel: 'Overdue custody state',
+            happenedAtLabel: 'May 4',
+            actorLabel: 'Tool Library Storage Facility Service',
+            summary: 'A second cart remained off-site past its due date and is now publicly marked overdue.',
+            locationLabel: 'Borrower off-site use',
+            custodyLabel: 'quietember'
+          }
+        ]
+      };
+    case 'land-east-market-commons':
+      return {
+        availabilityRequests: [
+          {
+            id: 'availability-east-market-cold-racks-approved',
+            assetLabel: 'Cold-storage rack set',
+            title: 'Cooled pickup lane request',
+            statusLabel: 'Approved availability',
+            requestingPartyLabel: 'Neighborhood Ride Coordination Service',
+            requestedAtLabel: 'Opened May 7',
+            timeframeLabel: 'Twice-weekly cooled pickup windows',
+            managingProjectLabel: 'East Market Cold Storage Service',
+            summary: 'The cold-storage service approved recurring rack access so ride coordination can stage temperature-sensitive pickups.',
+            outcomeNote: 'The approved request keeps dispatch visible and unlocks cooled pickup scheduling without another asset vote.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              2,
+              0,
+              'Cold-storage stewards approved the cooled pickup window.'
+            )
+          },
+          {
+            id: 'availability-east-market-staging-pending',
+            assetLabel: 'Retrofit staging tables',
+            title: 'Next build-day staging request',
+            statusLabel: 'Pending availability vote',
+            requestingPartyLabel: 'Hallway Air-Sealing Build Day',
+            requestedAtLabel: 'Opened May 16',
+            timeframeLabel: 'Next sealing block and cleanup night',
+            managingProjectLabel: 'East Market Land Stewardship Service',
+            summary: 'The build day requested staging-table use for another seal-and-check round plus the follow-up cleanup block.',
+            outcomeNote: 'The request will decide whether the next build-day plan can stay on the current in-house table path or must revise toward new purchases.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              1,
+              1,
+              'The land stewards still need one more yes vote to clear the request.'
+            )
+          }
+        ],
+        borrowingPolicies: [
+          {
+            id: 'policy-east-market-cold-racks',
+            assetLabel: 'Cold-storage rack set',
+            statusLabel: 'Active policy',
+            policyLabel: 'Project use only',
+            managingProjectLabel: 'East Market Cold Storage Service',
+            decidedAtLabel: 'Last changed May 5',
+            summary: 'The rack set stays in project custody because temperature handling needs stewarded service windows.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              3,
+              0,
+              'All seeded cold-storage stewards backed the project-use-only policy.'
+            )
+          },
+          {
+            id: 'policy-east-market-tables',
+            assetLabel: 'Retrofit staging tables',
+            statusLabel: 'Active policy',
+            policyLabel: 'Individual borrowing permitted',
+            managingProjectLabel: 'East Market Land Stewardship Service',
+            decidedAtLabel: 'Last changed May 8',
+            summary: 'Portable staging tables can be borrowed directly when neighborhood work needs short setup windows outside project activity.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              2,
+              1,
+              'The land stewards approved portable-table borrowing with one caution about return timing.'
+            )
+          }
+        ],
+        borrowingRequests: [
+          {
+            id: 'borrowing-east-market-tables-active',
+            assetLabel: 'Retrofit staging tables',
+            title: 'Weekend retrofit prep loan',
+            statusLabel: 'Borrowed by individual',
+            borrowerLabel: 'rowanloop',
+            requestedAtLabel: 'Requested May 12',
+            expectedReturnLabel: 'Due back May 19',
+            purpose: 'Set up temporary prep surfaces for neighborhood insulation-kit sorting.',
+            currentCustodyLabel: 'Currently in rowanloop custody',
+            coordinationNote: 'The land stewardship team logged the pickup and asked for a return photo before the next build-day staging request closes.'
+          }
+        ],
+        deliveryRequests: [
+          {
+            id: 'delivery-east-market-cold-route',
+            assetLabel: 'Cold-storage rack set',
+            title: 'Commons-to-pickup lane cold-chain transfer',
+            statusLabel: 'Completed delivery',
+            requesterLabel: 'Neighborhood Ride Coordination Service',
+            requestedAtLabel: 'Requested May 9',
+            neededByLabel: 'Completed May 10',
+            originLabel: 'East Market cold pad',
+            destinationLabel: 'East Market pickup lane',
+            assignedVolunteerLabel: 'quietember',
+            summary: 'A delivery-style handoff moved the rack set into cooled pickup position and then returned it to storage after dispatch closed.'
+          }
+        ],
+        provenanceTimeline: [
+          {
+            id: 'provenance-east-market-land-1',
+            title: 'Commons lot entered as land record',
+            statusLabel: 'Land record opened',
+            happenedAtLabel: 'Apr 24',
+            actorLabel: 'platform stewardship preview',
+            summary: 'The commons lot was entered as the home record for cold storage, staging tables, and pickup-lane infrastructure.',
+            locationLabel: 'East Market Commons Lot',
+            custodyLabel: 'Platform stewardship preview'
+          },
+          {
+            id: 'provenance-east-market-land-2',
+            title: 'Cold-chain route completed',
+            statusLabel: 'Completed delivery',
+            happenedAtLabel: 'May 10',
+            actorLabel: 'quietember',
+            summary: 'The cold-storage rack set moved from the commons pad to the pickup lane and returned after the cooled dispatch window closed.',
+            locationLabel: 'East Market pickup lane',
+            custodyLabel: 'Neighborhood Ride Coordination Service'
+          }
+        ]
+      };
+    case 'asset-east-market-cold-racks':
+      return {
+        availabilityRequests: [
+          {
+            id: 'availability-cold-racks-approved',
+            assetLabel: 'Cold-storage rack set',
+            title: 'Recurring cooled pickup request',
+            statusLabel: 'Approved availability',
+            requestingPartyLabel: 'Neighborhood Ride Coordination Service',
+            requestedAtLabel: 'Opened May 7',
+            timeframeLabel: 'Twice-weekly pickup windows',
+            managingProjectLabel: 'East Market Cold Storage Service',
+            summary: 'The rack set was approved for recurring cooled pickup windows so dispatch can stage temperature-sensitive orders.',
+            outcomeNote: 'The approved request now appears as active project use for dispatch work.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              2,
+              0,
+              'The storage service approved recurring rack use.'
+            )
+          }
+        ],
+        borrowingPolicies: [
+          {
+            id: 'policy-cold-racks',
+            assetLabel: 'Cold-storage rack set',
+            statusLabel: 'Active policy',
+            policyLabel: 'Project use only',
+            managingProjectLabel: 'East Market Cold Storage Service',
+            decidedAtLabel: 'Last changed May 5',
+            summary: 'The rack set stays in service-managed custody because cold handling and cleaning need stewarded oversight.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              3,
+              0,
+              'All seeded cold-storage stewards backed the project-use-only policy.'
+            )
+          }
+        ],
+        borrowingRequests: [],
+        deliveryRequests: [
+          {
+            id: 'delivery-cold-racks',
+            assetLabel: 'Cold-storage rack set',
+            title: 'Pickup lane cold-chain run',
+            statusLabel: 'Completed delivery',
+            requesterLabel: 'Neighborhood Ride Coordination Service',
+            requestedAtLabel: 'Requested May 9',
+            neededByLabel: 'Completed May 10',
+            originLabel: 'East Market cold pad',
+            destinationLabel: 'East Market pickup lane',
+            assignedVolunteerLabel: 'quietember',
+            summary: 'The rack set moved to the pickup lane for dispatch and then returned to the cold pad after the run completed.'
+          }
+        ],
+        provenanceTimeline: [
+          {
+            id: 'provenance-cold-racks-1',
+            title: 'Rack set assigned to cold-storage service',
+            statusLabel: 'Custody assigned',
+            happenedAtLabel: 'Apr 30',
+            actorLabel: 'East Market Cold Storage Service',
+            summary: 'The rack set entered ongoing cold-storage custody after the service staged the commons pad.',
+            locationLabel: 'East Market cold pad',
+            custodyLabel: 'East Market Cold Storage Service'
+          },
+          {
+            id: 'provenance-cold-racks-2',
+            title: 'Dispatch route completed',
+            statusLabel: 'Completed delivery',
+            happenedAtLabel: 'May 10',
+            actorLabel: 'quietember',
+            summary: 'The rack set temporarily moved into dispatch custody during the cooled pickup window and then returned to storage.',
+            locationLabel: 'East Market pickup lane',
+            custodyLabel: 'Neighborhood Ride Coordination Service'
+          }
+        ]
+      };
+    case 'asset-east-market-retrofit-tables':
+      return {
+        availabilityRequests: [
+          {
+            id: 'availability-staging-tables-pending',
+            assetLabel: 'Retrofit staging tables',
+            title: 'Next sealing block staging request',
+            statusLabel: 'Pending availability vote',
+            requestingPartyLabel: 'Hallway Air-Sealing Build Day',
+            requestedAtLabel: 'Opened May 16',
+            timeframeLabel: 'Next sealing block plus cleanup night',
+            managingProjectLabel: 'East Market Land Stewardship Service',
+            summary: 'The productive build day requested table access for the next staging and cleanup run.',
+            outcomeNote: 'This request determines whether the next round can stay on in-house tables or must revise toward purchase or a different shared asset.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              1,
+              1,
+              'The request still needs one more yes vote from land stewards.'
+            )
+          }
+        ],
+        borrowingPolicies: [
+          {
+            id: 'policy-staging-tables',
+            assetLabel: 'Retrofit staging tables',
+            statusLabel: 'Active policy',
+            policyLabel: 'Individual borrowing permitted',
+            managingProjectLabel: 'East Market Land Stewardship Service',
+            decidedAtLabel: 'Last changed May 8',
+            summary: 'Portable staging tables can be borrowed directly for short neighborhood work windows when no project holds them.',
+            voteSummary: buildAssetGovernanceVoteSummary(
+              3,
+              2,
+              1,
+              'The land stewards approved borrowing with one caution about quick returns.'
+            )
+          }
+        ],
+        borrowingRequests: [
+          {
+            id: 'borrowing-staging-tables-active',
+            assetLabel: 'Retrofit staging tables',
+            title: 'Weekend prep-table loan',
+            statusLabel: 'Borrowed by individual',
+            borrowerLabel: 'rowanloop',
+            requestedAtLabel: 'Requested May 12',
+            expectedReturnLabel: 'Due back May 19',
+            purpose: 'Set up temporary prep surfaces for neighborhood insulation-kit sorting.',
+            currentCustodyLabel: 'Currently in rowanloop custody',
+            coordinationNote: 'The stewardship team logged the pickup and expects a return photo before the next build-day use window closes.'
+          }
+        ],
+        deliveryRequests: [
+          {
+            id: 'delivery-staging-tables-scheduled',
+            assetLabel: 'Retrofit staging tables',
+            title: 'Return from materials shed',
+            statusLabel: 'Scheduled delivery',
+            requesterLabel: 'Hallway Air-Sealing Build Day',
+            requestedAtLabel: 'Requested May 17',
+            neededByLabel: 'Needed by May 20',
+            originLabel: 'Retrofit Materials Shed Service',
+            destinationLabel: 'East Market retrofit staging area',
+            assignedVolunteerLabel: 'Awaiting volunteer',
+            summary: 'The next sealing round needs the tables moved back from the materials shed before setup begins.'
+          }
+        ],
+        provenanceTimeline: [
+          {
+            id: 'provenance-staging-tables-1',
+            title: 'Tables entered land stewardship custody',
+            statusLabel: 'Asset registered',
+            happenedAtLabel: 'Apr 28',
+            actorLabel: 'East Market Land Stewardship Service',
+            summary: 'The shared staging tables were entered under commons custody for rotating build-day and neighborhood use.',
+            locationLabel: 'East Market staging shed',
+            custodyLabel: 'East Market Land Stewardship Service'
+          },
+          {
+            id: 'provenance-staging-tables-2',
+            title: 'Weekend prep loan opened',
+            statusLabel: 'Borrowed by individual',
+            happenedAtLabel: 'May 12',
+            actorLabel: 'rowanloop',
+            summary: 'Two staging tables left the commons lot for a short neighborhood prep window and remain in borrower custody.',
+            locationLabel: 'Borrower off-site use',
+            custodyLabel: 'rowanloop'
+          }
+        ]
+      };
+    default:
+      return emptyAssetGovernanceData();
+  }
+}
+
 type DynamicScopePageMeta = {
   description: string;
   note?: string;
@@ -452,6 +2120,7 @@ const createdChannelScopeMetaBySlug: Record<string, DynamicScopePageMeta> = {};
 const createdCommunityScopeMetaBySlug: Record<string, DynamicScopePageMeta> = {};
 
 const clientStateStorageKey = 'social-production.web.client-state';
+const createdProjectSlugs = new Set<string>();
 
 function createDefaultPublicFeedPreferences(): PublicFeedPreferences {
   return {
@@ -477,6 +2146,7 @@ function createDefaultSettingsState(
   return {
     profileUsername: viewer.username,
     profileBio: viewer.bio ?? '',
+    profileImageUrl: viewer.profileImageUrl ?? '',
     appearanceThemeMode: 'light',
     defaultFeed: 'public',
     publicFeedPreferences: createDefaultPublicFeedPreferences(),
@@ -526,6 +2196,7 @@ function currentSettingsState() {
   if (existing) {
     const normalized = normalizeSettingsState(viewer, existing);
     normalized.profileUsername = viewer.username;
+    normalized.profileImageUrl = viewer.profileImageUrl ?? normalized.profileImageUrl;
     settingsByUserId[viewer.id] = normalized;
     return normalized;
   }
@@ -548,6 +2219,32 @@ function syncViewerProfileFromSettings(userId?: string | null) {
   }
 
   viewer.bio = settings.profileBio.trim() ? settings.profileBio.trim() : undefined;
+  viewer.profileImageUrl = settings.profileImageUrl.trim() ? settings.profileImageUrl.trim() : undefined;
+}
+
+function snapshotCreatedProjects() {
+  return [...createdProjectSlugs]
+    .map((slug) => {
+      const item = publicFeedBase.find(
+        (entry): entry is PublicProjectItem => entry.kind === 'project' && entry.slug === slug
+      );
+
+      if (!item) {
+        return null;
+      }
+
+      return {
+        slug,
+        item,
+        lifecycle: projectLifecycleBySlug[slug],
+        workflow: projectWorkflowStateBySlug[slug],
+        members: projectMembersBySlug[slug] ?? [],
+        membershipSince: projectMembershipSinceBySlug[slug] ?? {},
+        detailExtra: projectDetailExtras[slug],
+        comments: commentsBySubjectId[item.id] ?? []
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => !!entry);
 }
 
 function persistClientState() {
@@ -564,7 +2261,8 @@ function persistClientState() {
         credentialsByUserId,
         followsByUserId,
         scopeMembershipByKey,
-        settingsByUserId
+        settingsByUserId,
+        createdProjects: snapshotCreatedProjects()
       })
     );
   } catch {
@@ -589,6 +2287,16 @@ function hydratePersistedClientState() {
       users?: ViewerSummary[];
       credentialsByUserId?: Record<string, string>;
       followsByUserId?: Record<string, string[]>;
+      createdProjects?: Array<{
+        slug?: string;
+        item?: PublicProjectItem;
+        lifecycle?: ProjectLifecycleConfig;
+        workflow?: ProjectWorkflowState;
+        members?: string[];
+        membershipSince?: Record<string, string>;
+        detailExtra?: ProjectDetailExtra;
+        comments?: DetailComment[];
+      }>;
       scopeMembershipByKey?: Record<
         string,
         {
@@ -647,6 +2355,55 @@ function hydratePersistedClientState() {
           normalizeSettingsState(userById(userId) ?? patchbayUser, settings)
         ])
       );
+    }
+
+    if (Array.isArray(persisted.createdProjects)) {
+      for (const entry of persisted.createdProjects) {
+        const slug = entry?.slug;
+        const item = entry?.item;
+
+        if (!slug || !item || item.kind !== 'project') {
+          continue;
+        }
+
+        const existingIndex = publicFeedBase.findIndex(
+          (publicItem) => publicItem.kind === 'project' && publicItem.slug === slug
+        );
+
+        if (existingIndex === -1) {
+          publicFeedBase.unshift(item);
+        } else {
+          publicFeedBase[existingIndex] = item;
+        }
+
+        if (entry.lifecycle) {
+          projectLifecycleBySlug[slug] = entry.lifecycle;
+        }
+
+        if (entry.workflow) {
+          projectWorkflowStateBySlug[slug] = entry.workflow;
+        }
+
+        projectMembersBySlug[slug] = Array.isArray(entry.members)
+          ? entry.members.filter((member): member is string => typeof member === 'string')
+          : projectMembersBySlug[slug] ?? [];
+
+        projectMembershipSinceBySlug[slug] =
+          entry.membershipSince && typeof entry.membershipSince === 'object'
+            ? entry.membershipSince
+            : projectMembershipSinceBySlug[slug] ?? {};
+
+        if (entry.detailExtra) {
+          projectDetailExtras[slug] = entry.detailExtra;
+        }
+
+        commentsBySubjectId[item.id] = Array.isArray(entry.comments)
+          ? entry.comments
+          : commentsBySubjectId[item.id] ?? [];
+
+        seedVoteTarget(item.id, item.voteCount, item.activeVote);
+        createdProjectSlugs.add(slug);
+      }
     }
 
     mockSessionFixture.currentViewerId =
@@ -939,6 +2696,7 @@ const publicFeedBase: PublicFeedItem[] = [
     memberCount: 0,
     lastActivityAt: '2026-04-30T19:30:00Z'
   },
+  ...explicitAssetServiceProjectFeedItems,
   {
     kind: 'project',
     id: 'project-blade-sharpening',
@@ -1147,7 +2905,8 @@ const projectMembersBySlug: Record<string, string[]> = {
   'block-weatherization-pilot-wrap': ['viewer-1', 'user-mika', 'user-ember'],
   'mutual-aid-ride-request-desk': ['viewer-1', 'user-rowan', 'user-ember'],
   'patchbay-bike-light-tuneups': ['viewer-1', 'user-tool'],
-  'rowan-after-school-device-checks': ['viewer-1', 'user-rowan', 'user-mika']
+  'rowan-after-school-device-checks': ['viewer-1', 'user-rowan', 'user-mika'],
+  ...explicitAssetServiceProjectMembersBySlug
 };
 
 function seedMembershipSinceBySlug(
@@ -1206,6 +2965,7 @@ const scopeMembershipByKey: Record<string, ScopeMembershipConfig> = {
 };
 
 const projectManagersBySlug: Record<string, RoleConfig> = {
+  ...explicitAssetServiceProjectManagersBySlug,
   'neighborhood-heat-pump-pilot': {
     managerIds: ['viewer-1'],
     candidateIds: ['user-rowan'],
@@ -1288,13 +3048,281 @@ const projectManagersBySlug: Record<string, RoleConfig> = {
 const eventWorkflowStateBySlug: Record<string, EventWorkflowState> = {
   'tool-library-spring-swap-social': {
     editorUserIds: ['user-tool'],
+    currentPhaseId: 'activity',
+    signalCount: 3,
+    signalUserIds: ['viewer-1', 'user-tool', 'user-rowan'],
+    oppositionSignalCount: 1,
+    oppositionSignalUserIds: ['user-ember'],
+    eventValues: [
+      {
+        id: 'event-value-swap-1',
+        label: 'Should welcome first-time neighbors clearly',
+        authorUsername: 'patchbay',
+        votesByUserId: {
+          'viewer-1': 9,
+          'user-tool': 8,
+          'user-rowan': 10,
+          'user-mika': 8
+        }
+      },
+      {
+        id: 'event-value-swap-2',
+        label: 'Should turn repair stories into concrete volunteer roles',
+        authorUsername: 'toolorbit',
+        votesByUserId: {
+          'viewer-1': 8,
+          'user-tool': 10,
+          'user-rowan': 9,
+          'user-mika': 7
+        }
+      },
+      {
+        id: 'event-value-swap-3',
+        label: 'Should keep the swap table and repair help easy to navigate',
+        authorUsername: 'rowanloop',
+        votesByUserId: {
+          'viewer-1': 7,
+          'user-tool': 9,
+          'user-rowan': 8,
+          'user-mika': 8
+        }
+      }
+    ],
+    eventPlans: [
+      {
+        id: 'event-plan-swap-1',
+        title: 'Tool Library Spring Swap and Repair Night',
+        authorUsername: 'toolorbit',
+        createdAt: '2026-04-29T18:45:00Z',
+        description:
+          'An open spring repair-and-swap night with a clear welcome point, repair story circle, and volunteer signup round that turns interest into actual roles.',
+        demandSignalSnapshot: 3,
+        demandConsiderationNote:
+          'The plan keeps the social format people asked for, but adds clear intake, volunteer roles, and a closing signup pass so the demand signal becomes real coordination.',
+        locationLabel: 'Tool Library Courtyard',
+        schedule: {
+          mode: 'date',
+          startDate: '2026-05-01',
+          startTimeLabel: '18:00',
+          finishTimeLabel: '21:00'
+        },
+        overallVotesByUserId: {
+          'viewer-1': 'yes',
+          'user-tool': 'yes',
+          'user-rowan': 'yes'
+        },
+        valueVotesByValueId: {
+          '__demand-signal__': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          },
+          'event-value-swap-1': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          },
+          'event-value-swap-2': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          },
+          'event-value-swap-3': {
+            'viewer-1': 'yes',
+            'user-tool': 'yes',
+            'user-rowan': 'yes'
+          }
+        },
+        planPhases: [
+          {
+            id: 'event-plan-swap-1-phase-1',
+            title: 'Arrival and swap table',
+            details:
+              'Open the courtyard, set the swap table, and make sure new arrivals can see where tools, snacks, and volunteer signups live.'
+          },
+          {
+            id: 'event-plan-swap-1-phase-2',
+            title: 'Repair story circle',
+            details:
+              'Gather short repair stories, route people toward hands-on help, and keep a running note of what tools need extra coverage.'
+          },
+          {
+            id: 'event-plan-swap-1-phase-3',
+            title: 'Summer signup round',
+            details:
+              'Close with volunteer signups for summer repair nights and a clear handoff for follow-up requests.'
+          }
+        ]
+      }
+    ],
+    eventActivities: [
+      {
+        id: 'event-activity-swap-setup',
+        title: 'Courtyard setup and welcome table',
+        authorUsername: 'toolorbit',
+        scheduledAt: '2026-05-01T18:00:00Z',
+        endsAt: '2026-05-01T18:45:00Z',
+        locationLabel: 'Tool Library Courtyard',
+        minimumParticipants: 3,
+        linkedPlanPhaseId: 'event-plan-swap-1-phase-1',
+        roles: [
+          {
+            label: 'Setup lead',
+            requiredCount: 1,
+            assignedUsernames: ['toolorbit']
+          },
+          {
+            label: 'Welcome table',
+            requiredCount: 1,
+            assignedUsernames: ['patchbay']
+          },
+          {
+            label: 'Snack and swap runner',
+            requiredCount: 1,
+            maximumCount: 2,
+            assignedUsernames: ['rowanloop']
+          }
+        ],
+        note:
+          'Set the tables, arrival signs, and first-time visitor welcome point before the swap opens.'
+      },
+      {
+        id: 'event-activity-swap-story-circle',
+        title: 'Repair story circle and volunteer signup',
+        authorUsername: 'patchbay',
+        scheduledAt: '2026-05-01T20:00:00Z',
+        endsAt: '2026-05-01T20:45:00Z',
+        locationLabel: 'Tool Library Courtyard',
+        minimumParticipants: 3,
+        linkedPlanPhaseId: 'event-plan-swap-1-phase-3',
+        roles: [
+          {
+            label: 'Facilitator',
+            requiredCount: 1,
+            assignedUsernames: ['patchbay']
+          },
+          {
+            label: 'Signup table',
+            requiredCount: 1,
+            maximumCount: 2,
+            assignedUsernames: ['toolorbit']
+          },
+          {
+            label: 'Note taker',
+            requiredCount: 1,
+            assignedUsernames: []
+          }
+        ],
+        note:
+          'Collect the volunteer follow-up list and make sure unanswered repair needs are captured before everyone leaves.'
+      }
+    ],
     updateRequests: [],
-    editRequests: []
+    editRequests: [],
+    phaseChangeRequests: [],
+    decisionHistory: []
   },
   'retrofit-night-walk': {
-    editorUserIds: ['user-mika'],
+    editorUserIds: ['user-mika', 'user-rowan'],
+    currentPhaseId: 'activity',
+    signalCount: 0,
+    signalUserIds: [],
+    oppositionSignalCount: 0,
+    oppositionSignalUserIds: [],
+    eventValues: [],
+    eventPlans: [
+      {
+        id: 'event-plan-walk-1',
+        title: 'Retrofit Night Walk Pilot Route',
+        authorUsername: 'mika',
+        createdAt: '2026-04-29T19:10:00Z',
+        description:
+          'An invite-only night walk covering the first retrofit cluster, access constraints, and the pilot readiness check for three buildings.',
+        demandConsiderationNote:
+          'The editor group kept the route tight so the walk produces concrete access notes before the first pilot install round.',
+        locationLabel: 'East corner staging point',
+        schedule: {
+          mode: 'range',
+          startDate: '2026-05-02',
+          endDate: '2026-05-04',
+          startTimeLabel: '20:00',
+          finishTimeLabel: '21:15'
+        },
+        overallVotesByUserId: {
+          'user-mika': 'yes',
+          'user-rowan': 'yes'
+        },
+        valueVotesByValueId: {},
+        planPhases: [
+          {
+            id: 'event-plan-walk-1-phase-1',
+            title: 'Access walk',
+            details:
+              'Walk the first cluster together, flag entry constraints, and record which buildings are ready for the pilot.'
+          },
+          {
+            id: 'event-plan-walk-1-phase-2',
+            title: 'Constraint capture',
+            details:
+              'Group notes on wiring, lighting, and access so the follow-up work order can be drafted immediately after the walk.'
+          }
+        ]
+      }
+    ],
+    eventActivities: [
+      {
+        id: 'event-activity-walk-route-a',
+        title: 'First cluster access walk',
+        authorUsername: 'mika',
+        scheduledAt: '2026-05-02T20:00:00Z',
+        endsAt: '2026-05-02T20:40:00Z',
+        locationLabel: 'East corner staging point',
+        minimumParticipants: 2,
+        linkedPlanPhaseId: 'event-plan-walk-1-phase-1',
+        roles: [
+          {
+            label: 'Route lead',
+            requiredCount: 1,
+            assignedUsernames: ['mika']
+          },
+          {
+            label: 'Access note taker',
+            requiredCount: 1,
+            assignedUsernames: ['rowanloop']
+          }
+        ],
+        note:
+          'Walk the first building cluster and capture access blockers before the light drops further.'
+      },
+      {
+        id: 'event-activity-walk-wrap',
+        title: 'Pilot readiness wrap-up',
+        authorUsername: 'rowanloop',
+        scheduledAt: '2026-05-02T20:45:00Z',
+        endsAt: '2026-05-02T21:15:00Z',
+        locationLabel: 'East corner staging point',
+        minimumParticipants: 2,
+        linkedPlanPhaseId: 'event-plan-walk-1-phase-2',
+        roles: [
+          {
+            label: 'Summary lead',
+            requiredCount: 1,
+            assignedUsernames: ['rowanloop']
+          },
+          {
+            label: 'Constraint checker',
+            requiredCount: 1,
+            assignedUsernames: ['mika']
+          }
+        ],
+        note:
+          'Confirm which buildings are ready for the pilot and what still needs a follow-up visit.'
+      }
+    ],
     updateRequests: [],
-    editRequests: []
+    editRequests: [],
+    phaseChangeRequests: [],
+    decisionHistory: []
   }
 };
 
@@ -1466,6 +3494,132 @@ const collectiveServicePhaseBlueprints: Array<
   }
 ];
 
+const platformProductivePhaseBlueprints: Array<
+  Omit<ProjectLifecyclePhase, 'progressState' | 'betaLocked' | 'projectStatus'>
+> = [
+  {
+    id: 'phase-1',
+    order: 1,
+    shortLabel: 'Proposal',
+    title: 'Proposal',
+    summary:
+      'Platform productive projects open with demand, opposition, and value ranking from weekly active users.',
+    mechanics: [
+      'Weekly active users can support or oppose advancement while the project values are ranked.',
+      'The platform vote context continues through every later governance step.',
+      'Values stay visible in later planning and execution reviews.'
+    ]
+  },
+  {
+    id: 'phase-2',
+    order: 2,
+    shortLabel: 'Plan',
+    title: 'Production Plan',
+    summary:
+      'The platform decides the concrete working plan here, including software repositories when the subtype is software.',
+    mechanics: [
+      'Plans still need quorum and the shared approval threshold from weekly active users.',
+      'Software plans should attach the official repository URL that later pull requests target.',
+      'The winning plan becomes the basis for activity and execution review.'
+    ]
+  },
+  {
+    id: 'phase-5',
+    order: 3,
+    shortLabel: 'Activity',
+    title: 'Activity',
+    summary:
+      'The platform carries out the approved plan here through concrete work, requests, and operating activity.',
+    mechanics: [
+      'Activities stay visible as live work items tied back to the approved plan.',
+      'Platform software work uses governed pull requests inside this activity phase.',
+      'The board can later send the project back to planning if the working plan breaks down.'
+    ]
+  },
+  {
+    id: 'phase-6',
+    order: 4,
+    shortLabel: 'Execution',
+    title: 'Pending Execution Review',
+    summary:
+      'Finished platform work pauses here so execution can be confirmed before the project is formally closed.',
+    mechanics: [
+      'This step holds the project open while execution evidence is reviewed.',
+      'Software work uses merge recording and later confirmation rather than closing immediately.',
+      'If execution fails or drifts, the project can return to planning.'
+    ]
+  },
+  {
+    id: 'phase-7',
+    order: 5,
+    shortLabel: 'Closed',
+    title: 'Closed',
+    summary: 'The project remains visible as a completed platform record after execution is confirmed.',
+    mechanics: [
+      'Closure preserves the full planning and execution history.',
+      'Later rounds should start as new proposals instead of silently changing a closed project.',
+      'Conversion or follow-on work can still link back to this record.'
+    ]
+  }
+];
+
+const platformCollectiveServicePhaseBlueprints: Array<
+  Omit<ProjectLifecyclePhase, 'progressState' | 'betaLocked' | 'projectStatus'>
+> = [
+  {
+    id: 'phase-1',
+    order: 1,
+    shortLabel: 'Proposal',
+    title: 'Proposal',
+    summary:
+      'Platform collective services begin with the same proposal, support, opposition, and value ranking model as other platform work.',
+    mechanics: [
+      'Weekly active users decide whether the proposal should advance.',
+      'Values remain the shared standard for later service requests and changes.',
+      'This is still a governed platform surface, not an ordinary service signup flow.'
+    ]
+  },
+  {
+    id: 'phase-2',
+    order: 2,
+    shortLabel: 'Plan',
+    title: 'Operations Plan',
+    summary:
+      'The platform decides the working operating plan here, without a separate access-plan phase.',
+    mechanics: [
+      'Operations plans still describe cadence, staffing, and the software or service surface being maintained.',
+      'Platform collective services skip the old access-plan step entirely.',
+      'The winning plan becomes the basis for governed requests during activity.'
+    ]
+  },
+  {
+    id: 'phase-5',
+    order: 3,
+    shortLabel: 'Activity',
+    title: 'Activity',
+    summary:
+      'Governed work requests happen here while the approved platform service plan is being carried out.',
+    mechanics: [
+      'Platform requests remain governance decisions rather than ordinary booking requests.',
+      'Software subtypes use pull requests, merge recording, and confirmation votes here.',
+      'The board can return the project to planning if the operating model no longer works.'
+    ]
+  },
+  {
+    id: 'phase-6',
+    order: 4,
+    shortLabel: 'Closed',
+    title: 'Closed',
+    summary:
+      'The platform service can close after the governed activity concludes, while keeping the full record visible.',
+    mechanics: [
+      'Ongoing service without material change should stay in activity instead of closing.',
+      'Closure preserves the history of the operating plan and governed requests.',
+      'A later redesign should reopen as a fresh proposal or return to planning first.'
+    ]
+  }
+];
+
 const personalServicePhaseBlueprints: Array<
   Omit<ProjectLifecyclePhase, 'progressState' | 'betaLocked' | 'projectStatus'>
 > = [
@@ -1540,6 +3694,98 @@ function projectLifecyclePhaseBlueprintsForMode(projectMode: ProjectMode) {
   return productiveProjectPhaseBlueprints;
 }
 
+function projectLifecyclePhaseBlueprintsForProject(
+  slug: string,
+  projectMode: ProjectMode,
+  currentSubtype: ProjectSubtype | null = currentProjectSubtypeForGovernance(slug)
+) {
+  if (usesPlatformPendingExecutionLifecycle(slug, projectMode, currentSubtype)) {
+    return platformProductivePhaseBlueprints;
+  }
+
+  return projectLifecyclePhaseBlueprintsForMode(projectMode);
+}
+
+function closePhaseIdForProjectSlug(
+  slug: string,
+  projectMode: ProjectMode,
+  currentSubtype: ProjectSubtype | null = currentProjectSubtypeForGovernance(slug)
+) {
+  if (usesPlatformPendingExecutionLifecycle(slug, projectMode, currentSubtype)) {
+    return 'phase-7' as const;
+  }
+
+  return closePhaseIdForProject(projectMode);
+}
+
+function nextProjectPhaseIdForSlug(
+  slug: string,
+  currentPhaseId: ProjectLifecyclePhaseId,
+  projectMode: ProjectMode,
+  currentSubtype: ProjectSubtype | null = currentProjectSubtypeForGovernance(slug)
+): ProjectLifecyclePhaseId | null {
+  if (!usesPlatformPendingExecutionLifecycle(slug, projectMode, currentSubtype)) {
+    return nextProjectPhaseId(currentPhaseId, projectMode);
+  }
+
+  switch (currentPhaseId) {
+    case 'phase-1':
+      return 'phase-2';
+    case 'phase-2':
+      return 'phase-5';
+    case 'phase-5':
+      return 'phase-6';
+    case 'phase-6':
+      return 'phase-7';
+    default:
+      return null;
+  }
+}
+
+function revertableProjectPhaseIdsForSlug(
+  slug: string,
+  projectMode: ProjectMode,
+  currentPhaseId: ProjectLifecyclePhaseId,
+  currentSubtype: ProjectSubtype | null = currentProjectSubtypeForGovernance(slug)
+) {
+  if (!usesPlatformPendingExecutionLifecycle(slug, projectMode, currentSubtype)) {
+    return revertableProjectPhaseIds(projectMode, currentPhaseId);
+  }
+
+  if (currentPhaseId === 'phase-5' || currentPhaseId === 'phase-6' || currentPhaseId === 'phase-7') {
+    return ['phase-2'] as Array<Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>>;
+  }
+
+  return [] as Array<Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>>;
+}
+
+function requestableProjectPhaseTargetIdsForSlug(
+  slug: string,
+  currentPhaseId: ProjectLifecyclePhaseId,
+  projectMode: ProjectMode,
+  currentSubtype: ProjectSubtype | null = currentProjectSubtypeForGovernance(slug)
+) {
+  const nextPhaseId = nextProjectPhaseIdForSlug(slug, currentPhaseId, projectMode, currentSubtype);
+
+  return [
+    ...(nextPhaseId ? [nextPhaseId] : []),
+    ...revertableProjectPhaseIdsForSlug(slug, projectMode, currentPhaseId, currentSubtype)
+  ];
+}
+
+function phaseOrderForProjectSlug(
+  slug: string,
+  projectMode: ProjectMode,
+  phaseId: ProjectLifecyclePhaseId,
+  currentSubtype: ProjectSubtype | null = currentProjectSubtypeForGovernance(slug)
+) {
+  return (
+    projectLifecyclePhaseBlueprintsForProject(slug, projectMode, currentSubtype).find(
+      (phase) => phase.id === phaseId
+    )?.order ?? 0
+  );
+}
+
 type ProjectLifecyclePhaseConfig = {
   projectStatus: string;
   progressState?: ProjectLifecyclePhase['progressState'];
@@ -1553,6 +3799,7 @@ type ProjectLifecycleConfig = {
 };
 
 const projectLifecycleBySlug: Record<string, ProjectLifecycleConfig> = {
+  ...explicitAssetServiceProjectLifecycleBySlug,
   'neighborhood-heat-pump-pilot': {
     currentPhaseId: 'phase-1',
     phases: {
@@ -2064,13 +4311,56 @@ type RawPlanPhase = {
   costLabel: string;
 };
 
+type RawProjectAcquisitionBundle = {
+  id: string;
+  title: string;
+  destinationType: ProjectAcquisitionServiceDestinationType;
+  existingServiceProjectSlug?: string;
+  newServiceTitle?: string;
+  note?: string;
+};
+
+type RawProjectAcquisitionPurchaseRow = {
+  id: string;
+  title: string;
+  costLabel: string;
+  purchaseHref: string;
+  destinationBundleId: string;
+  note?: string;
+};
+
+type RawProjectAcquisitionPendingAsset = {
+  id: string;
+  title: string;
+  destinationBundleId: string;
+  destinationLabel: string;
+  note: string;
+};
+
+type RawProjectAcquisitionExecution = {
+  proofLabel: string;
+  note: string;
+  recordedAt: string;
+  recordedByUsername: string;
+  pendingAssets: RawProjectAcquisitionPendingAsset[];
+};
+
+type RawProjectAcquisitionState = {
+  confirmationVotesByUserId: Record<string, ProjectApprovalVote>;
+  execution?: RawProjectAcquisitionExecution | null;
+};
+
 type RawProductionPlan = RawProjectPlanBase & {
+  projectSubtype?: ProjectSubtype;
   description?: string;
+  repositoryUrl?: string;
   planPhases?: RawPlanPhase[];
   outputSummary: string;
   materialsSummary: string;
   totalCostLabel: string;
   acquisitionsSummary: string;
+  acquisitionBundles?: RawProjectAcquisitionBundle[];
+  purchaseRows?: RawProjectAcquisitionPurchaseRow[];
 };
 
 type RawDistributionPlan = RawProjectPlanBase & {
@@ -2136,6 +4426,8 @@ type RawProjectPhaseChangeRequest = {
   authorUsername: string;
   createdAt: string;
   votesByUserId: Record<string, ProjectApprovalVote>;
+  closeOutcome?: 'close' | 'convert';
+  conversionTarget?: ProjectConversionTargetInput | null;
 };
 
 type RawProjectUpdateRequest = {
@@ -2155,6 +4447,53 @@ type RawProjectEditRequest = {
   votesByUserId: Record<string, ProjectApprovalVote>;
 };
 
+type RawProjectPullRequestRequest = {
+  id: string;
+  title: string;
+  summary: string;
+  pullRequestId: string;
+  pullRequestUrl: string;
+  authorUsername: string;
+  createdAt: string;
+  confirmationCreatedAt?: string;
+  stage: 'approval' | 'awaiting-merge' | 'confirmation' | 'confirmed' | 'rejected' | 'replaced';
+  votesByUserId: Record<string, ProjectApprovalVote>;
+  mergeId?: string | null;
+  mergedByUsername?: string | null;
+};
+
+type RawProjectMergeCapabilityChangeRequest = {
+  id: string;
+  targetUserId: string;
+  action: 'grant' | 'revoke';
+  authorUsername: string;
+  createdAt: string;
+  status: DecisionHistoryStatus;
+  votesByUserId: Record<string, ProjectApprovalVote>;
+};
+
+type RawProjectRepositoryReplacementRequest = {
+  id: string;
+  repositoryUrl: string;
+  previousRepositoryUrl: string;
+  reason: string;
+  relatedPullRequestId: string;
+  authorUsername: string;
+  createdAt: string;
+  status: DecisionHistoryStatus;
+  votesByUserId: Record<string, ProjectApprovalVote>;
+};
+
+type RawProjectRepositoryRecord = {
+  id: string;
+  repositoryUrl: string;
+  previousRepositoryUrl: string;
+  reason: string;
+  relatedPullRequestId: string;
+  replacedAt: string;
+  replacedByUsername: string;
+};
+
 type RawEventUpdateRequest = {
   id: string;
   body: string;
@@ -2170,6 +4509,28 @@ type RawEventEditRequest = {
   authorUsername: string;
   createdAt: string;
   votesByUserId: Record<string, ProjectApprovalVote>;
+};
+
+type RawEventPhaseChangeRequest = {
+  id: string;
+  targetPhaseId: EventLifecyclePhaseId;
+  reason: string;
+  authorUsername: string;
+  createdAt: string;
+  votesByUserId: Record<string, ProjectApprovalVote>;
+};
+
+type RawEventPlanPhase = {
+  id: string;
+  title: string;
+  details: string;
+};
+
+type RawEventPlan = RawProjectPlanBase & {
+  description?: string;
+  locationLabel?: string;
+  schedule?: EventPlanScheduleInput;
+  planPhases?: RawEventPlanPhase[];
 };
 
 type RawProjectActivity = {
@@ -2194,10 +4555,18 @@ type RawProjectActivity = {
 type ProjectWorkflowState = {
   signalCount: number;
   signalUserIds: string[];
+  oppositionSignalUserIds?: string[];
+  oppositionSignalCount?: number;
   values: RawProjectValue[];
   phaseTwoPlans: RawProductionPlan[];
   phaseThreePlans: RawDistributionPlan[];
   phaseFiveActivities: RawProjectActivity[];
+  softwarePullRequests?: RawProjectPullRequestRequest[];
+  softwareMergeCapabilityUserIds?: string[];
+  softwareMergeCapabilityChangeRequests?: RawProjectMergeCapabilityChangeRequest[];
+  softwareRepositoryUrlOverride?: string;
+  softwareRepositoryReplacementRequests?: RawProjectRepositoryReplacementRequest[];
+  softwareRepositoryHistory?: RawProjectRepositoryRecord[];
   serviceRequests?: RawProjectServiceRequest[];
   requestSystemEnabled?: boolean;
   requestSystemOverride?: RawProjectRequestSystemSettings;
@@ -2207,6 +4576,7 @@ type ProjectWorkflowState = {
   phaseChangeRequests?: RawProjectPhaseChangeRequest[];
   updateRequests?: RawProjectUpdateRequest[];
   editRequests?: RawProjectEditRequest[];
+  acquisition?: RawProjectAcquisitionState;
   decisionHistory?: RawDecisionHistoryEntry[];
   availabilitySummary?: string;
   travelRadiusLabel?: string;
@@ -2215,18 +4585,31 @@ type ProjectWorkflowState = {
 
 type EventWorkflowState = {
   editorUserIds: string[];
+  currentPhaseId?: EventLifecyclePhaseId;
+  signalCount?: number;
+  signalUserIds?: string[];
+  oppositionSignalCount?: number;
+  oppositionSignalUserIds?: string[];
+  eventValues?: RawProjectValue[];
+  eventPlans?: RawEventPlan[];
+  eventActivities?: RawProjectActivity[];
+  phaseChangeRequests?: RawEventPhaseChangeRequest[];
   updateRequests?: RawEventUpdateRequest[];
   editRequests?: RawEventEditRequest[];
   decisionHistory?: RawDecisionHistoryEntry[];
+  liveTitleOverride?: string;
+  liveDescriptionOverride?: string;
 };
 
 type RawDecisionHistoryPayload =
   | {
       type: 'phase-change';
       changeKind: 'advance' | 'return' | 'close';
-      fromPhaseId: ProjectLifecyclePhaseId;
-      toPhaseId: ProjectLifecyclePhaseId;
+      fromPhaseId: ProjectLifecyclePhaseId | EventLifecyclePhaseId;
+      toPhaseId: ProjectLifecyclePhaseId | EventLifecyclePhaseId;
       reason: string;
+      closeOutcome?: 'close' | 'convert';
+      conversionTarget?: ProjectConversionTargetInput | null;
     }
   | {
       type: 'update';
@@ -2242,6 +4625,27 @@ type RawDecisionHistoryPayload =
       reason: string;
       previousSettings: RawProjectRequestSystemSettings;
       proposedSettings: RawProjectRequestSystemSettings;
+    }
+  | {
+      type: 'pull-request';
+      title: string;
+      summary: string;
+      pullRequestId: string;
+      pullRequestUrl: string;
+      mergeId?: string | null;
+      repositoryUrl?: string | null;
+    }
+  | {
+      type: 'merge-capability';
+      action: 'grant' | 'revoke';
+      targetUsername: string;
+    }
+  | {
+      type: 'repository-replacement';
+      repositoryUrl: string;
+      previousRepositoryUrl?: string | null;
+      reason: string;
+      relatedPullRequestId?: string | null;
     };
 
 type RawDecisionHistoryEntry = {
@@ -2270,7 +4674,7 @@ const importanceVoteLabels: Record<ProjectImportanceVoteValue, string> = {
   10: 'Required'
 };
 
-const phaseChangeApprovalThresholdPercent = 70;
+const phaseChangeApprovalThresholdPercent = GOVERNANCE_APPROVAL_THRESHOLD_PERCENT;
 
 function normalizeLegacyImportanceVote(vote: ProjectImportanceVoteValue) {
   switch (vote) {
@@ -2304,6 +4708,7 @@ function migrateLegacyImportanceVotes(workflowStates: Record<string, ProjectWork
 }
 
 const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
+  ...explicitAssetServiceProjectWorkflowBySlug,
   'neighborhood-heat-pump-pilot': {
     signalCount: 124,
     signalUserIds: ['viewer-1', 'user-rowan'],
@@ -3465,7 +5870,25 @@ const projectWorkflowStateBySlug: Record<string, ProjectWorkflowState> = {
           toolorbit: 'completed'
         }
       }
-    }
+    },
+    phaseChangeRequests: [
+      {
+        id: 'project-phase-change-hallway-air-sealing-convert',
+        targetPhaseId: 'phase-6',
+        reason:
+          'Close the one-off build day and reopen the work as a standing support service so repeat weatherization requests inherit the current kits and coordination notes.',
+        authorUsername: 'patchbay',
+        createdAt: '2026-05-01T09:20:00Z',
+        closeOutcome: 'convert',
+        conversionTarget: {
+          projectMode: 'collective-service',
+          projectSubtype: 'standard'
+        },
+        votesByUserId: {
+          'viewer-1': 'yes'
+        }
+      }
+    ]
   },
   'block-weatherization-pilot-wrap': {
     signalCount: 66,
@@ -3731,7 +6154,7 @@ function stageLabelForProject(slug: string, fallback: string, projectMode: Proje
 function projectAuthorForSlug(slug: string) {
   const project = publicFeedBase.find(
     (item): item is PublicProjectItem => item.kind === 'project' && item.slug === slug
-  );
+  ) ?? null;
 
   return project ? userByUsername(project.authorUsername) : null;
 }
@@ -3769,15 +6192,13 @@ function buildProjectVoteSummary(
   memberCount: number
 ): ProjectPlanVoteSummary {
   const viewer = currentViewer();
+  const governanceQuorum = calculateGovernanceQuorum(memberCount);
   const votes = Object.values(votesByUserId);
   const yesCount = votes.filter((vote) => vote === 'yes').length;
   const noCount = votes.filter((vote) => vote === 'no').length;
   const totalVotes = yesCount + noCount;
   const approvalPercent = totalVotes === 0 ? 0 : Math.round((yesCount / totalVotes) * 100);
-  const votesRequired =
-    memberCount <= 0
-      ? 0
-      : Math.min(memberCount, Math.max(1, Math.ceil((memberCount * quorumThresholdPercent) / 100)));
+  const votesRequired = governanceQuorum.votesRequired;
   const votesRemaining = Math.max(votesRequired - totalVotes, 0);
   const remainingEligibleVotes = Math.max(memberCount - totalVotes, 0);
 
@@ -3789,7 +6210,8 @@ function buildProjectVoteSummary(
     activeVote: viewer ? votesByUserId[viewer.id] ?? null : null,
     meetsQuorum: votesRequired > 0 && totalVotes >= votesRequired,
     eligibleVoterCount: memberCount,
-    quorumThresholdPercent,
+    quorumThresholdPercent:
+      memberCount > 0 ? governanceQuorum.quorumThresholdPercent : quorumThresholdPercent,
     votesRequired,
     votesRemaining,
     remainingEligibleVotes
@@ -3805,6 +6227,30 @@ function thresholdVoteCanStillPass(
 
 function phaseChangePassesApprovalThreshold(voteSummary: ProjectPlanVoteSummary) {
   return voteSummary.approvalPercent >= phaseChangeApprovalThresholdPercent;
+}
+
+function conversionEntryPhaseIdForTarget(projectMode: ProjectMode): ProjectLifecyclePhaseId {
+  return projectMode === 'personal-service' ? 'phase-1' : 'phase-1';
+}
+
+function conversionEntryPhaseLabelForTarget(projectMode: ProjectMode) {
+  return projectMode === 'personal-service' ? 'Activity' : 'Proposal';
+}
+
+function buildProjectConversionTarget(
+  target: ProjectConversionTargetInput | null | undefined
+): ProjectConversionTarget | null {
+  if (!target) {
+    return null;
+  }
+
+  return {
+    ...target,
+    projectModeLabel: projectSubjectLabel(target.projectMode),
+    projectSubtypeLabel: projectSubtypeLabel(target.projectSubtype),
+    entryPhaseId: conversionEntryPhaseIdForTarget(target.projectMode),
+    entryPhaseLabel: conversionEntryPhaseLabelForTarget(target.projectMode)
+  };
 }
 
 function buildProjectPhaseChangeRequests(
@@ -3833,7 +6279,8 @@ function buildProjectPhaseChangeRequests(
       const targetPhase = phaseBlueprints.find((phase) => phase.id === request.targetPhaseId);
       const targetOrder = targetPhase?.order ?? currentPhaseOrder;
       const kind =
-        request.targetPhaseId === closePhaseIdForProject(projectMode) && targetOrder > currentPhaseOrder
+        request.targetPhaseId === closePhaseIdForProjectSlug(slug, projectMode) &&
+        targetOrder > currentPhaseOrder
           ? 'close'
           : targetOrder > currentPhaseOrder
             ? 'advance'
@@ -3847,6 +6294,8 @@ function buildProjectPhaseChangeRequests(
         authorUsername: request.authorUsername,
         createdAt: request.createdAt,
         kind,
+        closeOutcome: request.closeOutcome,
+        conversionTarget: buildProjectConversionTarget(request.conversionTarget),
         approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
         voteSummary,
         passesApprovalThreshold: phaseChangePassesApprovalThreshold(voteSummary),
@@ -3990,6 +6439,205 @@ function buildEventEditRequests(
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
 
+function buildEventPhaseChangeRequests(
+  slug: string,
+  event: PublicEventItem,
+  quorumThresholdPercent: number,
+  eligibleVoterCount: number
+) {
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const fromPhaseId = workflow.currentPhaseId ?? defaultEventCurrentPhaseId(event);
+
+  return (workflow.phaseChangeRequests ?? [])
+    .map((request) => {
+      const voteSummary = buildProjectVoteSummary(
+        request.votesByUserId,
+        quorumThresholdPercent,
+        eligibleVoterCount
+      );
+
+      return {
+        id: request.id,
+        targetPhaseId: request.targetPhaseId,
+        targetPhaseLabel: eventPhaseTitle(request.targetPhaseId),
+        reason: request.reason,
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        kind: eventPhaseChangeKind(event, fromPhaseId, request.targetPhaseId),
+        approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+        voteSummary,
+        passesApprovalThreshold: phaseChangePassesApprovalThreshold(voteSummary),
+        canStillPass: thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)
+      } satisfies EventLifecyclePhaseChangeRequest;
+    })
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
+function buildEventLifecycle(slug: string, event: PublicEventItem): EventLifecycleData {
+  const creatorId = userByUsername(event.createdByUsername)?.id ?? null;
+  const workflow = ensureEventWorkflowState(slug, creatorId);
+  const viewer = currentViewer();
+  const memberState = buildEventMemberState(event);
+  const voteContextPopulation = eventGovernancePopulation(event, memberState.eligibleVoterCount);
+  const quorum = calculateGovernanceQuorum(voteContextPopulation);
+  const phaseOneValues = buildEventValues(slug);
+  const signalSummary = buildEventSignalSummary(event);
+  const phaseTwo = buildEventPlans(
+    slug,
+    event,
+    phaseOneValues,
+    quorum.quorumThresholdPercent,
+    voteContextPopulation
+  );
+  const currentPhaseId = (() => {
+    const configuredPhaseId = workflow.currentPhaseId ?? defaultEventCurrentPhaseId(event);
+
+    if ((configuredPhaseId === 'activity' || configuredPhaseId === 'closed') && !phaseTwo.winningPlanId) {
+      return 'event-plan' as EventLifecyclePhaseId;
+    }
+
+    return configuredPhaseId;
+  })();
+  workflow.currentPhaseId = currentPhaseId;
+  const selectablePlanPhases = buildSelectableEventActivityPlanPhases(phaseTwo);
+  const activity =
+    currentPhaseId === 'activity' || currentPhaseId === 'closed'
+      ? buildEventActivityState(slug, selectablePlanPhases)
+      : { activities: [] as ProjectActivityItem[] };
+  const phaseChangeRequests = buildEventPhaseChangeRequests(
+    slug,
+    event,
+    quorum.quorumThresholdPercent,
+    voteContextPopulation
+  );
+  const revertablePhaseIds = revertableEventPhaseIds(event, currentPhaseId);
+  const previousPhaseId = eventPreviousPhaseId(event, currentPhaseId);
+  const nextPhaseId = eventNextPhaseId(event, currentPhaseId);
+
+  return {
+    currentPhaseId,
+    quorumThresholdPercent: quorum.quorumThresholdPercent,
+    quorumVotesRequired: quorum.votesRequired,
+    voteContextLabel: eventVoteContextLabel(event),
+    voteContextPopulation,
+    phases: eventPhaseBlueprintsForItem(event, currentPhaseId),
+    phaseOne: {
+      values: phaseOneValues,
+      viewerCanSignalDemand: !event.isPrivate && !!viewer,
+      viewerHasDemandSignal: !event.isPrivate && !!viewer && !!workflow.signalUserIds?.includes(viewer.id),
+      viewerCanSignalOpposition: !event.isPrivate && !!viewer,
+      viewerHasOppositionSignal:
+        !event.isPrivate && !!viewer && !!workflow.oppositionSignalUserIds?.includes(viewer.id),
+      signalSummary,
+      viewerCanAddValue: canViewerEditEventPhase(slug, 'proposal'),
+      viewerCanVoteOnValues: canViewerEditEventPhase(slug, 'proposal')
+    },
+    phaseTwo: {
+      plans: phaseTwo.plans,
+      winningPlanId: phaseTwo.winningPlanId,
+      viewerCanSubmitPlans: canViewerEditEventPhase(slug, 'event-plan'),
+      viewerCanVoteOnPlans: canViewerEditEventPhase(slug, 'event-plan')
+    },
+    activity: {
+      activities: activity.activities,
+      viewerCanCreateActivities: canViewerCreateEventActivity(slug),
+      selectablePlanPhases
+    },
+    viewerCanRequestPhaseChanges: canViewerRequestEventPhaseChange(slug),
+    viewerCanVoteOnPhaseChanges: canViewerVoteOnEventPhaseChange(slug),
+    phaseChangeRequests,
+    revertablePhaseIds,
+    previousPhaseId,
+    previousPhaseLabel: previousPhaseId ? eventPhaseTitle(previousPhaseId) : null,
+    nextPhaseId,
+    nextPhaseLabel: nextPhaseId ? eventPhaseTitle(nextPhaseId) : null
+  };
+}
+
+function eventPlanScheduledAt(schedule: EventPlanSchedule) {
+  if (!schedule.startDate) {
+    return undefined;
+  }
+
+  return `${schedule.startDate}T${schedule.startTimeLabel?.trim() || '18:00'}:00Z`;
+}
+
+function buildEffectiveEventPresentation(
+  item: PublicEventItem,
+  lifecycle?: Pick<EventLifecycleData, 'phaseTwo' | 'currentPhaseId'>
+) {
+  const workflow = eventWorkflowStateBySlug[item.slug];
+  const eventLifecycle =
+    lifecycle ??
+    (() => {
+      const creatorId = userByUsername(item.createdByUsername)?.id ?? null;
+      const participation = eventParticipationById[item.id] ?? { goingUserIds: [], invitedUserIds: [] };
+      const memberIds = Array.from(
+        new Set([...(creatorId ? [creatorId] : []), ...participation.goingUserIds])
+      );
+      const editorIds = item.isPrivate
+        ? Array.from(
+            new Set((workflow?.editorUserIds ?? (creatorId ? [creatorId] : [])).filter((userId) => memberIds.includes(userId)))
+          )
+        : [];
+      const eligibleVoterCount = item.isPrivate ? editorIds.length : memberIds.length;
+      const voteContextPopulation = eventGovernancePopulation(item, eligibleVoterCount);
+      const quorumThresholdPercent = calculateGovernanceQuorum(voteContextPopulation).quorumThresholdPercent;
+      const plans = (workflow?.eventPlans ?? []).map((plan) => ({
+        id: plan.id,
+        title: plan.title,
+        description: plan.description?.trim() || plan.title,
+        locationLabel: plan.locationLabel?.trim() || item.locationLabel,
+        schedule: normalizeEventPlanSchedule(plan.schedule),
+        overallApproval: buildProjectVoteSummary(
+          plan.overallVotesByUserId,
+          quorumThresholdPercent,
+          voteContextPopulation
+        )
+      }));
+      const winningPlan = [...plans]
+        .filter((plan) => plan.overallApproval.meetsQuorum)
+        .sort((left, right) => right.overallApproval.approvalPercent - left.overallApproval.approvalPercent)[0];
+      const configuredPhaseId = workflow?.currentPhaseId ?? defaultEventCurrentPhaseId(item);
+      const currentPhaseId =
+        (configuredPhaseId === 'activity' || configuredPhaseId === 'closed') && !winningPlan
+          ? ('event-plan' as EventLifecyclePhaseId)
+          : configuredPhaseId;
+
+      return {
+        phaseTwo: {
+          plans,
+          winningPlanId: winningPlan?.id ?? null
+        },
+        currentPhaseId
+      };
+    })();
+  const winningPlan = eventLifecycle.phaseTwo.plans.find(
+    (plan) => plan.id === eventLifecycle.phaseTwo.winningPlanId
+  );
+
+  if (
+    !winningPlan ||
+    (eventLifecycle.currentPhaseId !== 'activity' && eventLifecycle.currentPhaseId !== 'closed')
+  ) {
+    return {
+      title: item.title,
+      description: item.description,
+      scheduledAt: item.scheduledAt,
+      timeLabel: item.timeLabel,
+      locationLabel: item.locationLabel
+    };
+  }
+
+  return {
+    title: workflow?.liveTitleOverride ?? winningPlan.title,
+    description: workflow?.liveDescriptionOverride ?? winningPlan.description,
+    scheduledAt: eventPlanScheduledAt(winningPlan.schedule) ?? item.scheduledAt,
+    timeLabel: winningPlan.schedule.label,
+    locationLabel: winningPlan.locationLabel.trim() || item.locationLabel
+  };
+}
+
 function uniqueUsernames(usernames: string[]) {
   return Array.from(new Set(usernames.filter(Boolean)));
 }
@@ -4042,9 +6690,14 @@ function buildProjectActivityItemFromRaw(
       role.maximumCount != null ? Math.max(role.maximumCount, role.requiredCount) : undefined,
     isViewerAssigned: !!viewerUsername && role.assignedUsernames.includes(viewerUsername)
   }));
-  const committedCount = uniqueUsernames(activity.roles.flatMap((role) => role.assignedUsernames)).length;
+  const committedUsernames = uniqueUsernames(activity.roles.flatMap((role) => role.assignedUsernames));
+  const committedCount = committedUsernames.length;
   const statusTone =
-    committedCount >= minimumParticipants ? 'green' : committedCount > 1 ? 'yellow' : 'red';
+    committedCount >= minimumParticipants
+      ? 'green'
+      : committedUsernames.some((username) => username !== activity.authorUsername)
+        ? 'yellow'
+        : 'red';
 
   return {
     id: activity.id,
@@ -4461,6 +7114,335 @@ function defaultDemandVotesForAuthor(authorUsername: string) {
     : {};
 }
 
+function buildEventValues(slug: string): ProjectValueItem[] {
+  const workflow = eventWorkflowStateBySlug[slug];
+  const viewer = currentViewer();
+
+  if (!workflow) {
+    return [];
+  }
+
+  return (workflow.eventValues ?? [])
+    .map((value) => {
+      const votes = Object.values(value.votesByUserId);
+      const voteCount = votes.length;
+      const importanceScore =
+        voteCount === 0 ? 0 : Number((votes.reduce((sum, vote) => sum + vote, 0) / voteCount).toFixed(1));
+
+      return {
+        id: value.id,
+        label: value.label,
+        authorUsername: value.authorUsername,
+        voteCount,
+        importanceScore,
+        importanceLabel: importanceLabelFromScore(importanceScore),
+        activeImportanceVote: viewer ? value.votesByUserId[viewer.id] ?? 0 : 0
+      } satisfies ProjectValueItem;
+    })
+    .sort((left, right) => right.importanceScore - left.importanceScore || right.voteCount - left.voteCount);
+}
+
+function buildEventValueAssessments(
+  values: ProjectValueItem[],
+  votesByValueId: Record<string, Record<string, ProjectApprovalVote>>,
+  quorumThresholdPercent: number,
+  eligibleVoterCount: number,
+  includeDemandAssessment: boolean,
+  authorUsername: string
+) {
+  return [
+    ...(includeDemandAssessment
+      ? [
+          {
+            valueId: demandSignalAssessmentValueId,
+            valueLabel: 'Demand signal considered',
+            ...buildProjectVoteSummary(
+              votesByValueId[demandSignalAssessmentValueId] ?? defaultDemandVotesForAuthor(authorUsername),
+              quorumThresholdPercent,
+              eligibleVoterCount
+            )
+          }
+        ]
+      : []),
+    ...values.map((value) => ({
+      valueId: value.id,
+      valueLabel: value.label,
+      ...buildProjectVoteSummary(votesByValueId[value.id] ?? {}, quorumThresholdPercent, eligibleVoterCount)
+    }))
+  ] satisfies ProjectPlanValueAssessment[];
+}
+
+function buildEventPlanPhases(plan: RawEventPlan) {
+  if (plan.planPhases?.length) {
+    return plan.planPhases.map((phase, index) => ({
+      ...phase,
+      title: phase.title.trim() || `Stage ${index + 1}`
+    })) satisfies EventPlanPhaseItem[];
+  }
+
+  return [
+    {
+      id: `${plan.id}-phase-1`,
+      title: 'Stage 1',
+      details: plan.description?.trim() || 'No stage details were recorded for this event plan.'
+    }
+  ] satisfies EventPlanPhaseItem[];
+}
+
+function formatEventPlanScheduleDate(date: string) {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
+
+  if (!parts) {
+    return date.trim();
+  }
+
+  const monthLabels = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
+  ];
+
+  return `${Number(parts[3])} ${monthLabels[Number(parts[2]) - 1]} ${parts[1]}`;
+}
+
+function formatEventPlanScheduleTime(time: string) {
+  const parts = /^(\d{2}):(\d{2})$/.exec(time.trim());
+
+  if (!parts) {
+    return time.trim();
+  }
+
+  return `${Number(parts[1])}:${parts[2]}`;
+}
+
+function eventPlanScheduleBoundaryLabel(date: string, time: string) {
+  const dateLabel = formatEventPlanScheduleDate(date);
+  const timeLabel = time ? formatEventPlanScheduleTime(time) : '';
+
+  return timeLabel ? `${timeLabel} ${dateLabel}` : dateLabel;
+}
+
+function normalizeEventPlanSchedule(schedule?: EventPlanScheduleInput | null): EventPlanSchedule {
+  const startDate = schedule?.startDate?.trim() ?? '';
+  const endDate = schedule?.endDate?.trim() ?? '';
+  const startTimeLabel = schedule?.startTimeLabel?.trim() ?? '';
+  const finishTimeLabel = schedule?.finishTimeLabel?.trim() ?? '';
+
+  if (schedule?.mode === 'range' && startDate && endDate && endDate >= startDate) {
+    return {
+      mode: 'range',
+      startDate,
+      endDate,
+      startTimeLabel: startTimeLabel || null,
+      finishTimeLabel: finishTimeLabel || null,
+      label: `${eventPlanScheduleBoundaryLabel(startDate, startTimeLabel)} - ${eventPlanScheduleBoundaryLabel(endDate, finishTimeLabel)}`
+    };
+  }
+
+  if ((schedule?.mode === 'date' || schedule?.mode === 'range') && startDate) {
+    return {
+      mode: 'date',
+      startDate,
+      endDate: null,
+      startTimeLabel: startTimeLabel || null,
+      finishTimeLabel: finishTimeLabel || null,
+      label:
+        startTimeLabel || finishTimeLabel
+          ? `${eventPlanScheduleBoundaryLabel(startDate, startTimeLabel)} - ${eventPlanScheduleBoundaryLabel(startDate, finishTimeLabel)}`
+          : formatEventPlanScheduleDate(startDate)
+    };
+  }
+
+  return {
+    mode: 'any-day',
+    startDate: null,
+    endDate: null,
+    startTimeLabel: startTimeLabel || null,
+    finishTimeLabel: finishTimeLabel || null,
+    label:
+      startTimeLabel || finishTimeLabel
+        ? `Any day · ${formatEventPlanScheduleTime(startTimeLabel)} - ${formatEventPlanScheduleTime(finishTimeLabel)}`
+        : 'Any day'
+  };
+}
+
+function buildEventPlans(
+  slug: string,
+  event: PublicEventItem,
+  values: ProjectValueItem[],
+  quorumThresholdPercent: number,
+  eligibleVoterCount: number
+) {
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const plans = (workflow.eventPlans ?? []).map((plan) => ({
+    id: plan.id,
+    title: plan.title,
+    authorUsername: plan.authorUsername,
+    createdAt: plan.createdAt,
+    description: plan.description?.trim() || plan.title,
+    demandSignalSnapshot: event.isPrivate ? null : plan.demandSignalSnapshot ?? null,
+    demandConsiderationNote:
+      plan.demandConsiderationNote?.trim() || 'Legacy plan. No demand note was recorded when this plan was created.',
+    locationLabel: plan.locationLabel?.trim() || 'Location will be set before activity begins.',
+    schedule: normalizeEventPlanSchedule(plan.schedule),
+    planPhases: buildEventPlanPhases(plan),
+    valueAssessments: buildEventValueAssessments(
+      values,
+      plan.valueVotesByValueId,
+      quorumThresholdPercent,
+      eligibleVoterCount,
+      !event.isPrivate,
+      plan.authorUsername
+    ),
+    overallApproval: buildProjectVoteSummary(plan.overallVotesByUserId, quorumThresholdPercent, eligibleVoterCount),
+    isLeading: false
+  } satisfies EventPlan));
+  const winningPlan = [...plans]
+    .filter((plan) => plan.overallApproval.meetsQuorum)
+    .sort((left, right) => right.overallApproval.approvalPercent - left.overallApproval.approvalPercent)[0];
+
+  return {
+    plans: plans.map((plan) => ({ ...plan, isLeading: plan.id === winningPlan?.id })),
+    winningPlanId: winningPlan?.id ?? null
+  };
+}
+
+function buildSelectableEventActivityPlanPhases(phaseTwo: { plans: EventPlan[]; winningPlanId: string | null }) {
+  const winningPlan = phaseTwo.plans.find((plan) => plan.id === phaseTwo.winningPlanId);
+
+  return [
+    ...(winningPlan?.planPhases.map((phase, index) => ({
+      id: phase.id,
+      label: `${winningPlan.title} · ${/^stage\s+\d+$/i.test(phase.title) ? phase.title : `Stage ${index + 1}: ${phase.title}`}`
+    })) ?? [])
+  ] satisfies ProjectActivityPlanPhaseOption[];
+}
+
+function buildEventActivityState(
+  slug: string,
+  selectablePlanPhases: ProjectActivityPlanPhaseOption[]
+) {
+  const event = findPublicEventItem(slug);
+  const workflow = eventWorkflowStateBySlug[slug];
+  const viewerUsername = currentViewer()?.username ?? null;
+  const planPhaseLabelById = new Map(selectablePlanPhases.map((option) => [option.id, option.label]));
+
+  if (!workflow || !event) {
+    return {
+      activities: [] as ProjectActivityItem[]
+    };
+  }
+
+  const now = Date.now();
+  const scheduledActivities = [...(workflow.eventActivities ?? [])]
+    .sort((left, right) => new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime())
+    .map((activity) => buildProjectActivityItemFromRaw(activity, planPhaseLabelById, viewerUsername));
+
+  return {
+    activities: scheduledActivities
+      .filter((activity) => new Date(activity.endAt).getTime() >= now)
+      .sort((left, right) => new Date(left.startAt).getTime() - new Date(right.startAt).getTime())
+  };
+}
+
+function resolvedProjectSubtype(slug: string, subtype?: ProjectSubtype | null) {
+  return subtype ?? seededProjectSubtypeBySlug[slug] ?? 'standard';
+}
+
+function currentProjectSubtypeForLifecycle(
+  slug: string,
+  phaseTwo: { plans: ProjectProductionPlan[]; winningPlanId: string | null }
+) {
+  const winningPlan = phaseTwo.plans.find((plan) => plan.id === phaseTwo.winningPlanId);
+
+  if (winningPlan) {
+    return winningPlan.projectSubtype;
+  }
+
+  return seededProjectSubtypeBySlug[slug] ?? null;
+}
+
+function currentProjectSubtypeForGovernance(slug: string) {
+  const memberCount = projectGovernancePopulation(slug, (projectMembersBySlug[slug] ?? []).length);
+  const phaseTwo = buildProductionPlans(
+    slug,
+    buildProjectValues(slug),
+    calculateProjectQuorumThreshold(memberCount),
+    memberCount
+  );
+
+  return currentProjectSubtypeForLifecycle(slug, phaseTwo);
+}
+
+function usesPlatformPendingExecutionLifecycle(
+  slug: string,
+  projectMode: ProjectMode,
+  currentSubtype: ProjectSubtype | null = currentProjectSubtypeForGovernance(slug)
+) {
+  return isPlatformTaggedProject(slug) && projectMode === 'productive' && currentSubtype === 'software';
+}
+
+function buildSoftwareDefaultDistributionPlan(
+  slug: string,
+  projectMode: ProjectMode,
+  selectedSubtype: ProjectSubtype | null,
+  phaseTwo: { plans: ProjectProductionPlan[]; winningPlanId: string | null }
+) {
+  if (selectedSubtype !== 'software') {
+    return null;
+  }
+
+  const winningPlan = phaseTwo.plans.find((plan) => plan.id === phaseTwo.winningPlanId);
+  const projectItem = findPublicProjectItem(slug);
+  const repositoryUrl = resolvedSoftwareRepositoryUrl(slug, phaseTwo);
+
+  return {
+    id: `software-default-plan-${slug}`,
+    title: projectMode === 'collective-service' ? 'Default software access plan' : 'Default software release plan',
+    authorUsername: winningPlan?.authorUsername ?? projectItem?.authorUsername ?? 'system',
+    createdAt: winningPlan?.createdAt ?? projectItem?.createdAt ?? '2026-01-01T00:00:00Z',
+    description:
+      'Software subtypes follow the default open-source path in this phase. The codebase stays publicly inspectable and the work remains shareable under AGPL-style rules.',
+    repositoryUrl,
+    demandSignalSnapshot: null,
+    demandConsiderationNote:
+      'Software proposals use the default open-source release path here, so no separate distribution or access vote is required in this mock.',
+    totalCostLabel: 'No additional release gate',
+    planPhases: [
+      {
+        id: `software-default-plan-${slug}-phase-1`,
+        title: 'Open release',
+        details:
+          'The default software path keeps the repository visible and the released code available under AGPL-style terms.',
+        materialsLabel: 'Repository + public issue history',
+        costLabel: 'No extra gate'
+      }
+    ],
+    distributionSummary:
+      projectMode === 'collective-service'
+        ? 'The software service stays available through the default open-source access rules.'
+        : 'The software project ships through the default open-source release rules.',
+    accessSummary:
+      'Repository access, merge discussion, and release notes stay visible through the same public software surface.',
+    reserveSummary: 'AGPL-style sharing is on by default in this mock phase.',
+    requestSystemEnabled: false,
+    requestMode: 'both' as const,
+    allowOffScheduleRequests: false,
+    valueAssessments: [],
+    overallApproval: buildProjectVoteSummary({}, 0, 0),
+    isLeading: true
+  } satisfies ProjectDistributionPlan;
+}
+
 function buildProductionPlanPhases(plan: RawProductionPlan): ProjectPlanPhaseItem[] {
   if (plan.planPhases?.length) {
     return plan.planPhases.map((phase, index) => ({
@@ -4499,6 +7481,85 @@ function buildDistributionPlanPhases(plan: RawDistributionPlan): ProjectPlanPhas
   ];
 }
 
+function availableAssetManagementServiceOptionsForProject(slug: string): ProjectLinkCandidate[] {
+  return publicFeedBase.reduce<ProjectLinkCandidate[]>((options, item) => {
+    if (item.kind !== 'project' || item.projectMode !== 'collective-service') {
+      return options;
+    }
+
+    if (resolvedProjectSubtype(item.slug, item.projectSubtype ?? null) !== 'asset-management') {
+      return options;
+    }
+
+    options.push({
+      slug: item.slug,
+      title: item.title,
+      href: item.href
+    });
+
+    return options;
+  }, []);
+}
+
+function acquisitionBundleDestinationLabel(bundle: RawProjectAcquisitionBundle) {
+  if (bundle.destinationType === 'existing-service') {
+    return (
+      findPublicProjectItem(bundle.existingServiceProjectSlug ?? '')?.title ??
+      'Existing asset-management service'
+    );
+  }
+
+  return bundle.newServiceTitle?.trim() || 'New asset-management service';
+}
+
+function buildProjectAcquisitionPlanBundles(plan: RawProductionPlan): ProjectAcquisitionPlanBundle[] {
+  return (plan.acquisitionBundles ?? []).map((bundle) => ({
+    id: bundle.id,
+    title: bundle.title,
+    destinationType: bundle.destinationType,
+    destinationLabel: acquisitionBundleDestinationLabel(bundle),
+    existingServiceProjectSlug: bundle.existingServiceProjectSlug ?? null,
+    newServiceTitle: bundle.newServiceTitle ?? null,
+    note:
+      bundle.note?.trim() ||
+      (bundle.destinationType === 'existing-service'
+        ? 'This bundle routes its resulting inventory into an existing asset-management service.'
+        : 'This bundle creates a new asset-management service only after confirmed execution.')
+  }));
+}
+
+function buildProjectAcquisitionPurchaseRows(plan: RawProductionPlan): ProjectAcquisitionPurchaseRow[] {
+  const destinationLabelByBundleId = new Map(
+    buildProjectAcquisitionPlanBundles(plan).map((bundle) => [bundle.id, bundle.destinationLabel])
+  );
+
+  return (plan.purchaseRows ?? []).map((purchaseRow) => ({
+    id: purchaseRow.id,
+    title: purchaseRow.title,
+    costLabel: purchaseRow.costLabel,
+    purchaseHref: purchaseRow.purchaseHref,
+    destinationBundleId: purchaseRow.destinationBundleId,
+    destinationLabel:
+      destinationLabelByBundleId.get(purchaseRow.destinationBundleId) ?? 'Unassigned asset-management service',
+    note:
+      purchaseRow.note?.trim() ||
+      'This purchase row becomes a pending asset entry during board execution and waits for member confirmation before going live.'
+  }));
+}
+
+function canViewerEditProductionPlan(slug: string, plan: RawProductionPlan) {
+  const viewer = currentViewer();
+  const currentPhaseId = projectLifecycleBySlug[slug]?.currentPhaseId;
+  const hasIntermediateStage = projectModeForSlug(slug) === 'productive';
+
+  return (
+    !!viewer &&
+    hasIntermediateStage &&
+    currentPhaseId === 'phase-3' &&
+    plan.authorUsername === viewer.username
+  );
+}
+
 function buildProductionPlans(
   slug: string,
   values: ProjectValueItem[],
@@ -4520,6 +7581,9 @@ function buildProductionPlans(
     authorUsername: plan.authorUsername,
     createdAt: plan.createdAt,
     description: plan.description ?? plan.outputSummary,
+    projectSubtype: resolvedProjectSubtype(slug, plan.projectSubtype),
+    projectSubtypeLabel: projectSubtypeLabel(resolvedProjectSubtype(slug, plan.projectSubtype)),
+    repositoryUrl: plan.repositoryUrl?.trim() || seededSoftwareRepositoryUrlByProjectSlug[slug] || null,
     demandSignalSnapshot: plan.demandSignalSnapshot ?? null,
     demandConsiderationNote:
       plan.demandConsiderationNote?.trim() || 'Legacy plan. No demand note was recorded when this plan was created.',
@@ -4528,6 +7592,8 @@ function buildProductionPlans(
     materialsSummary: plan.materialsSummary,
     totalCostLabel: plan.totalCostLabel,
     acquisitionsSummary: plan.acquisitionsSummary,
+    acquisitionBundles: buildProjectAcquisitionPlanBundles(plan),
+    purchaseRows: buildProjectAcquisitionPurchaseRows(plan),
     valueAssessments: buildProjectValueAssessments(
       values,
       plan.valueVotesByValueId,
@@ -4536,7 +7602,8 @@ function buildProductionPlans(
       memberCount
     ),
     overallApproval: buildProjectVoteSummary(plan.overallVotesByUserId, quorumThresholdPercent, memberCount),
-    isLeading: false
+    isLeading: false,
+    viewerCanEdit: canViewerEditProductionPlan(slug, plan)
   }));
   const winningPlan = [...plans]
     .filter((plan) => plan.overallApproval.meetsQuorum)
@@ -4548,11 +7615,280 @@ function buildProductionPlans(
   };
 }
 
+function resolvedSoftwareRepositoryUrl(
+  slug: string,
+  phaseTwo: { plans: ProjectProductionPlan[]; winningPlanId: string | null }
+) {
+  const workflow = readProjectWorkflowState(slug);
+  const winningPlan = phaseTwo.plans.find((plan) => plan.id === phaseTwo.winningPlanId);
+
+  return (
+    workflow?.softwareRepositoryUrlOverride?.trim() ||
+    winningPlan?.repositoryUrl?.trim() ||
+    seededSoftwareRepositoryUrlByProjectSlug[slug] ||
+    `https://code.social-production.example/projects/${slug}`
+  );
+}
+
+function detailMemberFromUsername(username: string) {
+  const user = userByUsername(username);
+
+  if (user) {
+    return toDetailMember(user.id);
+  }
+
+  return {
+    id: `user-${username}`,
+    username
+  } satisfies DetailMember;
+}
+
+function projectMergeCapabilityChangeDecisionId(requestId: string) {
+  return `${requestId}-decision`;
+}
+
+function projectRepositoryReplacementDecisionId(requestId: string) {
+  return `${requestId}-decision`;
+}
+
+function resolvedProjectSoftwareMergeCapabilityUserIds(
+  slug: string,
+  phaseTwo: { plans: ProjectProductionPlan[]; winningPlanId: string | null }
+) {
+  if (isPlatformTaggedProject(slug)) {
+    return buildPlatformBoardRoster().activeMembers.map((member) => member.id);
+  }
+
+  const workflow = readProjectWorkflowState(slug);
+  const configuredUserIds = Array.from(new Set(workflow?.softwareMergeCapabilityUserIds ?? []));
+
+  if (configuredUserIds.length > 0) {
+    return configuredUserIds;
+  }
+
+  const winningPlan = phaseTwo.plans.find((plan) => plan.id === phaseTwo.winningPlanId);
+  const defaultHolderId = winningPlan ? userByUsername(winningPlan.authorUsername)?.id ?? null : null;
+
+  return defaultHolderId ? [defaultHolderId] : [];
+}
+
+function buildProjectSoftwareMergeCapabilityMembers(
+  slug: string,
+  phaseTwo: { plans: ProjectProductionPlan[]; winningPlanId: string | null }
+) {
+  const workflow = readProjectWorkflowState(slug);
+
+  if (isPlatformTaggedProject(slug)) {
+    return buildPlatformBoardRoster().activeMembers.map((member) => ({
+      ...toDetailMember(member.id),
+      sourceLabel: 'Platform board standing'
+    }));
+  }
+
+  const winningPlan = phaseTwo.plans.find((plan) => plan.id === phaseTwo.winningPlanId);
+  const defaultHolderId = winningPlan ? userByUsername(winningPlan.authorUsername)?.id ?? null : null;
+  const configuredIds = workflow?.softwareMergeCapabilityUserIds ?? [];
+
+  return resolvedProjectSoftwareMergeCapabilityUserIds(slug, phaseTwo).map((userId) => ({
+    ...toDetailMember(userId),
+    sourceLabel:
+      configuredIds.length === 0 && defaultHolderId === userId
+        ? 'Accepted plan author'
+        : 'Merge capability vote'
+  }));
+}
+
+function softwarePullRequestStageLabel(stage: RawProjectPullRequestRequest['stage']) {
+  switch (stage) {
+    case 'approval':
+      return 'Approval vote';
+    case 'awaiting-merge':
+      return 'Awaiting merge record';
+    case 'confirmation':
+      return 'Merge confirmation vote';
+    case 'rejected':
+      return 'Rejected';
+    case 'replaced':
+      return 'Superseded by repository replacement';
+    default:
+      return 'Confirmed';
+  }
+}
+
+function projectMergeCapabilityActionLabel(action: 'grant' | 'revoke') {
+  return action === 'grant' ? 'Grant merge capability' : 'Revoke merge capability';
+}
+
+function projectPullRequestApprovalDecisionId(requestId: string) {
+  return `${requestId}-approval`;
+}
+
+function projectPullRequestConfirmationDecisionId(requestId: string) {
+  return `${requestId}-confirmation`;
+}
+
+function currentProjectPullRequestDecisionId(request: RawProjectPullRequestRequest) {
+  switch (request.stage) {
+    case 'approval':
+      return projectPullRequestApprovalDecisionId(request.id);
+    case 'confirmation':
+      return projectPullRequestConfirmationDecisionId(request.id);
+    default:
+      return null;
+  }
+}
+
+function buildProjectSoftwareGovernance(
+  slug: string,
+  projectMode: ProjectMode,
+  currentSubtype: ProjectSubtype | null,
+  phaseTwo: { plans: ProjectProductionPlan[]; winningPlanId: string | null },
+  quorumThresholdPercent: number,
+  memberCount: number
+): ProjectSoftwareGovernanceData | null {
+  if (currentSubtype !== 'software' || projectMode === 'personal-service' || !phaseTwo.winningPlanId) {
+    return null;
+  }
+
+  const workflow = readProjectWorkflowState(slug);
+  const repositoryUrl = resolvedSoftwareRepositoryUrl(slug, phaseTwo);
+  const mergeCapabilityMembers = buildProjectSoftwareMergeCapabilityMembers(slug, phaseTwo);
+  const mergeCapabilityMemberIds = new Set(mergeCapabilityMembers.map((member) => member.id));
+  const viewer = currentViewer();
+  const viewerCanRecordMerge =
+    !!viewer && mergeCapabilityMembers.some((member) => member.id === viewer.id);
+  const availableMergeCapabilityCandidates = isPlatformTaggedProject(slug)
+    ? []
+    : (projectMembersBySlug[slug] ?? [])
+        .filter((userId) => !mergeCapabilityMemberIds.has(userId))
+        .map((userId) => toDetailMember(userId));
+  const pullRequests = [...(workflow?.softwarePullRequests ?? [])]
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .map((request) => {
+      const voteSummary =
+        request.stage === 'approval' || request.stage === 'confirmation'
+          ? buildProjectVoteSummary(request.votesByUserId, quorumThresholdPercent, memberCount)
+          : null;
+
+      return {
+        id: request.id,
+        decisionId: currentProjectPullRequestDecisionId(request),
+        title: request.title,
+        summary: request.summary,
+        pullRequestId: request.pullRequestId,
+        pullRequestUrl: request.pullRequestUrl,
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        stage: request.stage,
+        stageLabel: softwarePullRequestStageLabel(request.stage),
+        mergeId: request.mergeId ?? null,
+        mergedByUsername: request.mergedByUsername ?? null,
+        approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+        voteSummary,
+        passesApprovalThreshold: voteSummary ? phaseChangePassesApprovalThreshold(voteSummary) : false,
+        canStillPass: voteSummary
+          ? thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)
+          : true,
+        viewerCanRecordMerge: viewerCanRecordMerge && request.stage === 'awaiting-merge'
+      } satisfies ProjectSoftwarePullRequest;
+    });
+  const mergeCapabilityChangeRequests = [...(workflow?.softwareMergeCapabilityChangeRequests ?? [])]
+    .filter((request) => request.status === 'open')
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .map((request) => {
+      const voteSummary = buildProjectVoteSummary(
+        request.votesByUserId,
+        quorumThresholdPercent,
+        memberCount
+      );
+
+      return {
+        id: request.id,
+        decisionId: projectMergeCapabilityChangeDecisionId(request.id),
+        action: request.action,
+        actionLabel: projectMergeCapabilityActionLabel(request.action),
+        targetMember: toDetailMember(request.targetUserId),
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+        voteSummary,
+        passesApprovalThreshold: phaseChangePassesApprovalThreshold(voteSummary),
+        canStillPass: thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)
+      } satisfies ProjectSoftwareMergeCapabilityChangeRequest;
+    });
+  const replaceablePullRequests = pullRequests
+    .filter(
+      (request): request is ProjectSoftwarePullRequest & ProjectSoftwareBlockedPullRequest =>
+        request.stage === 'awaiting-merge' || request.stage === 'rejected'
+    )
+    .map((request) => ({
+      id: request.id,
+      title: request.title,
+      pullRequestId: request.pullRequestId,
+      stage: request.stage,
+      stageLabel: request.stageLabel
+    }));
+  const repositoryReplacementRequests = [...(workflow?.softwareRepositoryReplacementRequests ?? [])]
+    .filter((request) => request.status === 'open')
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .map((request) => {
+      const voteSummary = buildProjectVoteSummary(
+        request.votesByUserId,
+        quorumThresholdPercent,
+        memberCount
+      );
+
+      return {
+        id: request.id,
+        decisionId: projectRepositoryReplacementDecisionId(request.id),
+        repositoryUrl: request.repositoryUrl,
+        previousRepositoryUrl: request.previousRepositoryUrl,
+        reason: request.reason,
+        relatedPullRequestId: request.relatedPullRequestId,
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+        voteSummary,
+        passesApprovalThreshold: phaseChangePassesApprovalThreshold(voteSummary),
+        canStillPass: thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)
+      } satisfies ProjectSoftwareRepositoryReplacementRequest;
+    });
+  const repositoryHistory = [...(workflow?.softwareRepositoryHistory ?? [])]
+    .sort((left, right) => new Date(right.replacedAt).getTime() - new Date(left.replacedAt).getTime())
+    .map((record) => ({
+      id: record.id,
+      repositoryUrl: record.repositoryUrl,
+      previousRepositoryUrl: record.previousRepositoryUrl,
+      reason: record.reason,
+      relatedPullRequestId: record.relatedPullRequestId,
+      replacedAt: record.replacedAt,
+      replacedByUsername: record.replacedByUsername
+    } satisfies ProjectSoftwareRepositoryRecord));
+
+  return {
+    repositoryUrl,
+    licenseLabel: 'AGPL v3 by default',
+    mergeCapabilityMembers,
+    availableMergeCapabilityCandidates,
+    mergeCapabilityChangeRequests,
+    repositoryReplacementRequests,
+    replaceablePullRequests,
+    repositoryHistory,
+    pullRequests,
+    viewerCanCreatePullRequests: canViewerEditProjectPhase(slug, 'phase-5'),
+    viewerCanRequestMergeCapabilityChanges:
+      !isPlatformTaggedProject(slug) && canViewerVoteOnProjectPullRequest(slug),
+    viewerCanRequestRepositoryReplacement:
+      replaceablePullRequests.length > 0 && canViewerVoteOnProjectPullRequest(slug)
+  };
+}
+
 function buildDistributionPlans(
   slug: string,
   values: ProjectValueItem[],
   quorumThresholdPercent: number,
-  memberCount: number
+  memberCount: number,
+  phaseTwo?: { plans: ProjectProductionPlan[]; winningPlanId: string | null }
 ) {
   const workflow = readProjectWorkflowState(slug);
 
@@ -4560,6 +7896,25 @@ function buildDistributionPlans(
     return {
       plans: [] as ProjectDistributionPlan[],
       winningPlanId: null as string | null
+    };
+  }
+
+  const phaseTwoState =
+    phaseTwo ?? buildProductionPlans(slug, values, quorumThresholdPercent, memberCount);
+  const selectedSubtype = currentProjectSubtypeForLifecycle(slug, phaseTwoState);
+  const projectMode = findPublicProjectItem(slug)?.projectMode ?? 'productive';
+
+  if (selectedSubtype === 'software') {
+    const defaultPlan = buildSoftwareDefaultDistributionPlan(
+      slug,
+      projectMode,
+      selectedSubtype,
+      phaseTwoState
+    );
+
+    return {
+      plans: defaultPlan ? [defaultPlan] : [],
+      winningPlanId: defaultPlan?.id ?? null
     };
   }
 
@@ -4883,9 +8238,14 @@ type DecisionHistoryLiveState = {
   canVote: boolean;
 };
 
-function projectLifecyclePhaseTitle(projectMode: ProjectMode, phaseId: ProjectLifecyclePhaseId) {
+function projectLifecyclePhaseTitle(
+  slug: string,
+  projectMode: ProjectMode,
+  phaseId: ProjectLifecyclePhaseId
+) {
   return (
-    projectLifecyclePhaseBlueprintsForMode(projectMode).find((phase) => phase.id === phaseId)?.title ?? phaseId
+    projectLifecyclePhaseBlueprintsForProject(slug, projectMode).find((phase) => phase.id === phaseId)?.title ??
+    phaseId
   );
 }
 
@@ -4901,9 +8261,66 @@ function buildResolvedDecisionHistoryVoteSummary(entry: RawDecisionHistoryEntry)
   );
 }
 
+function defaultEventCurrentPhaseId(event: PublicEventItem) {
+  return event.isPrivate ? 'event-plan' : 'proposal';
+}
+
+function eventPhaseOrder(event: PublicEventItem, phaseId: EventLifecyclePhaseId) {
+  if (event.isPrivate) {
+    switch (phaseId) {
+      case 'event-plan':
+        return 1;
+      case 'activity':
+        return 2;
+      case 'closed':
+        return 3;
+      default:
+        return 0;
+    }
+  }
+
+  switch (phaseId) {
+    case 'proposal':
+      return 1;
+    case 'event-plan':
+      return 2;
+    case 'activity':
+      return 3;
+    case 'closed':
+      return 4;
+    default:
+      return 0;
+  }
+}
+
+function eventPhaseTitle(phaseId: EventLifecyclePhaseId) {
+  switch (phaseId) {
+    case 'proposal':
+      return 'Proposal';
+    case 'event-plan':
+      return 'Event Plan';
+    case 'activity':
+      return 'Activity';
+    default:
+      return 'Closed';
+  }
+}
+
+function isEventPhaseId(
+  phaseId: ProjectLifecyclePhaseId | EventLifecyclePhaseId
+): phaseId is EventLifecyclePhaseId {
+  return (
+    phaseId === 'proposal' ||
+    phaseId === 'event-plan' ||
+    phaseId === 'activity' ||
+    phaseId === 'closed'
+  );
+}
+
 function buildDecisionHistoryPayload(
   payload: RawDecisionHistoryPayload,
-  projectMode: ProjectMode | null
+  projectMode: ProjectMode | null,
+  projectSlug: string | null = null
 ): DecisionHistoryEntry['payload'] {
   switch (payload.type) {
     case 'phase-change':
@@ -4911,14 +8328,20 @@ function buildDecisionHistoryPayload(
         type: 'phase-change',
         changeKind: payload.changeKind,
         fromPhaseId: payload.fromPhaseId,
-        fromPhaseLabel: projectMode
-          ? projectLifecyclePhaseTitle(projectMode, payload.fromPhaseId)
-          : payload.fromPhaseId,
+        fromPhaseLabel: projectMode && projectSlug
+          ? projectLifecyclePhaseTitle(projectSlug, projectMode, payload.fromPhaseId as ProjectLifecyclePhaseId)
+          : isEventPhaseId(payload.fromPhaseId)
+            ? eventPhaseTitle(payload.fromPhaseId)
+            : payload.fromPhaseId,
         toPhaseId: payload.toPhaseId,
-        toPhaseLabel: projectMode
-          ? projectLifecyclePhaseTitle(projectMode, payload.toPhaseId)
-          : payload.toPhaseId,
-        reason: payload.reason
+        toPhaseLabel: projectMode && projectSlug
+          ? projectLifecyclePhaseTitle(projectSlug, projectMode, payload.toPhaseId as ProjectLifecyclePhaseId)
+          : isEventPhaseId(payload.toPhaseId)
+            ? eventPhaseTitle(payload.toPhaseId)
+            : payload.toPhaseId,
+        reason: payload.reason,
+        closeOutcome: payload.closeOutcome,
+        conversionTarget: buildProjectConversionTarget(payload.conversionTarget)
       };
     case 'settings-change':
       return {
@@ -4939,6 +8362,31 @@ function buildDecisionHistoryPayload(
         body: payload.body,
         appliedUpdateId: payload.appliedUpdateId ?? null
       };
+    case 'pull-request':
+      return {
+        type: 'pull-request',
+        title: payload.title,
+        summary: payload.summary,
+        pullRequestId: payload.pullRequestId,
+        pullRequestUrl: payload.pullRequestUrl,
+        mergeId: payload.mergeId ?? null,
+        repositoryUrl: payload.repositoryUrl ?? null
+      };
+    case 'merge-capability':
+      return {
+        type: 'merge-capability',
+        action: payload.action,
+        actionLabel: projectMergeCapabilityActionLabel(payload.action),
+        targetUsername: payload.targetUsername
+      };
+    case 'repository-replacement':
+      return {
+        type: 'repository-replacement',
+        repositoryUrl: payload.repositoryUrl,
+        previousRepositoryUrl: payload.previousRepositoryUrl ?? null,
+        reason: payload.reason,
+        relatedPullRequestId: payload.relatedPullRequestId ?? null
+      };
     default:
       return {
         type: 'edit',
@@ -4950,7 +8398,8 @@ function buildDecisionHistoryPayload(
 function buildDecisionHistoryEntryFromRecord(
   entry: RawDecisionHistoryEntry,
   openStateById: Map<string, DecisionHistoryLiveState>,
-  projectMode: ProjectMode | null
+  projectMode: ProjectMode | null,
+  projectSlug: string | null = null
 ) {
   const liveState = entry.status === 'open' ? openStateById.get(entry.id) ?? null : null;
   const voteSummary = liveState?.voteSummary ?? buildResolvedDecisionHistoryVoteSummary(entry);
@@ -4974,7 +8423,7 @@ function buildDecisionHistoryEntryFromRecord(
     canStillPass:
       liveState?.canStillPass ?? thresholdVoteCanStillPass(voteSummary, entry.approvalThresholdPercent),
     canVote: liveState?.canVote ?? false,
-    payload: buildDecisionHistoryPayload(entry.payload, projectMode)
+    payload: buildDecisionHistoryPayload(entry.payload, projectMode, projectSlug)
   } satisfies DecisionHistoryEntry;
 }
 
@@ -4984,7 +8433,8 @@ function buildProjectDecisionHistory(
   updateRequests: ProjectUpdateRequest[],
   editRequests: ProjectEditRequest[],
   viewerCanVoteOnUpdateRequests: boolean,
-  viewerCanVoteOnEditRequests: boolean
+  viewerCanVoteOnEditRequests: boolean,
+  softwareGovernance: ProjectSoftwareGovernanceData | null
 ) {
   const workflow = ensureProjectWorkflowState(slug);
   const projectMode = projectModeForSlug(slug);
@@ -5028,8 +8478,47 @@ function buildProjectDecisionHistory(
     });
   }
 
+  for (const request of softwareGovernance?.pullRequests ?? []) {
+    if (!request.voteSummary || !request.decisionId) {
+      continue;
+    }
+
+    openStateById.set(request.decisionId, {
+      voteSummary: request.voteSummary,
+      passesApprovalThreshold: request.passesApprovalThreshold,
+      canStillPass: request.canStillPass,
+      canVote: canViewerVoteOnProjectPullRequest(slug)
+    });
+  }
+
+  for (const request of softwareGovernance?.mergeCapabilityChangeRequests ?? []) {
+    if (!request.voteSummary) {
+      continue;
+    }
+
+    openStateById.set(request.decisionId, {
+      voteSummary: request.voteSummary,
+      passesApprovalThreshold: request.passesApprovalThreshold,
+      canStillPass: request.canStillPass,
+      canVote: canViewerVoteOnProjectPullRequest(slug)
+    });
+  }
+
+  for (const request of softwareGovernance?.repositoryReplacementRequests ?? []) {
+    if (!request.voteSummary) {
+      continue;
+    }
+
+    openStateById.set(request.decisionId, {
+      voteSummary: request.voteSummary,
+      passesApprovalThreshold: request.passesApprovalThreshold,
+      canStillPass: request.canStillPass,
+      canVote: canViewerVoteOnProjectPullRequest(slug)
+    });
+  }
+
   return [...(workflow.decisionHistory ?? [])]
-    .map((entry) => buildDecisionHistoryEntryFromRecord(entry, openStateById, projectMode))
+    .map((entry) => buildDecisionHistoryEntryFromRecord(entry, openStateById, projectMode, slug))
     .filter((entry): entry is DecisionHistoryEntry => !!entry)
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
@@ -5037,6 +8526,7 @@ function buildProjectDecisionHistory(
 function buildEventDecisionHistory(
   slug: string,
   creatorId: string | null,
+  lifecycle: EventLifecycleData,
   updateRequests: EventUpdateRequest[],
   editRequests: EventEditRequest[],
   viewerCanVoteOnUpdateRequests: boolean,
@@ -5046,6 +8536,15 @@ function buildEventDecisionHistory(
   const openStateById = new Map<string, DecisionHistoryLiveState>();
 
   ensureEventDecisionHistorySeeded(slug, creatorId);
+
+  for (const request of lifecycle.phaseChangeRequests) {
+    openStateById.set(request.id, {
+      voteSummary: request.voteSummary,
+      passesApprovalThreshold: request.passesApprovalThreshold,
+      canStillPass: request.canStillPass,
+      canVote: lifecycle.viewerCanVoteOnPhaseChanges
+    });
+  }
 
   for (const request of updateRequests) {
     openStateById.set(request.id, {
@@ -5066,7 +8565,7 @@ function buildEventDecisionHistory(
   }
 
   return [...(workflow.decisionHistory ?? [])]
-    .map((entry) => buildDecisionHistoryEntryFromRecord(entry, openStateById, null))
+    .map((entry) => buildDecisionHistoryEntryFromRecord(entry, openStateById, null, null))
     .filter((entry): entry is DecisionHistoryEntry => !!entry)
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
@@ -5188,20 +8687,347 @@ function phaseOrderForProjectMode(projectMode: ProjectMode, phaseId: ProjectLife
 }
 
 function calculateProjectQuorumThreshold(memberCount: number) {
-  if (memberCount <= 5) {
-    return 100;
+  return calculateGovernanceQuorum(memberCount).quorumThresholdPercent;
+}
+
+function recordMeaningfulAction(userId: string) {
+  lastMeaningfulActionAtByUserId[userId] = new Date().toISOString();
+  persistClientState();
+}
+
+function platformWeeklyActiveUserIds() {
+  const now = Date.now();
+
+  return users
+    .map((user) => user.id)
+    .filter((userId) => {
+      const lastActionAt = lastMeaningfulActionAtByUserId[userId];
+
+      if (!lastActionAt) {
+        return false;
+      }
+
+      return now - new Date(lastActionAt).getTime() <= WEEKLY_ACTIVE_WINDOW_MS;
+    });
+}
+
+function platformWeeklyActiveUserCount() {
+  return platformWeeklyActiveUserIds().length;
+}
+
+function projectGovernancePopulation(slug: string, memberCount: number) {
+  return isPlatformTaggedProject(slug) ? platformWeeklyActiveUserCount() : memberCount;
+}
+
+function projectVoteContextLabel(slug: string) {
+  return isPlatformTaggedProject(slug) ? 'weekly active users' : 'project members';
+}
+
+function buildProjectSignalSummary(slug: string): GovernanceSignalSummary | null {
+  const workflow = readProjectWorkflowState(slug);
+  const viewer = currentViewer();
+
+  if (!workflow || !supportsProjectDemandSignals(projectModeForSlug(slug))) {
+    return null;
   }
 
-  if (memberCount >= 1000) {
-    return 30;
+  const demandUserIds = uniqueUserIds(workflow.signalUserIds);
+  const oppositionUserIds = uniqueUserIds(workflow.oppositionSignalUserIds ?? []);
+  const demandCount = Math.max(workflow.signalCount, demandUserIds.length);
+  const oppositionCount = Math.max(workflow.oppositionSignalCount ?? 0, oppositionUserIds.length);
+  const totalCount = demandCount + oppositionCount;
+  const signalRatioPercent = totalCount === 0 ? 0 : Math.round((demandCount / totalCount) * 100);
+  const voteContextPopulation = projectGovernancePopulation(slug, buildProjectMemberState(slug).memberCount);
+  const requiredDemandCount = isPlatformTaggedProject(slug)
+    ? calculateRequiredVotes(voteContextPopulation)
+    : 0;
+  const viewerSignal = viewer
+    ? demandUserIds.includes(viewer.id)
+      ? 'demand'
+      : oppositionUserIds.includes(viewer.id)
+        ? 'opposition'
+        : null
+    : null;
+  const ratioRequirementMet = totalCount > 0 && demandCount / totalCount > 0.66;
+  const demandRequirementMet = requiredDemandCount === 0 || demandCount >= requiredDemandCount;
+
+  return {
+    demandCount,
+    oppositionCount,
+    totalCount,
+    viewerSignal,
+    signalRatioPercent,
+    ratioRequirementMet,
+    requiredDemandCount,
+    demandRequirementMet,
+    advancementUnlocked: ratioRequirementMet && demandRequirementMet,
+    usesPlatformVoteContext: isPlatformTaggedProject(slug),
+    voteContextLabel: projectVoteContextLabel(slug),
+    voteContextPopulation
+  };
+}
+
+function isPlatformTaggedEvent(subject: string | PublicEventItem) {
+  const event = typeof subject === 'string' ? findPublicEventItem(subject) : subject;
+
+  return !!event && event.channelTags.some((tag) => tag.slug === platform.slug);
+}
+
+function eventVoteContextLabel(event: PublicEventItem) {
+  if (isPlatformTaggedEvent(event)) {
+    return 'weekly active users';
   }
 
-  const minMembers = Math.log10(5);
-  const maxMembers = Math.log10(1000);
-  const scaledMembers = Math.log10(Math.max(memberCount, 5));
-  const progress = (scaledMembers - minMembers) / (maxMembers - minMembers);
+  return event.isPrivate ? 'event editors' : 'event members';
+}
 
-  return Math.round(100 - progress * 70);
+function eventGovernancePopulation(event: PublicEventItem, eligibleVoterCount: number) {
+  return isPlatformTaggedEvent(event) ? platformWeeklyActiveUserCount() : eligibleVoterCount;
+}
+
+function eventNextPhaseId(
+  event: PublicEventItem,
+  currentPhaseId: EventLifecyclePhaseId
+): EventLifecyclePhaseId | null {
+  if (event.isPrivate) {
+    switch (currentPhaseId) {
+      case 'event-plan':
+        return 'activity';
+      case 'activity':
+        return 'closed';
+      default:
+        return null;
+    }
+  }
+
+  switch (currentPhaseId) {
+    case 'proposal':
+      return 'event-plan';
+    case 'event-plan':
+      return 'activity';
+    case 'activity':
+      return 'closed';
+    default:
+      return null;
+  }
+}
+
+function revertableEventPhaseIds(
+  event: PublicEventItem,
+  currentPhaseId: EventLifecyclePhaseId
+) {
+  if (event.isPrivate) {
+    if (currentPhaseId === 'activity' || currentPhaseId === 'closed') {
+      return ['event-plan'] as EventLifecyclePhaseId[];
+    }
+
+    return [] as EventLifecyclePhaseId[];
+  }
+
+  if (currentPhaseId === 'event-plan') {
+    return ['proposal'] as EventLifecyclePhaseId[];
+  }
+
+  if (currentPhaseId === 'activity' || currentPhaseId === 'closed') {
+    return ['proposal', 'event-plan'] as EventLifecyclePhaseId[];
+  }
+
+  return [] as EventLifecyclePhaseId[];
+}
+
+function eventPreviousPhaseId(
+  event: PublicEventItem,
+  currentPhaseId: EventLifecyclePhaseId
+): EventLifecyclePhaseId | null {
+  const revertablePhaseIds = revertableEventPhaseIds(event, currentPhaseId);
+
+  return revertablePhaseIds[revertablePhaseIds.length - 1] ?? null;
+}
+
+function requestableEventPhaseTargetIds(
+  event: PublicEventItem,
+  currentPhaseId: EventLifecyclePhaseId
+) {
+  const nextPhaseId = eventNextPhaseId(event, currentPhaseId);
+  const revertablePhaseIds = revertableEventPhaseIds(event, currentPhaseId);
+
+  return [...(nextPhaseId ? [nextPhaseId] : []), ...revertablePhaseIds];
+}
+
+function eventPhaseChangeKind(
+  event: PublicEventItem,
+  fromPhaseId: EventLifecyclePhaseId,
+  toPhaseId: EventLifecyclePhaseId
+) {
+  const fromOrder = eventPhaseOrder(event, fromPhaseId);
+  const toOrder = eventPhaseOrder(event, toPhaseId);
+
+  if (toPhaseId === 'closed' && toOrder > fromOrder) {
+    return 'close';
+  }
+
+  return toOrder > fromOrder ? 'advance' : 'return';
+}
+
+function buildEventSignalSummary(event: PublicEventItem): GovernanceSignalSummary | null {
+  if (event.isPrivate) {
+    return null;
+  }
+
+  const creatorId = userByUsername(event.createdByUsername)?.id ?? null;
+  const workflow = ensureEventWorkflowState(event.slug, creatorId);
+  const viewer = currentViewer();
+  const demandUserIds = uniqueUserIds(workflow.signalUserIds ?? []);
+  const oppositionUserIds = uniqueUserIds(workflow.oppositionSignalUserIds ?? []);
+  const demandCount = Math.max(workflow.signalCount ?? 0, demandUserIds.length);
+  const oppositionCount = Math.max(workflow.oppositionSignalCount ?? 0, oppositionUserIds.length);
+  const totalCount = demandCount + oppositionCount;
+  const memberState = buildEventMemberState(event);
+  const voteContextPopulation = eventGovernancePopulation(event, memberState.eligibleVoterCount);
+  const requiredDemandCount = isPlatformTaggedEvent(event)
+    ? calculateRequiredVotes(voteContextPopulation)
+    : 0;
+  const viewerSignal = viewer
+    ? demandUserIds.includes(viewer.id)
+      ? 'demand'
+      : oppositionUserIds.includes(viewer.id)
+        ? 'opposition'
+        : null
+    : null;
+  const ratioRequirementMet = totalCount > 0 && demandCount / totalCount > 0.66;
+  const demandRequirementMet = requiredDemandCount === 0 || demandCount >= requiredDemandCount;
+
+  return {
+    demandCount,
+    oppositionCount,
+    totalCount,
+    viewerSignal,
+    signalRatioPercent: totalCount === 0 ? 0 : Math.round((demandCount / totalCount) * 100),
+    ratioRequirementMet,
+    requiredDemandCount,
+    demandRequirementMet,
+    advancementUnlocked: ratioRequirementMet && demandRequirementMet,
+    usesPlatformVoteContext: isPlatformTaggedEvent(event),
+    voteContextLabel: eventVoteContextLabel(event),
+    voteContextPopulation
+  };
+}
+
+function eventPhaseBlueprintsForItem(
+  event: PublicEventItem,
+  currentPhaseId: EventLifecyclePhaseId
+): EventLifecyclePhase[] {
+  const publicBlueprints = [
+    {
+      id: 'proposal',
+      order: 1,
+      shortLabel: 'Proposal',
+      title: 'Proposal',
+      summary: 'Demand, opposition, and member-ranked values decide whether the event should move into planning.',
+      mechanics: [
+        'Demand and opposition stay visible throughout the event lifecycle.',
+        'Members can add proposal values and rank their importance during proposal.',
+        'Planning only opens after support is high enough and members vote to advance.'
+      ],
+      eventStatus:
+        'This event is still in proposal and needs enough support to open its shared event plan phase.'
+    },
+    {
+      id: 'event-plan',
+      order: 2,
+      shortLabel: 'Plan',
+      title: 'Event Plan',
+      summary:
+        'Members submit event plans, vote on how well each plan satisfies proposal demand and values, and select the plan that should run.',
+      mechanics: [
+        'Any event member can submit a plan during the planning phase.',
+        'Members can approve more than one plan and vote on how well each plan satisfies the proposal values.',
+        'When a plan clears approval and quorum, members can vote to advance into activity.'
+      ],
+      eventStatus:
+        'This event is in its planning phase. An accepted plan becomes the live event title and description when activity opens.'
+    },
+    {
+      id: 'activity',
+      order: 3,
+      shortLabel: 'Activity',
+      title: 'Activity',
+      summary:
+        'The accepted plan is now live, and members can schedule multiple concrete activities with role minimums on the shared calendar.',
+      mechanics: [
+        'The accepted event plan becomes the live event framing for the activity phase.',
+        'Members can schedule multiple activities that map back to stages in the accepted plan.',
+        'Each activity can define role minimums so members can coordinate what is needed.'
+      ],
+      eventStatus:
+        'This event is active. The accepted event plan is live, and activities can be scheduled directly from it.'
+    },
+    {
+      id: 'closed',
+      order: 4,
+      shortLabel: 'Closed',
+      title: 'Closed',
+      summary: 'The event stays visible as history after it closes.',
+      mechanics: [
+        'Closed events remain visible with their plan, activities, and decision history.',
+        'No new lifecycle work opens once the event is closed.'
+      ],
+      eventStatus: 'This event is closed and kept as part of the event record.'
+    }
+  ] as const;
+  const privateBlueprints = [
+    {
+      id: 'event-plan',
+      order: 1,
+      shortLabel: 'Plan',
+      title: 'Event Plan',
+      summary:
+        'The creator and any granted editors shape the private event plan before the event runs or closes.',
+      mechanics: [
+        'Private events do not use public proposal signalling.',
+        'The creator can grant editor access so planning work can be shared deliberately.',
+        'The accepted plan becomes the live event framing when the private event is active.'
+      ],
+      eventStatus:
+        'This private event is in planning. The creator and invited editors control the event plan.'
+    },
+    {
+      id: 'activity',
+      order: 2,
+      shortLabel: 'Activity',
+      title: 'Activity',
+      summary:
+        'The private event plan is live, and activities can be scheduled directly from the agreed plan.',
+      mechanics: [
+        'Private-event activities can still be broken into multiple scheduled pieces.',
+        'Role minimums stay visible so invited members know what participation is needed.',
+        'The creator keeps control of private-event lifecycle decisions.'
+      ],
+      eventStatus:
+        'This private event is active. The accepted plan is live and activities can be scheduled from it.'
+    },
+    {
+      id: 'closed',
+      order: 3,
+      shortLabel: 'Closed',
+      title: 'Closed',
+      summary: 'The private event stays visible as a record after it closes.',
+      mechanics: [
+        'Closed private events keep their plan, activities, and history visible to the permitted audience.',
+        'No new lifecycle work opens once the event is closed.'
+      ],
+      eventStatus: 'This private event is closed and preserved as part of the event record.'
+    }
+  ] as const;
+  const blueprints = event.isPrivate ? privateBlueprints : publicBlueprints;
+  const currentOrder = blueprints.find((phase) => phase.id === currentPhaseId)?.order ?? 1;
+
+  return blueprints.map((phase) => ({
+    ...phase,
+    mechanics: [...phase.mechanics],
+    progressState:
+      phase.id === currentPhaseId ? 'current' : phase.order < currentOrder ? 'complete' : 'upcoming'
+  }));
 }
 
 function activityPhaseIdForProject(projectMode: ProjectMode) {
@@ -5235,8 +9061,11 @@ function revertableProjectPhaseIds(
 
 function buildProjectLifecycleNotes(
   projectMode: ProjectMode,
-  quorumThresholdPercent: number,
+  quorumVotesRequired: number,
+  voteContextPopulation: number,
+  voteContextLabel: string,
   requestSystemEnabled: boolean,
+  usesPlatformLifecycle: boolean,
   personalServiceRequestModeValue: 'calendar' | 'direct' | 'both' = 'calendar'
 ) {
   if (projectMode === 'personal-service') {
@@ -5272,20 +9101,29 @@ function buildProjectLifecycleNotes(
       body: 'Members can keep expressing demand and interest throughout the full lifecycle, not just during proposal.'
     },
     {
-      title: `Current quorum: ${quorumThresholdPercent}%`,
-      body: `This mock rule starts at 100% for projects with 5 members or fewer and eases toward 30% as groups approach 1000 members. The project group should eventually be able to tune it.`
+      title: `Current quorum: ${quorumVotesRequired} ${quorumVotesRequired === 1 ? 'vote' : 'votes'} required`,
+      body:
+        voteContextPopulation <= 0
+          ? `No eligible ${voteContextLabel} are recorded yet, so quorum will start counting once someone becomes active in this vote context.`
+          : `This now follows the governance formula from governance-rules.md and currently requires ${quorumVotesRequired} of ${voteContextPopulation} eligible ${voteContextLabel} to cast a vote before a result is valid.`
       },
       {
         title: `Phase changes need ${phaseChangeApprovalThresholdPercent}% approval`,
-        body: 'Any project member can request a phase change, but the request only executes once quorum is met and the approval rating reaches the required threshold.'
+        body: 'Any eligible participant can request a phase change, but the request only executes once quorum is met and the approval rating reaches the required threshold.'
     },
     ...(projectMode === 'collective-service'
       ? [
           {
-            title: requestSystemEnabled ? 'Requests are enabled' : 'Requests are optional',
-            body: requestSystemEnabled
-              ? 'The current access plan enabled service requests, so users can keep adding requests during active service.'
-              : 'Collective service requests stay off until an access plan explicitly enables them.'
+            title: usesPlatformLifecycle
+              ? 'Activity requests stay governed'
+              : requestSystemEnabled
+                ? 'Requests are enabled'
+                : 'Requests are optional',
+            body: usesPlatformLifecycle
+              ? 'Platform collective services use governed in-activity requests here instead of the old member-managed booking flow.'
+              : requestSystemEnabled
+                ? 'The current access plan enabled service requests, so users can keep adding requests during active service.'
+                : 'Collective service requests stay off until an access plan explicitly enables them.'
           }
         ]
       : [])
@@ -5300,44 +9138,61 @@ function buildProjectLifecycle(
   const config = projectLifecycleBySlug[slug] ?? projectLifecycleBySlug['neighborhood-heat-pump-pilot'];
   const workflow = readProjectWorkflowState(slug);
   const viewer = currentViewer();
-  const memberIds = projectMembersBySlug[slug] ?? [];
-  const viewerIsMember = !!viewer && memberIds.includes(viewer.id);
   const personalServiceRequestModeValue =
     projectMode === 'personal-service' ? personalServiceRequestMode(slug) : 'calendar';
   const personalServiceCalendarMode =
     projectMode === 'personal-service' && personalServiceRequestModeValue !== 'direct';
-  const phaseBlueprints =
-    projectMode === 'personal-service'
-      ? personalServicePhaseBlueprintsForRequestMode(personalServiceRequestModeValue)
-      : projectLifecyclePhaseBlueprintsForMode(projectMode);
   const supportsDemandSignals = supportsProjectDemandSignals(projectMode);
   const supportsPlanning = supportsProjectPlanning(projectMode);
   const values = buildProjectValues(slug);
-  const quorumThresholdPercent = supportsPlanning ? calculateProjectQuorumThreshold(memberCount) : 0;
+  const voteContextPopulation = projectGovernancePopulation(slug, memberCount);
+  const voteContextLabel = projectVoteContextLabel(slug);
+  const quorum = supportsPlanning
+    ? calculateGovernanceQuorum(voteContextPopulation)
+    : { quorumThresholdPercent: 0, votesRequired: 0 };
+  const quorumThresholdPercent = quorum.quorumThresholdPercent;
+  const quorumVotesRequired = quorum.votesRequired;
   const memberState = buildProjectMemberState(slug);
+  const signalSummary = buildProjectSignalSummary(slug);
   const phaseTwo = supportsPlanning
-    ? buildProductionPlans(slug, values, quorumThresholdPercent, memberCount)
+    ? buildProductionPlans(slug, values, quorumThresholdPercent, voteContextPopulation)
     : { plans: [] as ProjectProductionPlan[], winningPlanId: null as string | null };
+  const currentSubtype = currentProjectSubtypeForLifecycle(slug, phaseTwo);
+  const currentSubtypeLabel = currentSubtype ? projectSubtypeLabel(currentSubtype) : null;
+  const projectItem = findPublicProjectItem(slug);
+  const usesPlatformLifecycle = usesPlatformPendingExecutionLifecycle(slug, projectMode, currentSubtype);
   const phaseThree = supportsPlanning
-    ? buildDistributionPlans(slug, values, quorumThresholdPercent, memberCount)
+    ? usesPlatformLifecycle
+      ? { plans: [] as ProjectDistributionPlan[], winningPlanId: null as string | null }
+      : buildDistributionPlans(slug, values, quorumThresholdPercent, voteContextPopulation, phaseTwo)
     : { plans: [] as ProjectDistributionPlan[], winningPlanId: null as string | null };
+  const phaseBlueprints =
+    projectMode === 'personal-service'
+      ? personalServicePhaseBlueprintsForRequestMode(personalServiceRequestModeValue)
+      : projectLifecyclePhaseBlueprintsForProject(slug, projectMode, currentSubtype);
   const normalizedCurrentPhaseId = (() => {
     if (projectMode === 'personal-service') {
       return config.currentPhaseId;
     }
 
-    if (values.length === 0) {
-      return 'phase-1' as ProjectLifecyclePhaseId;
+    if (usesPlatformLifecycle && (config.currentPhaseId === 'phase-3' || config.currentPhaseId === 'phase-4')) {
+      return phaseTwo.winningPlanId ? ('phase-5' as ProjectLifecyclePhaseId) : ('phase-2' as ProjectLifecyclePhaseId);
     }
 
-    if (
-      ['phase-3', 'phase-4', 'phase-5', 'phase-6'].includes(config.currentPhaseId) &&
-      !phaseTwo.winningPlanId
-    ) {
+    const currentOrder = phaseOrderForProjectSlug(slug, projectMode, config.currentPhaseId);
+    const phaseTwoOrder = phaseOrderForProjectSlug(slug, projectMode, 'phase-2');
+    const phaseThreeOrder = phaseOrderForProjectSlug(slug, projectMode, 'phase-3');
+
+    if (currentOrder > phaseTwoOrder && phaseTwoOrder > 0 && !phaseTwo.winningPlanId) {
       return 'phase-2' as ProjectLifecyclePhaseId;
     }
 
-    if (['phase-5', 'phase-6'].includes(config.currentPhaseId) && !phaseThree.winningPlanId) {
+    if (
+      phaseThreeOrder > 0 &&
+      currentOrder > phaseThreeOrder &&
+      !usesPlatformLifecycle &&
+      !phaseThree.winningPlanId
+    ) {
       return 'phase-3' as ProjectLifecyclePhaseId;
     }
 
@@ -5346,7 +9201,7 @@ function buildProjectLifecycle(
   config.currentPhaseId = normalizedCurrentPhaseId;
   const currentPhaseOrder =
     phaseBlueprints.find((phase) => phase.id === config.currentPhaseId)?.order ?? 1;
-  const nextPhaseId = nextProjectPhaseId(config.currentPhaseId, projectMode);
+  const nextPhaseId = nextProjectPhaseIdForSlug(slug, config.currentPhaseId, projectMode, currentSubtype);
   const selectablePlanPhases = buildSelectableActivityPlanPhases(phaseTwo, phaseThree);
   const activityPhaseId = activityPhaseIdForProject(projectMode);
   const activityPhaseOrder =
@@ -5398,33 +9253,60 @@ function buildProjectLifecycle(
           requestMode: personalServiceRequestModeValue
         }
       : null;
-  const revertablePhaseIds = revertableProjectPhaseIds(projectMode, config.currentPhaseId);
+  const softwareGovernance = buildProjectSoftwareGovernance(
+    slug,
+    projectMode,
+    currentSubtype,
+    phaseTwo,
+    quorumThresholdPercent,
+    voteContextPopulation
+  );
+  const revertablePhaseIds = revertableProjectPhaseIdsForSlug(slug, projectMode, config.currentPhaseId);
   const phaseChangeRequests = buildProjectPhaseChangeRequests(
     slug,
     projectMode,
     config.currentPhaseId,
     phaseBlueprints,
     quorumThresholdPercent,
-    memberCount
+    voteContextPopulation
   );
   const viewerCanRequestPhaseChanges =
     projectMode !== 'personal-service' &&
-    memberState.viewerIsMember &&
-    requestableProjectPhaseTargetIds(config.currentPhaseId, projectMode).length > 0;
+    canViewerRequestProjectPhaseChange(slug) &&
+    requestableProjectPhaseTargetIdsForSlug(slug, config.currentPhaseId, projectMode).length > 0;
   const viewerCanVoteOnPhaseChanges =
-    projectMode !== 'personal-service' && memberState.viewerIsMember;
+    projectMode !== 'personal-service' && canViewerVoteOnProjectPhaseChange(slug);
   const canAdvancePhaseNow = nextPhaseId ? canAdvanceMockProjectPhaseNow(slug, projectMode) : false;
+  const phaseFour = projectItem
+    ? buildProjectPhaseFourPreview(
+        slug,
+        projectItem,
+        currentSubtype,
+        phaseTwo,
+        quorumThresholdPercent,
+        voteContextPopulation
+      )
+    : null;
 
   return {
     projectMode,
+    currentSubtype,
+    currentSubtypeLabel,
+    usesPlatformLifecycle,
     supportsDemandSignals,
     supportsPlanning,
     currentPhaseId: config.currentPhaseId,
     quorumThresholdPercent,
+    quorumVotesRequired,
+    voteContextLabel,
+    voteContextPopulation,
     notes: buildProjectLifecycleNotes(
       projectMode,
-      quorumThresholdPercent,
+      quorumVotesRequired,
+      voteContextPopulation,
+      voteContextLabel,
       requestSystemEnabled,
+      usesPlatformLifecycle,
       personalServiceRequestModeValue
     ),
     viewerCanRequestPhaseChanges,
@@ -5451,29 +9333,44 @@ function buildProjectLifecycle(
       values,
       viewerCanSignalDemand: supportsDemandSignals && !!viewer,
       viewerHasDemandSignal: supportsDemandSignals && !!viewer && !!workflow?.signalUserIds.includes(viewer.id),
-      viewerCanAddValue: supportsPlanning && viewerIsMember && config.currentPhaseId === 'phase-1',
-      viewerCanVoteOnValues: supportsPlanning && viewerIsMember && config.currentPhaseId === 'phase-1',
+      viewerCanSignalOpposition: supportsDemandSignals && !!viewer,
+      viewerHasOppositionSignal:
+        supportsDemandSignals && !!viewer && !!workflow?.oppositionSignalUserIds?.includes(viewer.id),
+      signalSummary,
+      viewerCanAddValue: supportsPlanning && canViewerEditProjectPhase(slug, 'phase-1'),
+      viewerCanVoteOnValues: supportsPlanning && canViewerEditProjectPhase(slug, 'phase-1'),
       availabilitySummary: personalService?.availabilitySummary,
       travelRadiusLabel: personalService?.travelRadiusLabel
     },
     phaseTwo: {
       plans: phaseTwo.plans,
       winningPlanId: phaseTwo.winningPlanId,
-      viewerCanSubmitPlans: supportsPlanning && viewerIsMember && config.currentPhaseId === 'phase-2',
-      viewerCanVoteOnPlans: supportsPlanning && viewerIsMember && config.currentPhaseId === 'phase-2'
+      viewerCanSubmitPlans: supportsPlanning && canViewerEditProjectPhase(slug, 'phase-2'),
+      viewerCanVoteOnPlans: supportsPlanning && canViewerEditProjectPhase(slug, 'phase-2'),
+      availableAssetManagementServices: availableAssetManagementServiceOptionsForProject(slug)
     },
     phaseThree: {
       plans: phaseThree.plans,
       winningPlanId: phaseThree.winningPlanId,
-      viewerCanSubmitPlans: supportsPlanning && viewerIsMember && config.currentPhaseId === 'phase-3',
-      viewerCanVoteOnPlans: supportsPlanning && viewerIsMember && config.currentPhaseId === 'phase-3',
+      viewerCanSubmitPlans:
+        supportsPlanning &&
+        !usesPlatformLifecycle &&
+        currentSubtype !== 'software' &&
+        canViewerEditProjectPhase(slug, 'phase-3'),
+      viewerCanVoteOnPlans:
+        supportsPlanning &&
+        !usesPlatformLifecycle &&
+        currentSubtype !== 'software' &&
+        canViewerEditProjectPhase(slug, 'phase-3'),
       requestSystemEnabled
     },
+    phaseFour,
     phaseFive: {
       activities: phaseFiveState.activities,
       history: phaseFiveState.history,
       viewerCanCreateActivities: canViewerCreateProjectActivity(slug),
-      selectablePlanPhases
+      selectablePlanPhases,
+      softwareGovernance
     },
     phases: phaseBlueprints.map((phase) => {
       const phaseConfig = config.phases[phase.id];
@@ -5505,6 +9402,7 @@ type ProjectDetailExtra = {
 };
 
 const projectDetailExtras: Record<string, ProjectDetailExtra> = {
+  ...explicitAssetServiceProjectDetailExtras,
   'neighborhood-heat-pump-pilot': {
     overview:
       'This project is still in demand signalling so the first pilot stays small, legible, and finishable. The goal is to keep labor needs, vendor questions, and likely building candidates visible in one place before planning hardens.',
@@ -5851,11 +9749,59 @@ const eventInvitedSinceById: Record<string, Record<string, string>> = Object.fro
   ])
 );
 
+type ConfidenceVoteLedger = {
+  votesByUserId: Record<string, VoteDirection>;
+};
+
 const voteState = new Map<string, { voteCount: number; activeVote: VoteDirection }>();
-const confidenceState = new Map<string, { upVotes: number; downVotes: number; activeVote: VoteDirection }>();
+const confidenceState = new Map<string, ConfidenceVoteLedger>();
 
 function seedVoteTarget(id: string, voteCount: number, activeVote: VoteDirection) {
   voteState.set(id, { voteCount, activeVote });
+}
+
+function createSyntheticConfidenceVoterId(targetId: string, direction: string, index: number) {
+  return `confidence-voter-${targetId}-${direction}-${index}`;
+}
+
+function setSyntheticConfidenceVoterLastActiveAt(userId: string, lastActiveAt: string) {
+  syntheticConfidenceVoteLastActiveAtByUserId[userId] = lastActiveAt;
+}
+
+function lastConfidenceVoterActionAt(userId: string) {
+  return lastMeaningfulActionAtByUserId[userId] ?? syntheticConfidenceVoteLastActiveAtByUserId[userId] ?? null;
+}
+
+function isConfidenceVoteCounted(userId: string) {
+  const lastActionAt = lastConfidenceVoterActionAt(userId);
+
+  if (!lastActionAt) {
+    return false;
+  }
+
+  return Date.now() - new Date(lastActionAt).getTime() < BOARD_STANDING_VOTE_CLEAR_WINDOW_MS;
+}
+
+function setConfidenceVotes(targetId: string, votesByUserId: Record<string, VoteDirection>) {
+  confidenceState.set(targetId, { votesByUserId });
+
+  const viewer = currentViewer();
+  let upVotes = 0;
+  let downVotes = 0;
+
+  for (const [userId, vote] of Object.entries(votesByUserId)) {
+    if (!isConfidenceVoteCounted(userId)) {
+      continue;
+    }
+
+    if (vote === 1) {
+      upVotes += 1;
+    } else if (vote === -1) {
+      downVotes += 1;
+    }
+  }
+
+  seedVoteTarget(targetId, upVotes - downVotes, viewer ? votesByUserId[viewer.id] ?? 0 : 0);
 }
 
 function seedConfidenceTarget(
@@ -5864,8 +9810,65 @@ function seedConfidenceTarget(
   downVotes: number,
   activeVote: VoteDirection
 ) {
-  confidenceState.set(id, { upVotes, downVotes, activeVote });
-  seedVoteTarget(id, upVotes - downVotes, activeVote);
+  const votesByUserId: Record<string, VoteDirection> = {};
+  let remainingUpVotes = upVotes;
+  let remainingDownVotes = downVotes;
+
+  if (activeVote === 1) {
+    votesByUserId['viewer-1'] = 1;
+    remainingUpVotes = Math.max(0, remainingUpVotes - 1);
+  } else if (activeVote === -1) {
+    votesByUserId['viewer-1'] = -1;
+    remainingDownVotes = Math.max(0, remainingDownVotes - 1);
+  }
+
+  for (let index = 0; index < remainingUpVotes; index += 1) {
+    const voterId = createSyntheticConfidenceVoterId(id, 'yes', index);
+    votesByUserId[voterId] = 1;
+    setSyntheticConfidenceVoterLastActiveAt(voterId, isoDaysAgo(30));
+  }
+
+  for (let index = 0; index < remainingDownVotes; index += 1) {
+    const voterId = createSyntheticConfidenceVoterId(id, 'no', index);
+    votesByUserId[voterId] = -1;
+    setSyntheticConfidenceVoterLastActiveAt(voterId, isoDaysAgo(30));
+  }
+
+  setConfidenceVotes(id, votesByUserId);
+}
+
+function seedBoardConfidenceTarget(
+  id: string,
+  seed: {
+    activeYesUserIds: string[];
+    activeNoUserIds: string[];
+    archivedYesCount: number;
+    archivedNoCount: number;
+  }
+) {
+  const votesByUserId: Record<string, VoteDirection> = {};
+
+  for (const userId of seed.activeYesUserIds) {
+    votesByUserId[userId] = 1;
+  }
+
+  for (const userId of seed.activeNoUserIds) {
+    votesByUserId[userId] = -1;
+  }
+
+  for (let index = 0; index < seed.archivedYesCount; index += 1) {
+    const voterId = createSyntheticConfidenceVoterId(id, 'yes-archived', index);
+    votesByUserId[voterId] = 1;
+    setSyntheticConfidenceVoterLastActiveAt(voterId, isoDaysAgo(140));
+  }
+
+  for (let index = 0; index < seed.archivedNoCount; index += 1) {
+    const voterId = createSyntheticConfidenceVoterId(id, 'no-archived', index);
+    votesByUserId[voterId] = -1;
+    setSyntheticConfidenceVoterLastActiveAt(voterId, isoDaysAgo(140));
+  }
+
+  setConfidenceVotes(id, votesByUserId);
 }
 
 for (const item of publicFeedBase) {
@@ -5910,6 +9913,27 @@ for (const [targetId, seed] of Object.entries(scopeConfidenceSeeds)) {
 for (const [targetId, seed] of Object.entries(projectManagerConfidenceSeeds)) {
   seedConfidenceTarget(targetId, seed.upVotes, seed.downVotes, seed.activeVote);
 }
+
+seedBoardConfidenceTarget(ensurePlatformBoardConfidenceTargetId('user-mika'), {
+  activeYesUserIds: ['viewer-1', 'user-rowan', 'user-tool', 'user-mika'],
+  activeNoUserIds: ['user-ember'],
+  archivedYesCount: 17,
+  archivedNoCount: 4
+});
+
+seedBoardConfidenceTarget(ensurePlatformBoardConfidenceTargetId('user-ember'), {
+  activeYesUserIds: ['viewer-1', 'user-rowan', 'user-ember'],
+  activeNoUserIds: ['user-tool'],
+  archivedYesCount: 14,
+  archivedNoCount: 5
+});
+
+seedBoardConfidenceTarget(ensurePlatformBoardConfidenceTargetId('user-rowan'), {
+  activeYesUserIds: ['viewer-1', 'user-tool'],
+  activeNoUserIds: ['user-mika'],
+  archivedYesCount: 6,
+  archivedNoCount: 2
+});
 
 const commentsBySubjectId: Record<string, DetailComment[]> = {
   'project-heat-pump': [
@@ -6196,7 +10220,7 @@ const notificationsState: NotificationsPageData['items'] = currentViewer()
         actorUsername: 'toolorbit',
         actionLabel: 'updated',
         title: 'Tool Library Spring Swap Social',
-        body: 'You are marked as going, and toolorbit confirmed the snack table and swap table are set.',
+        body: 'You joined the event, and toolorbit confirmed the snack table and swap table are set.',
         href: '/events/tool-library-spring-swap-social',
         createdAt: '2026-04-29T21:10:00Z',
         isUnread: false,
@@ -6417,6 +10441,13 @@ function scopeLabelsForViewer(
   return Array.from(labels);
 }
 
+function viewerHasEventScopeAccess(
+  item: Pick<PublicEventItem, 'channelTags' | 'communityTags'>,
+  viewerId: string
+) {
+  return scopeLabelsForViewer(item, viewerId).length > 0;
+}
+
 function okShareTargetResult(): ShareTargetResult {
   return { ok: true };
 }
@@ -6538,17 +10569,172 @@ function readConfidenceTarget(targetId: string) {
   return confidenceState.get(targetId) ?? null;
 }
 
-function buildConfidenceFields(confidenceTargetId?: string) {
+function ensurePlatformBoardConfidenceTargetId(userId: string) {
+  const existing = platformBoardState.confidenceTargetIdsByUserId[userId];
+
+  if (existing) {
+    return existing;
+  }
+
+  const targetId = `confidence-stewardship-${userId}`;
+  platformBoardState.confidenceTargetIdsByUserId[userId] = targetId;
+
+  if (!confidenceState.has(targetId)) {
+    setConfidenceVotes(targetId, {});
+  }
+
+  if (!voteState.has(targetId)) {
+    seedVoteTarget(targetId, 0, 0);
+  }
+
+  return targetId;
+}
+
+function platformBoardMemberUserIds() {
+  return readScopeMembership('platform', platform.slug).memberIds;
+}
+
+function platformBoardConfidenceTargetUserId(targetId: string) {
+  const directMatch = Object.entries(platformBoardState.confidenceTargetIdsByUserId).find(
+    ([, candidateTargetId]) => candidateTargetId === targetId
+  );
+
+  if (directMatch) {
+    return directMatch[0];
+  }
+
+  for (const userId of platformBoardMemberUserIds()) {
+    if (ensurePlatformBoardConfidenceTargetId(userId) === targetId) {
+      return userId;
+    }
+  }
+
+  return null;
+}
+
+function isPlatformBoardConfidenceTarget(targetId: string) {
+  return platformBoardConfidenceTargetUserId(targetId) !== null;
+}
+
+function buildConfidenceVoteSnapshot(confidenceTargetId?: string) {
   const confidence = confidenceTargetId ? readConfidenceTarget(confidenceTargetId) : null;
-  const reviewCount = confidence ? confidence.upVotes + confidence.downVotes : undefined;
-  const confidenceRatio = confidence && reviewCount ? Math.round((confidence.upVotes / reviewCount) * 100) : undefined;
+  const viewer = currentViewer();
+
+  if (!confidenceTargetId || !confidence) {
+    return null;
+  }
+
+  let upVotes = 0;
+  let downVotes = 0;
+
+  for (const [userId, vote] of Object.entries(confidence.votesByUserId)) {
+    if (!isConfidenceVoteCounted(userId)) {
+      continue;
+    }
+
+    if (vote === 1) {
+      upVotes += 1;
+    } else if (vote === -1) {
+      downVotes += 1;
+    }
+  }
+
+  return {
+    upVotes,
+    downVotes,
+    reviewCount: upVotes + downVotes,
+    activeVote: viewer ? confidence.votesByUserId[viewer.id] ?? 0 : 0
+  };
+}
+
+function buildBoardStandingFields(confidenceTargetId?: string) {
+  const snapshot = buildConfidenceVoteSnapshot(confidenceTargetId);
+  const reviewCount = snapshot?.reviewCount;
+  const confidenceRatio =
+    snapshot && reviewCount ? Math.round((snapshot.upVotes / reviewCount) * 100) : undefined;
+  const boardUserId = confidenceTargetId ? platformBoardConfidenceTargetUserId(confidenceTargetId) : null;
+
+  if (
+    !confidenceTargetId ||
+    !boardUserId ||
+    !isPlatformBoardConfidenceTarget(confidenceTargetId) ||
+    reviewCount === undefined ||
+    confidenceRatio === undefined
+  ) {
+    return {
+      confidenceVotesRequired: undefined,
+      confidenceWeeklyActiveUserCount: undefined,
+      confidenceStandingState: undefined,
+      confidenceGraceEndsAt: undefined
+    };
+  }
+
+  const confidenceWeeklyActiveUserCount = platformWeeklyActiveUserCount();
+  const confidenceVotesRequired = calculateRequiredVotes(confidenceWeeklyActiveUserCount);
+
+  if (
+    reviewCount >= confidenceVotesRequired &&
+    confidenceRatio >= GOVERNANCE_APPROVAL_THRESHOLD_PERCENT
+  ) {
+    activePlatformBoardUserIds.add(boardUserId);
+    delete boardStandingGraceStartedAtByTargetId[confidenceTargetId];
+
+    return {
+      confidenceVotesRequired,
+      confidenceWeeklyActiveUserCount,
+      confidenceStandingState: 'active' as const,
+      confidenceGraceEndsAt: undefined
+    };
+  }
+
+  if (
+    activePlatformBoardUserIds.has(boardUserId) &&
+    confidenceRatio >= GOVERNANCE_APPROVAL_THRESHOLD_PERCENT &&
+    reviewCount > 0
+  ) {
+    const graceStartedAt =
+      boardStandingGraceStartedAtByTargetId[confidenceTargetId] ??
+      (boardStandingGraceStartedAtByTargetId[confidenceTargetId] = new Date().toISOString());
+    const confidenceGraceEndsAt = new Date(
+      new Date(graceStartedAt).getTime() + BOARD_GRACE_WINDOW_MS
+    ).toISOString();
+
+    if (new Date(confidenceGraceEndsAt).getTime() > Date.now()) {
+      return {
+        confidenceVotesRequired,
+        confidenceWeeklyActiveUserCount,
+        confidenceStandingState: 'grace' as const,
+        confidenceGraceEndsAt
+      };
+    }
+  }
+
+  activePlatformBoardUserIds.delete(boardUserId);
+  delete boardStandingGraceStartedAtByTargetId[confidenceTargetId];
+
+  return {
+    confidenceVotesRequired,
+    confidenceWeeklyActiveUserCount,
+    confidenceStandingState: 'below-threshold' as const,
+    confidenceGraceEndsAt: undefined
+  };
+}
+
+function buildConfidenceFields(confidenceTargetId?: string) {
+  const snapshot = buildConfidenceVoteSnapshot(confidenceTargetId);
+  const reviewCount = snapshot?.reviewCount;
+  const confidenceRatio =
+    snapshot && reviewCount ? Math.round((snapshot.upVotes / reviewCount) * 100) : undefined;
 
   return {
     confidenceTargetId,
-    confidenceVoteCount: confidence ? confidence.upVotes - confidence.downVotes : undefined,
-    confidenceActiveVote: confidence?.activeVote,
+    confidenceVoteCount: snapshot ? snapshot.upVotes - snapshot.downVotes : undefined,
+    confidenceActiveVote: snapshot?.activeVote,
+    confidenceUpVotes: snapshot?.upVotes,
+    confidenceDownVotes: snapshot?.downVotes,
     confidenceRatio,
-    confidenceReviewCount: reviewCount
+    confidenceReviewCount: reviewCount,
+    ...buildBoardStandingFields(confidenceTargetId)
   };
 }
 
@@ -6585,17 +10771,24 @@ function createDefaultScopeMeta(
   };
 }
 
-const platformBoardConfidenceTargetIdsByUserId: Record<string, string> = {
-  'user-mika': 'confidence-stewardship-user-mika',
-  'user-ember': 'confidence-stewardship-user-ember'
-};
+function buildPlatformBoardRoster() {
+  const activeMembers: ScopeMemberSummary[] = [];
+  const candidates: ScopeMemberSummary[] = [];
 
-const platformBoardMemberIds = Object.keys(platformBoardConfidenceTargetIdsByUserId);
+  for (const userId of platformBoardMemberUserIds()) {
+    const member = toScopeMember(userId, ensurePlatformBoardConfidenceTargetId(userId));
 
-function buildPlatformBoardMembers() {
-  return platformBoardMemberIds.map((userId) =>
-    toScopeMember(userId, platformBoardConfidenceTargetIdsByUserId[userId])
-  );
+    if (member.confidenceStandingState === 'active' || member.confidenceStandingState === 'grace') {
+      activeMembers.push(member);
+    } else {
+      candidates.push(member);
+    }
+  }
+
+  return {
+    activeMembers,
+    candidates
+  };
 }
 
 function toDetailMember(userId: string): DetailMember {
@@ -6803,7 +10996,7 @@ function buildLinkedChats(viewer: ViewerSummary): MessageLinkedChat[] {
 }
 
 function meetsConfidenceThreshold(confidenceRatio?: number, reviewCount?: number) {
-  return !!reviewCount && (confidenceRatio ?? 0) >= 70;
+  return !!reviewCount && (confidenceRatio ?? 0) >= GOVERNANCE_APPROVAL_THRESHOLD_PERCENT;
 }
 
 function countComments(comments: DetailComment[]): number {
@@ -6982,10 +11175,6 @@ function spamAgeRatioBoost(ageMs: number) {
 
   if (ageMs < dayMs * 30) {
     return 0.2;
-  }
-
-  if (ageMs < dayMs * 180) {
-    return 0.3;
   }
 
   return 0.4;
@@ -7294,9 +11483,11 @@ function buildPublicFeedFixture(): PublicFeedItem[] {
       const latestUpdateAt = latestEventUpdateForSlug(item.slug)?.createdAt ?? null;
       const lastActivityAt =
         newestTimestamp(item.createdAt, item.lastActivityAt, latestUpdateAt) ?? item.lastActivityAt;
+      const effectivePresentation = buildEffectiveEventPresentation(item);
 
       return {
         ...item,
+        ...effectivePresentation,
         voteCount: vote.voteCount,
         activeVote: vote.activeVote,
         commentCount,
@@ -7313,6 +11504,167 @@ function buildPublicFeedFixture(): PublicFeedItem[] {
       lastActivityAt: item.createdAt
     } satisfies PublicThreadItem;
   });
+}
+
+type AssetServiceProjectSeed = {
+  reference: AssetProjectReference;
+  locationLabel: string;
+};
+
+function assetServiceProjectSlug(reference: AssetProjectReference) {
+  return reference.id.replace(/^asset-project-/, '');
+}
+
+function assetServiceProjectSubtype(reference: AssetProjectReference): ProjectSubtype | null {
+  return 'asset-management';
+}
+
+function buildAssetServiceProjectSeeds(): AssetServiceProjectSeed[] {
+  const seeds = platformAssetsFixture.landAssets.flatMap((landAsset) => [
+    ...landAsset.managementProjects.map((reference) => ({
+      reference,
+      locationLabel: landAsset.title
+    })),
+    ...landAsset.storageProjects.map((reference) => ({
+      reference,
+      locationLabel: landAsset.title
+    })),
+    ...landAsset.attachedAssets.flatMap((asset) => [
+      ...asset.managementProjects.map((reference) => ({
+        reference,
+        locationLabel: asset.parentLandAssetTitle
+      })),
+      ...asset.storageProjects.map((reference) => ({
+        reference,
+        locationLabel: asset.parentLandAssetTitle
+      }))
+    ])
+  ]);
+  const seen = new Set<string>();
+
+  return seeds.filter(({ reference }) => {
+    if (reference.href || !reference.id.startsWith('asset-project-')) {
+      return false;
+    }
+
+    const slug = assetServiceProjectSlug(reference);
+
+    if (seen.has(slug)) {
+      return false;
+    }
+
+    seen.add(slug);
+    return true;
+  });
+}
+
+function buildAssetServiceProjectFeedItems(): PublicProjectItem[] {
+  return buildAssetServiceProjectSeeds().map(({ reference, locationLabel }, index) => {
+    const slug = assetServiceProjectSlug(reference);
+    const createdAt = `2026-04-${String(18 + index).padStart(2, '0')}T12:00:00Z`;
+
+    return {
+      kind: 'project',
+      id: `project-${reference.id}`,
+      slug,
+      href: `/projects/${slug}`,
+      createdAt,
+      title: reference.title,
+      authorUsername: 'patchbay',
+      projectMode: reference.projectMode,
+      projectSubtype: assetServiceProjectSubtype(reference),
+      summary: reference.summary,
+      channelTags: [],
+      communityTags: [],
+      stage: 'Activity',
+      locationLabel,
+      voteCount: 0,
+      activeVote: 0,
+      signalCount: 0,
+      commentCount: 0,
+      memberCount: 4,
+      lastActivityAt: createdAt
+    } satisfies PublicProjectItem;
+  });
+}
+
+function generatedAssetServiceProjectBySlug(slug: string) {
+  return buildAssetServiceProjectFeedItems().find((item) => item.slug === slug) ?? null;
+}
+
+function isGeneratedAssetServiceProjectSlug(slug: string) {
+  return generatedAssetServiceProjectBySlug(slug) !== null;
+}
+
+function generatedAssetServiceMemberIds(slug: string) {
+  if (slug.includes('tool-library')) {
+    return ['viewer-1', 'user-tool', 'user-mika'];
+  }
+
+  if (slug.includes('east-market')) {
+    return ['viewer-1', 'user-rowan', 'user-ember'];
+  }
+
+  return ['viewer-1', 'user-mika', 'user-rowan'];
+}
+
+function generatedAssetServiceProjectStatus(item: PublicProjectItem) {
+  const subtypeLabel = item.projectSubtype ? projectSubtypeLabel(item.projectSubtype) : 'collective service';
+
+  return `${item.title} is already in active ${subtypeLabel.toLowerCase()} work, so requests can be submitted directly from this project page.`;
+}
+
+function ensureGeneratedAssetServiceProjectState(slug: string) {
+  const item = generatedAssetServiceProjectBySlug(slug);
+
+  if (!item) {
+    return null;
+  }
+
+  if (item.projectSubtype) {
+    seededProjectSubtypeBySlug[slug] = item.projectSubtype;
+  }
+
+  const memberIds = generatedAssetServiceMemberIds(slug);
+
+  projectMembersBySlug[slug] ??= memberIds;
+  projectMembershipSinceBySlug[slug] ??= Object.fromEntries(
+    memberIds.map((userId, index) => [userId, `2026-04-${String(10 + index).padStart(2, '0')}T12:00:00Z`])
+  );
+  projectLifecycleBySlug[slug] ??= {
+    currentPhaseId: 'phase-5',
+    phases: {
+      'phase-5': {
+        projectStatus: generatedAssetServiceProjectStatus(item)
+      },
+      'phase-6': {
+        projectStatus:
+          'This asset service can stay open as long as the underlying land asset or attached asset still needs active stewardship.'
+      }
+    }
+  };
+
+  const workflow = ensureProjectWorkflowState(slug);
+
+  workflow.requestSystemOverride ??= {
+    enabled: true,
+    requestMode: 'both',
+    allowOffScheduleRequests: true
+  };
+  workflow.requestSystemEnabled ??= true;
+
+  return item;
+}
+
+function buildGeneratedProjectDetailExtra(item: PublicProjectItem): ProjectDetailExtra {
+  const subtypeLabel = item.projectSubtype ? projectSubtypeLabel(item.projectSubtype) : 'collective service';
+
+  return {
+    overview: item.summary,
+    updates: [],
+    discussionNote: `This seeded ${subtypeLabel.toLowerCase()} page exists so asset relationships can open a real project surface during the demo.`,
+    discussion: []
+  };
 }
 
 function buildPublicActivityItem(item: PublicFeedItem): PersonalFeedItem {
@@ -7427,9 +11779,14 @@ function buildPublicCommentActivities(publicFeed: PublicFeedItem[]) {
 function buildSocialPostItem(post: PersonalPostItem): PersonalPostItem {
   const vote = readVoteTarget(post.voteTargetId, post.voteCount, post.activeVote);
   const commentCount = countComments(commentsBySubjectId[post.id] ?? []);
+  const latestAuthor = userById(post.author.id);
 
   return {
     ...post,
+    author: {
+      ...post.author,
+      profileImageUrl: latestAuthor?.profileImageUrl ?? post.author.profileImageUrl
+    },
     linkedSubjects: post.linkedSubjects ?? detectPostBodyLinks(post.body),
     voteCount: vote.voteCount,
     commentCount
@@ -7584,10 +11941,20 @@ function buildBootstrapDirectory() {
   return {
     platform: viewerHasPlatformMembership ? platformDirectory : null,
     channels: viewer
-      ? channelDirectory.filter((item) => readScopeMembership('channel', item.slug).memberIds.includes(viewer.id))
+      ? channelDirectory
+          .filter((item) => readScopeMembership('channel', item.slug).memberIds.includes(viewer.id))
+          .map((item) => ({ ...item }))
       : [],
     communities: viewer
-      ? communityDirectory.filter((item) => readScopeMembership('community', item.slug).memberIds.includes(viewer.id))
+      ? communityDirectory
+          .filter((item) => readScopeMembership('community', item.slug).memberIds.includes(viewer.id))
+          .map((item) => ({
+            ...item,
+            visibility:
+              readScopeMembership('community', item.slug).joinPolicy === 'invite_only'
+                ? ('private' as const)
+                : ('public' as const)
+          }))
       : []
   };
 }
@@ -7663,6 +12030,16 @@ function isPlatformTaggedProject(slug: string) {
   return !!project && project.channelTags.some((tag) => tag.slug === platform.slug);
 }
 
+function canViewerParticipateInPlatformProjectGovernance(slug: string) {
+  return !!currentViewer() && isPlatformTaggedProject(slug);
+}
+
+function canViewerParticipateInPlatformEventGovernance(slug: string) {
+  const event = findPublicEventItem(slug);
+
+  return !!event && !event.isPrivate && !!currentViewer() && isPlatformTaggedEvent(event);
+}
+
 function buildEventMemberState(item: PublicEventItem) {
   const viewer = currentViewer();
   const creatorId = userByUsername(item.createdByUsername)?.id ?? null;
@@ -7678,8 +12055,9 @@ function buildEventMemberState(item: PublicEventItem) {
     : [];
   const editorIdSet = new Set(editorIds);
   const viewerIsGoing = !!viewer && (memberIds.includes(viewer.id) || viewer.id === creatorId);
+  const viewerHasScopeAccess = !!viewer && viewerHasEventScopeAccess(item, viewer.id);
   const viewerCanToggleGoing =
-    !!viewer && (!item.isPrivate || viewerIsGoing || participation.invitedUserIds.includes(viewer.id));
+    !!viewer && (!item.isPrivate || viewerIsGoing || participation.invitedUserIds.includes(viewer.id) || viewerHasScopeAccess);
   const viewerHasEventEditAccess =
     !!viewer && (item.isPrivate ? editorIdSet.has(viewer.id) : memberIds.includes(viewer.id));
   const viewerCanManageEditors = !!viewer && !!creatorId && item.isPrivate && viewer.id === creatorId;
@@ -7790,7 +12168,7 @@ function buildPlatformScopeFixture(): ScopePageData {
   const publicFeed = buildPublicFeedFixture();
   const platformFeed = filterByTag(publicFeed, platform.slug, 'channel');
   const platformMembership = buildScopeMembershipState('platform', platform.slug);
-  const boardMembers = buildPlatformBoardMembers();
+  const boardRoster = buildPlatformBoardRoster();
 
   return {
     kind: 'platform',
@@ -7802,11 +12180,35 @@ function buildPlatformScopeFixture(): ScopePageData {
       'All users can read and post threads here. Coordination stays visible, but usernames stay just usernames.',
     badges: ['Collective governance'],
     boardNote:
-      'Board members should keep at least 70% positive confidence to stay in role, so the confidence vote stays visible here.',
+      'Board members stay in role by keeping at least 66% approval with enough standing votes to meet platform quorum, so the confidence vote stays visible here.',
     emptyFeedText: 'No platform-tagged work is visible yet.',
     membership: platformMembership,
     feed: platformFeed,
-    boardMembers: boardMembers,
+    boardMembers: boardRoster.activeMembers,
+    boardCandidates: boardRoster.candidates,
+    boardFeatureFrames: [
+      {
+        id: 'platform-execution-records',
+        title: 'Execution records',
+        body:
+          'Board execution evidence, confirmation history, and rejected execution records will live here once those later-phase flows are active.',
+        statusLabel: 'Frame only'
+      },
+      {
+        id: 'acquisition-handoffs',
+        title: 'Acquisition handoffs',
+        body:
+          'When acquisition opens, board-triggered purchase handoffs and confirmation votes will slot into this panel without changing the route structure.',
+        statusLabel: 'Frame only'
+      },
+      {
+        id: 'platform-software-execution',
+        title: 'Platform software execution',
+        body:
+          'Platform-specific pending execution and merge handoff records will appear here when that implementation lands.',
+        statusLabel: 'Frame only'
+      }
+    ],
     stats: buildScopeStats(platformFeed, platformMembership.memberCount)
   };
 }
@@ -7936,7 +12338,7 @@ function buildRightRailItems(): RightRailActivityItem[] {
           activityId: activity.id,
           activityRoleLabels: activity.roles.map((role) => role.label),
           viewerAssignedRoleLabel: activity.viewerAssignedRoleLabel,
-          projectHasOpenRole: hasOpenRole
+          hasOpenRole
         } satisfies RightRailActivityItem;
       });
     });
@@ -7975,16 +12377,51 @@ function buildRightRailItems(): RightRailActivityItem[] {
         requesterUsername: request.requesterUsername
       } satisfies RightRailActivityItem));
     });
-  const eventItems = publicFeed
+  const voteItems: RightRailActivityItem[] = [];
+
+  for (const item of publicFeed.filter((entry): entry is PublicProjectItem => entry.kind === 'project')) {
+    const memberIds = projectMembersBySlug[item.slug] ?? [];
+
+    if (!memberIds.includes(viewer.id)) {
+      continue;
+    }
+
+    const projectFixture = findProjectFixture(item.slug);
+
+    if (!projectFixture) {
+      continue;
+    }
+
+    const openVotes = projectFixture.history.filter((entry) => entry.status === 'open' && entry.canVote);
+
+    for (const decision of openVotes) {
+      voteItems.push({
+        id: `rail-project-vote-${item.slug}-${decision.id}`,
+        subjectId: decision.id,
+        kind: 'vote',
+        title: decision.kindLabel,
+        href: `${item.href}?tab=history&decision=${decision.id}#decision-${decision.id}`,
+        meta: `${item.title} · ${decision.voteSummary.yesCount} yes / ${decision.voteSummary.noCount} no`,
+        createdAt: decision.createdAt,
+        countLabel: `${decision.voteSummary.votesRemaining} votes needed`,
+        projectMode: item.projectMode,
+        projectSlug: item.slug,
+        voteEntityKind: 'project',
+        voteKindLabel: decision.kindLabel,
+        voteTargetId: decision.id
+      });
+    }
+  }
+
+  const eventItems: RightRailActivityItem[] = publicFeed
     .filter((item): item is PublicEventItem => item.kind === 'event')
-    .flatMap((item) => {
+    .flatMap<RightRailActivityItem>((item) => {
       const participation = eventParticipationById[item.id];
       const goingUserIds = participation?.goingUserIds ?? [];
       const invitedUserIds = participation?.invitedUserIds ?? [];
       const creatorId = userByUsername(item.createdByUsername)?.id ?? null;
       const scopeLabels = scopeLabelsForViewer(item, viewer.id);
-      const memberCount = new Set([...(creatorId ? [creatorId] : []), ...goingUserIds]).size;
-      const latestUpdate = latestEventUpdateForSlug(item.slug);
+      const lifecycle = buildEventLifecycle(item.slug, item);
       const viewerIsParticipating = !!viewer && (goingUserIds.includes(viewer.id) || creatorId === viewer.id);
       const viewerIsInvited = invitedUserIds.includes(viewer.id);
 
@@ -7992,29 +12429,66 @@ function buildRightRailItems(): RightRailActivityItem[] {
         return [];
       }
 
-      const sourceLabel = creatorId === viewer.id
-        ? 'Hosted by you'
-        : viewerIsParticipating
-          ? 'Going'
-          : viewerIsInvited
-            ? 'Invited'
-            : `Via ${scopeLabels[0]}`;
+      const sourceLabel = viewerIsParticipating || viewerIsInvited
+        ? 'Project member'
+        : `Via ${scopeLabels[0]}`;
 
-      return [{
-        id: `rail-${item.id}`,
-        subjectId: item.id,
-        kind: 'event',
-        title: item.title,
-        href: item.href,
-        meta: item.locationLabel,
-        createdAt: latestUpdate?.createdAt ?? item.scheduledAt ?? item.lastActivityAt,
-        timeLabel: item.timeLabel,
-        countLabel: `${sourceLabel} · ${memberCount} going`,
-        viewerIsParticipating
-      } satisfies RightRailActivityItem];
+      if (lifecycle.currentPhaseId !== 'activity' || lifecycle.activity.activities.length === 0) {
+        return [];
+      }
+
+      return lifecycle.activity.activities.map((activity): RightRailActivityItem => {
+        const hasOpenRole = activity.roles.some(
+          (role) => role.maximumCount == null || role.filledCount < role.maximumCount
+        );
+
+        return {
+          id: `rail-event-activity-${item.slug}-${activity.id}`,
+          subjectId: activity.id,
+          kind: 'event' as const,
+          title: activity.title,
+          href: `${item.href}?activity=${activity.id}#event-activity-${activity.id}`,
+          meta: `${item.title} · ${activity.locationLabel}`,
+          createdAt: activity.startAt,
+          countLabel: `${sourceLabel} · ${activity.committedCount}/${activity.minimumParticipants} committed`,
+          viewerIsParticipating,
+          eventSlug: item.slug,
+          activityId: activity.id,
+          activityRoleLabels: activity.roles.map((role) => role.label),
+          viewerAssignedRoleLabel: activity.viewerAssignedRoleLabel,
+          hasOpenRole
+        } satisfies RightRailActivityItem;
+      });
     });
 
-  return [...projectItems, ...eventItems, ...requestItems].sort(
+  for (const item of publicFeed.filter((entry): entry is PublicEventItem => entry.kind === 'event')) {
+    const eventFixture = findEventFixture(item.slug);
+
+    if (!eventFixture) {
+      continue;
+    }
+
+    const openVotes = eventFixture.history.filter((entry) => entry.status === 'open' && entry.canVote);
+
+    for (const decision of openVotes) {
+      voteItems.push({
+        id: `rail-event-vote-${item.slug}-${decision.id}`,
+        subjectId: decision.id,
+        kind: 'vote',
+        title: decision.kindLabel,
+        href: `${item.href}?tab=history&decision=${decision.id}#decision-${decision.id}`,
+        meta: `${item.title} · ${decision.voteSummary.yesCount} yes / ${decision.voteSummary.noCount} no`,
+        createdAt: decision.createdAt,
+        countLabel: `${decision.voteSummary.votesRemaining} votes needed`,
+        eventSlug: item.slug,
+        voteEntityKind: 'event',
+        voteKindLabel: decision.kindLabel,
+        voteTargetId: decision.id
+      });
+    }
+  }
+
+  return [...projectItems, ...eventItems, ...requestItems, ...voteItems].sort(
     (left, right) => +new Date(right.createdAt) - +new Date(left.createdAt)
   );
 }
@@ -8208,11 +12682,84 @@ function buildSearchCorpus(): SearchResultItem[] {
 }
 
 function findPublicProjectItem(slug: string): PublicProjectItem | null {
+  return buildPublicFeedFixture().find(
+    (item): item is PublicProjectItem => item.kind === 'project' && item.slug === slug
+  ) ?? null;
+}
+
+function publicProjectFromHref(href?: string | null): PublicProjectItem | null {
+  if (!href || !href.startsWith('/projects/')) {
+    return null;
+  }
+
+  return findPublicProjectItem(href.slice('/projects/'.length));
+}
+
+function normalizedAssetProjectHref(reference: AssetProjectReference) {
   return (
-    buildPublicFeedFixture().find(
-      (item): item is PublicProjectItem => item.kind === 'project' && item.slug === slug
-    ) ?? null
+    reference.href ??
+    assetServiceProjectHrefByTitle[reference.title] ??
+    (reference.id.startsWith('asset-project-') ? `/projects/${assetServiceProjectSlug(reference)}` : null)
   );
+}
+
+function hydrateAssetProjectReference(reference: AssetProjectReference): AssetProjectReference {
+  const href = normalizedAssetProjectHref(reference);
+
+  return {
+    ...reference,
+    href,
+    publicItem: publicProjectFromHref(href)
+  };
+}
+
+function currentBorrowerLabel(asset: AssetAttachedRecord) {
+  const activeBorrow = asset.governance.borrowingRequests.find(
+    (request) =>
+      request.statusLabel.toLowerCase().includes('borrowed') ||
+      request.statusLabel.toLowerCase().includes('overdue')
+  );
+
+  return activeBorrow?.responsiblePartyLabel ?? activeBorrow?.borrowerLabel ?? null;
+}
+
+function currentLocationDetails(asset: AssetAttachedRecord) {
+  const currentProject = [...asset.linkedProjects, ...asset.managementProjects, ...asset.storageProjects].find(
+    (project) => project.title === asset.currentCustodianLabel
+  );
+
+  return {
+    currentLocationLabel: currentProject?.title ?? asset.homeLandAssetLabel,
+    currentLocationHref: currentProject?.href ?? `/platform/assets/${asset.parentLandAssetSlug}`,
+    currentBorrowerLabel: currentBorrowerLabel(asset)
+  };
+}
+
+function hydrateAttachedAsset(asset: AssetAttachedRecord): AssetAttachedRecord {
+  return {
+    ...asset,
+    managementProjects: asset.managementProjects.map(hydrateAssetProjectReference),
+    storageProjects: asset.storageProjects.map(hydrateAssetProjectReference),
+    linkedProjects: asset.linkedProjects.map(hydrateAssetProjectReference),
+    ...currentLocationDetails(asset)
+  };
+}
+
+function hydrateLandAsset(asset: LandAssetRecord): LandAssetRecord {
+  const managementProjects = asset.managementProjects.map(hydrateAssetProjectReference);
+  const storageProjects = asset.storageProjects.map(hydrateAssetProjectReference);
+  const linkedProjects = asset.linkedProjects.map(hydrateAssetProjectReference);
+  const attachedAssets = asset.attachedAssets.map(hydrateAttachedAsset);
+  const inventoryProject = managementProjects[0]?.publicItem ?? null;
+
+  return {
+    ...asset,
+    managementProjects,
+    storageProjects,
+    linkedProjects,
+    attachedAssets,
+    inventoryFrame: inventoryProject ? buildProjectInventoryFrame(inventoryProject) : null
+  };
 }
 
 function findPublicThreadItem(slug: string): PublicThreadItem | null {
@@ -8236,8 +12783,10 @@ function findPersonalPostItem(id: string): PersonalPostItem | null {
 }
 
 export function getBootstrapFixture(): BootstrapPayload {
+  const viewer = currentViewer();
+
   return {
-    viewer: currentViewer(),
+    viewer,
     featureFlags: {
       assets: false,
       funding: false,
@@ -8245,6 +12794,7 @@ export function getBootstrapFixture(): BootstrapPayload {
     },
     unreadCounts: buildUnreadCounts(),
     directory: buildBootstrapDirectory(),
+    suggestedContacts: viewer ? buildSuggestedMessageContacts(viewer.id) : [],
     activityRail: buildRightRailItems()
   };
 }
@@ -8305,7 +12855,10 @@ export function getPlatformScopeFixture() {
 }
 
 export function getPlatformAssetsFixture() {
-  return platformAssetsFixture;
+  return {
+    ...platformAssetsFixture,
+    landAssets: platformAssetsFixture.landAssets.map(hydrateLandAsset)
+  };
 }
 
 export function findProfileFixture(username: string): ProfilePageData | null {
@@ -8340,7 +12893,7 @@ export function buildSearchFixture(query: string): SearchPageData {
 
 export function findProjectFixture(slug: string): ProjectPageData | null {
   const item = findPublicProjectItem(slug);
-  const extras = projectDetailExtras[slug];
+  const extras = item ? projectDetailExtras[slug] ?? buildGeneratedProjectDetailExtra(item) : null;
   const memberState = buildProjectMemberState(slug);
 
   if (!item || !extras) {
@@ -8348,21 +12901,22 @@ export function findProjectFixture(slug: string): ProjectPageData | null {
   }
 
   const shareContacts = buildShareContacts();
+  const governancePopulation = projectGovernancePopulation(slug, memberState.memberCount);
 
   const lifecycle = buildProjectLifecycle(
     slug,
     item.projectMode,
-    memberState.projectManagers.length + memberState.members.length
+    memberState.memberCount
   );
   const updateRequests = buildProjectUpdateRequests(
     slug,
     lifecycle.quorumThresholdPercent,
-    memberState.projectManagers.length + memberState.members.length
+    governancePopulation
   );
   const editRequests = buildProjectEditRequests(
     slug,
     lifecycle.quorumThresholdPercent,
-    memberState.projectManagers.length + memberState.members.length
+    governancePopulation
   );
   const history = buildProjectDecisionHistory(
     slug,
@@ -8370,14 +12924,18 @@ export function findProjectFixture(slug: string): ProjectPageData | null {
     updateRequests,
     editRequests,
     canViewerVoteOnProjectUpdate(slug),
-    canViewerVoteOnProjectEdit(slug)
+    canViewerVoteOnProjectEdit(slug),
+    lifecycle.phaseFive.softwareGovernance
   );
   const report = buildContentReportSummary(item.id);
   const isRemovedByReport = false;
+  const linksFrame = buildProjectLinksFrame(item);
+  const inventoryFrame = buildProjectInventoryFrame(item);
   const { summary: _summary, ...projectItem } = item;
 
   return {
     ...projectItem,
+    projectSubtype: lifecycle.currentSubtype ?? projectItem.projectSubtype ?? null,
     description: extras.overview,
     lifecycle,
     updates: extras.updates,
@@ -8387,6 +12945,8 @@ export function findProjectFixture(slug: string): ProjectPageData | null {
     editRequests: editRequests,
     viewerCanRequestEdit: canViewerRequestProjectEdit(slug),
     viewerCanVoteOnEditRequests: canViewerVoteOnProjectEdit(slug),
+    linksFrame,
+    inventoryFrame,
     history,
     projectManagers: memberState.projectManagers,
     members: memberState.members,
@@ -8402,6 +12962,1150 @@ export function findProjectFixture(slug: string): ProjectPageData | null {
     commentCount: countComments(commentsBySubjectId[item.id] ?? []),
     discussionNote: extras.discussionNote,
     discussion: mapCommentsWithReports(commentsBySubjectId[item.id] ?? [])
+  };
+}
+
+function buildProjectPlaceholderSections(
+  sections: Array<{ id: string; title: string; body: string; statusLabel?: string }>
+): ProjectPlaceholderSection[] {
+  return sections.map((section) => ({
+    id: section.id,
+    title: section.title,
+    body: section.body,
+    statusLabel: section.statusLabel ?? 'Frame only'
+  }));
+}
+
+function buildProjectRequestFrames(
+  context: 'links' | 'inventory',
+  item: PublicProjectItem
+): ProjectRequestFrame[] {
+  if (context === 'links') {
+    return [
+      {
+        id: 'asset-use',
+        title: 'Asset-use link preview',
+        body:
+          'Fake preview only: approved in-house asset requests will create auto-links here so members can see which stewardship or storage project confirmed the dependency.',
+        statusLabel: 'Fake preview'
+      },
+      {
+        id: 'delivery',
+        title: 'Delivery link preview',
+        body:
+          item.projectMode === 'collective-service'
+            ? 'Fake preview only: completed delivery runs will create links here so service work and asset movement stay connected in the production network.'
+            : 'Fake preview only: completed delivery runs will create links here when this project depends on transport between sites.',
+        statusLabel: 'Fake preview'
+      }
+    ];
+  }
+
+  const frames: ProjectRequestFrame[] = [
+    {
+      id: 'borrowing',
+      title: 'Borrowing request preview',
+      body:
+        'Fake preview only: borrowing requests for assets managed by this project will appear here with intended return dates and current custodian labels.',
+      statusLabel: 'Fake preview'
+    },
+    {
+      id: 'asset-use',
+      title: 'Asset-use request preview',
+      body:
+        'Fake preview only: plans needing in-house equipment or site access will send availability requests here before they become fully voteable.',
+      statusLabel: 'Fake preview'
+    }
+  ];
+
+  if (item.projectMode === 'collective-service') {
+    frames.push({
+      id: 'delivery',
+      title: 'Delivery coordination preview',
+      body:
+        'Fake preview only: delivery and transfer coordination records will appear here for service projects that move assets between sites.',
+      statusLabel: 'Fake preview'
+    });
+  }
+
+  return frames;
+}
+
+function projectFrameLink(
+  currentItem: PublicProjectItem,
+  targetSlug: string,
+  relationshipLabel: string,
+  summary: string,
+  fallbackTitle: string
+) {
+  const target = findPublicProjectItem(targetSlug);
+
+  return {
+    id: `${currentItem.slug}-${targetSlug}`,
+    title: target?.title ?? fallbackTitle,
+    relationshipLabel,
+    summary,
+    href: target?.href ?? null,
+    publicItem: target
+  };
+}
+
+function manualProjectLinkPairKey(leftSlug: string, rightSlug: string) {
+  return [leftSlug, rightSlug].sort().join('::');
+}
+
+function manualProjectLinkVotesForSlug(request: MockProjectManualLinkState, slug: string) {
+  return request.sourceProjectSlug === slug ? request.sourceVotesByUserId : request.targetVotesByUserId;
+}
+
+function manualProjectLinkOtherSlug(request: MockProjectManualLinkState, slug: string) {
+  return request.sourceProjectSlug === slug ? request.targetProjectSlug : request.sourceProjectSlug;
+}
+
+function manualProjectLinkVoteCounts(votesByUserId: Record<string, ProjectApprovalVote>) {
+  return Object.values(votesByUserId).reduce(
+    (totals, vote) => {
+      if (vote === 'yes') {
+        totals.yesCount += 1;
+      }
+
+      if (vote === 'no') {
+        totals.noCount += 1;
+      }
+
+      return totals;
+    },
+    { yesCount: 0, noCount: 0 }
+  );
+}
+
+function manualProjectLinkVoteStateForSlug(
+  request: MockProjectManualLinkState,
+  slug: string,
+  viewerId?: string | null
+) {
+  const project = findPublicProjectItem(slug);
+  const votesByUserId = manualProjectLinkVotesForSlug(request, slug);
+  const { yesCount, noCount } = manualProjectLinkVoteCounts(votesByUserId);
+  const voteState = buildProjectManualLinkVoteState(
+    project?.title ?? slug,
+    (projectMembersBySlug[slug] ?? []).length,
+    yesCount,
+    noCount
+  );
+
+  return {
+    ...voteState,
+    viewerCanVote: !!viewerId && (projectMembersBySlug[slug] ?? []).includes(viewerId),
+    viewerVote: viewerId ? votesByUserId[viewerId] ?? null : null
+  };
+}
+
+function manualProjectLinkApprovedOnBothSides(request: MockProjectManualLinkState) {
+  const sourceState = manualProjectLinkVoteStateForSlug(request, request.sourceProjectSlug);
+  const targetState = manualProjectLinkVoteStateForSlug(request, request.targetProjectSlug);
+
+  return sourceState.statusLabel === 'Approved' && targetState.statusLabel === 'Approved';
+}
+
+function manualProjectLinkStatusLabel(
+  currentSide: ProjectManualLinkVoteState,
+  otherSide: ProjectManualLinkVoteState
+) {
+  if (currentSide.statusLabel === 'Approved' && otherSide.statusLabel === 'Approved') {
+    return 'Approved on both sides';
+  }
+
+  if (currentSide.statusLabel === 'Blocked') {
+    return 'Blocked on this project side';
+  }
+
+  if (otherSide.statusLabel === 'Blocked') {
+    return 'Blocked on linked project side';
+  }
+
+  if (currentSide.statusLabel === 'Approved' && otherSide.statusLabel !== 'Approved') {
+    return 'Pending counterpart vote';
+  }
+
+  return 'Active vote';
+}
+
+function buildProjectManualLinkRequestFromState(
+  currentItem: PublicProjectItem,
+  request: MockProjectManualLinkState
+): ProjectManualLinkRequest {
+  const viewerId = currentViewer()?.id ?? null;
+  const targetSlug = manualProjectLinkOtherSlug(request, currentItem.slug);
+  const target = findPublicProjectItem(targetSlug);
+  const proposer = userById(request.proposedByUserId);
+  const thisProjectVote = manualProjectLinkVoteStateForSlug(request, currentItem.slug, viewerId);
+  const otherProjectVote = manualProjectLinkVoteStateForSlug(request, targetSlug);
+
+  return {
+    id: request.id,
+    title: target?.title ?? targetSlug,
+    relationshipLabel: request.relationshipLabel,
+    summary: request.summary,
+    statusLabel: manualProjectLinkStatusLabel(thisProjectVote, otherProjectVote),
+    proposedByUsername: proposer?.username ?? 'unknown',
+    createdAtLabel: `Opened ${projectFrameDateLabel(request.createdAt)}`,
+    targetProjectHref: target?.href ?? null,
+    thisProjectVote,
+    otherProjectVote
+  };
+}
+
+function buildLinkableProjects(currentItem: PublicProjectItem) {
+  return buildPublicFeedFixture()
+    .filter((item): item is PublicProjectItem => item.kind === 'project' && item.slug !== currentItem.slug)
+    .map((item) => ({
+      slug: item.slug,
+      title: item.title,
+      href: item.href
+    }))
+    .sort((left, right) => left.title.localeCompare(right.title));
+}
+
+function buildProjectManualLinkVoteState(
+  projectTitle: string,
+  memberCount: number,
+  yesCount: number,
+  noCount: number
+): ProjectManualLinkVoteState {
+  const approvalsRequired =
+    memberCount <= 0 ? 0 : Math.ceil((memberCount * GOVERNANCE_APPROVAL_THRESHOLD_PERCENT) / 100);
+  const approvalPercent = memberCount <= 0 ? 0 : Math.round((yesCount / memberCount) * 100);
+  const approvalsRemaining = Math.max(approvalsRequired - yesCount, 0);
+  const remainingPossibleYes = Math.max(memberCount - noCount, 0);
+
+  if (approvalsRequired <= 0) {
+    return {
+      projectTitle,
+      yesCount,
+      noCount,
+      memberCount,
+      approvalsRequired,
+      approvalsRemaining,
+      approvalPercent,
+      statusLabel: 'No voters seeded',
+      resultNote: 'This fake preview does not yet have seeded members for the approval side.'
+    };
+  }
+
+  if (yesCount >= approvalsRequired) {
+    return {
+      projectTitle,
+      yesCount,
+      noCount,
+      memberCount,
+      approvalsRequired,
+      approvalsRemaining,
+      approvalPercent,
+      statusLabel: 'Approved',
+      resultNote: `This side cleared the ${GOVERNANCE_APPROVAL_THRESHOLD_PERCENT}% membership threshold.`
+    };
+  }
+
+  if (remainingPossibleYes < approvalsRequired) {
+    return {
+      projectTitle,
+      yesCount,
+      noCount,
+      memberCount,
+      approvalsRequired,
+      approvalsRemaining,
+      approvalPercent,
+      statusLabel: 'Blocked',
+      resultNote: `Even unanimous remaining yes votes would not reach ${approvalsRequired} approvals.`
+    };
+  }
+
+  return {
+    projectTitle,
+    yesCount,
+    noCount,
+    memberCount,
+    approvalsRequired,
+    approvalsRemaining,
+    approvalPercent,
+    statusLabel: 'Pending',
+    resultNote: `${approvalsRemaining} more yes vote${approvalsRemaining === 1 ? '' : 's'} needed on this side.`
+  };
+}
+
+function buildProjectManualLinkRequest(
+  currentItem: PublicProjectItem,
+  targetSlug: string,
+  fallbackTitle: string,
+  relationshipLabel: string,
+  summary: string,
+  statusLabel: string,
+  proposedByUsername: string,
+  createdAtLabel: string,
+  currentVotes: { yesCount: number; noCount: number },
+  targetVotes: { yesCount: number; noCount: number }
+): ProjectManualLinkRequest {
+  const target = findPublicProjectItem(targetSlug);
+  const targetTitle = target?.title ?? fallbackTitle;
+
+  return {
+    id: `${currentItem.slug}-${targetSlug}-manual-link-request`,
+    title: targetTitle,
+    relationshipLabel,
+    summary,
+    statusLabel,
+    proposedByUsername,
+    createdAtLabel,
+    targetProjectHref: target?.href ?? null,
+    thisProjectVote: buildProjectManualLinkVoteState(
+      currentItem.title,
+      currentItem.memberCount,
+      currentVotes.yesCount,
+      currentVotes.noCount
+    ),
+    otherProjectVote: buildProjectManualLinkVoteState(
+      targetTitle,
+      target?.memberCount ?? 0,
+      targetVotes.yesCount,
+      targetVotes.noCount
+    )
+  };
+}
+
+function relatedLandAssetSlugForProject(item: PublicProjectItem) {
+  return item.slug.includes('ride') || item.slug.includes('hallway') || item.slug.includes('retrofit')
+    ? 'east-market-commons'
+    : 'tool-library-campus';
+}
+
+function relatedLandAssetHrefForProject(item: PublicProjectItem) {
+  return `/platform/assets/${relatedLandAssetSlugForProject(item)}`;
+}
+
+function relatedLandAssetForProject(item: PublicProjectItem) {
+  return (
+    platformAssetsFixture.landAssets.find((asset) => asset.slug === relatedLandAssetSlugForProject(item)) ?? null
+  );
+}
+
+function findAttachedAssetsForProjectSlug(slug: string) {
+  const projectHref = `/projects/${slug}`;
+
+  return platformAssetsFixture.landAssets.flatMap((landAsset) =>
+    landAsset.attachedAssets.filter((asset) =>
+      [...asset.linkedProjects, ...asset.managementProjects, ...asset.storageProjects].some(
+        (project) => normalizedAssetProjectHref(project) === projectHref
+      )
+    )
+  );
+}
+
+function buildInventoryAssetFromAttachedAsset(asset: (typeof platformAssetsFixture.landAssets)[number]['attachedAssets'][number]) {
+  const borrowingPolicy = asset.governance.borrowingPolicies[0] ?? null;
+  const availability = asset.governance.availabilityRequests[0] ?? null;
+  const latestHistory = asset.governance.provenanceTimeline[asset.governance.provenanceTimeline.length - 1] ?? null;
+
+  return {
+    id: asset.id,
+    title: asset.title,
+    statusLabel: asset.statusLabel,
+    custodyLabel: asset.custodyLabel,
+    summary: asset.summary,
+    locationLabel: asset.currentLocationLabel ?? asset.locationLabel,
+    quantity: asset.totalQuantity,
+    availableQuantity: asset.availableQuantity,
+    quantityLabel: asset.quantityLabel,
+    borrowingPolicyLabel: borrowingPolicy?.policyLabel,
+    availabilityLabel: availability?.statusLabel,
+    governanceNote: borrowingPolicy?.summary ?? availability?.summary ?? undefined,
+    historyLabel: latestHistory ? `${latestHistory.happenedAtLabel} · ${latestHistory.title}` : undefined,
+    href: asset.href ?? null
+  };
+}
+
+function buildInventoryAssetFromLandAsset(asset: (typeof platformAssetsFixture.landAssets)[number]) {
+  const borrowingPolicy = asset.governance.borrowingPolicies[0] ?? null;
+  const availability = asset.governance.availabilityRequests[0] ?? null;
+  const latestHistory = asset.governance.provenanceTimeline[asset.governance.provenanceTimeline.length - 1] ?? null;
+
+  return {
+    id: asset.id,
+    title: asset.title,
+    statusLabel: asset.statusLabel,
+    custodyLabel: asset.currentCustodianLabel,
+    summary: `${asset.sizeLabel} · ${asset.locationLabel}`,
+    locationLabel: asset.locationLabel,
+    borrowingPolicyLabel: borrowingPolicy?.policyLabel,
+    availabilityLabel: availability?.statusLabel,
+    governanceNote: borrowingPolicy?.summary ?? availability?.summary ?? undefined,
+    historyLabel: latestHistory ? `${latestHistory.happenedAtLabel} · ${latestHistory.title}` : asset.historySummary,
+    href: `/platform/assets/${asset.slug}`
+  };
+}
+
+function buildFallbackProjectInventoryAssets(item: PublicProjectItem) {
+  const assetHref = relatedLandAssetHrefForProject(item);
+  const custodyLabel =
+    relatedLandAssetSlugForProject(item) === 'east-market-commons'
+      ? 'Held under East Market Commons Lot'
+      : 'Held under Tool Library Campus Lot';
+
+  if (item.projectMode === 'collective-service') {
+    return [
+      {
+        id: `${item.slug}-asset-intake-kit`,
+        title: 'Shared intake kit',
+        statusLabel: 'Fake preview asset',
+        custodyLabel,
+        summary:
+          'A seeded preview asset showing how service-managed equipment will appear once collective inventory goes live.',
+        borrowingPolicyLabel: 'Project use only',
+        availabilityLabel: 'Preview availability only',
+        governanceNote:
+          'Real borrowing policy votes and availability decisions are now seeded on asset pages first and can be mapped here as more service records open.',
+        historyLabel: 'Preview history only',
+        href: assetHref
+      },
+      {
+        id: `${item.slug}-asset-mobile-cart`,
+        title: 'Mobile coordination cart',
+        statusLabel: 'Fake preview asset',
+        custodyLabel,
+        summary:
+          'A seeded preview asset showing how mobile service equipment can stay attached to a land record while moving between active shifts.',
+        borrowingPolicyLabel: 'Individual borrowing permitted',
+        availabilityLabel: 'Preview availability only',
+        governanceNote:
+          'Real borrowing and delivery lifecycle records are now seeded on linked asset pages and will roll into inventory as those service records deepen.',
+        historyLabel: 'Preview history only',
+        href: assetHref
+      }
+    ];
+  }
+
+  return [
+    {
+      id: `${item.slug}-asset-staging-tables`,
+      title: 'Staging table set',
+      statusLabel: 'Fake preview asset',
+      custodyLabel,
+      summary:
+        'A seeded preview of a collectively held work surface that this project would check out for active production or build-day work.',
+      borrowingPolicyLabel: 'Project use only',
+      availabilityLabel: 'Preview availability only',
+      governanceNote:
+        'Real availability approvals now live on seeded asset pages so productive plans can show the pending-vs-approved path through the adapter.',
+      historyLabel: 'Preview history only',
+      href: assetHref
+    },
+    {
+      id: `${item.slug}-asset-tool-cache`,
+      title: 'Shared tool cache',
+      statusLabel: 'Fake preview asset',
+      custodyLabel,
+      summary:
+        'A seeded preview of repair and install tools that would remain in common ownership while being assigned to this project during activity.',
+      borrowingPolicyLabel: 'Project use only',
+      availabilityLabel: 'Preview availability only',
+      governanceNote:
+        'Borrowing and delivery lifecycle records now live on seeded asset pages and will replace these fallback summaries as more attached assets are linked directly.',
+      historyLabel: 'Preview history only',
+      href: assetHref
+    }
+  ];
+}
+
+function buildProjectInventoryAssetGroups(item: PublicProjectItem) {
+  const landAsset = relatedLandAssetForProject(item);
+  const linkedAssets = findAttachedAssetsForProjectSlug(item.slug);
+  const onLandAssets =
+    linkedAssets.length > 0
+      ? linkedAssets.map((asset) => buildInventoryAssetFromAttachedAsset(asset))
+      : buildFallbackProjectInventoryAssets(item);
+  const landAssets = landAsset ? [buildInventoryAssetFromLandAsset(landAsset)] : [];
+  const landGroupTitle = landAssets.length === 1 ? 'Land asset' : 'Land assets';
+  const assetGroupTitle =
+    item.projectMode === 'collective-service' && item.projectSubtype === 'asset-management'
+      ? onLandAssets.length === 1
+        ? 'Managed asset'
+        : 'Managed assets'
+      : onLandAssets.length === 1
+        ? 'Asset'
+        : 'Assets';
+
+  return [
+    {
+      id: `${item.slug}-land-group`,
+      kind: 'land-asset' as const,
+      title: landGroupTitle,
+      assets: landAssets
+    },
+    {
+      id: `${item.slug}-asset-group`,
+      kind: 'asset' as const,
+      title: assetGroupTitle,
+      assets: onLandAssets
+    }
+  ];
+}
+
+function buildProjectPhaseFourPreview(
+  slug: string,
+  item: PublicProjectItem,
+  currentSubtype: ProjectSubtype | null,
+  phaseTwo: { plans: ProjectProductionPlan[]; winningPlanId: string | null },
+  quorumThresholdPercent: number,
+  memberCount: number
+): ProjectPhaseFourData | null {
+  if (item.projectMode === 'personal-service') {
+    return null;
+  }
+
+  const winningPlan = phaseTwo.plans.find((plan) => plan.id === phaseTwo.winningPlanId) ?? null;
+  const acquisitionState = readProjectWorkflowState(slug)?.acquisition;
+  const fundState = projectFundProgressForSlug(slug);
+  const assetHref = relatedLandAssetHrefForProject(item);
+  const confirmationVoteSummary = acquisitionState?.execution
+    ? buildProjectVoteSummary(
+        acquisitionState.confirmationVotesByUserId,
+        quorumThresholdPercent,
+        memberCount
+      )
+    : null;
+  const confirmationApproved =
+    confirmationVoteSummary !== null &&
+    confirmationVoteSummary.meetsQuorum &&
+    phaseChangePassesApprovalThreshold(confirmationVoteSummary);
+  const confirmationRejected =
+    confirmationVoteSummary !== null &&
+    !thresholdVoteCanStillPass(confirmationVoteSummary, phaseChangeApprovalThresholdPercent);
+  const viewerCanRecordExecution =
+    viewerIsActivePlatformBoardMember() &&
+    projectLifecycleBySlug[slug]?.currentPhaseId === 'phase-4' &&
+    fundState?.status === 'completed' &&
+    (winningPlan?.purchaseRows.length ?? 0) > 0;
+  const purchaseStatusLabel = acquisitionState?.execution
+    ? confirmationApproved
+      ? 'Confirmed'
+      : confirmationRejected
+        ? 'Execution rejected'
+        : 'Pending confirmation'
+    : fundState?.status === 'completed'
+      ? 'Awaiting board execution'
+      : 'Awaiting funding';
+  const bundleStatusLabel = acquisitionState?.execution
+    ? confirmationApproved
+      ? 'Confirmed'
+      : confirmationRejected
+        ? 'Rejected execution'
+        : 'Waiting on confirmation vote'
+    : fundState?.status === 'completed'
+      ? 'Ready for execution'
+      : 'Waiting for funding';
+  const fund: ProjectAcquisitionPreviewFund | null = fundState
+    ? {
+        title: fundState.title,
+        progressPercent: fundState.progressPercent,
+        raisedLabel: fundState.raisedLabel,
+        targetLabel: fundState.targetLabel,
+        statusLabel: fundState.status === 'completed' ? 'Fund complete' : 'Funding open',
+        note:
+          fundState.status === 'completed'
+            ? 'The collective fund is complete. The next adapter-backed step is board execution with proof, followed by member confirmation.'
+            : 'The collective fund is still open. Once it is complete, board members can record execution against the approved purchase rows.'
+      }
+    : winningPlan?.purchaseRows.length
+      ? {
+          title: `${item.title} acquisition round`,
+          progressPercent: 0,
+          raisedLabel: 'Fund not opened yet',
+          targetLabel: winningPlan.totalCostLabel,
+          statusLabel: 'Waiting for funding',
+          note:
+            'The winning plan now carries real purchase rows. A collective fund can open against that itemized list before board execution begins.'
+        }
+      : null;
+  const bundles: ProjectAcquisitionBundle[] = (winningPlan?.acquisitionBundles ?? []).map((bundle) => ({
+    id: bundle.id,
+    title: bundle.title,
+    destinationType: bundle.destinationType,
+    destinationLabel: bundle.destinationLabel,
+    statusLabel: bundleStatusLabel,
+    note: bundle.note
+  }));
+  const existingAssets: ProjectAcquisitionPreviewItem[] = assetHref
+    ? currentSubtype === 'software'
+      ? [
+          {
+            id: `${item.slug}-existing-ci-runner`,
+            title: 'Shared CI runner slot',
+            sourceLabel: 'Existing collective infrastructure',
+            costLabel: 'No new purchase required',
+            statusLabel: 'Confirmed in PENDING',
+            note:
+              'This row stays separate from the purchase list because it is already held collectively and only needed intake approval during PENDING.',
+            href: assetHref
+          }
+        ]
+      : [
+          {
+            id: `${item.slug}-existing-site-access`,
+            title: 'Site access and floor space',
+            sourceLabel: 'Existing collective land asset',
+            costLabel: 'No new purchase required',
+            statusLabel: 'Confirmed in PENDING',
+            note:
+              'This row stays separate from the purchase list because the land access is already collectively held and only needed intake approval during PENDING.',
+            href: assetHref
+          }
+        ]
+    : [];
+  const purchaseTargets: ProjectAcquisitionPreviewItem[] = (winningPlan?.purchaseRows ?? []).map((purchaseRow) => ({
+    id: purchaseRow.id,
+    title: purchaseRow.title,
+    sourceLabel: 'Approved plan purchase row',
+    costLabel: purchaseRow.costLabel,
+    statusLabel: purchaseStatusLabel,
+    note:
+      purchaseRow.note ||
+      (purchaseRow.destinationLabel
+        ? `This purchase row is routed to ${purchaseRow.destinationLabel} once execution and confirmation complete.`
+        : 'This purchase row is attached to the current winning plan.'),
+    href: null,
+    purchaseHref: purchaseRow.purchaseHref,
+    destinationBundleId: purchaseRow.destinationBundleId,
+    destinationLabel: purchaseRow.destinationLabel
+  }));
+  const execution: ProjectAcquisitionExecutionFrame | null = acquisitionState?.execution
+    ? {
+        statusLabel: confirmationApproved
+          ? 'Confirmed by members'
+          : confirmationRejected
+            ? 'Rejected by members'
+            : 'Board execution recorded',
+        boardActionLabel: `Recorded by ${acquisitionState.execution.recordedByUsername}`,
+        proofLabel: acquisitionState.execution.proofLabel,
+        note: acquisitionState.execution.note,
+        recordedByUsername: acquisitionState.execution.recordedByUsername,
+        recordedAt: acquisitionState.execution.recordedAt
+      }
+    : null;
+  const confirmation: ProjectAcquisitionConfirmationFrame | null = confirmationVoteSummary
+    ? {
+        statusLabel: confirmationApproved
+          ? 'Confirmed'
+          : confirmationRejected
+            ? 'Rejected'
+            : 'Awaiting confirmation',
+        note: confirmationApproved
+          ? 'The confirmation vote has passed. The pending asset entries are ready for final inventory handoff.'
+          : confirmationRejected
+            ? 'The confirmation vote can no longer pass. Board members can record a corrected execution and restart confirmation.'
+            : 'Project members now confirm or reject the recorded execution before the pending asset entries become live inventory.',
+        voteSummary: confirmationVoteSummary,
+        viewerCanVote: canViewerEditProjectPhase(slug, 'phase-4')
+      }
+    : null;
+  const pendingAssets: ProjectAcquisitionPendingAsset[] = (acquisitionState?.execution?.pendingAssets ?? []).map(
+    (pendingAsset) => ({
+      id: pendingAsset.id,
+      title: pendingAsset.title,
+      statusLabel: confirmationApproved
+        ? 'Confirmed'
+        : confirmationRejected
+          ? 'Rejected'
+          : 'Pending confirmation',
+      destinationLabel: pendingAsset.destinationLabel,
+      note: pendingAsset.note
+    })
+  );
+  const phaseLabel = purchaseTargets.length === 0
+    ? 'No acquisition rows'
+    : acquisitionState?.execution
+      ? confirmationApproved
+        ? 'Confirmed'
+        : confirmationRejected
+          ? 'Rejected'
+          : 'Confirmation'
+      : fundState?.status === 'completed'
+        ? 'Execution'
+        : 'Funding';
+
+  return {
+    intro:
+      'Acquisition sits between the final planning phase and activity whenever an approved plan still needs collectively held means of production.',
+    previewNote:
+      purchaseTargets.length > 0
+        ? 'The accepted production or operations plan now supplies the itemized purchase rows, bundle routing, execution proof, and confirmation state for this phase.'
+        : 'The current winning plan does not contain any purchase rows, so acquisition stays informational for now.',
+    phaseLabel,
+    fund,
+    existingAssets,
+    purchaseTargets,
+    bundles,
+    execution,
+    confirmation,
+    pendingAssets,
+    viewerCanRecordExecution,
+    placeholderSections: buildProjectPlaceholderSections(
+      purchaseTargets.length === 0
+        ? [
+            {
+              id: 'no-purchases',
+              title: 'No acquisition purchase rows',
+              body:
+                'Edit the accepted production or operations plan to add purchase rows and destination bundles if this work still needs collectively funded means of production.',
+              statusLabel: 'No acquisition needed yet'
+            }
+          ]
+        : [
+            {
+              id: 'pending-routing',
+              title: 'PENDING routing',
+              body:
+                'Bundles targeting an existing asset-management service stay in PENDING until that service agrees to absorb the resulting inventory. Bundles targeting a new service draft do not block voteability on their own.',
+              statusLabel: 'Active rule'
+            }
+          ]
+    )
+  };
+}
+
+type SeededProjectConversionLineageSeed = {
+  predecessorSlug: string;
+  successorSlug: string;
+  successorTitle: string;
+  summary: string;
+  inventoryNote: string;
+  permanenceNote: string;
+  statusLabel: string;
+};
+
+const seededProjectConversionLineageBySlug: Record<string, SeededProjectConversionLineageSeed> = {
+  'block-weatherization-pilot-wrap': {
+    predecessorSlug: 'block-weatherization-pilot-wrap',
+    successorSlug: 'east-market-weatherization-maintenance-service',
+    successorTitle: 'East Market Weatherization Maintenance Service',
+    summary:
+      'This productive pilot closed after the build cycle and now stays permanently linked to the follow-on collective service that carries the maintenance and repeat work.',
+    inventoryNote:
+      'The successor record inherits the pilot inventory framing so the ladders, seal kits, and measurement tools stay attached to the continuing service history.',
+    permanenceNote:
+      'This predecessor/successor relationship is governance-created and permanent. It cannot be removed through the manual link process.',
+    statusLabel: 'Converted project'
+  }
+};
+
+const seededProjectConversionSuccessorPreviewBySlug: Record<
+  string,
+  { successorSlug: string; successorTitle: string; inventoryNote: string; summary: string }
+> = {
+  'hallway-air-sealing-build-day': {
+    successorSlug: 'east-market-weatherization-support-service',
+    successorTitle: 'East Market Weatherization Support Service',
+    inventoryNote:
+      'If this close vote passes, the follow-on service will inherit the current tool kits, safety gear, and role notes as its starting inventory frame.',
+    summary:
+      'The current proposal would close the one-off build day and reopen the work as a standing collective service for repeat support and maintenance.'
+  }
+};
+
+type MockProjectManualLinkState = {
+  id: string;
+  sourceProjectSlug: string;
+  targetProjectSlug: string;
+  relationshipLabel: string;
+  summary: string;
+  proposedByUserId: string;
+  createdAt: string;
+  sourceVotesByUserId: Record<string, ProjectApprovalVote>;
+  targetVotesByUserId: Record<string, ProjectApprovalVote>;
+};
+
+let manualProjectLinkRequestsState: MockProjectManualLinkState[] = [
+  {
+    id: 'manual-link-repair-ride-approved',
+    sourceProjectSlug: 'repair-cafe-shift-grid',
+    targetProjectSlug: 'neighborhood-ride-coordination-service',
+    relationshipLabel: 'Member-approved relationship',
+    summary:
+      'The repair floor and ride desk approved a standing link so bulky repair pickups can trigger the related ride coordination handoff when needed.',
+    proposedByUserId: 'user-tool',
+    createdAt: '2026-05-10T14:00:00Z',
+    sourceVotesByUserId: {
+      'viewer-1': 'yes',
+      'user-tool': 'yes',
+      'user-rowan': 'yes'
+    },
+    targetVotesByUserId: {
+      'viewer-1': 'yes',
+      'user-rowan': 'yes',
+      'user-ember': 'yes'
+    }
+  },
+  {
+    id: 'manual-link-land-repair-pending',
+    sourceProjectSlug: 'tool-library-land-stewardship',
+    targetProjectSlug: 'repair-cafe-shift-grid',
+    relationshipLabel: 'Pending shared-resource coordination',
+    summary:
+      'This request would keep the land stewardship service and repair floor visibly linked whenever space-use and attached-asset placement decisions overlap.',
+    proposedByUserId: 'user-rowan',
+    createdAt: '2026-05-16T11:30:00Z',
+    sourceVotesByUserId: {
+      'viewer-1': 'yes',
+      'user-rowan': 'yes',
+      'user-tool': 'yes'
+    },
+    targetVotesByUserId: {
+      'viewer-1': 'yes',
+      'user-tool': 'yes',
+      'user-rowan': 'no'
+    }
+  },
+  {
+    id: 'manual-link-storage-childcare-blocked',
+    sourceProjectSlug: 'tool-library-storage',
+    targetProjectSlug: 'childcare-checkin-desk-service',
+    relationshipLabel: 'Blocked handoff relationship',
+    summary:
+      'The proposed storage-to-check-in relationship failed because the linked project rejected the standing coordination path for overlapping front-room handoffs.',
+    proposedByUserId: 'user-tool',
+    createdAt: '2026-05-14T09:15:00Z',
+    sourceVotesByUserId: {
+      'viewer-1': 'yes',
+      'user-tool': 'yes',
+      'user-rowan': 'yes'
+    },
+    targetVotesByUserId: {
+      'viewer-1': 'no',
+      'user-tool': 'no',
+      'user-rowan': 'yes'
+    }
+  }
+];
+
+function projectFrameDateLabel(iso: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric'
+  }).format(new Date(iso));
+}
+
+function projectConversionWorkflowStatus(request: ProjectLifecyclePhaseChangeRequest) {
+  if (request.voteSummary.meetsQuorum && request.passesApprovalThreshold) {
+    return 'Approved threshold reached';
+  }
+
+  if (!request.canStillPass) {
+    return 'Blocked by vote math';
+  }
+
+  return 'Pending close vote';
+}
+
+function buildProjectConversionWorkflow(
+  item: PublicProjectItem,
+  requests: ProjectLifecyclePhaseChangeRequest[]
+) {
+  return requests
+    .filter(
+      (request) => request.kind === 'close' && request.closeOutcome === 'convert' && request.conversionTarget
+    )
+    .map((request) => {
+      const target = request.conversionTarget;
+
+      if (!target) {
+        return null;
+      }
+
+      const preview = seededProjectConversionSuccessorPreviewBySlug[item.slug];
+
+      return {
+        id: request.id,
+        title: `Convert into ${target.projectModeLabel}`,
+        statusLabel: projectConversionWorkflowStatus(request),
+        requestedByUsername: request.authorUsername,
+        createdAtLabel: `Opened ${projectFrameDateLabel(request.createdAt)}`,
+        outcomeLabel: `${target.projectModeLabel} · ${target.projectSubtypeLabel}`,
+        summary: preview?.summary ?? request.reason,
+        inventoryNote:
+          preview?.inventoryNote ??
+          `If approved, the successor starts in ${target.entryPhaseLabel} with the current inventory framing carried forward.`,
+        canVote: canViewerVoteOnProjectPhaseChange(item.slug),
+        voteSummary: request.voteSummary,
+        approvalThresholdPercent: request.approvalThresholdPercent,
+        target,
+        predecessor: {
+          id: `${item.slug}-conversion-predecessor`,
+          title: item.title,
+          relationshipLabel: 'Closing project',
+          summary: 'This is the current project record that would close if the conversion vote passes.',
+          href: item.href
+        },
+        successor: preview
+          ? projectFrameLink(
+              item,
+              preview.successorSlug,
+              'Planned successor',
+              preview.summary,
+              preview.successorTitle
+            )
+          : null
+      };
+        })
+        .filter((item): item is NonNullable<typeof item> => !!item);
+}
+
+function buildProjectConversionLineage(item: PublicProjectItem) {
+  const seed = seededProjectConversionLineageBySlug[item.slug];
+
+  if (!seed) {
+    return null;
+  }
+
+  return {
+    title: 'Conversion lineage',
+    statusLabel: seed.statusLabel,
+    summary: seed.summary,
+    permanenceNote: seed.permanenceNote,
+    inventoryNote: seed.inventoryNote,
+    predecessor: {
+      id: `${seed.predecessorSlug}-conversion-lineage-predecessor`,
+      title: item.title,
+      relationshipLabel: 'Historical predecessor',
+      summary: 'This closed productive record remains permanently visible as the predecessor in the governed conversion chain.',
+      href: item.href
+    },
+    successor: projectFrameLink(
+      item,
+      seed.successorSlug,
+      'Converted successor',
+      'This follow-on service keeps the inherited inventory and governance history visible after the original project closed.',
+      seed.successorTitle
+    )
+  };
+}
+
+function buildProjectLinksFrame(item: PublicProjectItem): ProjectLinksFrameData {
+  const candidateTargets = [
+    'repair-cafe-shift-grid',
+    'childcare-checkin-desk-service',
+    'neighborhood-ride-coordination-service',
+    'hallway-air-sealing-build-day'
+  ].filter((slug) => slug !== item.slug);
+
+  const seededManualLinkRequests: ProjectManualLinkRequest[] = [
+    buildProjectManualLinkRequest(
+      item,
+      candidateTargets[0] ?? 'repair-cafe-shift-grid',
+      'Repair cafe shift grid',
+      'Pending shared-resource coordination',
+      'This project has already cleared its own threshold, but the linked project still needs more member approvals before the relationship can go live.',
+      'Pending counterpart vote',
+      'avery.n',
+      'Opened 2 days ago',
+      { yesCount: Math.max(Math.ceil(item.memberCount * 0.67), 1), noCount: item.memberCount > 3 ? 1 : 0 },
+      { yesCount: 2, noCount: 1 }
+    ),
+    buildProjectManualLinkRequest(
+      item,
+      candidateTargets[2] ?? candidateTargets[1] ?? 'neighborhood-ride-coordination-service',
+      'Neighborhood ride coordination service',
+      'Member-approved relationship',
+      'Both project memberships cleared the required threshold, so this request now appears above as an active manual link in the production graph.',
+      'Approved on both sides',
+      'samira.l',
+      'Approved this week',
+      {
+        yesCount: Math.max(Math.ceil(item.memberCount * 0.75), 1),
+        noCount: item.memberCount > 4 ? 1 : 0
+      },
+      { yesCount: 5, noCount: 1 }
+    ),
+    buildProjectManualLinkRequest(
+      item,
+      candidateTargets[1] ?? 'childcare-checkin-desk-service',
+      'Childcare check-in desk service',
+      'Blocked handoff relationship',
+      'The linked project accumulated enough no votes that the request can no longer reach the required approval threshold there.',
+      'Blocked on linked project side',
+      'jules.p',
+      'Closed yesterday',
+      { yesCount: Math.max(Math.ceil(item.memberCount * 0.67), 1), noCount: 0 },
+      { yesCount: 1, noCount: 3 }
+    )
+  ];
+  const stateManualLinks = manualProjectLinkRequestsState
+    .filter(
+      (request) =>
+        (request.sourceProjectSlug === item.slug || request.targetProjectSlug === item.slug) &&
+        manualProjectLinkApprovedOnBothSides(request)
+    )
+    .map((request) => {
+      const targetSlug = manualProjectLinkOtherSlug(request, item.slug);
+
+      return projectFrameLink(
+        item,
+        targetSlug,
+        request.relationshipLabel,
+        request.summary,
+        findPublicProjectItem(targetSlug)?.title ?? targetSlug
+      );
+    });
+  const stateManualLinkRequests = manualProjectLinkRequestsState
+    .filter(
+      (request) =>
+        (request.sourceProjectSlug === item.slug || request.targetProjectSlug === item.slug) &&
+        !manualProjectLinkApprovedOnBothSides(request)
+    )
+    .map((request) => buildProjectManualLinkRequestFromState(item, request));
+  const config = projectLifecycleBySlug[item.slug];
+  const currentSubtype = currentProjectSubtypeForGovernance(item.slug);
+  const memberCount = projectGovernancePopulation(item.slug, (projectMembersBySlug[item.slug] ?? []).length);
+  const phaseChangeRequests = config
+    ? buildProjectPhaseChangeRequests(
+        item.slug,
+        item.projectMode,
+        config.currentPhaseId,
+        projectLifecyclePhaseBlueprintsForProject(item.slug, item.projectMode, currentSubtype),
+        calculateProjectQuorumThreshold(memberCount),
+        memberCount
+      )
+    : [];
+  const conversionWorkflow = buildProjectConversionWorkflow(item, phaseChangeRequests);
+  const conversionLineage = buildProjectConversionLineage(item);
+
+  return {
+    projectSlug: item.slug,
+    intro:
+      'Links will show how this project connects to upstream work, downstream work, approved asset-use relationships, deliveries, and future project conversions.',
+    autoLinks: [
+      projectFrameLink(
+        item,
+        candidateTargets[0] ?? 'repair-cafe-shift-grid',
+        'Auto link · approved shared resource dependency',
+        'Fake preview only: this link shows how an approved in-house asset request could automatically connect two projects.',
+        'Shared resource dependency'
+      ),
+      projectFrameLink(
+        item,
+        candidateTargets[1] ?? 'childcare-checkin-desk-service',
+        'Auto link · completed delivery route',
+        'Fake preview only: this link shows how completed delivery work could automatically stitch projects together in the network view.',
+        'Completed delivery route'
+      )
+    ],
+    manualLinks: [
+      projectFrameLink(
+        item,
+        candidateTargets[2] ?? 'neighborhood-ride-coordination-service',
+        'Manual proposal · member-approved relationship',
+        'Fake preview only: this is how a member-proposed relationship would appear after both projects approve the link.',
+        'Member-approved relationship'
+      ),
+      ...stateManualLinks
+    ],
+    manualLinkRequests: [...stateManualLinkRequests, ...seededManualLinkRequests],
+    linkableProjects: buildLinkableProjects(item),
+    viewerCanProposeLinks: !!currentViewer() && (projectMembersBySlug[item.slug] ?? []).includes(currentViewer()!.id),
+    conversionNote:
+      'If this project is later converted into another project type, that lineage will stay visible here as a permanent link.',
+    conversionWorkflow,
+    conversionLineage,
+    requestFrames: buildProjectRequestFrames('links', item),
+    placeholderSections: buildProjectPlaceholderSections([
+      {
+        id: 'auto-links',
+        title: 'Auto-created links',
+        body:
+          'Approved asset-use requests, completed deliveries, and future project conversions will create links here automatically once those flows are live.'
+      },
+      {
+        id: 'production-network',
+        title: 'Network tracing',
+        body:
+          'Direct predecessors, direct successors, and longer production-network chains will all be framed in this tab as dedicated sections rather than mixed into overview copy.'
+      },
+      {
+        id: 'conversion-lineage',
+        title: 'Conversion lineage',
+        body:
+          'When a project converts into a new type, the predecessor and successor records stay linked here permanently so the production history remains visible.',
+        statusLabel: 'Fake preview'
+      }
+    ])
+  };
+}
+
+function buildProjectInventoryFrame(item: PublicProjectItem): ProjectInventoryFrameData | null {
+  if (item.projectMode === 'personal-service') {
+    return null;
+  }
+
+  const values = buildProjectValues(item.slug);
+  const voteContextPopulation = projectGovernancePopulation(
+    item.slug,
+    (projectMembersBySlug[item.slug] ?? []).length
+  );
+  const phaseTwo = buildProductionPlans(
+    item.slug,
+    values,
+    calculateProjectQuorumThreshold(voteContextPopulation),
+    voteContextPopulation
+  );
+
+  const intro =
+    item.projectMode === 'productive'
+      ? 'Inventory will list collectively held means of production attached to this project once acquisition and asset operations open.'
+      : 'Inventory will list the assets this service manages or keeps in custody once asset operations open.';
+
+  return {
+    projectSlug: item.slug,
+    intro,
+    statusLabel: 'Fake preview inventory',
+    assetGroups: buildProjectInventoryAssetGroups(item),
+    canRequestAssets:
+      item.projectMode === 'collective-service' &&
+      item.projectSubtype === 'asset-management' &&
+      canViewerSubmitProjectServiceRequest(item.slug),
+    requestFrames: buildProjectRequestFrames('inventory', item),
+    acquisitionPreview: buildProjectPhaseFourPreview(
+      item.slug,
+      item,
+      item.projectSubtype ?? null,
+      phaseTwo,
+      calculateProjectQuorumThreshold(voteContextPopulation),
+      voteContextPopulation
+    ),
+    placeholderSections: buildProjectPlaceholderSections([
+      {
+        id: 'managed-assets',
+        title: 'Managed assets',
+        body:
+          'Land management, storage, and acquisition-backed project assets will appear here as individual records with current custody and status once the asset registry is live.'
+      },
+      {
+        id: 'borrowing-policy',
+        title: 'Borrowing policy votes',
+        body:
+          'Projects that manage assets will get per-asset borrowing-policy votes here so members can decide what is available for individual borrowing and what stays project-use only.'
+      },
+      {
+        id: 'asset-requests',
+        title: 'Asset-use requests',
+        body:
+          'Approved plans that depend on in-house assets will route request and availability decisions through this tab once those governance flows are implemented.'
+      },
+      {
+        id: 'acquisition-handoff',
+        title: 'Acquisition handoff',
+        body:
+          'Fake preview only: once acquisition is confirmed, this tab will show how newly acquired items land in project inventory and the wider asset registry.',
+        statusLabel: 'Fake preview'
+      }
+    ])
   };
 }
 
@@ -8443,6 +14147,8 @@ export function findPostFixture(id: string): PostPageData | null {
   return {
     id: item.id,
     authorUsername: item.author.username,
+    authorProfileImageUrl:
+      userById(item.author.id)?.profileImageUrl ?? item.author.profileImageUrl ?? null,
     body: item.body,
     linkedSubjects: item.linkedSubjects,
     audience: item.audience,
@@ -8468,20 +14174,24 @@ export function findEventFixture(slug: string): EventPageData | null {
   }
 
   const shareContacts = buildShareContacts();
-  const quorumThresholdPercent = calculateProjectQuorumThreshold(memberState.eligibleVoterCount);
+  const lifecycle = buildEventLifecycle(slug, item);
+  const effectivePresentation = buildEffectiveEventPresentation(item, lifecycle);
+  const signalSummary = lifecycle.phaseOne.signalSummary;
+  const quorumThresholdPercent = lifecycle.quorumThresholdPercent;
   const updateRequests = buildEventUpdateRequests(
     slug,
     quorumThresholdPercent,
-    memberState.eligibleVoterCount
+    lifecycle.voteContextPopulation
   );
   const editRequests = buildEventEditRequests(
     slug,
     quorumThresholdPercent,
-    memberState.eligibleVoterCount
+    lifecycle.voteContextPopulation
   );
   const history = buildEventDecisionHistory(
     slug,
     userByUsername(item.createdByUsername)?.id ?? null,
+    lifecycle,
     updateRequests,
     editRequests,
     canViewerVoteOnEventUpdate(slug),
@@ -8492,8 +14202,10 @@ export function findEventFixture(slug: string): EventPageData | null {
 
   return {
     ...item,
+    ...effectivePresentation,
     memberCount: memberState.memberCount,
-    description: item.description,
+    signalSummary,
+    lifecycle,
     attendanceNote: extras.attendanceNote,
     agenda: extras.agenda,
     updates: extras.updates,
@@ -8557,6 +14269,7 @@ function appendReply(comments: DetailComment[], parentId: string, nextComment: D
 }
 
 export function setMockVote(targetId: string, nextVote: VoteDirection) {
+  const viewer = currentViewer();
   let updatedComment = false;
 
   for (const comments of Object.values(commentsBySubjectId)) {
@@ -8569,19 +14282,28 @@ export function setMockVote(targetId: string, nextVote: VoteDirection) {
   const confidence = confidenceState.get(targetId);
 
   if (confidence) {
-    if (confidence.activeVote === 1) {
-      confidence.upVotes -= 1;
-    } else if (confidence.activeVote === -1) {
-      confidence.downVotes -= 1;
+    if (!viewer) {
+      return;
     }
 
-    if (nextVote === 1) {
-      confidence.upVotes += 1;
-    } else if (nextVote === -1) {
-      confidence.downVotes += 1;
+    if (nextVote) {
+      confidence.votesByUserId[viewer.id] = nextVote;
+    } else {
+      delete confidence.votesByUserId[viewer.id];
     }
 
-    confidence.activeVote = nextVote;
+    setConfidenceVotes(targetId, confidence.votesByUserId);
+    recordMeaningfulAction(viewer.id);
+
+    const vote = voteState.get(targetId);
+
+    if (vote) {
+      const snapshot = buildConfidenceVoteSnapshot(targetId);
+      vote.voteCount = snapshot ? snapshot.upVotes - snapshot.downVotes : 0;
+      vote.activeVote = snapshot?.activeVote ?? 0;
+    }
+
+    return;
   }
 
   const vote = voteState.get(targetId);
@@ -8603,11 +14325,16 @@ export function toggleMockEventGoing(eventId: string) {
     (item): item is PublicEventItem => item.kind === 'event' && item.id === eventId
   );
   const creatorId = event ? userByUsername(event.createdByUsername)?.id ?? null : null;
+  const viewerHasScopeAccess = !!viewer && !!event && viewerHasEventScopeAccess(event, viewer.id);
   const viewerCanToggle =
     !!viewer &&
     !!participation &&
     !!event &&
-    (!event.isPrivate || participation.invitedUserIds.includes(viewer.id) || participation.goingUserIds.includes(viewer.id) || creatorId === viewer.id);
+    (!event.isPrivate ||
+      participation.invitedUserIds.includes(viewer.id) ||
+      participation.goingUserIds.includes(viewer.id) ||
+      creatorId === viewer.id ||
+      viewerHasScopeAccess);
 
   if (!viewerCanToggle || !viewer || !participation || !event) {
     return;
@@ -8627,13 +14354,15 @@ export function toggleMockEventGoing(eventId: string) {
       }
     }
 
-    if (event.isPrivate && !participation.invitedUserIds.includes(viewer.id)) {
+    if (event.isPrivate && !participation.invitedUserIds.includes(viewer.id) && !viewerHasScopeAccess) {
       participation.invitedUserIds = [...participation.invitedUserIds, viewer.id];
       eventInvitedSinceById[eventId] = {
         ...(eventInvitedSinceById[eventId] ?? {}),
         [viewer.id]: new Date().toISOString()
       };
     }
+
+    recordMeaningfulAction(viewer.id);
 
     return;
   }
@@ -8645,6 +14374,7 @@ export function toggleMockEventGoing(eventId: string) {
     ...(eventGoingSinceById[eventId] ?? {}),
     [viewer.id]: new Date().toISOString()
   };
+  recordMeaningfulAction(viewer.id);
 }
 
 export function toggleMockProjectMembership(slug: string) {
@@ -8666,15 +14396,6 @@ export function toggleMockProjectMembership(slug: string) {
     projectMembersBySlug[slug] = memberIds.filter((userId) => userId !== viewer.id);
     delete (projectMembershipSinceBySlug[slug] ?? {})[viewer.id];
 
-    if (projectManagersBySlug[slug] && projectMode !== 'personal-service') {
-      projectManagersBySlug[slug].managerIds = projectManagersBySlug[slug].managerIds.filter(
-        (userId) => userId !== viewer.id
-      );
-      projectManagersBySlug[slug].candidateIds = projectManagersBySlug[slug].candidateIds.filter(
-        (userId) => userId !== viewer.id
-      );
-    }
-
     return;
   }
 
@@ -8683,6 +14404,7 @@ export function toggleMockProjectMembership(slug: string) {
     ...(projectMembershipSinceBySlug[slug] ?? {}),
     [viewer.id]: new Date().toISOString()
   };
+  recordMeaningfulAction(viewer.id);
 }
 
 function ensureProjectMembership(slug: string, userId: string) {
@@ -8703,10 +14425,16 @@ function ensureProjectWorkflowState(slug: string) {
     (projectWorkflowStateBySlug[slug] = {
       signalCount: 0,
       signalUserIds: [],
+      oppositionSignalUserIds: [],
+      oppositionSignalCount: 0,
       values: [],
       phaseTwoPlans: [],
       phaseThreePlans: [],
       phaseFiveActivities: [],
+      softwarePullRequests: [],
+      softwareMergeCapabilityChangeRequests: [],
+      softwareRepositoryReplacementRequests: [],
+      softwareRepositoryHistory: [],
       serviceRequests: [],
       requestSettingsChangeRequests: [],
       serviceHistoryCompletions: {},
@@ -8718,6 +14446,12 @@ function ensureProjectWorkflowState(slug: string) {
     });
 
   workflow.serviceRequests ??= [];
+  workflow.softwarePullRequests ??= [];
+  workflow.softwareMergeCapabilityChangeRequests ??= [];
+  workflow.softwareRepositoryReplacementRequests ??= [];
+  workflow.softwareRepositoryHistory ??= [];
+  workflow.oppositionSignalUserIds ??= [];
+  workflow.oppositionSignalCount ??= workflow.oppositionSignalUserIds.length;
   workflow.requestSettingsChangeRequests ??= [];
   workflow.serviceHistoryCompletions ??= {};
   workflow.revertHistory ??= [];
@@ -8730,10 +14464,20 @@ function ensureProjectWorkflowState(slug: string) {
 }
 
 function ensureEventWorkflowState(slug: string, creatorId: string | null = null) {
+  const event = findPublicEventItem(slug);
   const workflow =
     eventWorkflowStateBySlug[slug] ??
     (eventWorkflowStateBySlug[slug] = {
       editorUserIds: creatorId ? [creatorId] : [],
+      currentPhaseId: event?.isPrivate ? 'event-plan' : 'proposal',
+      signalCount: 0,
+      signalUserIds: [],
+      oppositionSignalCount: 0,
+      oppositionSignalUserIds: [],
+      eventValues: [],
+      eventPlans: [],
+      eventActivities: [],
+      phaseChangeRequests: [],
       updateRequests: [],
       editRequests: [],
       decisionHistory: []
@@ -8742,6 +14486,15 @@ function ensureEventWorkflowState(slug: string, creatorId: string | null = null)
   workflow.editorUserIds = Array.from(
     new Set([...(creatorId ? [creatorId] : []), ...(workflow.editorUserIds ?? [])])
   );
+  workflow.currentPhaseId ??= event?.isPrivate ? 'event-plan' : 'proposal';
+  workflow.signalCount ??= workflow.signalUserIds?.length ?? 0;
+  workflow.signalUserIds ??= [];
+  workflow.oppositionSignalUserIds ??= [];
+  workflow.oppositionSignalCount ??= workflow.oppositionSignalUserIds.length;
+  workflow.eventValues ??= [];
+  workflow.eventPlans ??= [];
+  workflow.eventActivities ??= [];
+  workflow.phaseChangeRequests ??= [];
   workflow.updateRequests ??= [];
   workflow.editRequests ??= [];
   workflow.decisionHistory ??= [];
@@ -8750,10 +14503,10 @@ function ensureEventWorkflowState(slug: string, creatorId: string | null = null)
 }
 
 function decisionHistoryLabel(kind: DecisionHistoryEntryKind, payload: RawDecisionHistoryPayload) {
-  if (kind === 'project-phase-change' && payload.type === 'phase-change') {
+  if ((kind === 'project-phase-change' || kind === 'event-phase-change') && payload.type === 'phase-change') {
     switch (payload.changeKind) {
       case 'close':
-        return 'Close decision';
+        return payload.closeOutcome === 'convert' ? 'Convert decision' : 'Close decision';
       case 'return':
         return 'Return decision';
       default:
@@ -8762,6 +14515,16 @@ function decisionHistoryLabel(kind: DecisionHistoryEntryKind, payload: RawDecisi
   }
 
   switch (kind) {
+    case 'project-pull-request-approval':
+      return 'Pull request approval';
+    case 'project-pull-request-confirmation':
+      return 'Merge confirmation';
+    case 'project-merge-capability-change':
+      return payload.type === 'merge-capability'
+        ? projectMergeCapabilityActionLabel(payload.action)
+        : 'Merge capability decision';
+    case 'project-repository-replacement':
+      return 'Repository replacement';
     case 'project-request-settings-change':
       return 'Settings decision';
     case 'project-update':
@@ -8773,14 +14536,15 @@ function decisionHistoryLabel(kind: DecisionHistoryEntryKind, payload: RawDecisi
 }
 
 function projectPhaseChangeKind(
+  slug: string,
   projectMode: ProjectMode,
   fromPhaseId: ProjectLifecyclePhaseId,
   toPhaseId: ProjectLifecyclePhaseId
 ) {
-  const fromOrder = phaseOrderForProjectMode(projectMode, fromPhaseId);
-  const toOrder = phaseOrderForProjectMode(projectMode, toPhaseId);
+  const fromOrder = phaseOrderForProjectSlug(slug, projectMode, fromPhaseId);
+  const toOrder = phaseOrderForProjectSlug(slug, projectMode, toPhaseId);
 
-  if (toPhaseId === closePhaseIdForProject(projectMode) && toOrder > fromOrder) {
+  if (toPhaseId === closePhaseIdForProjectSlug(slug, projectMode) && toOrder > fromOrder) {
     return 'close';
   }
 
@@ -8875,10 +14639,98 @@ function buildProjectPhaseChangeHistoryEntry(
     approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
     payload: {
       type: 'phase-change',
-      changeKind: projectPhaseChangeKind(projectMode, config.currentPhaseId, request.targetPhaseId),
+      changeKind: projectPhaseChangeKind(slug, projectMode, config.currentPhaseId, request.targetPhaseId),
       fromPhaseId: config.currentPhaseId,
       toPhaseId: request.targetPhaseId,
-      reason: request.reason
+      reason: request.reason,
+      closeOutcome: request.closeOutcome,
+      conversionTarget: request.conversionTarget ?? null
+    }
+  };
+}
+
+function buildProjectPullRequestHistoryRepositoryUrl(slug: string) {
+  const memberCount = projectGovernancePopulation(slug, (projectMembersBySlug[slug] ?? []).length);
+  const phaseTwo = buildProductionPlans(
+    slug,
+    buildProjectValues(slug),
+    calculateProjectQuorumThreshold(memberCount),
+    memberCount
+  );
+
+  return resolvedSoftwareRepositoryUrl(slug, phaseTwo);
+}
+
+function buildProjectPullRequestHistoryEntry(
+  slug: string,
+  request: RawProjectPullRequestRequest
+): RawDecisionHistoryEntry | null {
+  if (request.stage !== 'approval' && request.stage !== 'confirmation') {
+    return null;
+  }
+
+  return {
+    id:
+      request.stage === 'approval'
+        ? projectPullRequestApprovalDecisionId(request.id)
+        : projectPullRequestConfirmationDecisionId(request.id),
+    entityKind: 'project',
+    kind:
+      request.stage === 'approval'
+        ? 'project-pull-request-approval'
+        : 'project-pull-request-confirmation',
+    createdAt: request.stage === 'confirmation' ? request.confirmationCreatedAt ?? request.createdAt : request.createdAt,
+    authorUsername: request.authorUsername,
+    status: 'open',
+    approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+    payload: {
+      type: 'pull-request',
+      title: request.title,
+      summary: request.summary,
+      pullRequestId: request.pullRequestId,
+      pullRequestUrl: request.pullRequestUrl,
+      mergeId: request.mergeId ?? null,
+      repositoryUrl: buildProjectPullRequestHistoryRepositoryUrl(slug)
+    }
+  };
+}
+
+function buildProjectMergeCapabilityChangeHistoryEntry(
+  request: RawProjectMergeCapabilityChangeRequest
+): RawDecisionHistoryEntry {
+  return {
+    id: projectMergeCapabilityChangeDecisionId(request.id),
+    entityKind: 'project',
+    kind: 'project-merge-capability-change',
+    createdAt: request.createdAt,
+    authorUsername: request.authorUsername,
+    status: 'open',
+    approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+    payload: {
+      type: 'merge-capability',
+      action: request.action,
+      targetUsername: userById(request.targetUserId)?.username ?? request.targetUserId
+    }
+  };
+}
+
+function buildProjectRepositoryReplacementHistoryEntry(
+  request: RawProjectRepositoryReplacementRequest
+): RawDecisionHistoryEntry {
+  return {
+    id: projectRepositoryReplacementDecisionId(request.id),
+    entityKind: 'project',
+    kind: 'project-repository-replacement',
+    createdAt: request.createdAt,
+    authorUsername: request.authorUsername,
+    status: 'open',
+    approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+    payload: {
+      type: 'repository-replacement',
+      repositoryUrl: request.repositoryUrl,
+      previousRepositoryUrl: request.previousRepositoryUrl,
+      reason: request.reason,
+      relatedPullRequestId: request.relatedPullRequestId
     }
   };
 }
@@ -8982,6 +14834,8 @@ function buildEventEditHistoryEntry(
     return null;
   }
 
+  const effectivePresentation = buildEffectiveEventPresentation(event);
+
   return {
     id: request.id,
     entityKind: 'event',
@@ -8993,11 +14847,41 @@ function buildEventEditHistoryEntry(
     payload: {
       type: 'edit',
       changes: buildDecisionHistoryFieldChanges(
-        event.title,
+        effectivePresentation.title,
         request.title,
-        event.description,
+        effectivePresentation.description,
         request.description
       )
+    }
+  };
+}
+
+function buildEventPhaseChangeHistoryEntry(
+  slug: string,
+  request: RawEventPhaseChangeRequest
+): RawDecisionHistoryEntry | null {
+  const event = findPublicEventItem(slug);
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event?.createdByUsername ?? '')?.id ?? null);
+  const fromPhaseId = event ? workflow.currentPhaseId ?? defaultEventCurrentPhaseId(event) : 'proposal';
+
+  if (!event) {
+    return null;
+  }
+
+  return {
+    id: request.id,
+    entityKind: 'event',
+    kind: 'event-phase-change',
+    createdAt: request.createdAt,
+    authorUsername: request.authorUsername,
+    status: 'open',
+    approvalThresholdPercent: phaseChangeApprovalThresholdPercent,
+    payload: {
+      type: 'phase-change',
+      changeKind: eventPhaseChangeKind(event, fromPhaseId, request.targetPhaseId),
+      fromPhaseId,
+      toPhaseId: request.targetPhaseId,
+      reason: request.reason
     }
   };
 }
@@ -9021,11 +14905,27 @@ function ensureProjectDecisionHistorySeeded(slug: string) {
   for (const request of workflow.editRequests ?? []) {
     upsertDecisionHistoryEntry(history, buildProjectEditHistoryEntry(slug, request));
   }
+
+  for (const request of workflow.softwarePullRequests ?? []) {
+    upsertDecisionHistoryEntry(history, buildProjectPullRequestHistoryEntry(slug, request));
+  }
+
+  for (const request of workflow.softwareMergeCapabilityChangeRequests ?? []) {
+    upsertDecisionHistoryEntry(history, buildProjectMergeCapabilityChangeHistoryEntry(request));
+  }
+
+  for (const request of workflow.softwareRepositoryReplacementRequests ?? []) {
+    upsertDecisionHistoryEntry(history, buildProjectRepositoryReplacementHistoryEntry(request));
+  }
 }
 
 function ensureEventDecisionHistorySeeded(slug: string, creatorId: string | null = null) {
   const workflow = ensureEventWorkflowState(slug, creatorId);
   const history = (workflow.decisionHistory ??= []);
+
+  for (const request of workflow.phaseChangeRequests ?? []) {
+    upsertDecisionHistoryEntry(history, buildEventPhaseChangeHistoryEntry(slug, request));
+  }
 
   for (const request of workflow.updateRequests ?? []) {
     upsertDecisionHistoryEntry(history, buildEventUpdateHistoryEntry(request));
@@ -9107,6 +15007,12 @@ function removeUserFromEventRequestVotes(slug: string, userId: string) {
     return;
   }
 
+  const username = userById(userId)?.username ?? null;
+
+  for (const request of workflow.phaseChangeRequests ?? []) {
+    delete request.votesByUserId[userId];
+  }
+
   for (const request of workflow.updateRequests ?? []) {
     delete request.votesByUserId[userId];
   }
@@ -9114,11 +15020,89 @@ function removeUserFromEventRequestVotes(slug: string, userId: string) {
   for (const request of workflow.editRequests ?? []) {
     delete request.votesByUserId[userId];
   }
+
+  for (const plan of workflow.eventPlans ?? []) {
+    delete plan.overallVotesByUserId[userId];
+    for (const votesByUserId of Object.values(plan.valueVotesByValueId)) {
+      delete votesByUserId[userId];
+    }
+  }
+
+  if (!username) {
+    return;
+  }
+
+  for (const activity of workflow.eventActivities ?? []) {
+    for (const role of activity.roles) {
+      role.assignedUsernames = role.assignedUsernames.filter((assigned) => assigned !== username);
+    }
+  }
+}
+
+function ensureEventMembership(slug: string, userId: string) {
+  const event = findPublicEventItem(slug);
+
+  if (!event) {
+    return;
+  }
+
+  const creatorId = userByUsername(event.createdByUsername)?.id ?? null;
+
+  if (creatorId === userId) {
+    return;
+  }
+
+  const participation =
+    eventParticipationById[event.id] ??
+    (eventParticipationById[event.id] = { goingUserIds: [], invitedUserIds: [] });
+  const viewerIsInvited = participation.invitedUserIds.includes(userId);
+
+  if (event.isPrivate && !viewerIsInvited && !participation.goingUserIds.includes(userId)) {
+    return;
+  }
+
+  if (!participation.goingUserIds.includes(userId)) {
+    participation.goingUserIds = [userId, ...participation.goingUserIds];
+  }
+
+  participation.invitedUserIds = participation.invitedUserIds.filter((invitedUserId) => invitedUserId !== userId);
+  delete (eventInvitedSinceById[event.id] ?? {})[userId];
+  eventGoingSinceById[event.id] = {
+    ...(eventGoingSinceById[event.id] ?? {}),
+    [userId]: new Date().toISOString()
+  };
+}
+
+function canViewerEditEventPhase(slug: string, phaseId: Extract<EventLifecyclePhaseId, 'proposal' | 'event-plan'>) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+
+  if (!viewer || !event) {
+    return false;
+  }
+
+  const currentPhaseId =
+    ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null).currentPhaseId ??
+    defaultEventCurrentPhaseId(event);
+
+  if (currentPhaseId !== phaseId) {
+    return false;
+  }
+
+  if (!event.isPrivate && canViewerParticipateInPlatformEventGovernance(slug)) {
+    return true;
+  }
+
+  return buildEventMemberState(event).viewerHasEventEditAccess;
 }
 
 function canViewerRequestProjectPhaseChange(slug: string) {
   if (projectModeForSlug(slug) === 'personal-service') {
     return false;
+  }
+
+  if (canViewerParticipateInPlatformProjectGovernance(slug)) {
+    return true;
   }
 
   const memberState = buildProjectMemberState(slug);
@@ -9135,6 +15119,10 @@ function canViewerRequestProjectUpdate(slug: string) {
     return false;
   }
 
+  if (canViewerParticipateInPlatformProjectGovernance(slug)) {
+    return true;
+  }
+
   return buildProjectMemberState(slug).viewerIsMember;
 }
 
@@ -9147,6 +15135,10 @@ function canViewerRequestProjectEdit(slug: string) {
     return false;
   }
 
+  if (canViewerParticipateInPlatformProjectGovernance(slug)) {
+    return true;
+  }
+
   return buildProjectMemberState(slug).viewerIsMember;
 }
 
@@ -9157,7 +15149,33 @@ function canViewerVoteOnProjectEdit(slug: string) {
 function canViewerRequestEventUpdate(slug: string) {
   const event = findPublicEventItem(slug);
 
-  return !!event && buildEventMemberState(event).viewerHasEventEditAccess;
+  if (!event) {
+    return false;
+  }
+
+  if (!event.isPrivate && canViewerParticipateInPlatformEventGovernance(slug)) {
+    return true;
+  }
+
+  return buildEventMemberState(event).viewerHasEventEditAccess;
+}
+
+function canViewerRequestEventPhaseChange(slug: string) {
+  const event = findPublicEventItem(slug);
+
+  if (!event) {
+    return false;
+  }
+
+  if (canViewerParticipateInPlatformEventGovernance(slug)) {
+    return true;
+  }
+
+  return buildEventMemberState(event).viewerHasEventEditAccess;
+}
+
+function canViewerVoteOnEventPhaseChange(slug: string) {
+  return canViewerRequestEventPhaseChange(slug);
 }
 
 function canViewerVoteOnEventUpdate(slug: string) {
@@ -9167,11 +15185,82 @@ function canViewerVoteOnEventUpdate(slug: string) {
 function canViewerRequestEventEdit(slug: string) {
   const event = findPublicEventItem(slug);
 
-  return !!event && buildEventMemberState(event).viewerHasEventEditAccess;
+  if (!event) {
+    return false;
+  }
+
+  if (!event.isPrivate && canViewerParticipateInPlatformEventGovernance(slug)) {
+    return true;
+  }
+
+  return buildEventMemberState(event).viewerHasEventEditAccess;
 }
 
 function canViewerVoteOnEventEdit(slug: string) {
   return canViewerRequestEventEdit(slug);
+}
+
+function canViewerCreateEventActivity(slug: string) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+
+  if (!viewer || !event) {
+    return false;
+  }
+
+  const currentPhaseId =
+    ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null).currentPhaseId ??
+    defaultEventCurrentPhaseId(event);
+
+  return currentPhaseId === 'activity' && buildEventMemberState(event).viewerIsGoing;
+}
+
+function canViewerEditEventActivityCommitment(slug: string) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+
+  if (!viewer || !event) {
+    return false;
+  }
+
+  const currentPhaseId =
+    ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null).currentPhaseId ??
+    defaultEventCurrentPhaseId(event);
+
+  return currentPhaseId === 'activity' && buildEventMemberState(event).viewerCanToggleGoing;
+}
+
+function canAdvanceMockEventPhaseNow(slug: string) {
+  const event = findPublicEventItem(slug);
+
+  if (!event) {
+    return false;
+  }
+
+  const currentPhaseId =
+    ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null).currentPhaseId ??
+    defaultEventCurrentPhaseId(event);
+
+  const memberState = buildEventMemberState(event);
+  const voteContextPopulation = eventGovernancePopulation(event, memberState.eligibleVoterCount);
+  const phaseTwo = buildEventPlans(
+    slug,
+    event,
+    buildEventValues(slug),
+    calculateProjectQuorumThreshold(voteContextPopulation),
+    voteContextPopulation
+  );
+
+  switch (currentPhaseId) {
+    case 'proposal':
+      return buildEventSignalSummary(event)?.advancementUnlocked ?? false;
+    case 'event-plan':
+      return !!phaseTwo.winningPlanId;
+    case 'activity':
+      return true;
+    default:
+      return false;
+  }
 }
 
 function projectModeForSlug(slug: string) {
@@ -9188,7 +15277,7 @@ function requestSettingsEligibleVoterCount(
 
   const memberState = buildProjectMemberState(slug);
 
-  return memberState.projectManagers.length + memberState.members.length;
+  return projectGovernancePopulation(slug, memberState.memberCount);
 }
 
 function requestSystemEnabledForProject(
@@ -9226,6 +15315,109 @@ function rawProjectPlansForPhase(
   return phaseId === 'phase-2' ? workflow.phaseTwoPlans : workflow.phaseThreePlans;
 }
 
+function viewerIsActivePlatformBoardMember() {
+  const viewer = currentViewer();
+
+  return !!viewer && buildPlatformBoardRoster().activeMembers.some((member) => member.id === viewer.id);
+}
+
+function normalizeProjectAcquisitionBundles(
+  slug: string,
+  bundles: ProjectAcquisitionPlanBundleInput[] | undefined,
+  timestamp: number
+) {
+  const validServiceSlugs = new Set(
+    availableAssetManagementServiceOptionsForProject(slug).map((option) => option.slug)
+  );
+
+  const normalized: RawProjectAcquisitionBundle[] = [];
+
+  (bundles ?? []).forEach((bundle, index) => {
+      const title = bundle.title.trim();
+      const destinationType = bundle.destinationType;
+      const existingServiceProjectSlug = bundle.existingServiceProjectSlug?.trim() ?? '';
+      const newServiceTitle = bundle.newServiceTitle?.trim() ?? '';
+      const note = bundle.note?.trim() ?? '';
+
+      if (!title) {
+        return;
+      }
+
+      if (destinationType === 'existing-service' && !validServiceSlugs.has(existingServiceProjectSlug)) {
+        return;
+      }
+
+      if (destinationType === 'new-service' && !newServiceTitle) {
+        return;
+      }
+
+      normalized.push({
+        id: bundle.id?.trim() || `acquisition-bundle-${slug}-${timestamp}-${index}`,
+        title,
+        destinationType,
+        existingServiceProjectSlug:
+          destinationType === 'existing-service' ? existingServiceProjectSlug : undefined,
+        newServiceTitle: destinationType === 'new-service' ? newServiceTitle : undefined,
+        note
+      });
+    });
+
+  return normalized;
+}
+
+function normalizeProjectAcquisitionPurchaseRows(
+  slug: string,
+  purchaseRows: ProjectAcquisitionPurchaseRowInput[] | undefined,
+  bundleIds: Set<string>,
+  timestamp: number
+) {
+  const normalized: RawProjectAcquisitionPurchaseRow[] = [];
+
+  (purchaseRows ?? []).forEach((purchaseRow, index) => {
+      const title = purchaseRow.title.trim();
+      const costLabel = purchaseRow.costLabel.trim();
+      const purchaseHref = purchaseRow.purchaseHref.trim();
+      const destinationBundleId = purchaseRow.destinationBundleId.trim();
+      const note = purchaseRow.note?.trim() ?? '';
+
+      if (!title || !costLabel || !purchaseHref || !bundleIds.has(destinationBundleId)) {
+        return;
+      }
+
+      normalized.push({
+        id: purchaseRow.id?.trim() || `acquisition-purchase-${slug}-${timestamp}-${index}`,
+        title,
+        costLabel,
+        purchaseHref,
+        destinationBundleId,
+        note
+      });
+    });
+
+  return normalized;
+}
+
+function acquisitionSummaryFromPurchaseRows(
+  bundles: RawProjectAcquisitionBundle[],
+  purchaseRows: RawProjectAcquisitionPurchaseRow[],
+  fallbackSummary: string
+) {
+  if (purchaseRows.length === 0) {
+    return fallbackSummary;
+  }
+
+  const destinationLabelByBundleId = new Map(
+    bundles.map((bundle) => [bundle.id, acquisitionBundleDestinationLabel(bundle)])
+  );
+
+  return purchaseRows
+    .map(
+      (purchaseRow) =>
+        `${purchaseRow.title} (${purchaseRow.costLabel}) -> ${destinationLabelByBundleId.get(purchaseRow.destinationBundleId) ?? 'Unassigned asset-management service'}`
+    )
+    .join('; ');
+}
+
 function canViewerManageProjectPhase(slug: string) {
   return buildProjectMemberState(slug).viewerIsProjectManager;
 }
@@ -9234,7 +15426,11 @@ function canViewerEditProjectPhase(slug: string, phaseId: ProjectLifecyclePhaseI
   const viewer = currentViewer();
   const memberIds = projectMembersBySlug[slug] ?? [];
 
-  return !!viewer && memberIds.includes(viewer.id) && projectLifecycleBySlug[slug]?.currentPhaseId === phaseId;
+  return (
+    !!viewer &&
+    (memberIds.includes(viewer.id) || canViewerParticipateInPlatformProjectGovernance(slug)) &&
+    projectLifecycleBySlug[slug]?.currentPhaseId === phaseId
+  );
 }
 
 function canViewerEditProjectActivityCommitment(slug: string) {
@@ -9445,7 +15641,62 @@ function updateProjectPlanOverallVoteMap(
   plan.overallVotesByUserId[viewerId] = vote;
 }
 
+function updateEventPlanValueVoteMap(
+  slug: string,
+  planId: string,
+  valueId: string,
+  viewerId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const event = findPublicEventItem(slug);
+  const plan = ensureEventWorkflowState(slug, userByUsername(event?.createdByUsername ?? '')?.id ?? null)
+    .eventPlans?.find((item) => item.id === planId);
+
+  if (!plan) {
+    return;
+  }
+
+  const votes = plan.valueVotesByValueId[valueId] ?? (plan.valueVotesByValueId[valueId] = {});
+
+  if (!vote) {
+    delete votes[viewerId];
+    return;
+  }
+
+  votes[viewerId] = vote;
+}
+
+function updateEventPlanOverallVoteMap(
+  slug: string,
+  planId: string,
+  viewerId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const event = findPublicEventItem(slug);
+  const plan = ensureEventWorkflowState(slug, userByUsername(event?.createdByUsername ?? '')?.id ?? null)
+    .eventPlans?.find((item) => item.id === planId);
+
+  if (!plan) {
+    return;
+  }
+
+  if (!vote) {
+    delete plan.overallVotesByUserId[viewerId];
+    return;
+  }
+
+  plan.overallVotesByUserId[viewerId] = vote;
+}
+
 export function toggleMockProjectDemandSignal(slug: string) {
+  setMockProjectSignal(slug, 'demand');
+}
+
+function hydratedSignalCount(count: number | undefined, userIds: string[]) {
+  return Math.max(count ?? 0, uniqueUserIds(userIds).length);
+}
+
+export function setMockProjectSignal(slug: string, signal: GovernanceSignalType) {
   const viewer = currentViewer();
   const workflow = ensureProjectWorkflowState(slug);
 
@@ -9453,14 +15704,32 @@ export function toggleMockProjectDemandSignal(slug: string) {
     return;
   }
 
-  if (workflow.signalUserIds.includes(viewer.id)) {
-    workflow.signalUserIds = workflow.signalUserIds.filter((userId) => userId !== viewer.id);
-    workflow.signalCount = Math.max(0, workflow.signalCount - 1);
+  const demandUserIds = uniqueUserIds(workflow.signalUserIds);
+  const oppositionUserIds = uniqueUserIds(workflow.oppositionSignalUserIds ?? []);
+  const demandActive = demandUserIds.includes(viewer.id);
+  const oppositionActive = oppositionUserIds.includes(viewer.id);
+  const demandCount = hydratedSignalCount(workflow.signalCount, demandUserIds);
+  const oppositionCount = hydratedSignalCount(workflow.oppositionSignalCount, oppositionUserIds);
+
+  workflow.signalUserIds = demandUserIds.filter((userId) => userId !== viewer.id);
+  workflow.signalCount = Math.max(demandCount - (demandActive ? 1 : 0), 0);
+  workflow.oppositionSignalUserIds = oppositionUserIds.filter((userId) => userId !== viewer.id);
+  workflow.oppositionSignalCount = Math.max(oppositionCount - (oppositionActive ? 1 : 0), 0);
+
+  if ((signal === 'demand' && demandActive) || (signal === 'opposition' && oppositionActive)) {
+    recordMeaningfulAction(viewer.id);
     return;
   }
 
-  workflow.signalUserIds = [viewer.id, ...workflow.signalUserIds];
-  workflow.signalCount += 1;
+  if (signal === 'demand') {
+    workflow.signalUserIds = [viewer.id, ...workflow.signalUserIds];
+    workflow.signalCount += 1;
+  } else {
+    workflow.oppositionSignalUserIds = [viewer.id, ...(workflow.oppositionSignalUserIds ?? [])];
+    workflow.oppositionSignalCount = (workflow.oppositionSignalCount ?? 0) + 1;
+  }
+
+  recordMeaningfulAction(viewer.id);
 }
 
 export function addMockProjectValue(slug: string, label: string) {
@@ -9483,6 +15752,7 @@ export function addMockProjectValue(slug: string, label: string) {
     },
     ...workflow.values
   ];
+  recordMeaningfulAction(viewer.id);
 }
 
 export function setMockProjectValueImportance(
@@ -9499,58 +15769,82 @@ export function setMockProjectValueImportance(
   }
 
   value.votesByUserId[viewer.id] = importance;
+  recordMeaningfulAction(viewer.id);
 }
 
 export function addMockProjectProductionPlan(slug: string, input: ProjectProductionPlanInput) {
   const viewer = currentViewer();
   const workflow = ensureProjectWorkflowState(slug);
+  const projectMode = projectModeForSlug(slug);
+  const allowedSubtypes = projectSubtypeOptions(projectMode)
+    .filter((option) => !option.disabled)
+    .map((option) => option.value);
   const values = workflow.values;
   const description = input.description.trim();
+  const repositoryUrl = input.repositoryUrl?.trim() ?? '';
   const demandConsiderationNote = input.demandConsiderationNote.trim();
   const totalCostLabel = input.totalCostLabel.trim();
+  const timestamp = Date.now();
   const planPhases = input.planPhases
     .map((phase, index) => ({
-      id: `plan-phase-${slug}-${Date.now()}-${index}`,
+      id: `plan-phase-${slug}-${timestamp}-${index}`,
       title: phase.title.trim(),
       details: phase.details.trim(),
       materialsLabel: phase.materialsLabel.trim(),
       costLabel: phase.costLabel.trim()
     }))
-    .filter(
-      (phase) => phase.title && phase.details && phase.materialsLabel && phase.costLabel
-    );
+    .filter((phase) => phase.title && phase.details && phase.costLabel);
+  const acquisitionBundles = normalizeProjectAcquisitionBundles(slug, input.acquisitionBundles, timestamp);
+  const purchaseRows = normalizeProjectAcquisitionPurchaseRows(
+    slug,
+    input.purchaseRows,
+    new Set(acquisitionBundles.map((bundle) => bundle.id)),
+    timestamp
+  );
 
   if (
     !viewer ||
     !canViewerEditProjectPhase(slug, 'phase-2') ||
     !input.title.trim() ||
+    !allowedSubtypes.includes(input.projectSubtype) ||
     !description ||
+    (input.projectSubtype === 'software' && !repositoryUrl) ||
     !demandConsiderationNote ||
     !totalCostLabel ||
-    planPhases.length === 0
+    planPhases.length === 0 ||
+    acquisitionBundles.length !== (input.acquisitionBundles?.length ?? 0) ||
+    purchaseRows.length !== (input.purchaseRows?.length ?? 0)
   ) {
-    return;
+    return false;
   }
 
   const phaseDetailsSummary = planPhases.map((phase) => `${phase.title}: ${phase.details}`).join(' ');
   const phaseMaterialSummary = planPhases
-    .map((phase) => `${phase.materialsLabel} (${phase.costLabel})`)
+    .map((phase) => `${phase.materialsLabel || 'No materials listed'} (${phase.costLabel})`)
     .join(' ');
 
   workflow.phaseTwoPlans = [
     {
-      id: `production-plan-${slug}-${Date.now()}`,
+      id: `production-plan-${slug}-${timestamp}`,
       title: input.title.trim(),
       authorUsername: viewer.username,
       createdAt: new Date().toISOString(),
       description,
+      projectSubtype: input.projectSubtype,
+      repositoryUrl: input.projectSubtype === 'software' ? repositoryUrl : undefined,
       demandSignalSnapshot: workflow.signalCount,
       demandConsiderationNote,
       planPhases,
-      outputSummary: description,
-      materialsSummary: phaseDetailsSummary,
+      outputSummary: input.outputSummary?.trim() || description,
+      materialsSummary: input.materialsSummary?.trim() || phaseDetailsSummary,
       totalCostLabel,
-      acquisitionsSummary: phaseMaterialSummary,
+      acquisitionsSummary: acquisitionSummaryFromPurchaseRows(
+        acquisitionBundles,
+        purchaseRows,
+        input.acquisitionsSummary?.trim() || phaseMaterialSummary
+      ),
+      acquisitionBundles,
+      purchaseRows,
       overallVotesByUserId: {
         [viewer.id]: 'yes'
       },
@@ -9563,12 +15857,114 @@ export function addMockProjectProductionPlan(slug: string, input: ProjectProduct
     },
     ...workflow.phaseTwoPlans
   ];
+  recordMeaningfulAction(viewer.id);
+  return true;
+}
+
+export function updateMockProjectProductionPlan(
+  slug: string,
+  planId: string,
+  input: ProjectProductionPlanInput
+) {
+  const viewer = currentViewer();
+  const workflow = ensureProjectWorkflowState(slug);
+  const existingPlanIndex = workflow.phaseTwoPlans.findIndex((plan) => plan.id === planId);
+  const existingPlan = existingPlanIndex >= 0 ? workflow.phaseTwoPlans[existingPlanIndex] : null;
+  const projectMode = projectModeForSlug(slug);
+  const allowedSubtypes = projectSubtypeOptions(projectMode)
+    .filter((option) => !option.disabled)
+    .map((option) => option.value);
+  const description = input.description.trim();
+  const repositoryUrl = input.repositoryUrl?.trim() ?? '';
+  const demandConsiderationNote = input.demandConsiderationNote.trim();
+  const totalCostLabel = input.totalCostLabel.trim();
+  const timestamp = Date.now();
+  const planPhases = input.planPhases
+    .map((phase, index) => ({
+      id: `plan-phase-${slug}-${timestamp}-${index}`,
+      title: phase.title.trim(),
+      details: phase.details.trim(),
+      materialsLabel: phase.materialsLabel.trim(),
+      costLabel: phase.costLabel.trim()
+    }))
+    .filter((phase) => phase.title && phase.details && phase.costLabel);
+  const acquisitionBundles = normalizeProjectAcquisitionBundles(slug, input.acquisitionBundles, timestamp);
+  const purchaseRows = normalizeProjectAcquisitionPurchaseRows(
+    slug,
+    input.purchaseRows,
+    new Set(acquisitionBundles.map((bundle) => bundle.id)),
+    timestamp
+  );
+
+  if (
+    !viewer ||
+    !existingPlan ||
+    existingPlan.authorUsername !== viewer.username ||
+    !canViewerEditProjectPhase(slug, 'phase-2') ||
+    !input.title.trim() ||
+    !allowedSubtypes.includes(input.projectSubtype) ||
+    !description ||
+    (input.projectSubtype === 'software' && !repositoryUrl) ||
+    !demandConsiderationNote ||
+    !totalCostLabel ||
+    planPhases.length === 0 ||
+    acquisitionBundles.length !== (input.acquisitionBundles?.length ?? 0) ||
+    purchaseRows.length !== (input.purchaseRows?.length ?? 0)
+  ) {
+    return false;
+  }
+
+  const phaseDetailsSummary = planPhases.map((phase) => `${phase.title}: ${phase.details}`).join(' ');
+  const phaseMaterialSummary = planPhases
+    .map((phase) => `${phase.materialsLabel || 'No materials listed'} (${phase.costLabel})`)
+    .join(' ');
+
+  workflow.phaseTwoPlans[existingPlanIndex] = {
+    ...existingPlan,
+    title: input.title.trim(),
+    description,
+    projectSubtype: input.projectSubtype,
+    repositoryUrl: input.projectSubtype === 'software' ? repositoryUrl : undefined,
+    demandSignalSnapshot: workflow.signalCount,
+    demandConsiderationNote,
+    planPhases,
+    outputSummary: input.outputSummary?.trim() || description,
+    materialsSummary: input.materialsSummary?.trim() || phaseDetailsSummary,
+    totalCostLabel,
+    acquisitionsSummary: acquisitionSummaryFromPurchaseRows(
+      acquisitionBundles,
+      purchaseRows,
+      input.acquisitionsSummary?.trim() || phaseMaterialSummary
+    ),
+    acquisitionBundles,
+    purchaseRows,
+    overallVotesByUserId: {
+      [viewer.id]: 'yes'
+    },
+    valueVotesByValueId: Object.fromEntries(
+      [
+        [demandSignalAssessmentValueId, { [viewer.id]: 'yes' as ProjectApprovalVote }],
+        ...workflow.values.map((value) => [value.id, { [viewer.id]: 'yes' as ProjectApprovalVote }])
+      ]
+    )
+  };
+
+  recordMeaningfulAction(viewer.id);
+  return true;
 }
 
 export function addMockProjectDistributionPlan(slug: string, input: ProjectDistributionPlanInput) {
   const viewer = currentViewer();
   const workflow = ensureProjectWorkflowState(slug);
-  const values = workflow.values;
+  const values = buildProjectValues(slug);
+  const governancePopulation = projectGovernancePopulation(slug, (projectMembersBySlug[slug] ?? []).length);
+  const phaseTwo = buildProductionPlans(
+    slug,
+    values,
+    calculateProjectQuorumThreshold(governancePopulation),
+    governancePopulation
+  );
+  const currentSubtype = currentProjectSubtypeForLifecycle(slug, phaseTwo);
   const description = input.description.trim();
   const demandConsiderationNote = input.demandConsiderationNote.trim();
   const totalCostLabel = input.totalCostLabel.trim();
@@ -9580,12 +15976,11 @@ export function addMockProjectDistributionPlan(slug: string, input: ProjectDistr
       materialsLabel: phase.materialsLabel.trim(),
       costLabel: phase.costLabel.trim()
     }))
-    .filter(
-      (phase) => phase.title && phase.details && phase.materialsLabel && phase.costLabel
-    );
+    .filter((phase) => phase.title && phase.details && phase.costLabel);
 
   if (
     !viewer ||
+    currentSubtype === 'software' ||
     !canViewerEditProjectPhase(slug, 'phase-3') ||
     !input.title.trim() ||
     !description ||
@@ -9593,12 +15988,12 @@ export function addMockProjectDistributionPlan(slug: string, input: ProjectDistr
     !totalCostLabel ||
     planPhases.length === 0
   ) {
-    return;
+    return false;
   }
 
   const phaseDetailsSummary = planPhases.map((phase) => `${phase.title}: ${phase.details}`).join(' ');
   const phaseMaterialSummary = planPhases
-    .map((phase) => `${phase.materialsLabel} (${phase.costLabel})`)
+    .map((phase) => `${phase.materialsLabel || 'No materials listed'} (${phase.costLabel})`)
     .join(' ');
 
   workflow.phaseThreePlans = [
@@ -9630,6 +16025,8 @@ export function addMockProjectDistributionPlan(slug: string, input: ProjectDistr
     },
     ...workflow.phaseThreePlans
   ];
+  recordMeaningfulAction(viewer.id);
+  return true;
 }
 
 export function setMockProjectPlanValueVote(
@@ -9661,6 +16058,88 @@ export function setMockProjectPlanOverallVote(
   }
 
   updateProjectPlanOverallVoteMap(slug, phaseId, planId, viewer.id, vote);
+}
+
+export function recordMockProjectAcquisitionExecution(
+  slug: string,
+  input: ProjectAcquisitionExecutionInput
+) {
+  const viewer = currentViewer();
+  const projectItem = findPublicProjectItem(slug);
+  const proofLabel = input.proofLabel.trim();
+  const note = input.note?.trim() ?? '';
+
+  if (
+    !viewer ||
+    !projectItem ||
+    !viewerIsActivePlatformBoardMember() ||
+    projectLifecycleBySlug[slug]?.currentPhaseId !== 'phase-4' ||
+    projectFundProgressForSlug(slug)?.status !== 'completed' ||
+    !proofLabel
+  ) {
+    return false;
+  }
+
+  const values = buildProjectValues(slug);
+  const voteContextPopulation = projectGovernancePopulation(slug, (projectMembersBySlug[slug] ?? []).length);
+  const phaseTwo = buildProductionPlans(
+    slug,
+    values,
+    calculateProjectQuorumThreshold(voteContextPopulation),
+    voteContextPopulation
+  );
+  const winningPlan = phaseTwo.plans.find((plan) => plan.id === phaseTwo.winningPlanId);
+
+  if (!winningPlan || winningPlan.purchaseRows.length === 0) {
+    return false;
+  }
+
+  const workflow = ensureProjectWorkflowState(slug);
+  const recordedAt = new Date().toISOString();
+
+  workflow.acquisition = {
+    confirmationVotesByUserId: {},
+    execution: {
+      proofLabel,
+      note:
+        note ||
+        'Board execution recorded. The resulting pending asset entries now wait for member confirmation before going live.',
+      recordedAt,
+      recordedByUsername: viewer.username,
+      pendingAssets: winningPlan.purchaseRows.map((purchaseRow, index) => ({
+        id: `pending-asset-${slug}-${Date.now()}-${index}`,
+        title: purchaseRow.title,
+        destinationBundleId: purchaseRow.destinationBundleId,
+        destinationLabel: purchaseRow.destinationLabel,
+        note:
+          purchaseRow.note ||
+          'This pending asset entry was created from a recorded execution and waits for member confirmation before inventory handoff.'
+      }))
+    }
+  };
+
+  recordMeaningfulAction(viewer.id);
+  return true;
+}
+
+export function setMockProjectAcquisitionConfirmationVote(
+  slug: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const workflow = ensureProjectWorkflowState(slug);
+
+  if (!viewer || !workflow.acquisition?.execution || !canViewerEditProjectPhase(slug, 'phase-4')) {
+    return;
+  }
+
+  if (!vote) {
+    delete workflow.acquisition.confirmationVotesByUserId[viewer.id];
+  } else {
+    workflow.acquisition.confirmationVotesByUserId[viewer.id] = vote;
+  }
+
+  recordMeaningfulAction(viewer.id);
 }
 
 export function addMockProjectActivity(slug: string, input: ProjectActivityInput) {
@@ -9942,6 +16421,88 @@ export function addMockProjectServiceRequest(slug: string, input: ProjectService
   }
 }
 
+export function createMockProjectManualLinkRequest(
+  projectSlug: string,
+  targetProjectSlug: string,
+  relationshipLabel: string,
+  summary: string
+) {
+  const viewer = currentViewer();
+  const trimmedRelationshipLabel = relationshipLabel.trim();
+  const trimmedSummary = summary.trim();
+  const sourceProject = findPublicProjectItem(projectSlug);
+  const targetProject = findPublicProjectItem(targetProjectSlug);
+
+  if (
+    !viewer ||
+    !sourceProject ||
+    !targetProject ||
+    projectSlug === targetProjectSlug ||
+    !trimmedRelationshipLabel ||
+    !trimmedSummary ||
+    !(projectMembersBySlug[projectSlug] ?? []).includes(viewer.id)
+  ) {
+    return;
+  }
+
+  const nextPairKey = manualProjectLinkPairKey(projectSlug, targetProjectSlug);
+
+  if (
+    manualProjectLinkRequestsState.some(
+      (request) => manualProjectLinkPairKey(request.sourceProjectSlug, request.targetProjectSlug) === nextPairKey
+    )
+  ) {
+    return;
+  }
+
+  manualProjectLinkRequestsState = [
+    {
+      id: `manual-link-${projectSlug}-${targetProjectSlug}-${Date.now()}`,
+      sourceProjectSlug: projectSlug,
+      targetProjectSlug,
+      relationshipLabel: trimmedRelationshipLabel,
+      summary: trimmedSummary,
+      proposedByUserId: viewer.id,
+      createdAt: new Date().toISOString(),
+      sourceVotesByUserId: {
+        [viewer.id]: 'yes'
+      },
+      targetVotesByUserId: {}
+    },
+    ...manualProjectLinkRequestsState
+  ];
+  recordMeaningfulAction(viewer.id);
+}
+
+export function setMockProjectManualLinkVote(
+  projectSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const request = manualProjectLinkRequestsState.find((entry) => entry.id === requestId);
+
+  if (
+    !viewer ||
+    !request ||
+    (request.sourceProjectSlug !== projectSlug && request.targetProjectSlug !== projectSlug) ||
+    !(projectMembersBySlug[projectSlug] ?? []).includes(viewer.id)
+  ) {
+    return;
+  }
+
+  const votesByUserId =
+    request.sourceProjectSlug === projectSlug ? request.sourceVotesByUserId : request.targetVotesByUserId;
+
+  if (!vote) {
+    delete votesByUserId[viewer.id];
+  } else {
+    votesByUserId[viewer.id] = vote;
+  }
+
+  recordMeaningfulAction(viewer.id);
+}
+
 export function planMockProjectServiceRequest(
   slug: string,
   requestId: string,
@@ -10094,10 +16655,17 @@ function maybeApplyApprovedProjectServiceRequestSettingsChange(slug: string, req
 function buildProjectServiceHistoryItemById(slug: string, historyId: string) {
   const projectMode = projectModeForSlug(slug);
   const memberCount = (projectMembersBySlug[slug] ?? []).length;
-  const quorumThresholdPercent = calculateProjectQuorumThreshold(memberCount);
+  const governancePopulation = projectGovernancePopulation(slug, memberCount);
+  const quorumThresholdPercent = calculateProjectQuorumThreshold(governancePopulation);
   const values = buildProjectValues(slug);
-  const phaseTwo = buildProductionPlans(slug, values, quorumThresholdPercent, memberCount);
-  const phaseThree = buildDistributionPlans(slug, values, quorumThresholdPercent, memberCount);
+  const phaseTwo = buildProductionPlans(slug, values, quorumThresholdPercent, governancePopulation);
+  const phaseThree = buildDistributionPlans(
+    slug,
+    values,
+    quorumThresholdPercent,
+    governancePopulation,
+    phaseTwo
+  );
   const selectablePlanPhases = buildSelectableActivityPlanPhases(phaseTwo, phaseThree);
 
   return (
@@ -10257,7 +16825,7 @@ export function advanceMockProjectPhase(slug: string, closeNote?: string) {
   const viewer = currentViewer();
   const projectMode = findPublicProjectItem(slug)?.projectMode ?? 'productive';
   const trimmedCloseNote = closeNote?.trim() ?? '';
-  const closingPhaseId = closePhaseIdForProject(projectMode);
+  const closingPhaseId = closePhaseIdForProjectSlug(slug, projectMode);
 
   if (!config || !canViewerManageProjectPhase(slug)) {
     return;
@@ -10285,7 +16853,7 @@ export function advanceMockProjectPhase(slug: string, closeNote?: string) {
       break;
   }
 
-  const nextPhaseId = nextProjectPhaseId(config.currentPhaseId, projectMode);
+  const nextPhaseId = nextProjectPhaseIdForSlug(slug, config.currentPhaseId, projectMode);
 
   if (!nextPhaseId) {
     return;
@@ -10325,7 +16893,7 @@ export function revertMockProjectPhase(
     return;
   }
 
-  if (!revertableProjectPhaseIds(projectMode, config.currentPhaseId).includes(targetPhaseId)) {
+  if (!revertableProjectPhaseIdsForSlug(slug, projectMode, config.currentPhaseId).includes(targetPhaseId)) {
     return;
   }
 
@@ -10358,49 +16926,7 @@ export function revertMockProjectPhase(
 }
 
 export function toggleMockProjectManagerNomination(slug: string) {
-  const viewer = currentViewer();
-
-  if (!viewer || isPlatformTaggedProject(slug)) {
-    return;
-  }
-
-  const memberIds = projectMembersBySlug[slug] ?? [];
-
-  if (!memberIds.includes(viewer.id)) {
-    return;
-  }
-
-  const managerConfig =
-    projectManagersBySlug[slug] ??
-    (projectManagersBySlug[slug] = {
-      managerIds: [],
-      candidateIds: [],
-      confidenceTargetIdsByUserId: {}
-    });
-  const viewerIsManager = managerConfig.managerIds.includes(viewer.id);
-  const viewerIsCandidate = managerConfig.candidateIds.includes(viewer.id);
-
-  if (viewerIsManager) {
-    managerConfig.managerIds = managerConfig.managerIds.filter((userId) => userId !== viewer.id);
-    return;
-  }
-
-  if (viewerIsCandidate) {
-    managerConfig.candidateIds = managerConfig.candidateIds.filter((userId) => userId !== viewer.id);
-    return;
-  }
-
-  const confidenceTargetId =
-    managerConfig.confidenceTargetIdsByUserId[viewer.id] ??
-    `confidence-project-manager-${slug}-${viewer.id}`;
-
-  managerConfig.confidenceTargetIdsByUserId[viewer.id] = confidenceTargetId;
-
-  if (!confidenceState.has(confidenceTargetId)) {
-    seedConfidenceTarget(confidenceTargetId, 0, 0, 0);
-  }
-
-  managerConfig.candidateIds = [viewer.id, ...managerConfig.candidateIds];
+  return;
 }
 
 export function toggleMockScopeMembership(kind: ScopeKind, slug: string) {
@@ -10560,6 +17086,8 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
   const locationLabel = projectLocationLabel(input.locationLabel);
   const channelTags = input.channelTags;
   const communityTags = input.communityTags;
+  const validChannelSlugs = new Set(channelDirectory.map((item) => item.slug));
+  const validCommunitySlugs = new Set(communityDirectory.map((item) => item.slug));
   const isPlatformProject = channelTags.some((tag) => tag.slug === platform.slug);
 
   if (!viewer) {
@@ -10576,17 +17104,26 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
     };
   }
 
-  if (isPlatformProject && !platformBoardMemberIds.includes(viewer.id)) {
+  if (
+    channelTags.some((tag) => !validChannelSlugs.has(tag.slug)) ||
+    communityTags.some((tag) => !validCommunitySlugs.has(tag.slug))
+  ) {
     return {
       ok: false,
-      error: 'Only current board members can create platform-tagged projects.'
+      error: 'Projects can only use real channel and community tags.'
+    };
+  }
+
+  if (input.projectMode === 'personal-service' && isPlatformProject) {
+    return {
+      ok: false,
+      error: 'Personal service projects cannot use the platform channel.'
     };
   }
 
   const slug = uniqueSlug(title);
   const createdAt = new Date().toISOString();
   const id = `project-${slug}`;
-  const confidenceTargetId = `confidence-project-manager-${slug}-${viewer.id}`;
 
   publicFeedBase.unshift({
     kind: 'project',
@@ -10614,6 +17151,8 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
   projectWorkflowStateBySlug[slug] = {
     signalCount: 0,
     signalUserIds: [],
+    oppositionSignalUserIds: [],
+    oppositionSignalCount: 0,
     values: [],
     phaseTwoPlans: [],
     phaseThreePlans: [],
@@ -10640,16 +17179,6 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
     [viewer.id]: createdAt
   };
 
-  if (input.projectMode !== 'personal-service') {
-    projectManagersBySlug[slug] = {
-      managerIds: [viewer.id],
-      candidateIds: [],
-      confidenceTargetIdsByUserId: {
-        [viewer.id]: confidenceTargetId
-      }
-    };
-  }
-
   projectDetailExtras[slug] = {
     overview: createProjectDescription(input),
     updates: [],
@@ -10658,10 +17187,9 @@ export function createMockProject(input: CreateProjectInput): CreateResult {
   };
   commentsBySubjectId[id] = [];
   seedVoteTarget(id, 0, 0);
-
-  if (input.projectMode !== 'personal-service') {
-    seedConfidenceTarget(confidenceTargetId, 0, 0, 0);
-  }
+  createdProjectSlugs.add(slug);
+  persistClientState();
+  recordMeaningfulAction(viewer.id);
 
   return {
     ok: true,
@@ -10711,10 +17239,11 @@ export function createMockThread(input: CreateThreadInput): CreateResult {
   });
   threadDiscussionNotes[slug] =
     input.channelTags.some((tag) => tag.slug === platform.slug)
-      ? 'Platform threads stay open to regular users, even while platform-tagged projects stay board-created.'
+      ? 'Platform threads stay open to regular users, and platform-tagged projects can also be proposed by any signed-in user.'
       : 'Discussion stays visible here so replies and follow-up notes remain attached to the original question.';
   commentsBySubjectId[id] = [];
   seedVoteTarget(id, 0, 0);
+  recordMeaningfulAction(viewer.id);
 
   return {
     ok: true,
@@ -10726,9 +17255,6 @@ export function createMockEvent(input: CreateEventInput): CreateResult {
   const viewer = currentViewer();
   const title = input.title.trim();
   const description = input.description.trim();
-  const startTimeLabel = input.startTimeLabel.trim();
-  const finishTimeLabel = input.finishTimeLabel.trim();
-  const locationLabel = input.locationLabel.trim();
 
   if (!viewer) {
     return {
@@ -10737,10 +17263,10 @@ export function createMockEvent(input: CreateEventInput): CreateResult {
     };
   }
 
-  if (!title || !description || !startTimeLabel || !finishTimeLabel || !locationLabel) {
+  if (!title || !description) {
     return {
       ok: false,
-      error: 'Events need a title, description, start time, finish time, and location.'
+      error: 'Events need a title and a proposal description.'
     };
   }
 
@@ -10768,6 +17294,14 @@ export function createMockEvent(input: CreateEventInput): CreateResult {
   const personalInviteOnly =
     input.channelTags.length === 0 && input.communityTags.length === 0 && invitedUserIds.length > 0;
   const isPrivate = privateCommunityOnly || personalInviteOnly;
+
+  if (!isPrivate && input.channelTags.length === 0) {
+    return {
+      ok: false,
+      error: 'Public events need at least one channel tag. Only private events can omit channels.'
+    };
+  }
+
   const slug = uniqueSlug(title);
   const createdAt = new Date().toISOString();
   const id = `event-${slug}`;
@@ -10781,12 +17315,11 @@ export function createMockEvent(input: CreateEventInput): CreateResult {
     title,
     description,
     isPrivate,
-    scheduledAt: createdAt,
     channelTags: input.channelTags,
     communityTags: input.communityTags,
     createdByUsername: viewer.username,
-    timeLabel: `${startTimeLabel} to ${finishTimeLabel}`,
-    locationLabel,
+    timeLabel: '',
+    locationLabel: '',
     voteCount: 0,
     activeVote: 0,
     commentCount: 0,
@@ -10795,8 +17328,8 @@ export function createMockEvent(input: CreateEventInput): CreateResult {
   });
   eventDetailExtras[slug] = {
     attendanceNote: isPrivate
-      ? 'This event stays private because it is invite-only or lives only inside a closed community.'
-      : 'This event stays discoverable through its tags, so people can find it without turning it into a project.',
+      ? 'This private event starts as a proposal for the invited or tagged audience. Schedule and location are added once the plan is approved.'
+      : 'This event starts as a proposal that stays discoverable through its tags. Schedule and location are added once the plan is approved.',
     agenda: [],
     updates: [],
     discussionNote: isPrivate
@@ -10816,11 +17349,22 @@ export function createMockEvent(input: CreateEventInput): CreateResult {
   );
   eventWorkflowStateBySlug[slug] = {
     editorUserIds: [viewer.id],
+    currentPhaseId: isPrivate ? 'event-plan' : 'proposal',
+    signalCount: 0,
+    signalUserIds: [],
+    oppositionSignalCount: 0,
+    oppositionSignalUserIds: [],
+    eventValues: [],
+    eventPlans: [],
+    eventActivities: [],
+    phaseChangeRequests: [],
     updateRequests: [],
-    editRequests: []
+    editRequests: [],
+    decisionHistory: []
   };
   commentsBySubjectId[id] = [];
   seedVoteTarget(id, 0, 0);
+  recordMeaningfulAction(viewer.id);
 
   return {
     ok: true,
@@ -10869,6 +17413,7 @@ export function createMockPost(input: CreatePostInput): CreateResult {
       : 'Follower posts still keep a real discussion surface so replies stay visible to the people who can see them.';
   commentsBySubjectId[id] = [];
   seedVoteTarget(id, 0, 0);
+  recordMeaningfulAction(viewer.id);
 
   return {
     ok: true,
@@ -11133,7 +17678,7 @@ function maybeApplyApprovedProjectUpdate(slug: string, requestId: string) {
   }
 
   const memberState = buildProjectMemberState(slug);
-  const memberCount = memberState.projectManagers.length + memberState.members.length;
+  const memberCount = projectGovernancePopulation(slug, memberState.memberCount);
   const voteSummary = buildProjectVoteSummary(
     request.votesByUserId,
     calculateProjectQuorumThreshold(memberCount),
@@ -11185,7 +17730,7 @@ function maybeApplyApprovedProjectEdit(slug: string, requestId: string) {
   }
 
   const memberState = buildProjectMemberState(slug);
-  const memberCount = memberState.projectManagers.length + memberState.members.length;
+  const memberCount = projectGovernancePopulation(slug, memberState.memberCount);
   const voteSummary = buildProjectVoteSummary(
     request.votesByUserId,
     calculateProjectQuorumThreshold(memberCount),
@@ -11210,6 +17755,553 @@ function maybeApplyApprovedProjectEdit(slug: string, requestId: string) {
   );
   finalizeProjectDecisionHistoryEntry(slug, requestId, 'approved', request.votesByUserId, memberCount);
   workflow.editRequests = (workflow.editRequests ?? []).filter((item) => item.id !== requestId);
+}
+
+function canViewerVoteOnProjectPullRequest(slug: string) {
+  const viewer = currentViewer();
+
+  if (!viewer) {
+    return false;
+  }
+
+  if (isPlatformTaggedProject(slug)) {
+    return canViewerParticipateInPlatformProjectGovernance(slug);
+  }
+
+  return (projectMembersBySlug[slug] ?? []).includes(viewer.id);
+}
+
+function canViewerRecordProjectPullRequestMerge(slug: string) {
+  const project = findPublicProjectItem(slug);
+
+  if (!project) {
+    return false;
+  }
+
+  const lifecycle = buildProjectLifecycle(slug, project.projectMode, (projectMembersBySlug[slug] ?? []).length);
+  const viewer = currentViewer();
+
+  return (
+    !!viewer &&
+    !!lifecycle.phaseFive.softwareGovernance?.mergeCapabilityMembers.some((member) => member.id === viewer.id)
+  );
+}
+
+function findProjectPullRequestByDecisionId(
+  workflow: ProjectWorkflowState,
+  decisionId: string
+) {
+  return (workflow.softwarePullRequests ?? []).find((request) => {
+    switch (request.stage) {
+      case 'approval':
+        return projectPullRequestApprovalDecisionId(request.id) === decisionId;
+      case 'confirmation':
+        return projectPullRequestConfirmationDecisionId(request.id) === decisionId;
+      default:
+        return false;
+    }
+  });
+}
+
+function findProjectMergeCapabilityChangeByDecisionId(
+  workflow: ProjectWorkflowState,
+  decisionId: string
+) {
+  return (workflow.softwareMergeCapabilityChangeRequests ?? []).find(
+    (request) => request.status === 'open' && projectMergeCapabilityChangeDecisionId(request.id) === decisionId
+  );
+}
+
+function findProjectRepositoryReplacementByDecisionId(
+  workflow: ProjectWorkflowState,
+  decisionId: string
+) {
+  return (workflow.softwareRepositoryReplacementRequests ?? []).find(
+    (request) => request.status === 'open' && projectRepositoryReplacementDecisionId(request.id) === decisionId
+  );
+}
+
+function buildProjectSoftwareDecisionVoteSummary(
+  slug: string,
+  votesByUserId: Record<string, ProjectApprovalVote>
+) {
+  const memberState = buildProjectMemberState(slug);
+  const memberCount = projectGovernancePopulation(slug, memberState.memberCount);
+
+  return {
+    memberCount,
+    voteSummary: buildProjectVoteSummary(
+      votesByUserId,
+      calculateProjectQuorumThreshold(memberCount),
+      memberCount
+    )
+  };
+}
+
+function maybeApplyApprovedProjectPullRequest(slug: string, requestId: string) {
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.softwarePullRequests?.find((item) => item.id === requestId);
+
+  if (!request || (request.stage !== 'approval' && request.stage !== 'confirmation')) {
+    return;
+  }
+
+  const memberState = buildProjectMemberState(slug);
+  const memberCount = projectGovernancePopulation(slug, memberState.memberCount);
+  const voteSummary = buildProjectVoteSummary(
+    request.votesByUserId,
+    calculateProjectQuorumThreshold(memberCount),
+    memberCount
+  );
+  const decisionId =
+    request.stage === 'approval'
+      ? projectPullRequestApprovalDecisionId(request.id)
+      : projectPullRequestConfirmationDecisionId(request.id);
+
+  if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    finalizeProjectDecisionHistoryEntry(
+      slug,
+      decisionId,
+      'rejected',
+      request.votesByUserId,
+      memberCount,
+      (payload) => {
+        if (payload.type === 'pull-request') {
+          payload.mergeId = request.mergeId ?? null;
+        }
+      }
+    );
+    request.stage = 'rejected';
+    return;
+  }
+
+  if (!voteSummary.meetsQuorum || !phaseChangePassesApprovalThreshold(voteSummary)) {
+    return;
+  }
+
+  finalizeProjectDecisionHistoryEntry(
+    slug,
+    decisionId,
+    'approved',
+    request.votesByUserId,
+    memberCount,
+    (payload) => {
+      if (payload.type === 'pull-request') {
+        payload.mergeId = request.mergeId ?? null;
+      }
+    }
+  );
+
+  if (request.stage === 'approval') {
+    request.stage = 'awaiting-merge';
+    request.votesByUserId = {};
+    return;
+  }
+
+  request.stage = 'confirmed';
+  request.votesByUserId = {};
+}
+
+function maybeApplyApprovedProjectMergeCapabilityChange(slug: string, requestId: string) {
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.softwareMergeCapabilityChangeRequests?.find(
+    (item) => item.id === requestId && item.status === 'open'
+  );
+
+  if (!request) {
+    return;
+  }
+
+  const { memberCount, voteSummary } = buildProjectSoftwareDecisionVoteSummary(
+    slug,
+    request.votesByUserId
+  );
+  const decisionId = projectMergeCapabilityChangeDecisionId(request.id);
+
+  if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    finalizeProjectDecisionHistoryEntry(slug, decisionId, 'rejected', request.votesByUserId, memberCount);
+    request.status = 'rejected';
+    return;
+  }
+
+  if (!voteSummary.meetsQuorum || !phaseChangePassesApprovalThreshold(voteSummary)) {
+    return;
+  }
+
+  finalizeProjectDecisionHistoryEntry(slug, decisionId, 'approved', request.votesByUserId, memberCount);
+
+  const project = findPublicProjectItem(slug);
+  const lifecycle = project
+    ? buildProjectLifecycle(slug, project.projectMode, (projectMembersBySlug[slug] ?? []).length)
+    : null;
+  const currentUserIds = lifecycle?.phaseFive.softwareGovernance?.mergeCapabilityMembers.map(
+    (member) => member.id
+  ) ?? [];
+
+  workflow.softwareMergeCapabilityUserIds =
+    request.action === 'grant'
+      ? Array.from(new Set([request.targetUserId, ...currentUserIds]))
+      : currentUserIds.filter((userId) => userId !== request.targetUserId);
+  request.status = 'approved';
+  request.votesByUserId = {};
+}
+
+function maybeApplyApprovedProjectRepositoryReplacement(slug: string, requestId: string) {
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.softwareRepositoryReplacementRequests?.find(
+    (item) => item.id === requestId && item.status === 'open'
+  );
+
+  if (!request) {
+    return;
+  }
+
+  const { memberCount, voteSummary } = buildProjectSoftwareDecisionVoteSummary(
+    slug,
+    request.votesByUserId
+  );
+  const decisionId = projectRepositoryReplacementDecisionId(request.id);
+
+  if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    finalizeProjectDecisionHistoryEntry(slug, decisionId, 'rejected', request.votesByUserId, memberCount);
+    request.status = 'rejected';
+    return;
+  }
+
+  if (!voteSummary.meetsQuorum || !phaseChangePassesApprovalThreshold(voteSummary)) {
+    return;
+  }
+
+  finalizeProjectDecisionHistoryEntry(slug, decisionId, 'approved', request.votesByUserId, memberCount);
+  workflow.softwareRepositoryUrlOverride = request.repositoryUrl;
+  workflow.softwareRepositoryHistory = [
+    {
+      id: request.id,
+      repositoryUrl: request.repositoryUrl,
+      previousRepositoryUrl: request.previousRepositoryUrl,
+      reason: request.reason,
+      relatedPullRequestId: request.relatedPullRequestId,
+      replacedAt: new Date().toISOString(),
+      replacedByUsername: request.authorUsername
+    },
+    ...(workflow.softwareRepositoryHistory ?? []).filter((entry) => entry.id !== request.id)
+  ];
+
+  const relatedPullRequest = workflow.softwarePullRequests?.find(
+    (item) => item.id === request.relatedPullRequestId
+  );
+
+  if (relatedPullRequest && (relatedPullRequest.stage === 'awaiting-merge' || relatedPullRequest.stage === 'rejected')) {
+    relatedPullRequest.stage = 'replaced';
+  }
+
+  if (!isPlatformTaggedProject(slug)) {
+    const requesterId = userByUsername(request.authorUsername)?.id ?? null;
+
+    if (requesterId) {
+      workflow.softwareMergeCapabilityUserIds = [requesterId];
+    }
+  }
+
+  request.status = 'approved';
+  request.votesByUserId = {};
+}
+
+export function addMockProjectPullRequest(slug: string, input: ProjectSoftwarePullRequestInput) {
+  const viewer = currentViewer();
+  const project = findPublicProjectItem(slug);
+  const lifecycle = project
+    ? buildProjectLifecycle(slug, project.projectMode, (projectMembersBySlug[slug] ?? []).length)
+    : null;
+  const trimmedTitle = input.title.trim();
+  const trimmedSummary = input.summary.trim();
+  const trimmedPullRequestId = input.pullRequestId.trim();
+  const trimmedPullRequestUrl = input.pullRequestUrl.trim();
+
+  if (
+    !viewer ||
+    !project ||
+    !lifecycle?.phaseFive.softwareGovernance ||
+    lifecycle.currentPhaseId !== activityPhaseIdForProject(project.projectMode) ||
+    !trimmedTitle ||
+    !trimmedSummary ||
+    !trimmedPullRequestId ||
+    !trimmedPullRequestUrl ||
+    !lifecycle.phaseFive.softwareGovernance.viewerCanCreatePullRequests
+  ) {
+    return;
+  }
+
+  const workflow = ensureProjectWorkflowState(slug);
+
+  if (
+    (workflow.softwarePullRequests ?? []).some(
+      (request) => request.pullRequestId === trimmedPullRequestId || request.pullRequestUrl === trimmedPullRequestUrl
+    )
+  ) {
+    return;
+  }
+
+  const request: RawProjectPullRequestRequest = {
+    id: `project-pull-request-${slug}-${Date.now()}`,
+    title: trimmedTitle,
+    summary: trimmedSummary,
+    pullRequestId: trimmedPullRequestId,
+    pullRequestUrl: trimmedPullRequestUrl,
+    authorUsername: viewer.username,
+    createdAt: new Date().toISOString(),
+    stage: 'approval',
+    votesByUserId: {
+      [viewer.id]: 'yes'
+    }
+  };
+
+  workflow.softwarePullRequests = [request, ...(workflow.softwarePullRequests ?? [])];
+  upsertDecisionHistoryEntry(
+    workflow.decisionHistory ?? [],
+    buildProjectPullRequestHistoryEntry(slug, request)
+  );
+  maybeApplyApprovedProjectPullRequest(slug, request.id);
+}
+
+export function setMockProjectPullRequestVote(
+  slug: string,
+  decisionId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = findProjectPullRequestByDecisionId(workflow, decisionId);
+
+  if (!viewer || !request || !canViewerVoteOnProjectPullRequest(slug)) {
+    return;
+  }
+
+  if (vote) {
+    request.votesByUserId[viewer.id] = vote;
+  } else {
+    delete request.votesByUserId[viewer.id];
+  }
+
+  maybeApplyApprovedProjectPullRequest(slug, request.id);
+}
+
+export function requestMockProjectMergeCapabilityChange(
+  slug: string,
+  input: ProjectSoftwareMergeCapabilityChangeInput
+) {
+  const viewer = currentViewer();
+  const project = findPublicProjectItem(slug);
+  const lifecycle = project
+    ? buildProjectLifecycle(slug, project.projectMode, (projectMembersBySlug[slug] ?? []).length)
+    : null;
+  const governance = lifecycle?.phaseFive.softwareGovernance;
+
+  if (
+    !viewer ||
+    !project ||
+    !governance ||
+    !governance.viewerCanRequestMergeCapabilityChanges ||
+    isPlatformTaggedProject(slug)
+  ) {
+    return;
+  }
+
+  const targetUserId = input.targetUserId.trim();
+  const action = input.action;
+  const currentHolderIds = new Set(governance.mergeCapabilityMembers.map((member) => member.id));
+
+  if (!targetUserId) {
+    return;
+  }
+
+  if (action === 'grant' && !governance.availableMergeCapabilityCandidates.some((member) => member.id === targetUserId)) {
+    return;
+  }
+
+  if (action === 'revoke' && (!currentHolderIds.has(targetUserId) || governance.mergeCapabilityMembers.length <= 1)) {
+    return;
+  }
+
+  const workflow = ensureProjectWorkflowState(slug);
+
+  if (
+    (workflow.softwareMergeCapabilityChangeRequests ?? []).some(
+      (request) =>
+        request.status === 'open' && request.targetUserId === targetUserId && request.action === action
+    )
+  ) {
+    return;
+  }
+
+  const request: RawProjectMergeCapabilityChangeRequest = {
+    id: `project-merge-capability-${slug}-${Date.now()}`,
+    targetUserId,
+    action,
+    authorUsername: viewer.username,
+    createdAt: new Date().toISOString(),
+    status: 'open',
+    votesByUserId: {
+      [viewer.id]: 'yes'
+    }
+  };
+
+  workflow.softwareMergeCapabilityChangeRequests = [
+    request,
+    ...(workflow.softwareMergeCapabilityChangeRequests ?? [])
+  ];
+  upsertDecisionHistoryEntry(
+    workflow.decisionHistory ?? [],
+    buildProjectMergeCapabilityChangeHistoryEntry(request)
+  );
+  maybeApplyApprovedProjectMergeCapabilityChange(slug, request.id);
+}
+
+export function setMockProjectMergeCapabilityChangeVote(
+  slug: string,
+  decisionId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = findProjectMergeCapabilityChangeByDecisionId(workflow, decisionId);
+
+  if (!viewer || !request || !canViewerVoteOnProjectPullRequest(slug)) {
+    return;
+  }
+
+  if (vote) {
+    request.votesByUserId[viewer.id] = vote;
+  } else {
+    delete request.votesByUserId[viewer.id];
+  }
+
+  maybeApplyApprovedProjectMergeCapabilityChange(slug, request.id);
+}
+
+export function requestMockProjectRepositoryReplacement(
+  slug: string,
+  input: ProjectSoftwareRepositoryReplacementInput
+) {
+  const viewer = currentViewer();
+  const project = findPublicProjectItem(slug);
+  const lifecycle = project
+    ? buildProjectLifecycle(slug, project.projectMode, (projectMembersBySlug[slug] ?? []).length)
+    : null;
+  const governance = lifecycle?.phaseFive.softwareGovernance;
+  const trimmedRepositoryUrl = input.repositoryUrl.trim();
+  const trimmedReason = input.reason.trim();
+  const relatedPullRequestId = input.relatedPullRequestId.trim();
+
+  if (
+    !viewer ||
+    !project ||
+    !governance ||
+    !governance.viewerCanRequestRepositoryReplacement ||
+    !trimmedRepositoryUrl ||
+    !trimmedReason ||
+    !relatedPullRequestId ||
+    trimmedRepositoryUrl === governance.repositoryUrl
+  ) {
+    return;
+  }
+
+  if (!governance.replaceablePullRequests.some((request) => request.id === relatedPullRequestId)) {
+    return;
+  }
+
+  const workflow = ensureProjectWorkflowState(slug);
+
+  if (
+    (workflow.softwareRepositoryReplacementRequests ?? []).some(
+      (request) =>
+        request.status === 'open' &&
+        (request.relatedPullRequestId === relatedPullRequestId || request.repositoryUrl === trimmedRepositoryUrl)
+    )
+  ) {
+    return;
+  }
+
+  const request: RawProjectRepositoryReplacementRequest = {
+    id: `project-repository-replacement-${slug}-${Date.now()}`,
+    repositoryUrl: trimmedRepositoryUrl,
+    previousRepositoryUrl: governance.repositoryUrl,
+    reason: trimmedReason,
+    relatedPullRequestId,
+    authorUsername: viewer.username,
+    createdAt: new Date().toISOString(),
+    status: 'open',
+    votesByUserId: {
+      [viewer.id]: 'yes'
+    }
+  };
+
+  workflow.softwareRepositoryReplacementRequests = [
+    request,
+    ...(workflow.softwareRepositoryReplacementRequests ?? [])
+  ];
+  upsertDecisionHistoryEntry(
+    workflow.decisionHistory ?? [],
+    buildProjectRepositoryReplacementHistoryEntry(request)
+  );
+  maybeApplyApprovedProjectRepositoryReplacement(slug, request.id);
+}
+
+export function setMockProjectRepositoryReplacementVote(
+  slug: string,
+  decisionId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = findProjectRepositoryReplacementByDecisionId(workflow, decisionId);
+
+  if (!viewer || !request || !canViewerVoteOnProjectPullRequest(slug)) {
+    return;
+  }
+
+  if (vote) {
+    request.votesByUserId[viewer.id] = vote;
+  } else {
+    delete request.votesByUserId[viewer.id];
+  }
+
+  maybeApplyApprovedProjectRepositoryReplacement(slug, request.id);
+}
+
+export function recordMockProjectPullRequestMerge(
+  slug: string,
+  requestId: string,
+  mergeId: string
+) {
+  const viewer = currentViewer();
+  const workflow = ensureProjectWorkflowState(slug);
+  const request = workflow.softwarePullRequests?.find((item) => item.id === requestId);
+  const trimmedMergeId = mergeId.trim();
+
+  if (
+    !viewer ||
+    !request ||
+    request.stage !== 'awaiting-merge' ||
+    !trimmedMergeId ||
+    !canViewerRecordProjectPullRequestMerge(slug)
+  ) {
+    return;
+  }
+
+  request.stage = 'confirmation';
+  request.mergeId = trimmedMergeId;
+  request.mergedByUsername = viewer.username;
+  request.confirmationCreatedAt = new Date().toISOString();
+  request.votesByUserId = {
+    [viewer.id]: 'yes'
+  };
+
+  upsertDecisionHistoryEntry(
+    workflow.decisionHistory ?? [],
+    buildProjectPullRequestHistoryEntry(slug, request)
+  );
+  maybeApplyApprovedProjectPullRequest(slug, request.id);
 }
 
 export function updateMockProjectDetails(
@@ -11253,6 +18345,420 @@ function applyEventDetailsChange(
   return true;
 }
 
+function applyApprovedEventPhaseChange(
+  slug: string,
+  targetPhaseId: EventLifecyclePhaseId,
+  reason: string,
+  authorUsername: string
+) {
+  const event = findPublicEventItem(slug);
+  const extras = eventDetailExtras[slug];
+
+  if (!event) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const updatedAt = new Date().toISOString();
+  const currentPhaseId = workflow.currentPhaseId ?? defaultEventCurrentPhaseId(event);
+
+  if (currentPhaseId === 'event-plan' && targetPhaseId === 'activity') {
+    const memberState = buildEventMemberState(event);
+    const eligibleVoterCount = eventGovernancePopulation(event, memberState.eligibleVoterCount);
+    const phaseTwo = buildEventPlans(
+      slug,
+      event,
+      buildEventValues(slug),
+      calculateProjectQuorumThreshold(eligibleVoterCount),
+      eligibleVoterCount
+    );
+    const winningPlan = phaseTwo.plans.find((plan) => plan.id === phaseTwo.winningPlanId);
+
+    if (winningPlan) {
+      delete workflow.liveTitleOverride;
+      delete workflow.liveDescriptionOverride;
+      applyEventDetailsChange(slug, winningPlan.title, winningPlan.description, updatedAt);
+    }
+  }
+
+  workflow.currentPhaseId = targetPhaseId;
+  event.lastActivityAt = updatedAt;
+
+  if (targetPhaseId === 'closed' && extras) {
+    extras.updates = [
+      {
+        id: `event-close-${slug}-${Date.now()}`,
+        title: 'Closure note',
+        body: reason.trim(),
+        authorUsername,
+        createdAt: updatedAt
+      },
+      ...extras.updates
+    ];
+  }
+}
+
+function maybeApplyApprovedEventPhaseChange(slug: string, requestId: string) {
+  const event = findPublicEventItem(slug);
+
+  if (!event) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const request = workflow.phaseChangeRequests?.find((item) => item.id === requestId);
+
+  if (!request) {
+    return;
+  }
+
+  const memberState = buildEventMemberState(event);
+  const eligibleVoterCount = eventGovernancePopulation(event, memberState.eligibleVoterCount);
+  const voteSummary = buildProjectVoteSummary(
+    request.votesByUserId,
+    calculateProjectQuorumThreshold(eligibleVoterCount),
+    eligibleVoterCount
+  );
+
+  if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
+    finalizeEventDecisionHistoryEntry(
+      slug,
+      requestId,
+      'rejected',
+      request.votesByUserId,
+      eligibleVoterCount,
+      userByUsername(event.createdByUsername)?.id ?? null
+    );
+    workflow.phaseChangeRequests = (workflow.phaseChangeRequests ?? []).filter((item) => item.id !== requestId);
+    return;
+  }
+
+  if (!voteSummary.meetsQuorum || !phaseChangePassesApprovalThreshold(voteSummary)) {
+    return;
+  }
+
+  const currentPhaseId = workflow.currentPhaseId ?? defaultEventCurrentPhaseId(event);
+  const nextPhaseId = eventNextPhaseId(event, currentPhaseId);
+
+  if (request.targetPhaseId === nextPhaseId && !canAdvanceMockEventPhaseNow(slug)) {
+    return;
+  }
+
+  applyApprovedEventPhaseChange(slug, request.targetPhaseId, request.reason, request.authorUsername);
+  finalizeEventDecisionHistoryEntry(
+    slug,
+    requestId,
+    'approved',
+    request.votesByUserId,
+    eligibleVoterCount,
+    userByUsername(event.createdByUsername)?.id ?? null
+  );
+  workflow.phaseChangeRequests = (workflow.phaseChangeRequests ?? []).filter((item) => item.id !== requestId);
+}
+
+export function setMockEventSignal(slug: string, signal: GovernanceSignalType) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+
+  if (!viewer || !event || event.isPrivate) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const demandUserIds = uniqueUserIds(workflow.signalUserIds ?? []);
+  const oppositionUserIds = uniqueUserIds(workflow.oppositionSignalUserIds ?? []);
+  const demandActive = demandUserIds.includes(viewer.id);
+  const oppositionActive = oppositionUserIds.includes(viewer.id);
+  const demandCount = hydratedSignalCount(workflow.signalCount, demandUserIds);
+  const oppositionCount = hydratedSignalCount(workflow.oppositionSignalCount, oppositionUserIds);
+
+  workflow.signalUserIds = demandUserIds.filter((userId) => userId !== viewer.id);
+  workflow.signalCount = Math.max(demandCount - (demandActive ? 1 : 0), 0);
+  workflow.oppositionSignalUserIds = oppositionUserIds.filter((userId) => userId !== viewer.id);
+  workflow.oppositionSignalCount = Math.max(oppositionCount - (oppositionActive ? 1 : 0), 0);
+
+  if ((signal === 'demand' && demandActive) || (signal === 'opposition' && oppositionActive)) {
+    recordMeaningfulAction(viewer.id);
+    return;
+  }
+
+  if (signal === 'demand') {
+    workflow.signalUserIds = [viewer.id, ...(workflow.signalUserIds ?? [])];
+    workflow.signalCount += 1;
+  } else {
+    workflow.oppositionSignalUserIds = [viewer.id, ...(workflow.oppositionSignalUserIds ?? [])];
+    workflow.oppositionSignalCount = (workflow.oppositionSignalCount ?? 0) + 1;
+  }
+
+  recordMeaningfulAction(viewer.id);
+}
+
+export function addMockEventValue(slug: string, label: string) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+  const trimmed = label.trim();
+
+  if (!viewer || !event || !trimmed || !canViewerEditEventPhase(slug, 'proposal')) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  workflow.eventValues = [
+    {
+      id: `event-value-${slug}-${Date.now()}`,
+      label: trimmed,
+      authorUsername: viewer.username,
+      votesByUserId: {
+        [viewer.id]: 4
+      }
+    },
+    ...(workflow.eventValues ?? [])
+  ];
+  recordMeaningfulAction(viewer.id);
+}
+
+export function setMockEventValueImportance(
+  slug: string,
+  valueId: string,
+  importance: ProjectImportanceVoteValue
+) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event?.createdByUsername ?? '')?.id ?? null);
+  const value = workflow.eventValues?.find((item) => item.id === valueId);
+
+  if (!viewer || !event || !value || !canViewerEditEventPhase(slug, 'proposal')) {
+    return;
+  }
+
+  value.votesByUserId[viewer.id] = importance;
+  recordMeaningfulAction(viewer.id);
+}
+
+export function addMockEventPlan(slug: string, input: EventPlanInput) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+  const description = input.description.trim();
+  const demandConsiderationNote = input.demandConsiderationNote.trim();
+  const locationLabel = input.locationLabel.trim();
+  const scheduleMode = input.schedule?.mode ?? 'any-day';
+  const scheduleStartDate = input.schedule?.startDate?.trim() ?? '';
+  const scheduleEndDate = input.schedule?.endDate?.trim() ?? '';
+  const scheduleStartTimeLabel = input.schedule?.startTimeLabel?.trim() ?? '';
+  const scheduleFinishTimeLabel = input.schedule?.finishTimeLabel?.trim() ?? '';
+  const scheduleIsValid = eventScheduleIsValid(input.schedule);
+  const scheduleStartsInFuture = eventScheduleStartsInFuture(input.schedule);
+  const timestamp = Date.now();
+  const planPhases = input.planPhases
+    .map((phase, index) => ({
+      id: `event-plan-phase-${slug}-${timestamp}-${index}`,
+      title: phase.title.trim(),
+      details: phase.details.trim()
+    }))
+    .filter((phase) => phase.title && phase.details);
+
+  if (
+    !viewer ||
+    !event ||
+    !canViewerEditEventPhase(slug, 'event-plan') ||
+    !input.title.trim() ||
+    !description ||
+    !demandConsiderationNote ||
+    !locationLabel ||
+    !scheduleStartTimeLabel ||
+    !scheduleFinishTimeLabel ||
+    scheduleMode === 'any-day' ||
+    (scheduleMode === 'date' && !scheduleStartDate) ||
+    (scheduleMode === 'range' && (!scheduleStartDate || !scheduleEndDate)) ||
+    !scheduleIsValid ||
+    !scheduleStartsInFuture ||
+    planPhases.length === 0
+  ) {
+    return false;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const values = buildEventValues(slug);
+
+  workflow.eventPlans = [
+    {
+      id: `event-plan-${slug}-${timestamp}`,
+      title: input.title.trim(),
+      authorUsername: viewer.username,
+      createdAt: new Date().toISOString(),
+      description,
+      locationLabel,
+      schedule:
+        scheduleMode === 'date'
+          ? {
+              mode: 'date',
+              startDate: scheduleStartDate,
+              startTimeLabel: scheduleStartTimeLabel,
+              finishTimeLabel: scheduleFinishTimeLabel
+            }
+          : {
+              mode: 'range',
+              startDate: scheduleStartDate,
+              endDate: scheduleEndDate,
+              startTimeLabel: scheduleStartTimeLabel,
+              finishTimeLabel: scheduleFinishTimeLabel
+            },
+      demandSignalSnapshot: event.isPrivate ? undefined : workflow.signalCount ?? 0,
+      demandConsiderationNote,
+      planPhases,
+      overallVotesByUserId: {
+        [viewer.id]: 'yes'
+      },
+      valueVotesByValueId: Object.fromEntries([
+        ...(!event.isPrivate
+          ? [[demandSignalAssessmentValueId, { [viewer.id]: 'yes' as ProjectApprovalVote }]]
+          : []),
+        ...values.map((value) => [value.id, { [viewer.id]: 'yes' as ProjectApprovalVote }])
+      ])
+    },
+    ...(workflow.eventPlans ?? [])
+  ];
+  recordMeaningfulAction(viewer.id);
+  return true;
+}
+
+export function setMockEventPlanValueVote(
+  slug: string,
+  planId: string,
+  valueId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+
+  if (!viewer || !canViewerEditEventPhase(slug, 'event-plan')) {
+    return;
+  }
+
+  updateEventPlanValueVoteMap(slug, planId, valueId, viewer.id, vote);
+  recordMeaningfulAction(viewer.id);
+}
+
+export function setMockEventPlanOverallVote(
+  slug: string,
+  planId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+
+  if (!viewer || !canViewerEditEventPhase(slug, 'event-plan')) {
+    return;
+  }
+
+  updateEventPlanOverallVoteMap(slug, planId, viewer.id, vote);
+  recordMeaningfulAction(viewer.id);
+}
+
+export function addMockEventActivity(slug: string, input: ProjectActivityInput) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+  const roleRequirements = normalizeProjectActivityRoleRequirements(input.roleRequirements);
+  const minimumParticipants = roleRequirements.reduce((total, role) => total + role.requiredCount, 0);
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event?.createdByUsername ?? '')?.id ?? null);
+  const now = new Date().toISOString();
+  const eligibleVoterCount = event ? eventGovernancePopulation(event, buildEventMemberState(event).eligibleVoterCount) : 0;
+  const phaseTwo = event
+    ? buildEventPlans(
+        slug,
+        event,
+        buildEventValues(slug),
+        calculateProjectQuorumThreshold(eligibleVoterCount),
+        eligibleVoterCount
+      )
+    : { plans: [] as EventPlan[], winningPlanId: null as string | null };
+  const winningPlan = phaseTwo.plans.find((plan) => plan.id === phaseTwo.winningPlanId) ?? null;
+
+  if (
+    !viewer ||
+    !event ||
+    !winningPlan ||
+    !canViewerCreateEventActivity(slug) ||
+    !input.title.trim() ||
+    !input.scheduledAt.trim() ||
+    !input.endsAt.trim() ||
+    !input.locationLabel.trim() ||
+    !input.note.trim() ||
+    roleRequirements.length === 0 ||
+    minimumParticipants < 1 ||
+    !eventActivityFitsSchedule(winningPlan.schedule, input.scheduledAt.trim(), input.endsAt.trim())
+  ) {
+    return;
+  }
+
+  workflow.eventActivities = [
+    {
+      id: `event-activity-${slug}-${Date.now()}`,
+      title: input.title.trim(),
+      authorUsername: viewer.username,
+      scheduledAt: input.scheduledAt.trim(),
+      endsAt: input.endsAt.trim(),
+      locationLabel: input.locationLabel.trim(),
+      minimumParticipants,
+      linkedPlanPhaseId: input.linkedPlanPhaseId ?? null,
+      roles: roleRequirements.map((role, index) => ({
+        label: role.label,
+        requiredCount: role.requiredCount,
+        maximumCount: role.maximumCount,
+        assignedUsernames: index === 0 ? [viewer.username] : []
+      })),
+      note: input.note.trim()
+    },
+    ...(workflow.eventActivities ?? [])
+  ];
+  ensureEventMembership(slug, viewer.id);
+  event.lastActivityAt = now;
+  recordMeaningfulAction(viewer.id);
+}
+
+export function setMockEventActivityCommitment(
+  slug: string,
+  activityId: string,
+  roleLabel: string | null
+) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event?.createdByUsername ?? '')?.id ?? null);
+  const activity = workflow.eventActivities?.find((item) => item.id === activityId);
+
+  if (!viewer || !event || !activity || !canViewerEditEventActivityCommitment(slug)) {
+    return;
+  }
+
+  for (const role of activity.roles) {
+    role.assignedUsernames = role.assignedUsernames.filter((username) => username !== viewer.username);
+  }
+
+  if (!roleLabel) {
+    event.lastActivityAt = new Date().toISOString();
+    recordMeaningfulAction(viewer.id);
+    return;
+  }
+
+  const targetRole = activity.roles.find((role) => role.label === roleLabel);
+
+  if (!targetRole) {
+    return;
+  }
+
+  const maximumCount =
+    targetRole.maximumCount != null
+      ? Math.max(targetRole.maximumCount, targetRole.requiredCount)
+      : undefined;
+
+  if (maximumCount != null && targetRole.assignedUsernames.length >= maximumCount) {
+    return;
+  }
+
+  ensureEventMembership(slug, viewer.id);
+  targetRole.assignedUsernames = [...targetRole.assignedUsernames, viewer.username];
+  event.lastActivityAt = new Date().toISOString();
+  recordMeaningfulAction(viewer.id);
+}
+
 function maybeApplyApprovedEventUpdate(slug: string, requestId: string) {
   const event = findPublicEventItem(slug);
   const extras = eventDetailExtras[slug];
@@ -11269,10 +18775,11 @@ function maybeApplyApprovedEventUpdate(slug: string, requestId: string) {
   }
 
   const memberState = buildEventMemberState(event);
+  const eligibleVoterCount = eventGovernancePopulation(event, memberState.eligibleVoterCount);
   const voteSummary = buildProjectVoteSummary(
     request.votesByUserId,
-    calculateProjectQuorumThreshold(memberState.eligibleVoterCount),
-    memberState.eligibleVoterCount
+    calculateProjectQuorumThreshold(eligibleVoterCount),
+    eligibleVoterCount
   );
 
   if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
@@ -11281,7 +18788,7 @@ function maybeApplyApprovedEventUpdate(slug: string, requestId: string) {
       requestId,
       'rejected',
       request.votesByUserId,
-      memberState.eligibleVoterCount,
+      eligibleVoterCount,
       userByUsername(event.createdByUsername)?.id ?? null
     );
     workflow.updateRequests = (workflow.updateRequests ?? []).filter((item) => item.id !== requestId);
@@ -11310,7 +18817,7 @@ function maybeApplyApprovedEventUpdate(slug: string, requestId: string) {
     requestId,
     'approved',
     request.votesByUserId,
-    memberState.eligibleVoterCount,
+    eligibleVoterCount,
     userByUsername(event.createdByUsername)?.id ?? null,
     (payload) => {
       if (payload.type === 'update') {
@@ -11336,10 +18843,11 @@ function maybeApplyApprovedEventEdit(slug: string, requestId: string) {
   }
 
   const memberState = buildEventMemberState(event);
+  const eligibleVoterCount = eventGovernancePopulation(event, memberState.eligibleVoterCount);
   const voteSummary = buildProjectVoteSummary(
     request.votesByUserId,
-    calculateProjectQuorumThreshold(memberState.eligibleVoterCount),
-    memberState.eligibleVoterCount
+    calculateProjectQuorumThreshold(eligibleVoterCount),
+    eligibleVoterCount
   );
 
   if (!thresholdVoteCanStillPass(voteSummary, phaseChangeApprovalThresholdPercent)) {
@@ -11348,7 +18856,7 @@ function maybeApplyApprovedEventEdit(slug: string, requestId: string) {
       requestId,
       'rejected',
       request.votesByUserId,
-      memberState.eligibleVoterCount,
+      eligibleVoterCount,
       userByUsername(event.createdByUsername)?.id ?? null
     );
     workflow.editRequests = (workflow.editRequests ?? []).filter((item) => item.id !== requestId);
@@ -11359,13 +18867,15 @@ function maybeApplyApprovedEventEdit(slug: string, requestId: string) {
     return;
   }
 
+  workflow.liveTitleOverride = request.title;
+  workflow.liveDescriptionOverride = request.description;
   applyEventDetailsChange(slug, request.title, request.description, new Date().toISOString());
   finalizeEventDecisionHistoryEntry(
     slug,
     requestId,
     'approved',
     request.votesByUserId,
-    memberState.eligibleVoterCount,
+    eligibleVoterCount,
     userByUsername(event.createdByUsername)?.id ?? null
   );
   workflow.editRequests = (workflow.editRequests ?? []).filter((item) => item.id !== requestId);
@@ -11397,6 +18907,7 @@ export function requestMockEventUpdate(slug: string, body: string) {
     ...(workflow.updateRequests ?? [])
   ];
   upsertDecisionHistoryEntry(workflow.decisionHistory ?? [], buildEventUpdateHistoryEntry(request));
+  recordMeaningfulAction(viewer.id);
 
   maybeApplyApprovedEventUpdate(slug, requestId);
 }
@@ -11425,6 +18936,8 @@ export function setMockEventUpdateVote(
   } else {
     delete request.votesByUserId[viewer.id];
   }
+
+  recordMeaningfulAction(viewer.id);
 
   maybeApplyApprovedEventUpdate(slug, requestId);
 }
@@ -11462,6 +18975,7 @@ export function requestMockEventEdit(slug: string, title: string, description: s
     ...(workflow.editRequests ?? [])
   ];
   upsertDecisionHistoryEntry(workflow.decisionHistory ?? [], buildEventEditHistoryEntry(slug, request));
+  recordMeaningfulAction(viewer.id);
 
   maybeApplyApprovedEventEdit(slug, requestId);
 }
@@ -11491,7 +19005,81 @@ export function setMockEventEditVote(
     delete request.votesByUserId[viewer.id];
   }
 
+  recordMeaningfulAction(viewer.id);
+
   maybeApplyApprovedEventEdit(slug, requestId);
+}
+
+export function requestMockEventPhaseChange(
+  slug: string,
+  targetPhaseId: EventLifecyclePhaseId,
+  reason: string
+) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+  const trimmedReason = reason.trim();
+
+  if (!viewer || !event || !trimmedReason || !canViewerRequestEventPhaseChange(slug)) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const currentPhaseId = workflow.currentPhaseId ?? defaultEventCurrentPhaseId(event);
+  const nextPhaseId = eventNextPhaseId(event, currentPhaseId);
+  const requestableTargetIds = requestableEventPhaseTargetIds(event, currentPhaseId);
+
+  if (!targetPhaseId || !requestableTargetIds.includes(targetPhaseId)) {
+    return;
+  }
+
+  if (targetPhaseId === nextPhaseId && !canAdvanceMockEventPhaseNow(slug)) {
+    return;
+  }
+
+  const requestId = `event-phase-change-${slug}-${Date.now()}`;
+  const request: RawEventPhaseChangeRequest = {
+    id: requestId,
+    targetPhaseId,
+    reason: trimmedReason,
+    authorUsername: viewer.username,
+    createdAt: new Date().toISOString(),
+    votesByUserId: {
+      [viewer.id]: 'yes'
+    }
+  };
+  workflow.phaseChangeRequests = [request, ...(workflow.phaseChangeRequests ?? [])];
+  upsertDecisionHistoryEntry(workflow.decisionHistory ?? [], buildEventPhaseChangeHistoryEntry(slug, request));
+  recordMeaningfulAction(viewer.id);
+  maybeApplyApprovedEventPhaseChange(slug, requestId);
+}
+
+export function setMockEventPhaseChangeVote(
+  slug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  const viewer = currentViewer();
+  const event = findPublicEventItem(slug);
+
+  if (!viewer || !event || !canViewerVoteOnEventPhaseChange(slug)) {
+    return;
+  }
+
+  const workflow = ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null);
+  const request = workflow.phaseChangeRequests?.find((item) => item.id === requestId);
+
+  if (!request) {
+    return;
+  }
+
+  if (vote) {
+    request.votesByUserId[viewer.id] = vote;
+  } else {
+    delete request.votesByUserId[viewer.id];
+  }
+
+  recordMeaningfulAction(viewer.id);
+  maybeApplyApprovedEventPhaseChange(slug, requestId);
 }
 
 export function grantMockEventEditAccess(slug: string, userId: string) {
@@ -11887,31 +19475,42 @@ function canAdvanceMockProjectPhaseNow(slug: string, projectMode: ProjectMode) {
   }
 
   if (projectMode === 'personal-service') {
-    return !!nextProjectPhaseId(config.currentPhaseId, projectMode);
+    return !!nextProjectPhaseIdForSlug(slug, config.currentPhaseId, projectMode);
   }
 
   const memberCount = (projectMembersBySlug[slug] ?? []).length;
   const values = buildProjectValues(slug);
+  const signalSummary = buildProjectSignalSummary(slug);
+  const governancePopulation = projectGovernancePopulation(slug, memberCount);
 
   switch (config.currentPhaseId) {
     case 'phase-1':
-      return values.length > 0;
+      return signalSummary?.advancementUnlocked ?? false;
     case 'phase-2':
       return !!buildProductionPlans(
         slug,
         values,
-        calculateProjectQuorumThreshold(memberCount),
-        memberCount
+        calculateProjectQuorumThreshold(governancePopulation),
+        governancePopulation
       ).winningPlanId;
-    case 'phase-3':
+    case 'phase-3': {
+      const phaseTwo = buildProductionPlans(
+        slug,
+        values,
+        calculateProjectQuorumThreshold(governancePopulation),
+        governancePopulation
+      );
+
       return !!buildDistributionPlans(
         slug,
         values,
-        calculateProjectQuorumThreshold(memberCount),
-        memberCount
+        calculateProjectQuorumThreshold(governancePopulation),
+        governancePopulation,
+        phaseTwo
       ).winningPlanId;
+    }
     default:
-      return !!nextProjectPhaseId(config.currentPhaseId, projectMode);
+      return !!nextProjectPhaseIdForSlug(slug, config.currentPhaseId, projectMode);
   }
 }
 
@@ -11934,7 +19533,8 @@ function applyApprovedProjectPhaseChange(
 
   if (
     ['phase-1', 'phase-2', 'phase-3'].includes(targetPhaseId) &&
-    phaseOrderForProjectMode(projectMode, targetPhaseId) < phaseOrderForProjectMode(projectMode, currentPhaseId)
+    phaseOrderForProjectSlug(slug, projectMode, targetPhaseId) <
+      phaseOrderForProjectSlug(slug, projectMode, currentPhaseId)
   ) {
     const workflow = ensureProjectWorkflowState(slug);
     workflow.revertHistory = [
@@ -11962,7 +19562,7 @@ function applyApprovedProjectPhaseChange(
     }
   }
 
-  if (targetPhaseId === closePhaseIdForProject(projectMode) && projectDetailExtras[slug]) {
+  if (targetPhaseId === closePhaseIdForProjectSlug(slug, projectMode) && projectDetailExtras[slug]) {
     projectDetailExtras[slug].updates = [
       {
         id: `project-update-close-${slug}-${Date.now()}`,
@@ -11987,7 +19587,7 @@ function maybeApplyApprovedProjectPhaseChange(slug: string, requestId: string) {
   }
 
   const memberState = buildProjectMemberState(slug);
-  const memberCount = memberState.projectManagers.length + memberState.members.length;
+  const memberCount = projectGovernancePopulation(slug, memberState.memberCount);
   const voteSummary = buildProjectVoteSummary(
     request.votesByUserId,
     calculateProjectQuorumThreshold(memberCount),
@@ -12006,8 +19606,12 @@ function maybeApplyApprovedProjectPhaseChange(slug: string, requestId: string) {
     return;
   }
 
-  const requestableTargets = requestableProjectPhaseTargetIds(config.currentPhaseId, projectMode);
-  const nextPhaseId = nextProjectPhaseId(config.currentPhaseId, projectMode);
+  const requestableTargets = requestableProjectPhaseTargetIdsForSlug(
+    slug,
+    config.currentPhaseId,
+    projectMode
+  );
+  const nextPhaseId = nextProjectPhaseIdForSlug(slug, config.currentPhaseId, projectMode);
 
   if (!requestableTargets.includes(request.targetPhaseId)) {
     return;
@@ -12027,25 +19631,36 @@ function maybeApplyApprovedProjectPhaseChange(slug: string, requestId: string) {
 export function requestMockProjectPhaseChange(
   slug: string,
   targetPhaseId: ProjectLifecyclePhaseId,
-  reason: string
+  reason: string,
+  options?: ProjectPhaseChangeRequestOptions
 ) {
   const viewer = currentViewer();
   const config = projectLifecycleBySlug[slug];
   const projectMode = projectModeForSlug(slug);
   const trimmedReason = reason.trim();
+  const closeOutcome = options?.closeOutcome;
+  const conversionTarget = options?.conversionTarget ?? null;
 
   if (!viewer || !config || !trimmedReason || !canViewerRequestProjectPhaseChange(slug)) {
     return;
   }
 
-  const requestableTargets = requestableProjectPhaseTargetIds(config.currentPhaseId, projectMode);
-  const nextPhaseId = nextProjectPhaseId(config.currentPhaseId, projectMode);
+  const requestableTargets = requestableProjectPhaseTargetIdsForSlug(
+    slug,
+    config.currentPhaseId,
+    projectMode
+  );
+  const nextPhaseId = nextProjectPhaseIdForSlug(slug, config.currentPhaseId, projectMode);
 
   if (!requestableTargets.includes(targetPhaseId)) {
     return;
   }
 
   if (targetPhaseId === nextPhaseId && !canAdvanceMockProjectPhaseNow(slug, projectMode)) {
+    return;
+  }
+
+  if (closeOutcome === 'convert' && !conversionTarget) {
     return;
   }
 
@@ -12063,6 +19678,8 @@ export function requestMockProjectPhaseChange(
     reason: trimmedReason,
     authorUsername: viewer.username,
     createdAt,
+    closeOutcome,
+    conversionTarget,
     votesByUserId: {
       [viewer.id]: 'yes'
     }

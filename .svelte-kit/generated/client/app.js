@@ -28,7 +28,8 @@ export const nodes = [
 	() => import('./nodes/24'),
 	() => import('./nodes/25'),
 	() => import('./nodes/26'),
-	() => import('./nodes/27')
+	() => import('./nodes/27'),
+	() => import('./nodes/28')
 ];
 
 export const server_loads = [];
@@ -52,14 +53,15 @@ export const dictionary = {
 		"/platform": [17],
 		"/platform/assets": [18],
 		"/platform/assets/[assetSlug]": [19],
-		"/posts/[id]": [20],
-		"/profile/[username]": [21],
-		"/projects/[slug]": [22],
-		"/roadmap": [23],
-		"/search": [24],
-		"/settings": [25],
-		"/stewardship": [26],
-		"/threads/[slug]": [27]
+		"/platform/assets/[assetSlug]/attached/[attachedAssetSlug]": [20],
+		"/posts/[id]": [21],
+		"/profile/[username]": [22],
+		"/projects/[slug]": [23],
+		"/roadmap": [24],
+		"/search": [25],
+		"/settings": [26],
+		"/stewardship": [27],
+		"/threads/[slug]": [28]
 	};
 
 export const hooks = {

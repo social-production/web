@@ -1,5 +1,6 @@
-import { k as fallback, c as attr_class, e as escape_html, f as bind_props } from "./renderer.js";
+import { f as fallback, b as attr_class, e as escape_html, d as bind_props } from "./renderer.js";
 import { p as projectSubjectLabel } from "./data.js";
+/* empty css                                     */
 function Tablet($$renderer, $$props) {
   let label = $$props["label"];
   let variant = fallback($$props["variant"], "stage");

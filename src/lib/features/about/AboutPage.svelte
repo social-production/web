@@ -1,32 +1,22 @@
 <section class="page">
   <section class="hero-card">
-    <h1>About Social Production</h1>
+    <h1>About</h1>
     <p>
-      Social Production is a coordination platform for shared projects, services, events, and messages.
-      The goal is practical cooperation: clear requests, visible activity, and transparent decisions.
-    </p>
-  </section>
-
-  <section class="about-card">
-    <h2>About</h2>
-    <p>
-      This prototype focuses on safe collaboration patterns first: understandable workflows,
-      clear ownership, and reliable communication across public and personal surfaces.
-    </p>
-    <p>
-      As features mature, the product can move through roadmap phases without breaking the core
-      user flow that people already rely on.
+      Social Production is a coordination platform, a social network who's purpose is to help in the facilitation of collective activity. From birthday parties to protests, software creation, and eventually real world major construction.
     </p>
   </section>
 
   <section class="hero-card">
-    <h2>Roadmap</h2>
+    <h2 class="roadmap-title">Roadmap</h2>
   </section>
 
   <div class="stack">
     <section class="phase-card current-phase">
-      <div class="phase-label current-label">Phase 1 · Current</div>
-      <h3>Web prototype</h3>
+      <div class="phase-head">
+        <div class="phase-label current-label">Phase 1 · Current</div>
+        <h3>Web prototype</h3>
+        <span aria-hidden="true" class="phase-head-spacer"></span>
+      </div>
       <ul>
         <li>Build a conventional backend, PWA frontend.</li>
         <li>No asset holding, facilitation only.</li>
@@ -37,23 +27,32 @@
     </section>
 
     <section class="phase-card">
-      <div class="phase-label">Phase 2</div>
-      <h3>Legal entity and funding</h3>
+      <div class="phase-head">
+        <div class="phase-label">Phase 2</div>
+        <h3>Legal entity and funding</h3>
+        <span aria-hidden="true" class="phase-head-spacer"></span>
+      </div>
       <p>Non-profit foundation formed.</p>
       <p>Once the foundation is formed, community and funding activate within Social Production.</p>
       <p>Asset holding comes online. Physical asset network becomes operational.</p>
     </section>
 
     <section class="phase-card">
-      <div class="phase-label">Phase 3</div>
-      <h3>P2P backend</h3>
+      <div class="phase-head">
+        <div class="phase-label">Phase 3</div>
+        <h3>P2P backend</h3>
+        <span aria-hidden="true" class="phase-head-spacer"></span>
+      </div>
       <p>Holochain or p2panda. Research and development can continue while in Phase 1.</p>
       <p>Gradual migration from the conventional backend.</p>
     </section>
 
     <section class="phase-card">
-      <div class="phase-label">Phase 4</div>
-      <h3>Full model</h3>
+      <div class="phase-head">
+        <div class="phase-label">Phase 4</div>
+        <h3>Full model</h3>
+        <span aria-hidden="true" class="phase-head-spacer"></span>
+      </div>
       <p>Shutdown-resistant infrastructure live.</p>
       <p>Non-market coordination at scale.</p>
     </section>
@@ -68,7 +67,6 @@
   }
 
   .hero-card,
-  .about-card,
   .phase-card {
     padding: 12px;
     border: 1px solid var(--panel-border);
@@ -95,6 +93,26 @@
     color: var(--text-main);
   }
 
+  .roadmap-title {
+    text-align: center;
+  }
+
+  .phase-head {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .phase-head h3 {
+    margin: 0;
+    text-align: center;
+  }
+
+  .phase-head-spacer {
+    justify-self: end;
+  }
+
   .phase-label {
     display: inline-flex;
     padding: 6px 10px;
@@ -103,6 +121,7 @@
     color: var(--brand-strong);
     font-size: 12px;
     font-weight: 700;
+    justify-self: start;
   }
 
   .phase-label.current-label {

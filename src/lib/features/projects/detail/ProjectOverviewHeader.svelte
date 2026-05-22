@@ -6,8 +6,8 @@
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
   import {
+    setProjectSignal,
     shareProjectWithUser,
-    toggleProjectDemandSignal,
     toggleProjectMembership
   } from '$lib/services/queries/details';
   import type { ProjectPageData } from '$lib/types/detail';
@@ -15,14 +15,18 @@
   export let data: ProjectPageData;
 
   $: combinedTags = [...data.channelTags, ...data.communityTags];
-  $: demandButtonLabel = `${data.signalCount}`;
+  $: signalSummary = data.lifecycle.phaseOne.signalSummary;
   $: membershipMetaLabel = 'Members';
   $: membershipButtonLabel = isPersonalServiceProject(data.projectMode)
     ? `${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`
     : `${data.memberCount}`;
+  $: quorumLabel =
+    data.lifecycle.quorumVotesRequired <= 0
+      ? 'No votes required yet'
+      : `${data.lifecycle.quorumVotesRequired} ${data.lifecycle.quorumVotesRequired === 1 ? 'vote' : 'votes'} required from ${data.lifecycle.voteContextPopulation} ${data.lifecycle.voteContextLabel}`;
 
-  async function handleDemandToggle() {
-    await toggleProjectDemandSignal(data.slug);
+  async function handleSignalSet(signal: 'demand' | 'opposition') {
+    await setProjectSignal(data.slug, signal);
     await invalidateAll();
   }
 
@@ -74,23 +78,53 @@
   <ul class="project-meta-list">
     {#if supportsProjectDemandSignals(data.projectMode)}
       <li class="meta-item demand-item">
-        <strong>Demand</strong>
-        <button
-          aria-pressed={data.lifecycle.phaseOne.viewerHasDemandSignal}
-          class:active-demand={data.lifecycle.phaseOne.viewerHasDemandSignal}
-          class="demand-button"
-          type="button"
-          on:click={handleDemandToggle}
-        >
-          {demandButtonLabel}
-        </button>
+        <strong>Signals</strong>
+        <div class="signal-stack">
+          <div class="meta-button-row">
+            <button
+              aria-pressed={data.lifecycle.phaseOne.viewerHasDemandSignal}
+              class:active-demand={data.lifecycle.phaseOne.viewerHasDemandSignal}
+              class="demand-button"
+              type="button"
+              on:click={() => handleSignalSet('demand')}
+            >
+              Demand {signalSummary?.demandCount ?? data.signalCount}
+            </button>
+            <button
+              aria-pressed={data.lifecycle.phaseOne.viewerHasOppositionSignal}
+              class:active-opposition={data.lifecycle.phaseOne.viewerHasOppositionSignal}
+              class="demand-button opposition-button"
+              type="button"
+              on:click={() => handleSignalSet('opposition')}
+            >
+              Opposition {signalSummary?.oppositionCount ?? 0}
+            </button>
+          </div>
+          {#if signalSummary}
+            <span>
+              Demand is {signalSummary.signalRatioPercent}% of current proposal signals.
+              {#if signalSummary.usesPlatformVoteContext}
+                Proposal advancement also needs {signalSummary.requiredDemandCount} demand signals from {signalSummary.voteContextPopulation} weekly active users.
+              {:else}
+                Proposal advancement opens once demand stays above 66% of active signals.
+              {/if}
+            </span>
+          {/if}
+        </div>
       </li>
     {/if}
 
     {#if data.lifecycle.supportsPlanning}
       <li class="meta-item">
-        <strong>Threshold</strong>
-        <span>{data.lifecycle.quorumThresholdPercent}% approval</span>
+        <strong>Quorum</strong>
+        <span>{quorumLabel}</span>
+      </li>
+    {/if}
+
+    {#if data.lifecycle.currentSubtypeLabel}
+      <li class="meta-item">
+        <strong>Subtype</strong>
+        <span>{data.lifecycle.currentSubtypeLabel}</span>
       </li>
     {/if}
 
@@ -218,6 +252,11 @@
     line-height: 1.45;
   }
 
+  .signal-stack {
+    display: grid;
+    gap: 8px;
+  }
+
   .meta-button-row {
     display: flex;
     gap: 8px;
@@ -247,6 +286,11 @@
   .demand-button.active-demand {
     border-color: var(--brand);
     color: var(--brand-strong);
+  }
+
+  .opposition-button.active-opposition {
+    border-color: var(--tablet-community-bg);
+    color: var(--tablet-community-text);
   }
 
   @media (max-width: 760px) {

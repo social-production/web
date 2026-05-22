@@ -1,5 +1,5 @@
 import { error } from "@sveltejs/kit";
-import { c as getThread } from "../../../../chunks/details.js";
+import { S as getThread } from "../../../../chunks/details.js";
 const load = async ({ params }) => {
   const thread = await getThread(params.slug);
   if (!thread) {

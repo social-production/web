@@ -1,4 +1,5 @@
-import { k as fallback, c as attr_class, e as escape_html, f as bind_props } from "./renderer.js";
+import { f as fallback, b as attr_class, e as escape_html, d as bind_props } from "./renderer.js";
+/* empty css                                        */
 function VoteStrip($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     let count = $$props["count"];

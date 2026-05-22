@@ -1,4 +1,4 @@
-import { e as escape_html, d as ensure_array_like, b as attr, f as bind_props } from "../../../chunks/renderer.js";
+import { e as escape_html, a as ensure_array_like, c as attr, d as bind_props } from "../../../chunks/renderer.js";
 function SearchPage($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     let data = $$props["data"];

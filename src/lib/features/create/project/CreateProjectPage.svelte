@@ -1,11 +1,9 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
-  import { onMount } from 'svelte';
   import ProjectCard from '$lib/components/cards/public-feed/ProjectCard.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
-  import { getPlatform } from '$lib/services/queries/scopes';
   import { createProject } from '$lib/services/queries/create';
   import {
     isCollectiveServiceProject,
@@ -14,10 +12,9 @@
   import {
     channelOptions,
     communityOptions,
-    makeTagRef,
     splitCommaValues
   } from '$lib/features/create/shared/options';
-  import type { ProjectMode, PublicProjectItem } from '$lib/types/feed';
+  import type { ProjectMode, PublicProjectItem, TagKind, TagRef } from '$lib/types/feed';
 
   const platformTagSlug = 'platform';
 
@@ -25,16 +22,45 @@
   let title = '';
   let description = '';
   let locationLabel = '';
-  let district = '';
   let primaryChannel = '';
   let additionalChannels = '';
   let taggedCommunities = '';
   let serviceRequestMode: 'calendar' | 'direct' | 'both' = 'both';
   let statusMessage = '';
-  let platformBoardMemberIds: string[] = [];
   let isSubmitting = false;
 
+  function findOptionTag(label: string, kind: TagKind): TagRef | null {
+    const normalized = label.trim().toLowerCase();
+    const options = kind === 'channel' ? channelOptions : communityOptions;
+    const match = options.find(
+      (option) => option.label.toLowerCase() === normalized || option.slug.toLowerCase() === normalized
+    );
+
+    return match
+      ? {
+          slug: match.slug,
+          label: match.label,
+          kind
+        }
+      : null;
+  }
+
   $: viewer = $page.data.bootstrap?.viewer ?? null;
+  $: primaryChannelTag = findOptionTag(primaryChannel, 'channel');
+  $: additionalChannelEntries = splitCommaValues(additionalChannels);
+  $: additionalChannelTags = additionalChannelEntries
+    .map((value) => findOptionTag(value, 'channel'))
+    .filter((value): value is TagRef => value !== null);
+  $: invalidAdditionalChannels = additionalChannelEntries.filter(
+    (value) => findOptionTag(value, 'channel') === null
+  );
+  $: communityEntries = splitCommaValues(taggedCommunities);
+  $: selectedCommunityTags = communityEntries
+    .map((value) => findOptionTag(value, 'community'))
+    .filter((value): value is TagRef => value !== null);
+  $: invalidCommunities = communityEntries.filter(
+    (value) => findOptionTag(value, 'community') === null
+  );
 
   $: projectPreview = {
     kind: 'project',
@@ -49,16 +75,14 @@
       description.trim() ||
       'Describe the project so need, labor interest, and overlap stay visible before planning begins.',
     channelTags: [
-      ...(primaryChannel.trim() ? [makeTagRef(primaryChannel.trim(), 'channel')] : []),
-      ...splitCommaValues(additionalChannels).map((value) => makeTagRef(value, 'channel'))
+      ...(primaryChannelTag ? [primaryChannelTag] : []),
+      ...additionalChannelTags
     ],
-    communityTags: splitCommaValues(taggedCommunities).map((value) =>
-      makeTagRef(value, 'community')
-    ),
+    communityTags: selectedCommunityTags,
     stage: isPersonalServiceProject(selectedType)
       ? 'Activity'
       : 'Proposal',
-    locationLabel: `${locationLabel}${district.trim() ? ` · ${district.trim()}` : ''}`,
+    locationLabel: locationLabel,
     voteCount: 0,
     activeVote: 0,
     signalCount: 0,
@@ -68,36 +92,33 @@
   } satisfies PublicProjectItem;
 
   $: usesPlatformTag = projectPreview.channelTags.some((tag) => tag.slug === platformTagSlug);
-  $: viewerCanCreatePlatformProject =
-    !usesPlatformTag || (!!viewer && platformBoardMemberIds.includes(viewer.id));
+  $: personalServiceUsesPlatformTag =
+    usesPlatformTag && isPersonalServiceProject(selectedType);
+  $: viewerCanCreatePlatformProject = !usesPlatformTag || !!viewer;
 
   $: canSubmit =
     title.trim().length > 0 &&
     description.trim().length > 0 &&
-    primaryChannel.trim().length > 0 &&
-    viewerCanCreatePlatformProject;
-
-  onMount(async () => {
-    const scope = await getPlatform();
-
-    platformBoardMemberIds = scope?.boardMembers?.map((member) => member.id) ?? [];
-  });
+    primaryChannelTag !== null &&
+    invalidAdditionalChannels.length === 0 &&
+    invalidCommunities.length === 0 &&
+    viewerCanCreatePlatformProject &&
+    !personalServiceUsesPlatformTag;
 
   async function handleCreate() {
-    if (usesPlatformTag && !viewerCanCreatePlatformProject) {
-      statusMessage =
-        'Only current board members can create platform-tagged projects. Regular users can still create threads in Platform.';
-      return;
-    }
-
     isSubmitting = true;
     statusMessage = '';
 
     try {
+      if (!primaryChannelTag || invalidAdditionalChannels.length > 0 || invalidCommunities.length > 0) {
+        statusMessage = 'Choose real channel and community tags from the available options.';
+        return;
+      }
+
       const result = await createProject({
         title,
         description,
-        locationLabel: `${locationLabel}${district.trim() ? ` · ${district.trim()}` : ''}`,
+        locationLabel: locationLabel,
         projectMode: selectedType,
         channelTags: projectPreview.channelTags,
         communityTags: projectPreview.communityTags,
@@ -183,11 +204,6 @@
         </label>
 
         <label>
-          <span class="field-label">District or neighborhood</span>
-          <input bind:value={district} />
-        </label>
-
-        <label>
           <span class="field-label">Description</span>
           <textarea bind:value={description} rows="5"></textarea>
         </label>
@@ -206,6 +222,9 @@
           <span class="field-label">Additional channel tags</span>
           <input bind:value={additionalChannels} placeholder="Comma-separated" />
         </label>
+        {#if invalidAdditionalChannels.length > 0}
+          <p class="status-note">Additional channel tags must match real channels.</p>
+        {/if}
 
         <label>
           <span class="field-label">Community tags</span>
@@ -216,6 +235,9 @@
             {/each}
           </datalist>
         </label>
+        {#if invalidCommunities.length > 0}
+          <p class="status-note">Community tags must match real communities.</p>
+        {/if}
         {#if selectedType !== 'productive'}
           {#if isPersonalServiceProject(selectedType)}
             <div class="section-block">
@@ -288,9 +310,11 @@
     >
       <p class="helper-text">
         {#if usesPlatformTag}
-          {viewerCanCreatePlatformProject
-            ? 'Platform-tagged projects are board-created, and their manager list stays tied to the current board.'
-            : 'Only current board members can create platform-tagged projects. Regular users can still create Platform threads.'}
+          {#if personalServiceUsesPlatformTag}
+            Personal service projects cannot use the platform channel. The platform tag is only for collective governance surfaces.
+          {:else}
+            Platform-tagged projects stay open to any signed-in user. Board members do not gate creation or phase changes; they only execute collectively approved platform outcomes.
+          {/if}
         {:else}
           {selectedType === 'productive'
             ? 'New productive projects start in Proposal. Planning stays public because at least one channel tag is required.'

@@ -1,5 +1,6 @@
-import { k as fallback, c as attr_class, a as attr_style, d as ensure_array_like, f as bind_props } from "./renderer.js";
+import { f as fallback, b as attr_class, g as attr_style, a as ensure_array_like, c as attr, d as bind_props } from "./renderer.js";
 import { T as Tablet } from "./SubjectTablet.js";
+/* empty css                                      */
 function TagList($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     let tags = fallback($$props["tags"], () => [], true);
@@ -8,7 +9,13 @@ function TagList($$renderer, $$props) {
       if (tag.kind === "community") {
         return "community";
       }
-      return tag.slug === "stewardship" ? "stewardship" : "channel";
+      return tag.slug === "platform" ? "platform" : "channel";
+    }
+    function hrefFor(tag) {
+      if (tag.slug === "platform") {
+        return "/platform";
+      }
+      return tag.kind === "community" ? `/communities/${tag.slug}` : `/channels/${tag.slug}`;
     }
     if (tags.length > 0) {
       $$renderer2.push("<!--[0-->");
@@ -16,7 +23,9 @@ function TagList($$renderer, $$props) {
       const each_array = ensure_array_like(tags);
       for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
         let tag = each_array[$$index];
+        $$renderer2.push(`<a class="tag-link svelte-akog2a"${attr("href", hrefFor(tag))}>`);
         Tablet($$renderer2, { label: tag.label, variant: variantFor(tag) });
+        $$renderer2.push(`<!----></a>`);
       }
       $$renderer2.push(`<!--]--></div>`);
     } else {

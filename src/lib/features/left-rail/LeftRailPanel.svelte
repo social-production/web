@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import { isAssetsSurfaceEnabled } from '$lib/config/features/phaseScope';
   import type { BootstrapPayload } from '$lib/types/bootstrap';
 
   export let bootstrap: BootstrapPayload;
@@ -68,17 +69,19 @@
     >
       {collectiveLink.label}
     </a>
-    <a
-      class:active-link={$page.url.pathname === '/platform/assets' || $page.url.pathname.startsWith('/platform/assets/')}
-      class="rail-link"
-      href="/platform/assets"
-      on:click={closePanels}
-    >
-      <span>Assets</span>
-      <span class={`feature-pill ${bootstrap.featureFlags.assets ? 'open' : 'closed'}`}>
-        {bootstrap.featureFlags.assets ? 'Open' : 'Closed'}
-      </span>
-    </a>
+    {#if isAssetsSurfaceEnabled(bootstrap.featureFlags)}
+      <a
+        class:active-link={$page.url.pathname === '/platform/assets' || $page.url.pathname.startsWith('/platform/assets/')}
+        class="rail-link"
+        href="/platform/assets"
+        on:click={closePanels}
+      >
+        <span>Assets</span>
+        <span class="feature-pill open">
+          Open
+        </span>
+      </a>
+    {/if}
   </div>
 </section>
 
@@ -211,10 +214,5 @@
   .feature-pill.open {
     background: var(--brand-soft);
     color: var(--brand-strong);
-  }
-
-  .feature-pill.closed {
-    background: color-mix(in srgb, var(--accent-warm) 18%, transparent);
-    color: var(--accent-warm-strong);
   }
 </style>

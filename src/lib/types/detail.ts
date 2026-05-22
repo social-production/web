@@ -1,4 +1,4 @@
-import type { PostBodyLink, ProjectMode, TagRef, VoteDirection } from '$lib/types/feed';
+import type { PostBodyLink, ProjectMode, ProjectSubtype, PublicProjectItem, TagRef, VoteDirection } from '$lib/types/feed';
 
 export interface DetailUpdate {
   id: string;
@@ -41,6 +41,8 @@ export interface RoleMember extends DetailMember {
   confidenceTargetId?: string;
   confidenceVoteCount?: number;
   confidenceActiveVote?: VoteDirection;
+  confidenceUpVotes?: number;
+  confidenceDownVotes?: number;
   confidenceRatio?: number;
   confidenceReviewCount?: number;
   isManagerCandidate?: boolean;
@@ -48,6 +50,23 @@ export interface RoleMember extends DetailMember {
 
 export type ProjectRoleMember = RoleMember;
 export type EventRoleMember = RoleMember;
+
+export type GovernanceSignalType = 'demand' | 'opposition';
+
+export interface GovernanceSignalSummary {
+  demandCount: number;
+  oppositionCount: number;
+  totalCount: number;
+  viewerSignal: GovernanceSignalType | null;
+  signalRatioPercent: number;
+  ratioRequirementMet: boolean;
+  requiredDemandCount: number;
+  demandRequirementMet: boolean;
+  advancementUnlocked: boolean;
+  usesPlatformVoteContext: boolean;
+  voteContextLabel: string;
+  voteContextPopulation: number;
+}
 
 export interface DetailComment {
   id: string;
@@ -66,7 +85,11 @@ export type ProjectLifecyclePhaseId =
   | 'phase-3'
   | 'phase-4'
   | 'phase-5'
-  | 'phase-6';
+  | 'phase-6'
+  | 'phase-7';
+
+export type EventLifecyclePhaseId = 'proposal' | 'event-plan' | 'activity' | 'closed';
+export type GovernancePhaseId = ProjectLifecyclePhaseId | EventLifecyclePhaseId;
 
 export type ProjectLifecycleProgressState = 'complete' | 'current' | 'upcoming' | 'locked';
 
@@ -101,6 +124,33 @@ export interface ProjectPlanPhaseItem extends ProjectPlanPhaseInput {
   id: string;
 }
 
+export interface EventPlanPhaseInput {
+  title: string;
+  details: string;
+}
+
+export interface EventPlanPhaseItem extends EventPlanPhaseInput {
+  id: string;
+}
+
+export type EventPlanScheduleMode = 'any-day' | 'date' | 'range';
+
+export interface EventPlanScheduleInput {
+  mode: EventPlanScheduleMode;
+  startDate?: string | null;
+  endDate?: string | null;
+  startTimeLabel?: string | null;
+  finishTimeLabel?: string | null;
+}
+
+export interface EventPlanSchedule extends EventPlanScheduleInput {
+  startDate: string | null;
+  endDate: string | null;
+  startTimeLabel: string | null;
+  finishTimeLabel: string | null;
+  label: string;
+}
+
 export interface ProjectValueItem {
   id: string;
   label: string;
@@ -133,12 +183,41 @@ export interface ProjectPlanValueAssessment extends ProjectPlanVoteSummary {
 export interface ProjectProductionPlanInput {
   title: string;
   description: string;
+  projectSubtype: ProjectSubtype;
+  repositoryUrl?: string;
   demandConsiderationNote: string;
   totalCostLabel: string;
   planPhases: ProjectPlanPhaseInput[];
   outputSummary?: string;
   materialsSummary?: string;
   acquisitionsSummary?: string;
+  acquisitionBundles?: ProjectAcquisitionPlanBundleInput[];
+  purchaseRows?: ProjectAcquisitionPurchaseRowInput[];
+}
+
+export type ProjectAcquisitionServiceDestinationType = 'existing-service' | 'new-service';
+
+export interface ProjectAcquisitionPlanBundleInput {
+  id?: string;
+  title: string;
+  destinationType: ProjectAcquisitionServiceDestinationType;
+  existingServiceProjectSlug?: string;
+  newServiceTitle?: string;
+  note?: string;
+}
+
+export interface ProjectAcquisitionPurchaseRowInput {
+  id?: string;
+  title: string;
+  costLabel: string;
+  purchaseHref: string;
+  destinationBundleId: string;
+  note?: string;
+}
+
+export interface ProjectAcquisitionExecutionInput {
+  proofLabel: string;
+  note?: string;
 }
 
 export interface ProjectDistributionPlanInput {
@@ -155,6 +234,15 @@ export interface ProjectDistributionPlanInput {
   allowOffScheduleRequests?: boolean;
 }
 
+export interface EventPlanInput {
+  title: string;
+  description: string;
+  demandConsiderationNote: string;
+  locationLabel: string;
+  schedule?: EventPlanScheduleInput;
+  planPhases: EventPlanPhaseInput[];
+}
+
 export interface ProjectActivityRoleInput {
   label: string;
   requiredCount: number;
@@ -167,6 +255,9 @@ export interface ProjectProductionPlan {
   authorUsername: string;
   createdAt: string;
   description: string;
+  projectSubtype: ProjectSubtype;
+  projectSubtypeLabel: string;
+  repositoryUrl?: string | null;
   demandSignalSnapshot: number | null;
   demandConsiderationNote: string;
   planPhases: ProjectPlanPhaseItem[];
@@ -174,9 +265,32 @@ export interface ProjectProductionPlan {
   materialsSummary: string;
   totalCostLabel: string;
   acquisitionsSummary: string;
+  acquisitionBundles: ProjectAcquisitionPlanBundle[];
+  purchaseRows: ProjectAcquisitionPurchaseRow[];
   valueAssessments: ProjectPlanValueAssessment[];
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
+  viewerCanEdit: boolean;
+}
+
+export interface ProjectAcquisitionPlanBundle {
+  id: string;
+  title: string;
+  destinationType: ProjectAcquisitionServiceDestinationType;
+  destinationLabel: string;
+  existingServiceProjectSlug?: string | null;
+  newServiceTitle?: string | null;
+  note: string;
+}
+
+export interface ProjectAcquisitionPurchaseRow {
+  id: string;
+  title: string;
+  costLabel: string;
+  purchaseHref: string;
+  destinationBundleId: string;
+  destinationLabel: string;
+  note: string;
 }
 
 export interface ProjectDistributionPlan {
@@ -185,6 +299,7 @@ export interface ProjectDistributionPlan {
   authorUsername: string;
   createdAt: string;
   description: string;
+  repositoryUrl?: string | null;
   demandSignalSnapshot: number | null;
   demandConsiderationNote: string;
   totalCostLabel: string;
@@ -195,6 +310,22 @@ export interface ProjectDistributionPlan {
   requestSystemEnabled: boolean;
   requestMode?: ProjectServiceRequestMode;
   allowOffScheduleRequests?: boolean;
+  valueAssessments: ProjectPlanValueAssessment[];
+  overallApproval: ProjectPlanVoteSummary;
+  isLeading: boolean;
+}
+
+export interface EventPlan {
+  id: string;
+  title: string;
+  authorUsername: string;
+  createdAt: string;
+  description: string;
+  demandSignalSnapshot: number | null;
+  demandConsiderationNote: string;
+  locationLabel: string;
+  schedule: EventPlanSchedule;
+  planPhases: EventPlanPhaseItem[];
   valueAssessments: ProjectPlanValueAssessment[];
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
@@ -235,6 +366,110 @@ export interface ProjectActivityItem {
   roles: ProjectActivityRole[];
   note: string;
   isActive: boolean;
+}
+
+export interface ProjectSoftwareMergeCapabilityMember extends DetailMember {
+  sourceLabel: string;
+}
+
+export interface ProjectSoftwareMergeCapabilityChangeInput {
+  targetUserId: string;
+  action: 'grant' | 'revoke';
+}
+
+export interface ProjectSoftwareMergeCapabilityChangeRequest {
+  id: string;
+  decisionId: string;
+  action: 'grant' | 'revoke';
+  actionLabel: string;
+  targetMember: DetailMember;
+  authorUsername: string;
+  createdAt: string;
+  approvalThresholdPercent: number;
+  voteSummary: ProjectPlanVoteSummary | null;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
+}
+
+export interface ProjectSoftwareRepositoryReplacementInput {
+  repositoryUrl: string;
+  reason: string;
+  relatedPullRequestId: string;
+}
+
+export interface ProjectSoftwareRepositoryReplacementRequest {
+  id: string;
+  decisionId: string;
+  repositoryUrl: string;
+  previousRepositoryUrl: string;
+  reason: string;
+  relatedPullRequestId: string;
+  authorUsername: string;
+  createdAt: string;
+  approvalThresholdPercent: number;
+  voteSummary: ProjectPlanVoteSummary | null;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
+}
+
+export interface ProjectSoftwareBlockedPullRequest {
+  id: string;
+  title: string;
+  pullRequestId: string;
+  stage: 'awaiting-merge' | 'rejected';
+  stageLabel: string;
+}
+
+export interface ProjectSoftwareRepositoryRecord {
+  id: string;
+  repositoryUrl: string;
+  previousRepositoryUrl: string;
+  reason: string;
+  relatedPullRequestId: string;
+  replacedAt: string;
+  replacedByUsername: string;
+}
+
+export interface ProjectSoftwarePullRequestInput {
+  title: string;
+  summary: string;
+  pullRequestId: string;
+  pullRequestUrl: string;
+}
+
+export interface ProjectSoftwarePullRequest {
+  id: string;
+  decisionId: string | null;
+  title: string;
+  summary: string;
+  pullRequestId: string;
+  pullRequestUrl: string;
+  authorUsername: string;
+  createdAt: string;
+  stage: 'approval' | 'awaiting-merge' | 'confirmation' | 'confirmed' | 'rejected' | 'replaced';
+  stageLabel: string;
+  mergeId: string | null;
+  mergedByUsername: string | null;
+  approvalThresholdPercent: number;
+  voteSummary: ProjectPlanVoteSummary | null;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
+  viewerCanRecordMerge: boolean;
+}
+
+export interface ProjectSoftwareGovernanceData {
+  repositoryUrl: string;
+  licenseLabel: string;
+  mergeCapabilityMembers: ProjectSoftwareMergeCapabilityMember[];
+  availableMergeCapabilityCandidates: DetailMember[];
+  mergeCapabilityChangeRequests: ProjectSoftwareMergeCapabilityChangeRequest[];
+  repositoryReplacementRequests: ProjectSoftwareRepositoryReplacementRequest[];
+  replaceablePullRequests: ProjectSoftwareBlockedPullRequest[];
+  repositoryHistory: ProjectSoftwareRepositoryRecord[];
+  pullRequests: ProjectSoftwarePullRequest[];
+  viewerCanCreatePullRequests: boolean;
+  viewerCanRequestMergeCapabilityChanges: boolean;
+  viewerCanRequestRepositoryReplacement: boolean;
 }
 
 export interface ProjectServiceHistoryCompletionState {
@@ -332,6 +567,23 @@ export interface ProjectLifecycleRevertEntry {
   createdAt: string;
 }
 
+export interface ProjectConversionTargetInput {
+  projectMode: ProjectMode;
+  projectSubtype: ProjectSubtype;
+}
+
+export interface ProjectConversionTarget extends ProjectConversionTargetInput {
+  projectModeLabel: string;
+  projectSubtypeLabel: string;
+  entryPhaseId: ProjectLifecyclePhaseId;
+  entryPhaseLabel: string;
+}
+
+export interface ProjectPhaseChangeRequestOptions {
+  closeOutcome?: 'close' | 'convert';
+  conversionTarget?: ProjectConversionTargetInput | null;
+}
+
 export interface ProjectLifecyclePhaseChangeRequest {
   id: string;
   targetPhaseId: ProjectLifecyclePhaseId;
@@ -340,6 +592,8 @@ export interface ProjectLifecyclePhaseChangeRequest {
   authorUsername: string;
   createdAt: string;
   kind: 'advance' | 'return' | 'close';
+  closeOutcome?: 'close' | 'convert';
+  conversionTarget?: ProjectConversionTarget | null;
   approvalThresholdPercent: number;
   voteSummary: ProjectPlanVoteSummary;
   passesApprovalThreshold: boolean;
@@ -392,12 +646,291 @@ export interface EventEditRequest {
   canStillPass: boolean;
 }
 
+export interface EventLifecyclePhaseChangeRequest {
+  id: string;
+  targetPhaseId: EventLifecyclePhaseId;
+  targetPhaseLabel: string;
+  reason: string;
+  authorUsername: string;
+  createdAt: string;
+  kind: 'advance' | 'return' | 'close';
+  approvalThresholdPercent: number;
+  voteSummary: ProjectPlanVoteSummary;
+  passesApprovalThreshold: boolean;
+  canStillPass: boolean;
+}
+
+export interface EventLifecyclePhase {
+  id: EventLifecyclePhaseId;
+  order: number;
+  shortLabel: string;
+  title: string;
+  summary: string;
+  progressState: ProjectLifecycleProgressState;
+  betaLocked?: boolean;
+  eventStatus: string;
+  mechanics: string[];
+  note?: string;
+}
+
+export interface EventPhaseOneData {
+  values: ProjectValueItem[];
+  viewerCanSignalDemand: boolean;
+  viewerHasDemandSignal: boolean;
+  viewerCanSignalOpposition: boolean;
+  viewerHasOppositionSignal: boolean;
+  signalSummary: GovernanceSignalSummary | null;
+  viewerCanAddValue: boolean;
+  viewerCanVoteOnValues: boolean;
+}
+
+export interface EventPhaseTwoData {
+  plans: EventPlan[];
+  winningPlanId: string | null;
+  viewerCanSubmitPlans: boolean;
+  viewerCanVoteOnPlans: boolean;
+}
+
+export interface EventPhaseActivityData {
+  activities: ProjectActivityItem[];
+  viewerCanCreateActivities: boolean;
+  selectablePlanPhases: ProjectActivityPlanPhaseOption[];
+}
+
+export interface EventLifecycleData {
+  currentPhaseId: EventLifecyclePhaseId;
+  quorumThresholdPercent: number;
+  quorumVotesRequired: number;
+  voteContextLabel: string;
+  voteContextPopulation: number;
+  phases: EventLifecyclePhase[];
+  phaseOne: EventPhaseOneData;
+  phaseTwo: EventPhaseTwoData;
+  activity: EventPhaseActivityData;
+  viewerCanRequestPhaseChanges: boolean;
+  viewerCanVoteOnPhaseChanges: boolean;
+  phaseChangeRequests: EventLifecyclePhaseChangeRequest[];
+  revertablePhaseIds: EventLifecyclePhaseId[];
+  previousPhaseId: EventLifecyclePhaseId | null;
+  previousPhaseLabel: string | null;
+  nextPhaseId: EventLifecyclePhaseId | null;
+  nextPhaseLabel: string | null;
+}
+
+export interface ProjectPlaceholderSection {
+  id: string;
+  title: string;
+  body: string;
+  statusLabel?: string;
+}
+
+export interface ProjectRequestFrame {
+  id: 'borrowing' | 'delivery' | 'asset-use';
+  title: string;
+  body: string;
+  statusLabel?: string;
+}
+
+export interface ProjectAcquisitionPreviewFund {
+  title: string;
+  progressPercent: number;
+  raisedLabel: string;
+  targetLabel: string;
+  statusLabel: string;
+  note: string;
+}
+
+export interface ProjectAcquisitionPreviewItem {
+  id: string;
+  title: string;
+  sourceLabel: string;
+  costLabel: string;
+  statusLabel: string;
+  note: string;
+  href?: string | null;
+  purchaseHref?: string | null;
+  destinationBundleId?: string | null;
+  destinationLabel?: string | null;
+}
+
+export interface ProjectAcquisitionBundle {
+  id: string;
+  title: string;
+  destinationType: 'existing-service' | 'new-service';
+  destinationLabel: string;
+  statusLabel: string;
+  note: string;
+}
+
+export interface ProjectAcquisitionExecutionFrame {
+  statusLabel: string;
+  boardActionLabel: string;
+  proofLabel: string;
+  note: string;
+  recordedByUsername: string;
+  recordedAt: string;
+}
+
+export interface ProjectAcquisitionConfirmationFrame {
+  statusLabel: string;
+  note: string;
+  voteSummary: ProjectPlanVoteSummary;
+  viewerCanVote: boolean;
+}
+
+export interface ProjectAcquisitionPendingAsset {
+  id: string;
+  title: string;
+  statusLabel: string;
+  destinationLabel: string;
+  note: string;
+}
+
+export interface ProjectPhaseFourData {
+  intro: string;
+  previewNote: string;
+  phaseLabel: string;
+  fund: ProjectAcquisitionPreviewFund | null;
+  existingAssets: ProjectAcquisitionPreviewItem[];
+  purchaseTargets: ProjectAcquisitionPreviewItem[];
+  bundles: ProjectAcquisitionBundle[];
+  execution: ProjectAcquisitionExecutionFrame | null;
+  confirmation: ProjectAcquisitionConfirmationFrame | null;
+  pendingAssets: ProjectAcquisitionPendingAsset[];
+  viewerCanRecordExecution: boolean;
+  placeholderSections: ProjectPlaceholderSection[];
+}
+
+export interface ProjectLinksFrameItem {
+  id: string;
+  title: string;
+  relationshipLabel: string;
+  summary: string;
+  href?: string | null;
+  publicItem?: PublicProjectItem | null;
+}
+
+export interface ProjectConversionLineageFrame {
+  title: string;
+  statusLabel: string;
+  summary: string;
+  permanenceNote: string;
+  inventoryNote: string;
+  predecessor: ProjectLinksFrameItem | null;
+  successor: ProjectLinksFrameItem | null;
+}
+
+export interface ProjectConversionWorkflowItem {
+  id: string;
+  title: string;
+  statusLabel: string;
+  requestedByUsername: string;
+  createdAtLabel: string;
+  outcomeLabel: string;
+  summary: string;
+  inventoryNote: string;
+  canVote: boolean;
+  voteSummary: ProjectPlanVoteSummary;
+  approvalThresholdPercent: number;
+  target: ProjectConversionTarget;
+  predecessor: ProjectLinksFrameItem | null;
+  successor: ProjectLinksFrameItem | null;
+}
+
+export interface ProjectManualLinkVoteState {
+  projectTitle: string;
+  yesCount: number;
+  noCount: number;
+  memberCount: number;
+  approvalsRequired: number;
+  approvalsRemaining: number;
+  approvalPercent: number;
+  statusLabel: string;
+  resultNote: string;
+  viewerCanVote?: boolean;
+  viewerVote?: ProjectApprovalVote | null;
+}
+
+export interface ProjectManualLinkRequest {
+  id: string;
+  title: string;
+  relationshipLabel: string;
+  summary: string;
+  statusLabel: string;
+  proposedByUsername: string;
+  createdAtLabel: string;
+  targetProjectHref?: string | null;
+  thisProjectVote: ProjectManualLinkVoteState;
+  otherProjectVote: ProjectManualLinkVoteState;
+}
+
+export interface ProjectLinkCandidate {
+  slug: string;
+  title: string;
+  href: string;
+}
+
+export interface ProjectLinksFrameData {
+  projectSlug: string;
+  intro: string;
+  autoLinks: ProjectLinksFrameItem[];
+  manualLinks: ProjectLinksFrameItem[];
+  manualLinkRequests: ProjectManualLinkRequest[];
+  linkableProjects: ProjectLinkCandidate[];
+  viewerCanProposeLinks: boolean;
+  conversionNote: string;
+  conversionWorkflow: ProjectConversionWorkflowItem[];
+  conversionLineage: ProjectConversionLineageFrame | null;
+  requestFrames: ProjectRequestFrame[];
+  placeholderSections: ProjectPlaceholderSection[];
+}
+
+export interface ProjectInventoryAssetFrameItem {
+  id: string;
+  title: string;
+  statusLabel: string;
+  custodyLabel: string;
+  summary: string;
+  locationLabel?: string;
+  quantity?: number;
+  availableQuantity?: number;
+  quantityLabel?: string;
+  borrowingPolicyLabel?: string;
+  availabilityLabel?: string;
+  governanceNote?: string;
+  historyLabel?: string;
+  href?: string | null;
+}
+
+export interface ProjectInventoryAssetGroup {
+  id: string;
+  kind: 'land-asset' | 'asset';
+  title: string;
+  assets: ProjectInventoryAssetFrameItem[];
+}
+
+export interface ProjectInventoryFrameData {
+  projectSlug: string;
+  intro: string;
+  statusLabel: string;
+  assetGroups: ProjectInventoryAssetGroup[];
+  canRequestAssets: boolean;
+  requestFrames: ProjectRequestFrame[];
+  acquisitionPreview: ProjectPhaseFourData | null;
+  placeholderSections: ProjectPlaceholderSection[];
+}
+
 export type DecisionHistoryStatus = 'open' | 'approved' | 'rejected';
 export type DecisionHistoryEntryKind =
   | 'project-phase-change'
   | 'project-update'
   | 'project-edit'
   | 'project-request-settings-change'
+  | 'project-pull-request-approval'
+  | 'project-pull-request-confirmation'
+  | 'project-merge-capability-change'
+  | 'project-repository-replacement'
+  | 'event-phase-change'
   | 'event-update'
   | 'event-edit';
 
@@ -410,11 +943,13 @@ export interface DecisionHistoryFieldChange {
 export interface DecisionHistoryPhaseChangePayload {
   type: 'phase-change';
   changeKind: 'advance' | 'return' | 'close';
-  fromPhaseId: ProjectLifecyclePhaseId;
+  fromPhaseId: GovernancePhaseId;
   fromPhaseLabel: string;
-  toPhaseId: ProjectLifecyclePhaseId;
+  toPhaseId: GovernancePhaseId;
   toPhaseLabel: string;
   reason: string;
+  closeOutcome?: 'close' | 'convert';
+  conversionTarget?: ProjectConversionTarget | null;
 }
 
 export interface DecisionHistoryUpdatePayload {
@@ -435,11 +970,39 @@ export interface DecisionHistorySettingsChangePayload {
   proposedSettings: ProjectServiceRequestSettings;
 }
 
+export interface DecisionHistoryPullRequestPayload {
+  type: 'pull-request';
+  title: string;
+  summary: string;
+  pullRequestId: string;
+  pullRequestUrl: string;
+  mergeId: string | null;
+  repositoryUrl: string | null;
+}
+
+export interface DecisionHistoryMergeCapabilityPayload {
+  type: 'merge-capability';
+  action: 'grant' | 'revoke';
+  actionLabel: string;
+  targetUsername: string;
+}
+
+export interface DecisionHistoryRepositoryReplacementPayload {
+  type: 'repository-replacement';
+  repositoryUrl: string;
+  previousRepositoryUrl: string | null;
+  reason: string;
+  relatedPullRequestId: string | null;
+}
+
 export type DecisionHistoryPayload =
   | DecisionHistoryPhaseChangePayload
   | DecisionHistoryUpdatePayload
   | DecisionHistoryEditPayload
-  | DecisionHistorySettingsChangePayload;
+  | DecisionHistorySettingsChangePayload
+  | DecisionHistoryPullRequestPayload
+  | DecisionHistoryMergeCapabilityPayload
+  | DecisionHistoryRepositoryReplacementPayload;
 
 export interface DecisionHistoryEntry {
   id: string;
@@ -461,6 +1024,9 @@ export interface ProjectPhaseOneData {
   values: ProjectValueItem[];
   viewerCanSignalDemand: boolean;
   viewerHasDemandSignal: boolean;
+  viewerCanSignalOpposition: boolean;
+  viewerHasOppositionSignal: boolean;
+  signalSummary: GovernanceSignalSummary | null;
   viewerCanAddValue: boolean;
   viewerCanVoteOnValues: boolean;
   availabilitySummary?: string;
@@ -472,6 +1038,7 @@ export interface ProjectPhaseTwoData {
   winningPlanId: string | null;
   viewerCanSubmitPlans: boolean;
   viewerCanVoteOnPlans: boolean;
+  availableAssetManagementServices: ProjectLinkCandidate[];
 }
 
 export interface ProjectPhaseThreeData {
@@ -487,6 +1054,7 @@ export interface ProjectPhaseFiveData {
   history: ProjectServiceHistoryItem[];
   viewerCanCreateActivities: boolean;
   selectablePlanPhases: ProjectActivityPlanPhaseOption[];
+  softwareGovernance: ProjectSoftwareGovernanceData | null;
 }
 
 export interface ProjectServiceRequestState {
@@ -529,10 +1097,16 @@ export interface ProjectLifecycleNote {
 
 export interface ProjectLifecycleData {
   projectMode: ProjectMode;
+  currentSubtype: ProjectSubtype | null;
+  currentSubtypeLabel: string | null;
+  usesPlatformLifecycle: boolean;
   supportsDemandSignals: boolean;
   supportsPlanning: boolean;
   currentPhaseId: ProjectLifecyclePhaseId;
   quorumThresholdPercent: number;
+  quorumVotesRequired: number;
+  voteContextLabel: string;
+  voteContextPopulation: number;
   notes: ProjectLifecycleNote[];
   phases: ProjectLifecyclePhase[];
   viewerCanRequestPhaseChanges: boolean;
@@ -549,6 +1123,7 @@ export interface ProjectLifecycleData {
   phaseOne: ProjectPhaseOneData;
   phaseTwo: ProjectPhaseTwoData;
   phaseThree: ProjectPhaseThreeData;
+  phaseFour: ProjectPhaseFourData | null;
   phaseFive: ProjectPhaseFiveData;
 }
 
@@ -559,6 +1134,7 @@ export interface ProjectPageData {
   title: string;
   authorUsername: string;
   projectMode: ProjectMode;
+  projectSubtype?: ProjectSubtype | null;
   description: string;
   channelTags: TagRef[];
   communityTags: TagRef[];
@@ -578,6 +1154,8 @@ export interface ProjectPageData {
   editRequests: ProjectEditRequest[];
   viewerCanRequestEdit: boolean;
   viewerCanVoteOnEditRequests: boolean;
+  linksFrame: ProjectLinksFrameData;
+  inventoryFrame: ProjectInventoryFrameData | null;
   history: DecisionHistoryEntry[];
   projectManagers: ProjectRoleMember[];
   members: ProjectRoleMember[];
@@ -615,6 +1193,7 @@ export interface ThreadPageData {
 export interface PostPageData {
   id: string;
   authorUsername: string;
+  authorProfileImageUrl?: string | null;
   body: string;
   linkedSubjects?: PostBodyLink[];
   audience: 'followers' | 'public';
@@ -647,6 +1226,8 @@ export interface EventPageData {
   goingCount: number;
   memberCount: number;
   lastActivityAt: string;
+  signalSummary: GovernanceSignalSummary | null;
+  lifecycle: EventLifecycleData;
   attendanceNote: string;
   agenda: string[];
   updates: DetailUpdate[];

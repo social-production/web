@@ -1,4 +1,4 @@
-import { s as sendMockMessage, m as markMockMessageThreadRead, a as markAllMockNotificationsRead, b as markMockNotificationRead, c as addMockEventUpdate, d as addMockProjectUpdate, e as addMockComment, f as setMockVote, r as redeemMockScopeInvite, t as toggleMockScopeMembership, g as inviteMockEventManager, h as toggleMockEventManagerNomination, j as toggleMockProjectManagerNomination, k as revertMockProjectPhase, l as advanceMockProjectPhase, n as setMockProjectServiceRequestStatus, o as addMockProjectServiceRequest, q as addMockProjectActivity, u as setMockProjectPlanOverallVote, v as setMockProjectPlanValueVote, w as addMockProjectDistributionPlan, x as addMockProjectProductionPlan, y as setMockProjectValueImportance, z as addMockProjectValue, A as toggleMockProjectDemandSignal, B as toggleMockProjectMembership, C as toggleMockEventGoing, D as findEventFixture, E as findPostFixture, F as findThreadFixture, G as findProjectFixture, H as buildSearchFixture, I as findMessagesFixture, J as findNotificationsFixture, K as findProfileFixture, L as updateMockSettings, M as getSettingsFixture, N as onboardingFixture, O as getStewardshipScopeFixture, P as findCommunityScopeFixture, Q as findChannelScopeFixture, R as getPersonalFeedFixture, S as getPublicFeedFixture, T as hydrateMockClientState, U as getBootstrapFixture } from "./data.js";
+import { r as removeMockGroupConversationMember, h as addMockGroupConversationMember, j as renameMockGroupConversation, k as createMockGroupConversation, l as startMockDirectMessage, m as sendMockMessage, n as markMockConversationRead, o as markAllMockNotificationsRead, q as markMockNotificationRead, t as shareMockEventWithUser, u as shareMockProjectWithUser, v as revokeMockEventEditAccess, w as grantMockEventEditAccess, x as setMockEventEditVote, y as requestMockEventEdit, z as setMockEventUpdateVote, A as requestMockEventUpdate, B as setMockEventPhaseChangeVote, C as requestMockEventPhaseChange, D as setMockEventActivityCommitment, E as addMockEventActivity, F as setMockEventPlanOverallVote, G as setMockEventPlanValueVote, H as addMockEventPlan, I as setMockEventValueImportance, J as addMockEventValue, K as setMockEventSignal, L as addMockProjectUpdate, M as setMockReportVote, N as submitMockReport, O as addMockComment, P as setMockVote, Q as redeemMockScopeInvite, R as toggleMockScopeMembership, S as revertMockProjectPhase, T as advanceMockProjectPhase, U as recordMockProjectPullRequestMerge, V as setMockProjectRepositoryReplacementVote, W as setMockProjectMergeCapabilityChangeVote, X as setMockProjectPullRequestVote, Y as setMockProjectEditVote, Z as requestMockProjectEdit, _ as updateMockProjectDetails, $ as setMockProjectUpdateVote, a0 as requestMockProjectUpdate, a1 as setMockProjectPhaseChangeVote, a2 as requestMockProjectPhaseChange, a3 as setMockProjectServiceHistoryCompletion, a4 as setMockProjectServiceRequestSettingsChangeVote, a5 as requestMockProjectServiceRequestSettingsChange, a6 as setMockProjectServiceRequestStatus, a7 as planMockProjectServiceRequest, a8 as addMockProjectServiceRequest, a9 as setMockProjectActivityCommitment, aa as addMockProjectActivity, ab as setMockProjectPlanOverallVote, ac as setMockProjectPlanValueVote, ad as requestMockProjectRepositoryReplacement, ae as requestMockProjectMergeCapabilityChange, af as addMockProjectPullRequest, ag as addMockProjectDistributionPlan, ah as addMockProjectProductionPlan, ai as setMockProjectValueImportance, aj as addMockProjectValue, ak as setMockProjectSignal, al as toggleMockProjectDemandSignal, am as toggleMockProjectMembership, an as toggleMockEventGoing, ao as findEventFixture, ap as findPostFixture, aq as createMockCommunity, ar as createMockChannel, as as createMockPost, at as createMockEvent, au as createMockThread, av as createMockProject, aw as findThreadFixture, ax as findProjectFixture, ay as buildSearchFixture, az as findMessagesFixture, aA as findNotificationsFixture, aB as findProfileFixture, aC as updateMockSettings, aD as getSettingsFixture, aE as signUpMockAccount, aF as signInMockAccount, aG as onboardingFixture, aH as getPlatformAssetsFixture, aI as getPlatformScopeFixture, aJ as findCommunityScopeFixture, aK as findChannelScopeFixture, aL as getPersonalFeedFixture, aM as getPublicFeedFixture, aN as hydrateMockClientState, aO as getBootstrapFixture, aP as signOutMockAccount } from "./data.js";
 const devAdapter = {
   async getBootstrap() {
     return structuredClone(getBootstrapFixture());
@@ -18,11 +18,23 @@ const devAdapter = {
   async getCommunity(slug) {
     return structuredClone(findCommunityScopeFixture(slug));
   },
-  async getStewardship() {
-    return structuredClone(getStewardshipScopeFixture());
+  async getPlatform() {
+    return structuredClone(getPlatformScopeFixture());
+  },
+  async getPlatformAssets() {
+    return structuredClone(getPlatformAssetsFixture());
   },
   async getOnboarding() {
     return structuredClone(onboardingFixture);
+  },
+  async signIn(input) {
+    return structuredClone(signInMockAccount(input));
+  },
+  async signOut() {
+    signOutMockAccount();
+  },
+  async signUp(input) {
+    return structuredClone(signUpMockAccount(input));
   },
   async getSettings() {
     return structuredClone(getSettingsFixture());
@@ -48,6 +60,24 @@ const devAdapter = {
   async getThread(slug) {
     return structuredClone(findThreadFixture(slug));
   },
+  async createProject(input) {
+    return structuredClone(createMockProject(input));
+  },
+  async createThread(input) {
+    return structuredClone(createMockThread(input));
+  },
+  async createEvent(input) {
+    return structuredClone(createMockEvent(input));
+  },
+  async createPost(input) {
+    return structuredClone(createMockPost(input));
+  },
+  async createChannel(input) {
+    return structuredClone(createMockChannel(input));
+  },
+  async createCommunity(input) {
+    return structuredClone(createMockCommunity(input));
+  },
   async getPost(id) {
     return structuredClone(findPostFixture(id));
   },
@@ -63,6 +93,9 @@ const devAdapter = {
   async toggleProjectDemandSignal(projectSlug) {
     toggleMockProjectDemandSignal(projectSlug);
   },
+  async setProjectSignal(projectSlug, signal) {
+    setMockProjectSignal(projectSlug, signal);
+  },
   async addProjectValue(projectSlug, label) {
     addMockProjectValue(projectSlug, label);
   },
@@ -70,10 +103,19 @@ const devAdapter = {
     setMockProjectValueImportance(projectSlug, valueId, importance);
   },
   async addProjectProductionPlan(projectSlug, input) {
-    addMockProjectProductionPlan(projectSlug, input);
+    return addMockProjectProductionPlan(projectSlug, input);
   },
   async addProjectDistributionPlan(projectSlug, input) {
-    addMockProjectDistributionPlan(projectSlug, input);
+    return addMockProjectDistributionPlan(projectSlug, input);
+  },
+  async addProjectPullRequest(projectSlug, input) {
+    addMockProjectPullRequest(projectSlug, input);
+  },
+  async requestProjectMergeCapabilityChange(projectSlug, input) {
+    requestMockProjectMergeCapabilityChange(projectSlug, input);
+  },
+  async requestProjectRepositoryReplacement(projectSlug, input) {
+    requestMockProjectRepositoryReplacement(projectSlug, input);
   },
   async setProjectPlanValueVote(projectSlug, phaseId, planId, valueId, vote) {
     setMockProjectPlanValueVote(projectSlug, phaseId, planId, valueId, vote);
@@ -84,26 +126,67 @@ const devAdapter = {
   async addProjectActivity(projectSlug, input) {
     addMockProjectActivity(projectSlug, input);
   },
-  async addProjectServiceRequest(projectSlug, title, body) {
-    addMockProjectServiceRequest(projectSlug, title, body);
+  async setProjectActivityCommitment(projectSlug, activityId, roleLabel) {
+    setMockProjectActivityCommitment(projectSlug, activityId, roleLabel);
+  },
+  async addProjectServiceRequest(projectSlug, input) {
+    addMockProjectServiceRequest(projectSlug, input);
+  },
+  async planProjectServiceRequest(projectSlug, requestId, input) {
+    planMockProjectServiceRequest(projectSlug, requestId, input);
   },
   async setProjectServiceRequestStatus(projectSlug, requestId, status) {
     setMockProjectServiceRequestStatus(projectSlug, requestId, status);
   },
-  async advanceProjectPhase(projectSlug) {
-    advanceMockProjectPhase(projectSlug);
+  async requestProjectServiceRequestSettingsChange(projectSlug, input) {
+    requestMockProjectServiceRequestSettingsChange(projectSlug, input);
+  },
+  async setProjectServiceRequestSettingsChangeVote(projectSlug, requestId, vote) {
+    setMockProjectServiceRequestSettingsChangeVote(projectSlug, requestId, vote);
+  },
+  async toggleProjectServiceHistoryCompletion(projectSlug, historyId, role, selection) {
+    setMockProjectServiceHistoryCompletion(projectSlug, historyId, role, selection);
+  },
+  async requestProjectPhaseChange(projectSlug, targetPhaseId, reason, options) {
+    requestMockProjectPhaseChange(projectSlug, targetPhaseId, reason, options);
+  },
+  async setProjectPhaseChangeVote(projectSlug, requestId, vote) {
+    setMockProjectPhaseChangeVote(projectSlug, requestId, vote);
+  },
+  async requestProjectUpdate(projectSlug, body) {
+    requestMockProjectUpdate(projectSlug, body);
+  },
+  async setProjectUpdateVote(projectSlug, requestId, vote) {
+    setMockProjectUpdateVote(projectSlug, requestId, vote);
+  },
+  async updateProjectDetails(projectSlug, title, description) {
+    updateMockProjectDetails(projectSlug, title, description);
+  },
+  async requestProjectEdit(projectSlug, title, description) {
+    requestMockProjectEdit(projectSlug, title, description);
+  },
+  async setProjectEditVote(projectSlug, requestId, vote) {
+    setMockProjectEditVote(projectSlug, requestId, vote);
+  },
+  async setProjectPullRequestVote(projectSlug, decisionId, vote) {
+    setMockProjectPullRequestVote(projectSlug, decisionId, vote);
+  },
+  async setProjectMergeCapabilityChangeVote(projectSlug, decisionId, vote) {
+    setMockProjectMergeCapabilityChangeVote(projectSlug, decisionId, vote);
+  },
+  async setProjectRepositoryReplacementVote(projectSlug, decisionId, vote) {
+    setMockProjectRepositoryReplacementVote(projectSlug, decisionId, vote);
+  },
+  async recordProjectPullRequestMerge(projectSlug, requestId, mergeId) {
+    recordMockProjectPullRequestMerge(projectSlug, requestId, mergeId);
+  },
+  async advanceProjectPhase(projectSlug, closeNote) {
+    advanceMockProjectPhase(projectSlug, closeNote);
   },
   async revertProjectPhase(projectSlug, targetPhaseId, reason) {
     revertMockProjectPhase(projectSlug, targetPhaseId, reason);
   },
   async toggleProjectManagerNomination(projectSlug) {
-    toggleMockProjectManagerNomination(projectSlug);
-  },
-  async toggleEventManagerNomination(eventSlug) {
-    toggleMockEventManagerNomination(eventSlug);
-  },
-  async inviteEventManager(eventSlug, userId) {
-    inviteMockEventManager(eventSlug, userId);
   },
   async toggleScopeMembership(kind, slug) {
     toggleMockScopeMembership(kind, slug);
@@ -117,11 +200,68 @@ const devAdapter = {
   async addComment(subjectId, body, parentId) {
     addMockComment(subjectId, body, parentId);
   },
+  async submitReport(subjectId, targetId, reason, details) {
+    submitMockReport(subjectId, targetId, reason, details);
+  },
+  async setReportVote(targetId, vote) {
+    setMockReportVote(targetId, vote);
+  },
   async addProjectUpdate(projectSlug, title, body) {
     addMockProjectUpdate(projectSlug, title, body);
   },
-  async addEventUpdate(eventSlug, title, body) {
-    addMockEventUpdate(eventSlug, title, body);
+  async setEventSignal(eventSlug, signal) {
+    setMockEventSignal(eventSlug, signal);
+  },
+  async addEventValue(eventSlug, label) {
+    addMockEventValue(eventSlug, label);
+  },
+  async setEventValueImportance(eventSlug, valueId, importance) {
+    setMockEventValueImportance(eventSlug, valueId, importance);
+  },
+  async addEventPlan(eventSlug, input) {
+    return addMockEventPlan(eventSlug, input);
+  },
+  async setEventPlanValueVote(eventSlug, planId, valueId, vote) {
+    setMockEventPlanValueVote(eventSlug, planId, valueId, vote);
+  },
+  async setEventPlanOverallVote(eventSlug, planId, vote) {
+    setMockEventPlanOverallVote(eventSlug, planId, vote);
+  },
+  async addEventActivity(eventSlug, input) {
+    addMockEventActivity(eventSlug, input);
+  },
+  async setEventActivityCommitment(eventSlug, activityId, roleLabel) {
+    setMockEventActivityCommitment(eventSlug, activityId, roleLabel);
+  },
+  async requestEventPhaseChange(eventSlug, targetPhaseId, reason) {
+    requestMockEventPhaseChange(eventSlug, targetPhaseId, reason);
+  },
+  async setEventPhaseChangeVote(eventSlug, requestId, vote) {
+    setMockEventPhaseChangeVote(eventSlug, requestId, vote);
+  },
+  async requestEventUpdate(eventSlug, body) {
+    requestMockEventUpdate(eventSlug, body);
+  },
+  async setEventUpdateVote(eventSlug, requestId, vote) {
+    setMockEventUpdateVote(eventSlug, requestId, vote);
+  },
+  async requestEventEdit(eventSlug, title, description) {
+    requestMockEventEdit(eventSlug, title, description);
+  },
+  async setEventEditVote(eventSlug, requestId, vote) {
+    setMockEventEditVote(eventSlug, requestId, vote);
+  },
+  async grantEventEditAccess(eventSlug, userId) {
+    grantMockEventEditAccess(eventSlug, userId);
+  },
+  async revokeEventEditAccess(eventSlug, userId) {
+    revokeMockEventEditAccess(eventSlug, userId);
+  },
+  async shareProjectWithUser(projectSlug, username) {
+    return structuredClone(shareMockProjectWithUser(projectSlug, username));
+  },
+  async shareEventWithUser(eventSlug, username) {
+    return structuredClone(shareMockEventWithUser(eventSlug, username));
   },
   async markNotificationRead(notificationId) {
     markMockNotificationRead(notificationId);
@@ -129,11 +269,26 @@ const devAdapter = {
   async markAllNotificationsRead() {
     markAllMockNotificationsRead();
   },
-  async markMessageThreadRead(threadId) {
-    markMockMessageThreadRead(threadId);
+  async markConversationRead(conversationId) {
+    markMockConversationRead(conversationId);
   },
-  async sendMessage(threadId, body) {
-    sendMockMessage(threadId, body);
+  async sendMessage(conversationId, body) {
+    sendMockMessage(conversationId, body);
+  },
+  async startDirectMessage(participantUsername, body) {
+    return structuredClone(startMockDirectMessage(participantUsername, body));
+  },
+  async createGroupConversation(input) {
+    return structuredClone(createMockGroupConversation(input));
+  },
+  async renameGroupConversation(conversationId, title) {
+    return structuredClone(renameMockGroupConversation(conversationId, title));
+  },
+  async addGroupConversationMember(conversationId, username) {
+    return structuredClone(addMockGroupConversationMember(conversationId, username));
+  },
+  async removeGroupConversationMember(conversationId, username) {
+    return structuredClone(removeMockGroupConversationMember(conversationId, username));
   }
 };
 const currentAdapter = devAdapter;

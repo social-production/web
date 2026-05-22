@@ -6,6 +6,7 @@
   import ProjectChatTab from '$lib/features/projects/detail/ProjectChatTab.svelte';
   import ProjectHistoryTab from '$lib/features/projects/detail/ProjectHistoryTab.svelte';
   import ProjectLifecyclePanel from '$lib/features/projects/detail/ProjectLifecyclePanel.svelte';
+  import ProjectLinksTab from '$lib/features/projects/detail/ProjectLinksTab.svelte';
   import ProjectMembersPanel from '$lib/features/projects/detail/ProjectMembersPanel.svelte';
   import ProjectOverviewHeader from '$lib/features/projects/detail/ProjectOverviewHeader.svelte';
   import ProjectUpdatesSection from '$lib/features/projects/detail/ProjectUpdatesSection.svelte';
@@ -16,9 +17,10 @@
 
   let highlightedCommentId: string | null = null;
   let highlightedUpdateId: string | null = null;
+  let highlightedDecisionId: string | null = null;
   let lastRouteSignature = '';
   let showMembersPanel = false;
-  let activeTab: 'overview' | 'chat' | 'history' = 'overview';
+  let activeTab: 'overview' | 'chat' | 'history' | 'links' = 'overview';
 
   function readCommentTarget(url: URL) {
     if (url.hash.startsWith('#comment-')) {
@@ -36,7 +38,15 @@
     return url.searchParams.get('update');
   }
 
-  function selectTab(tab: 'overview' | 'chat' | 'history') {
+  function readDecisionTarget(url: URL) {
+    if (url.hash.startsWith('#decision-')) {
+      return url.hash.slice('#decision-'.length) || null;
+    }
+
+    return url.searchParams.get('decision');
+  }
+
+  function selectTab(tab: 'overview' | 'chat' | 'history' | 'links') {
     activeTab = tab;
 
     if (!browser) {
@@ -95,9 +105,14 @@
       lastRouteSignature = routeSignature;
       highlightedCommentId = readCommentTarget($page.url);
       highlightedUpdateId = readUpdateTarget($page.url);
+      highlightedDecisionId = readDecisionTarget($page.url);
       const requestedTab = $page.url.searchParams.get('tab');
       activeTab = highlightedCommentId
         ? 'chat'
+        : highlightedDecisionId
+          ? 'history'
+        : requestedTab === 'links'
+          ? 'links'
         : requestedTab === 'history'
           ? 'history'
           : requestedTab === 'chat'
@@ -133,6 +148,15 @@
         Chat
       </button>
       <button
+        class:active-tab={activeTab === 'links'}
+        class="top-tab"
+        role="tab"
+        type="button"
+        on:click={() => selectTab('links')}
+      >
+        Links
+      </button>
+      <button
         class:active-tab={activeTab === 'history'}
         class="top-tab"
         role="tab"
@@ -157,8 +181,10 @@
       <ProjectLifecyclePanel {data} />
     {:else if activeTab === 'chat'}
       <ProjectChatTab {data} {highlightedCommentId} />
+    {:else if activeTab === 'links'}
+      <ProjectLinksTab frame={data.linksFrame} />
     {:else}
-      <ProjectHistoryTab {data} />
+      <ProjectHistoryTab {data} highlightedDecisionId={highlightedDecisionId} />
     {/if}
   </section>
 </section>

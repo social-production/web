@@ -112,6 +112,72 @@ npm run build
 
 That checks whether the app can build for production.
 
+## Turn On Phase 2 Locally (Preview Only)
+
+Phase 1 keeps acquisition and asset workflows off by default.
+
+If you want to preview or edit those deferred screens on localhost, use these toggles.
+
+### 1. Open the Phase scope toggle file
+
+Edit:
+
+- `src/lib/config/features/phaseScope.ts`
+
+Set any deferred feature you want to test from `true` to `false` inside `phaseOneDeferredFeatures`.
+
+Current deferred flags:
+
+- `assets`
+- `inventory`
+- `acquisition`
+- `assetManagementSubtype`
+
+Example:
+
+```ts
+export const phaseOneDeferredFeatures = {
+	assets: false,
+	inventory: false,
+	acquisition: false,
+	assetManagementSubtype: false
+} as const;
+```
+
+`false` means the feature is enabled locally.
+
+### 2. Optional: show assets in shell bootstrap data
+
+If you are testing navigation visibility tied to bootstrap flags, also edit:
+
+- `src/lib/services/adapters/dev/data.ts`
+
+Inside `getBootstrapFixture()`, set:
+
+```ts
+featureFlags: {
+	assets: true,
+	funding: false,
+	platform: true
+}
+```
+
+### 3. Restart and verify
+
+After changing toggles:
+
+```powershell
+npm run dev
+```
+
+Then run:
+
+```powershell
+npm run check
+```
+
+Use this only for local development and editing. Keep defaults in Phase 1 mode unless you are intentionally working on Phase 2 behavior.
+
 ## What To Do If You See An Error About Node Types
 
 If your editor says it cannot find the type definition file for `node`, that usually means dependencies were not installed yet, or the local package state is stale.
@@ -135,11 +201,7 @@ If that still fails, close and reopen the editor window so TypeScript reloads th
 This repo should hold:
 
 - the web frontend plan
-- the product model as expressed by the frontend
-- the route and page map
-- the file and module rules for building the frontend cleanly
-- the UI and card rules that shape Public, Personal, and detail surfaces
-- the frontend-to-backend boundary the UI depends on
+- the implementation source for the frontend product model, routes, and adapters
 
 This repo should not yet hold:
 
@@ -165,12 +227,8 @@ This repo should not yet hold:
 ## Document Map
 
 - [PLAN.md](PLAN.md)
-- [docs/PRODUCT_MODEL.md](docs/PRODUCT_MODEL.md)
-- [docs/FRONTEND_ARCHITECTURE.md](docs/FRONTEND_ARCHITECTURE.md)
-- [docs/UI_BUILD_RULES.md](docs/UI_BUILD_RULES.md)
-- [docs/ROUTES_AND_SURFACES.md](docs/ROUTES_AND_SURFACES.md)
-- [docs/WEB_BACKEND_CONTRACT.md](docs/WEB_BACKEND_CONTRACT.md)
-- [docs/ADAPTER_SHAPE.md](docs/ADAPTER_SHAPE.md)
+
+Supporting guidance is intentionally consolidated into this README and [PLAN.md](PLAN.md) so the Phase 1 frontend stays easier to maintain.
 
 ## Frontend Scaffold
 

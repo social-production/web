@@ -2,6 +2,8 @@ import { error } from '@sveltejs/kit';
 import { getProject } from '$lib/services/queries/details';
 import type { PageLoad } from './$types';
 
+export const ssr = false;
+
 export const load = (async ({ params }) => {
   const project = await getProject(params.slug);
 

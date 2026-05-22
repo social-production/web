@@ -1,5 +1,13 @@
+import { isAssetManagementSubtypeEnabled } from '$lib/config/features/phaseScope';
 import type { ProjectLifecyclePhaseId } from '$lib/types/detail';
-import type { ProjectMode } from '$lib/types/feed';
+import type { ProjectMode, ProjectSubtype } from '$lib/types/feed';
+
+export type ProjectSubtypeOption = {
+  value: ProjectSubtype;
+  label: string;
+  description: string;
+  disabled?: boolean;
+};
 
 export function isProductiveProject(mode: ProjectMode) {
   return mode === 'productive';
@@ -69,4 +77,49 @@ export function projectFeedPhaseLabel(mode: ProjectMode, phaseId: ProjectLifecyc
     case 'phase-6':
       return 'Closed';
   }
+}
+
+export function projectSubtypeLabel(subtype: ProjectSubtype) {
+  switch (subtype) {
+    case 'software':
+      return 'Software';
+    case 'asset-management':
+      return isAssetManagementSubtypeEnabled() ? 'Asset management' : 'Standard';
+    default:
+      return 'Standard';
+  }
+}
+
+export function projectSubtypeOptions(mode: ProjectMode): ProjectSubtypeOption[] {
+  if (mode === 'personal-service') {
+    return [];
+  }
+
+  if (mode === 'productive') {
+    return [
+      {
+        value: 'standard',
+        label: 'Standard project',
+        description: 'Use the ordinary productive project path.'
+      },
+      {
+        value: 'software',
+        label: 'Software project',
+        description: 'Use software-specific governance with the default open-source release path.'
+      }
+    ];
+  }
+
+  return [
+    {
+      value: 'standard',
+      label: 'Standard service',
+      description: 'Use the ordinary collective-service path.'
+    },
+    {
+      value: 'software',
+      label: 'Software service',
+      description: 'Use the software service path with the default open-source release rules.'
+    }
+  ];
 }

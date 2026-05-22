@@ -7,18 +7,17 @@
   type DraftPlanPhase = {
     title: string;
     details: string;
-    materialsLabel: string;
-    costLabel: string;
+    materials: string[];
   };
 
   type DraftPlanForm = {
     title: string;
     description: string;
-    totalCostLabel: string;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;
     requestMode?: 'calendar' | 'direct' | 'both';
     allowOffScheduleRequests?: boolean;
+    validationMessages?: string[];
   };
 
   export let data: ProjectPageData;
@@ -79,6 +78,17 @@
 
     {#if showComposer}
       <div class="composer-card">
+        {#if (form.validationMessages?.length ?? 0) > 0}
+          <div class="warning-card" role="alert">
+            <strong>Plan could not be submitted</strong>
+            <ul class="warning-list">
+              {#each form.validationMessages ?? [] as message}
+                <li>{message}</li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+
         <input bind:value={form.title} maxlength="120" placeholder="Plan title" />
         <textarea bind:value={form.description} rows="3" placeholder={descriptionPlaceholder()}></textarea>
         <div class="step-stack">
@@ -94,12 +104,10 @@
               </div>
               <input bind:value={phase.title} maxlength="120" placeholder="Stage title" />
               <textarea bind:value={phase.details} rows="2" placeholder="Stage description"></textarea>
-              <input bind:value={phase.materialsLabel} maxlength="140" placeholder="Material or resource" />
-              <input bind:value={phase.costLabel} maxlength="80" placeholder="Stage cost" readonly class="blocked-field" />
+              <input bind:value={phase.materials[0]} maxlength="140" placeholder="Material or resource" />
             </div>
           {/each}
         </div>
-        <input bind:value={form.totalCostLabel} maxlength="80" placeholder="Total cost" readonly class="blocked-field" />
         {#if !isPhaseTwo && collectiveService}
           <label class="checkbox-row">
             <input bind:checked={form.requestSystemEnabled} type="checkbox" />
@@ -109,14 +117,14 @@
             <label>
               <span class="field-inline-label">Request mode</span>
               <select bind:value={form.requestMode}>
-                <option value="calendar">Calendar only</option>
-                <option value="direct">Direct requests only</option>
-                <option value="both">Both calendar and direct</option>
+                <option value="calendar">Scheduled slots only</option>
+                <option value="direct">Message requests only</option>
+                <option value="both">Scheduled slots and message requests</option>
               </select>
             </label>
             <label class="checkbox-row">
               <input bind:checked={form.allowOffScheduleRequests} type="checkbox" />
-              <span>Allow requests outside already scheduled slots</span>
+              <span>Allow message requests when no slot is listed</span>
             </label>
           {/if}
         {/if}
@@ -154,6 +162,7 @@
   .phase-surface,
   .surface-stack,
   .composer-card,
+  .warning-card,
   .step-stack,
   .step-card {
     display: grid;
@@ -185,6 +194,21 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
+  }
+
+  .warning-card {
+    padding: 14px 16px;
+    border: 1px solid color-mix(in srgb, var(--status-yellow) 50%, var(--panel-border));
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--status-yellow) 14%, var(--panel-strong));
+  }
+
+  .warning-list {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-soft);
+    display: grid;
+    gap: 4px;
   }
 
   .empty-card {
@@ -223,11 +247,6 @@
   textarea {
     min-height: 110px;
     resize: vertical;
-  }
-
-  .blocked-field {
-    color: var(--text-soft);
-    cursor: not-allowed;
   }
 
   .checkbox-row input {

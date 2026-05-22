@@ -1,4 +1,4 @@
-import { e as escape_html, c as attr_class, d as ensure_array_like, f as bind_props } from "../../../../chunks/renderer.js";
+import { e as escape_html, b as attr_class, a as ensure_array_like, d as bind_props } from "../../../../chunks/renderer.js";
 import { P as PersonalFeedCard } from "../../../../chunks/PersonalFeedCard.js";
 function ProfilePage($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {

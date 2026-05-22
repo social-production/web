@@ -6,6 +6,8 @@ Phase 1 exists to test whether Social Production works as a simpler web platform
 
 The point is not to abandon the p2p direction. The point is to learn faster with a cleaner, usable web product now while p2p research can continue in parallel.
 
+Phase 1 documentation is intentionally streamlined: `README.md` and `PLAN.md` are the canonical docs for this repo while product details live in implementation files.
+
 ## Development Roadmap
 
 ### Phase 1 — Web Prototype
@@ -58,7 +60,6 @@ This first web version should focus on:
 - Channels
 - Communities
 - Platform
-- Assets
 - Search
 - Notifications
 - Messages
@@ -73,6 +74,9 @@ Do not treat these as launch requirements for the first web build:
 
 - p2p runtime or p2p-specific UX assumptions
 - full collective asset network operations
+- acquisition phase execution
+- asset system surfaces (asset pages, project inventory tabs, provenance, borrowing)
+- asset-management service subtype in main-facing create/planning flows
 
 Community funding and legal asset-holding surfaces may still be designed in the frontend, but they should be off by default and the rest of the product must work cleanly without them.
 

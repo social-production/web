@@ -5,6 +5,7 @@
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import ProjectActivityHistorySection from '$lib/features/projects/detail/components/ProjectActivityHistorySection.svelte';
   import ProjectActivityViewTabs from '$lib/features/projects/detail/components/ProjectActivityViewTabs.svelte';
+  import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
@@ -12,6 +13,7 @@
     formatProjectVoteRequirement,
     formatProjectVoteSummary
   } from '$lib/utils/projectVotes';
+  import type { ProjectSubtype } from '$lib/types/feed';
   import type {
     ProjectActivityRoleInput,
     ProjectApprovalVote,
@@ -21,7 +23,10 @@
     ProjectServiceRequestItem,
     ProjectServiceRequestPlanInput,
     ProjectServiceRequestSettingsChangeInput,
-    ProjectServiceRequestStatus
+    ProjectServiceRequestStatus,
+    ProjectSoftwarePullRequestInput,
+    ProjectSoftwareMergeCapabilityChangeInput,
+    ProjectSoftwareRepositoryReplacementInput
   } from '$lib/types/detail';
 
   type ActivityForm = {
@@ -61,6 +66,35 @@
   };
 
   type ComparableRequestSettings = Omit<RequestSettingsForm, 'reason'>;
+
+  type SpecializedRequestForm = {
+    requestUse: 'project' | 'individual';
+    itemSummary: string;
+    pickupLabel: string;
+    destinationLabel: string;
+    description: string;
+    needsDelivery: boolean;
+  };
+
+  type RequestComposerCopy = {
+    sectionTitle: string;
+    actionLabel: string;
+    composerTitle: string;
+    descriptionLabel: string;
+    descriptionPlaceholder: string;
+    startLabel: string;
+    endLabel: string;
+    submitLabel: string;
+    selectionHelp: string;
+    usesAssetFields: boolean;
+    usesDeliveryFields: boolean;
+    itemLabel?: string;
+    itemPlaceholder?: string;
+    pickupLabel?: string;
+    destinationLabel?: string;
+    titlePlaceholder?: string;
+    bodyPlaceholder?: string;
+  };
 
   type ServiceTab = 'live' | 'history';
   type RequestSettingsVote = NonNullable<
@@ -109,6 +143,14 @@
     requestId: string,
     vote: ProjectApprovalVote | null
   ) => void | Promise<void> = () => {};
+  export let createPullRequest: (input: ProjectSoftwarePullRequestInput) => void | Promise<void> = () => {};
+  export let requestMergeCapabilityChange: (
+    input: ProjectSoftwareMergeCapabilityChangeInput
+  ) => void | Promise<void> = () => {};
+  export let requestRepositoryReplacement: (
+    input: ProjectSoftwareRepositoryReplacementInput
+  ) => void | Promise<void> = () => {};
+  export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
   export let toggleHistoryCompletion: (
     historyId: string,
     role: ProjectServiceHistoryCompletionRole,
@@ -141,6 +183,91 @@
       allowOffScheduleRequests: settings?.allowOffScheduleRequests ?? false,
       reason: ''
     };
+  }
+
+  function createSpecializedRequestForm(): SpecializedRequestForm {
+    return {
+      requestUse: 'project',
+      itemSummary: '',
+      pickupLabel: '',
+      destinationLabel: '',
+      description: '',
+      needsDelivery: false
+    };
+  }
+
+  function currentSubtype(): ProjectSubtype {
+    return data.lifecycle.currentSubtype ?? data.projectSubtype ?? 'standard';
+  }
+
+  function requestComposerCopy(subtype: ProjectSubtype): RequestComposerCopy {
+    switch (subtype) {
+      case 'asset-management':
+        return {
+          sectionTitle: 'Asset requests',
+          actionLabel: 'Request assets',
+          composerTitle: 'Create asset request',
+          descriptionLabel: 'Description',
+          descriptionPlaceholder:
+            'Describe the land access, asset support, storage need, or handoff coordination needed during this time.',
+          startLabel: 'Requested start',
+          endLabel: 'Requested finish',
+          submitLabel: 'Create request',
+          selectionHelp:
+            'Use this form when the inventory list is not the entry point for asset-management work.',
+          usesAssetFields: true,
+          usesDeliveryFields: false,
+          itemLabel: 'Asset, site use, or handoff need',
+          itemPlaceholder: 'What needs managing, moving, reserving, or supporting?'
+        };
+      default:
+        return {
+          sectionTitle: 'Requests',
+          actionLabel: 'Request service',
+          composerTitle: 'Create request',
+          descriptionLabel: 'Request details',
+          descriptionPlaceholder: 'What should happen during this requested window?',
+          startLabel: 'Requested start',
+          endLabel: 'Requested finish',
+          submitLabel: 'Create request',
+          selectionHelp: 'Use this form to request service during the selected time.',
+          usesAssetFields: false,
+          usesDeliveryFields: false,
+          titlePlaceholder: 'Request title',
+          bodyPlaceholder: 'What should happen during this requested window?'
+        };
+    }
+  }
+
+  function buildSpecializedRequestPayload(subtype: ProjectSubtype, form: SpecializedRequestForm) {
+    if (subtype === 'asset-management') {
+      const itemSummary = form.itemSummary.trim();
+      const description = form.description.trim();
+
+      if (!itemSummary || !description) {
+        return null;
+      }
+
+      return {
+        title: `Asset request: ${itemSummary}`,
+        body: [
+          `Use type: ${form.requestUse === 'project' ? 'Project use' : 'Individual use'}`,
+          `Delivery needed: ${form.needsDelivery ? 'Yes' : 'No'}`,
+          `Asset-management need: ${itemSummary}`,
+          '',
+          description
+        ].join('\n')
+      };
+    }
+
+    const title = serviceRequestForm.title.trim();
+    const body = serviceRequestForm.body.trim();
+
+    if (!title || !body) {
+      return null;
+    }
+
+    return { title, body };
   }
 
   function resolveRequestSettings(
@@ -303,6 +430,24 @@
     });
 
     closeRequestPlanning();
+  }
+
+  async function handleSubmitServiceRequest() {
+    const payload = buildSpecializedRequestPayload(requestFormSubtype, specializedRequestForm);
+
+    if (!payload) {
+      return;
+    }
+
+    serviceRequestForm.title = payload.title;
+    serviceRequestForm.body = payload.body;
+    await submitServiceRequest();
+    specializedRequestForm = createSpecializedRequestForm();
+  }
+
+  async function handleCloseRequestComposer() {
+    specializedRequestForm = createSpecializedRequestForm();
+    await closeRequestComposer();
   }
 
   async function openQuickActions(anchor?: CalendarActionAnchor) {
@@ -535,6 +680,7 @@
   let showRequestSettingsVote = false;
   let requestSettingsForm: RequestSettingsForm = createRequestSettingsForm();
   let requestSettingsComposerElement: HTMLDivElement | null = null;
+  let specializedRequestForm: SpecializedRequestForm = createSpecializedRequestForm();
 
   $: minimumParticipants = minimumParticipantsForRoles(activityForm.roleRequirements);
   $: requestPlanningMinimumParticipants = minimumParticipantsForRoles(
@@ -562,6 +708,8 @@
   $: selfPlannedHistory = data.lifecycle.phaseFive.history.filter(
     (item) => item.source === 'self-planned'
   );
+  $: requestFormSubtype = currentSubtype();
+  $: requestFormCopy = requestComposerCopy(requestFormSubtype);
   $: calendarActivities = [
     ...data.lifecycle.phaseFive.activities,
     ...data.lifecycle.phaseFive.history
@@ -575,6 +723,9 @@
   $: if (!showRequestSettingsComposer) {
     requestSettingsForm = createRequestSettingsForm();
   }
+  $: if (!showRequestComposer) {
+    specializedRequestForm = createSpecializedRequestForm();
+  }
   $: if (requestSettingsVoteCount === 0) {
     showRequestSettingsVote = false;
   }
@@ -584,6 +735,14 @@
 </script>
 
 <section class="phase-surface">
+  <ProjectSoftwareGovernancePanel
+    governance={data.lifecycle.phaseFive.softwareGovernance}
+    createPullRequest={createPullRequest}
+    requestMergeCapabilityChange={requestMergeCapabilityChange}
+    requestRepositoryReplacement={requestRepositoryReplacement}
+    recordMerge={recordPullRequestMerge}
+  />
+
   {#if calendarActionTarget}
     <div bind:this={actionPickerElement} class="mechanics-card action-picker-card" style={actionPickerStyle}>
       <div class="request-header-row">
@@ -599,11 +758,11 @@
           </h3>
           <p>
             {#if calendarActionTarget.kind === 'general'}
-              Start a new scheduled activity or open a new service request.
+              Start a new scheduled activity or open a new {requestFormCopy.actionLabel.toLowerCase()} form.
             {:else if calendarActionTarget.kind === 'activity'}
-              Open the scheduled activity to sign up, or use its time window to place a service request.
+              Open the scheduled activity to sign up, or use its time window to place a {requestFormCopy.actionLabel.toLowerCase()} request.
             {:else}
-              Choose whether this time should become a new activity or a service request.
+              Choose whether this time should become a new activity or a {requestFormCopy.actionLabel.toLowerCase()} request.
             {/if}
           </p>
         </div>
@@ -623,7 +782,7 @@
           {/if}
           {#if canSubmitRequests}
             <button class="action-choice" type="button" on:click={chooseRequestServiceForDay}>
-              <strong>Request service</strong>
+              <strong>{requestFormCopy.actionLabel}</strong>
               <span>
                 {calendarActionTarget.kind === 'day'
                   ? 'Open the request form and prefill the selected time.'
@@ -638,7 +797,7 @@
           </button>
           {#if canSubmitRequests}
             <button class="action-choice" type="button" on:click={chooseRequestServiceForActivity}>
-              <strong>Request service</strong>
+              <strong>{requestFormCopy.actionLabel}</strong>
               <span>Use this slot's window as the request time.</span>
             </button>
           {/if}
@@ -670,7 +829,7 @@
       <section class="card-rail-section">
         <div class="section-head">
           <div class="section-copy">
-            <h3>Requests</h3>
+            <h3>{requestFormCopy.sectionTitle}</h3>
             <p>{data.lifecycle.requestSystem.settings.summary}</p>
           </div>
           <div class="section-actions">
@@ -748,7 +907,7 @@
             <div class="request-header-row">
               <div>
                 <h3>Edit request settings</h3>
-                <p>Each vote runs on its own and applies automatically once it reaches 70% approval and the required vote count.</p>
+                <p>Each vote runs on its own and applies automatically once it reaches 66% approval and the required vote count.</p>
               </div>
             </div>
 
@@ -761,16 +920,17 @@
               <label>
                 <span class="field-inline-label">Request mode</span>
                 <select bind:value={requestSettingsForm.requestMode}>
-                  <option value="calendar">Only through active calendar time</option>
-                  <option value="direct">Direct written requests only</option>
-                  <option value="both">Calendar and written requests</option>
+                  <option value="calendar">Scheduled slots only</option>
+                  <option value="direct">Message requests only</option>
+                  <option value="both">Scheduled slots and message requests</option>
                 </select>
               </label>
+              <p class="field-help">Scheduled slots start from listed times. Message requests let people write in without choosing a listed slot.</p>
 
               {#if requestSettingsForm.requestMode === 'both'}
                 <label class="checkbox-row">
                   <input bind:checked={requestSettingsForm.allowOffScheduleRequests} type="checkbox" />
-                  <span>Allow written requests outside existing activity windows</span>
+                  <span>Allow message requests when no slot is listed</span>
                 </label>
               {/if}
             {/if}
@@ -815,25 +975,83 @@
                 <span>{formatRequestedWindow(selectedRequestActivity.startAt, selectedRequestActivity.endAt)}</span>
               </div>
             {/if}
-            <input bind:value={serviceRequestForm.title} maxlength="120" placeholder="Request title" />
+            <div class="request-header-row">
+              <div>
+                <h3>{requestFormCopy.composerTitle}</h3>
+                <p>{requestFormCopy.selectionHelp}</p>
+              </div>
+            </div>
+
             <div class="number-grid">
               <label>
-                <span class="field-inline-label">Requested start</span>
+                <span class="field-inline-label">{requestFormCopy.startLabel}</span>
                 <input bind:value={serviceRequestForm.scheduledAt} type="datetime-local" />
               </label>
               <label>
-                <span class="field-inline-label">Requested finish</span>
+                <span class="field-inline-label">{requestFormCopy.endLabel}</span>
                 <input bind:value={serviceRequestForm.endsAt} type="datetime-local" />
               </label>
             </div>
-            <textarea
-              bind:value={serviceRequestForm.body}
-              rows="3"
-              placeholder="What should happen during this requested window?"
-            ></textarea>
+
+            {#if requestFormCopy.usesDeliveryFields}
+              <div class="number-grid">
+                <label>
+                  <span class="field-inline-label">{requestFormCopy.pickupLabel}</span>
+                  <input bind:value={specializedRequestForm.pickupLabel} maxlength="120" placeholder="Where should pickup happen?" />
+                </label>
+                <label>
+                  <span class="field-inline-label">{requestFormCopy.destinationLabel}</span>
+                  <input bind:value={specializedRequestForm.destinationLabel} maxlength="120" placeholder="Where should it go?" />
+                </label>
+              </div>
+              <label>
+                <span class="field-inline-label">{requestFormCopy.itemLabel}</span>
+                <input bind:value={specializedRequestForm.itemSummary} maxlength="160" placeholder={requestFormCopy.itemPlaceholder} />
+              </label>
+              <label>
+                <span class="field-inline-label">{requestFormCopy.descriptionLabel}</span>
+                <textarea
+                  bind:value={specializedRequestForm.description}
+                  rows="3"
+                  placeholder={requestFormCopy.descriptionPlaceholder}
+                ></textarea>
+              </label>
+            {:else if requestFormCopy.usesAssetFields}
+              <label>
+                <span class="field-inline-label">Use type</span>
+                <select bind:value={specializedRequestForm.requestUse}>
+                  <option value="project">Project use</option>
+                  <option value="individual">Individual use</option>
+                </select>
+              </label>
+              <label>
+                <span class="field-inline-label">{requestFormCopy.itemLabel}</span>
+                <input bind:value={specializedRequestForm.itemSummary} maxlength="160" placeholder={requestFormCopy.itemPlaceholder} />
+              </label>
+              <label class="checkbox-row">
+                <input bind:checked={specializedRequestForm.needsDelivery} type="checkbox" />
+                <span>I will need delivery</span>
+              </label>
+              <label>
+                <span class="field-inline-label">{requestFormCopy.descriptionLabel}</span>
+                <textarea
+                  bind:value={specializedRequestForm.description}
+                  rows="3"
+                  placeholder={requestFormCopy.descriptionPlaceholder}
+                ></textarea>
+              </label>
+            {:else}
+              <input bind:value={serviceRequestForm.title} maxlength="120" placeholder={requestFormCopy.titlePlaceholder} />
+              <textarea
+                bind:value={serviceRequestForm.body}
+                rows="3"
+                placeholder={requestFormCopy.bodyPlaceholder}
+              ></textarea>
+            {/if}
+
             <div class="composer-actions">
-              <button class="secondary-button" type="button" on:click={closeRequestComposer}>Cancel</button>
-              <button class="primary-button" type="button" on:click={submitServiceRequest}>Create request</button>
+              <button class="secondary-button" type="button" on:click={handleCloseRequestComposer}>Cancel</button>
+              <button class="primary-button" type="button" on:click={handleSubmitServiceRequest}>{requestFormCopy.submitLabel}</button>
             </div>
           </div>
         {/if}

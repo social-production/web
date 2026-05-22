@@ -1,4 +1,4 @@
-import { i as getContext } from "./renderer.js";
+import { j as getContext } from "./renderer.js";
 import "clsx";
 import "@sveltejs/kit/internal";
 import "./exports.js";

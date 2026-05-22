@@ -2,6 +2,7 @@ import type { ViewerSummary } from '$lib/types/bootstrap';
 
 export type TagKind = 'channel' | 'community';
 export type ProjectMode = 'productive' | 'collective-service' | 'personal-service';
+export type ProjectSubtype = 'standard' | 'software' | 'asset-management';
 export type SubjectKind = 'project' | 'thread' | 'event' | 'post';
 export type VoteDirection = -1 | 0 | 1;
 
@@ -45,9 +46,6 @@ export interface CreateThreadInput {
 export interface CreateEventInput {
   title: string;
   description: string;
-  startTimeLabel: string;
-  finishTimeLabel: string;
-  locationLabel: string;
   channelTags: TagRef[];
   communityTags: TagRef[];
   invitedUsernames: string[];
@@ -86,6 +84,7 @@ export interface PublicProjectItem {
   title: string;
   authorUsername: string;
   projectMode: ProjectMode;
+  projectSubtype?: ProjectSubtype | null;
   summary: string;
   latestDescription?: string;
   channelTags: TagRef[];

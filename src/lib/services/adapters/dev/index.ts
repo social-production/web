@@ -10,11 +10,17 @@ import {
   createMockProject,
   createMockThread,
   addMockProjectDistributionPlan,
+  requestMockProjectMergeCapabilityChange,
+  addMockProjectPullRequest,
   addMockProjectProductionPlan,
+  updateMockProjectProductionPlan,
+  requestMockProjectRepositoryReplacement,
   addMockProjectServiceRequest,
+  createMockProjectManualLinkRequest,
   planMockProjectServiceRequest,
   requestMockProjectServiceRequestSettingsChange,
   buildSearchFixture,
+  setMockProjectSignal,
   setMockProjectServiceHistoryCompletion,
   toggleMockProjectDemandSignal,
   addMockProjectValue,
@@ -51,16 +57,30 @@ import {
   sendMockMessage,
   startMockDirectMessage,
   addMockProjectUpdate,
+  addMockEventActivity,
+  addMockEventPlan,
+  addMockEventValue,
   grantMockEventEditAccess,
+  requestMockEventPhaseChange,
   setMockReportVote,
+  setMockEventActivityCommitment,
+  setMockEventPhaseChangeVote,
+  setMockEventPlanOverallVote,
+  setMockEventPlanValueVote,
+  setMockEventSignal,
+  setMockEventValueImportance,
   setMockVote,
   submitMockReport,
   setMockEventEditVote,
   setMockEventUpdateVote,
   setMockProjectPlanOverallVote,
   setMockProjectPlanValueVote,
+  setMockProjectManualLinkVote,
   setMockProjectEditVote,
   setMockProjectPhaseChangeVote,
+  setMockProjectPullRequestVote,
+  setMockProjectMergeCapabilityChangeVote,
+  setMockProjectRepositoryReplacementVote,
   setMockProjectUpdateVote,
   setMockProjectServiceRequestSettingsChangeVote,
   setMockProjectValueImportance,
@@ -73,6 +93,7 @@ import {
   revokeMockEventEditAccess,
   toggleMockEventGoing,
   advanceMockProjectPhase,
+  recordMockProjectPullRequestMerge,
   revertMockProjectPhase,
   toggleMockProjectManagerNomination,
   toggleMockProjectMembership,
@@ -206,6 +227,10 @@ export const devAdapter: AppAdapter = {
     toggleMockProjectDemandSignal(projectSlug);
   },
 
+  async setProjectSignal(projectSlug, signal) {
+    setMockProjectSignal(projectSlug, signal);
+  },
+
   async addProjectValue(projectSlug, label) {
     addMockProjectValue(projectSlug, label);
   },
@@ -215,11 +240,27 @@ export const devAdapter: AppAdapter = {
   },
 
   async addProjectProductionPlan(projectSlug, input) {
-    addMockProjectProductionPlan(projectSlug, input);
+    return addMockProjectProductionPlan(projectSlug, input);
+  },
+
+  async updateProjectProductionPlan(projectSlug, planId, input) {
+    return updateMockProjectProductionPlan(projectSlug, planId, input);
   },
 
   async addProjectDistributionPlan(projectSlug, input) {
-    addMockProjectDistributionPlan(projectSlug, input);
+    return addMockProjectDistributionPlan(projectSlug, input);
+  },
+
+  async addProjectPullRequest(projectSlug, input) {
+    addMockProjectPullRequest(projectSlug, input);
+  },
+
+  async requestProjectMergeCapabilityChange(projectSlug, input) {
+    requestMockProjectMergeCapabilityChange(projectSlug, input);
+  },
+
+  async requestProjectRepositoryReplacement(projectSlug, input) {
+    requestMockProjectRepositoryReplacement(projectSlug, input);
   },
 
   async setProjectPlanValueVote(projectSlug, phaseId, planId, valueId, vote) {
@@ -242,6 +283,14 @@ export const devAdapter: AppAdapter = {
     addMockProjectServiceRequest(projectSlug, input);
   },
 
+  async createProjectManualLinkRequest(projectSlug, targetProjectSlug, relationshipLabel, summary) {
+    createMockProjectManualLinkRequest(projectSlug, targetProjectSlug, relationshipLabel, summary);
+  },
+
+  async setProjectManualLinkVote(projectSlug, requestId, vote) {
+    setMockProjectManualLinkVote(projectSlug, requestId, vote);
+  },
+
   async planProjectServiceRequest(projectSlug, requestId, input) {
     planMockProjectServiceRequest(projectSlug, requestId, input);
   },
@@ -262,8 +311,8 @@ export const devAdapter: AppAdapter = {
     setMockProjectServiceHistoryCompletion(projectSlug, historyId, role, selection);
   },
 
-  async requestProjectPhaseChange(projectSlug, targetPhaseId, reason) {
-    requestMockProjectPhaseChange(projectSlug, targetPhaseId, reason);
+  async requestProjectPhaseChange(projectSlug, targetPhaseId, reason, options) {
+    requestMockProjectPhaseChange(projectSlug, targetPhaseId, reason, options);
   },
 
   async setProjectPhaseChangeVote(projectSlug, requestId, vote) {
@@ -288,6 +337,22 @@ export const devAdapter: AppAdapter = {
 
   async setProjectEditVote(projectSlug, requestId, vote) {
     setMockProjectEditVote(projectSlug, requestId, vote);
+  },
+
+  async setProjectPullRequestVote(projectSlug, decisionId, vote) {
+    setMockProjectPullRequestVote(projectSlug, decisionId, vote);
+  },
+
+  async setProjectMergeCapabilityChangeVote(projectSlug, decisionId, vote) {
+    setMockProjectMergeCapabilityChangeVote(projectSlug, decisionId, vote);
+  },
+
+  async setProjectRepositoryReplacementVote(projectSlug, decisionId, vote) {
+    setMockProjectRepositoryReplacementVote(projectSlug, decisionId, vote);
+  },
+
+  async recordProjectPullRequestMerge(projectSlug, requestId, mergeId) {
+    recordMockProjectPullRequestMerge(projectSlug, requestId, mergeId);
   },
 
   async advanceProjectPhase(projectSlug, closeNote) {
@@ -328,6 +393,46 @@ export const devAdapter: AppAdapter = {
 
   async addProjectUpdate(projectSlug, title, body) {
     addMockProjectUpdate(projectSlug, title, body);
+  },
+
+  async setEventSignal(eventSlug, signal) {
+    setMockEventSignal(eventSlug, signal);
+  },
+
+  async addEventValue(eventSlug, label) {
+    addMockEventValue(eventSlug, label);
+  },
+
+  async setEventValueImportance(eventSlug, valueId, importance) {
+    setMockEventValueImportance(eventSlug, valueId, importance);
+  },
+
+  async addEventPlan(eventSlug, input) {
+    return addMockEventPlan(eventSlug, input);
+  },
+
+  async setEventPlanValueVote(eventSlug, planId, valueId, vote) {
+    setMockEventPlanValueVote(eventSlug, planId, valueId, vote);
+  },
+
+  async setEventPlanOverallVote(eventSlug, planId, vote) {
+    setMockEventPlanOverallVote(eventSlug, planId, vote);
+  },
+
+  async addEventActivity(eventSlug, input) {
+    addMockEventActivity(eventSlug, input);
+  },
+
+  async setEventActivityCommitment(eventSlug, activityId, roleLabel) {
+    setMockEventActivityCommitment(eventSlug, activityId, roleLabel);
+  },
+
+  async requestEventPhaseChange(eventSlug, targetPhaseId, reason) {
+    requestMockEventPhaseChange(eventSlug, targetPhaseId, reason);
+  },
+
+  async setEventPhaseChangeVote(eventSlug, requestId, vote) {
+    setMockEventPhaseChangeVote(eventSlug, requestId, vote);
   },
 
   async requestEventUpdate(eventSlug, body) {

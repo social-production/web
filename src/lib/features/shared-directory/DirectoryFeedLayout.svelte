@@ -2,8 +2,8 @@
   import { browser } from '$app/environment';
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
-  import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import PublicFeedCard from '$lib/components/cards/public-feed/PublicFeedCard.svelte';
+  import PlatformBoardPanel from '$lib/features/platform/board/PlatformBoardPanel.svelte';
   import { setVote } from '$lib/services/queries/feeds';
   import { redeemScopeInvite, toggleScopeMembership } from '$lib/services/queries/scopes';
   import type { PublicFeedItem, VoteDirection } from '$lib/types/feed';
@@ -27,7 +27,11 @@
   let inviteFeedbackTone: 'soft' | 'warning' = 'soft';
   let lastInviteParam = '';
 
-  $: showRolePanel = pageData.kind === 'platform' && (pageData.boardMembers?.length ?? 0) > 0;
+  $: showRolePanel =
+    pageData.kind === 'platform' &&
+    ((pageData.boardMembers?.length ?? 0) > 0 ||
+      (pageData.boardCandidates?.length ?? 0) > 0 ||
+      (pageData.boardFeatureFrames?.length ?? 0) > 0);
   $: if (!showRolePanel && showBoardPanel) {
     showBoardPanel = false;
   }
@@ -112,23 +116,31 @@
   }
 
   function meetsConfidenceThreshold(member: ScopeMemberSummary) {
-    return (member.confidenceRatio ?? 0) >= 70;
+    return member.confidenceStandingState === 'active' || member.confidenceStandingState === 'grace';
   }
 
   function boardStatusLabel(member: ScopeMemberSummary) {
-    if (member.confidenceRatio === undefined) {
+    if (!member.confidenceStandingState) {
       return 'Recorded board seat';
     }
 
-    return meetsConfidenceThreshold(member) ? 'Above threshold' : 'Under review';
+    if (member.confidenceStandingState === 'active') {
+      return 'Standing confirmed';
+    }
+
+    if (member.confidenceStandingState === 'grace') {
+      return 'Grace period';
+    }
+
+    return 'Needs more standing votes';
   }
 
-  async function handleConfidenceVote(member: ScopeMemberSummary, event: CustomEvent<{ vote: VoteDirection }>) {
+  async function handleConfidenceVote(member: ScopeMemberSummary, vote: VoteDirection) {
     if (!member.confidenceTargetId) {
       return;
     }
 
-    await setVote(member.confidenceTargetId, event.detail.vote);
+    await setVote(member.confidenceTargetId, vote);
     await invalidateAll();
   }
 
@@ -334,59 +346,12 @@
   {/if}
 
   {#if showRolePanel && showBoardPanel}
-    <section class="people-card">
-      <h2>Board members</h2>
-      <p class="panel-copy">{pageData.boardNote}</p>
-
-      <div class="role-rules-card">
-        <h3>How board roles work</h3>
-        <ul>
-          <li>
-            Board members oversee platform-tagged work and the eventual conversion of completed collective funds into real nonprofit-held assets.
-          </li>
-          <li>Confidence voting stays visible on every role holder so members can see whether the role remains above the 70% threshold.</li>
-          <li>Roles below threshold stay visible as under review until the scope renews or replaces them.</li>
-        </ul>
-      </div>
-
-      <div class="people-stack">
-        {#if !pageData.boardMembers || pageData.boardMembers.length === 0}
-          <div class="person-row">
-            <strong>No board members listed yet.</strong>
-          </div>
-        {:else}
-          {#each pageData.boardMembers as member}
-            <div class="person-row confidence-row">
-              <div class="person-copy">
-                <a class="person-link" href={`/profile/${member.username}`}>
-                  <strong>{member.username}</strong>
-                  <span>{member.bio ?? 'Profile details coming soon.'}</span>
-                </a>
-                {#if member.confidenceRatio !== undefined}
-                  <div class="confidence-summary">
-                    <span class={`status-chip ${meetsConfidenceThreshold(member) ? 'healthy' : 'warning'}`}>
-                      {boardStatusLabel(member)}
-                    </span>
-                    <span class:healthy={meetsConfidenceThreshold(member)} class:warning={!meetsConfidenceThreshold(member)}>
-                      {member.confidenceRatio}% confidence
-                    </span>
-                    <span>{member.confidenceReviewCount} reviews</span>
-                  </div>
-                {/if}
-              </div>
-
-              {#if member.confidenceTargetId && showRolePanel}
-                <VoteStrip
-                  activeVote={member.confidenceActiveVote ?? 0}
-                  count={member.confidenceVoteCount ?? 0}
-                  on:vote={(event) => handleConfidenceVote(member, event)}
-                />
-              {/if}
-            </div>
-          {/each}
-        {/if}
-      </div>
-    </section>
+    <PlatformBoardPanel
+      {pageData}
+      {boardStatusLabel}
+      {meetsConfidenceThreshold}
+      onVote={handleConfidenceVote}
+    />
   {/if}
 
   <div class="stack">
@@ -408,15 +373,11 @@
 
 <style>
   .directory-page,
-  .stack,
-  .people-stack,
-  .role-rules-card {
+  .stack {
     display: grid;
   }
 
-  .directory-page,
-  .people-stack,
-  .role-rules-card {
+  .directory-page {
     gap: 12px;
   }
 
@@ -431,10 +392,8 @@
 
   .header-card,
   .toolbar-card,
-  .people-card,
   .info-card,
-  .invite-card,
-  .role-rules-card {
+  .invite-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -502,30 +461,24 @@
   }
 
   .header-copy,
-  .person-copy,
   .invite-copy {
     display: grid;
     gap: 6px;
   }
 
   .header-copy h1,
-  .people-card h2,
   .invite-copy h2 {
     font-size: 22px;
     letter-spacing: -0.02em;
   }
 
-  .people-card h2,
   .invite-copy h2 {
     font-size: 16px;
   }
 
   .header-copy p,
-  .panel-copy,
   .invite-copy p,
   .invite-feedback,
-  .person-copy span,
-  .confidence-summary span,
   .member-count,
   .note,
   .info-card p {
@@ -550,10 +503,7 @@
     background: var(--brand-soft);
   }
 
-  .invite-actions,
-  .confidence-summary,
-  .person-row,
-  .confidence-row {
+  .invite-actions {
     display: flex;
     gap: 10px;
     align-items: center;
@@ -565,65 +515,13 @@
     flex: 1 1 280px;
   }
 
-  .people-stack {
-    margin-top: 10px;
-  }
-
-  .person-row {
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
-  }
-
-  .person-link {
-    display: grid;
-    gap: 3px;
-  }
-
-  .healthy {
-    color: var(--brand-strong);
-  }
-
   .warning {
-    color: var(--accent-warm-strong);
-  }
-
-  .role-rules-card h3 {
-    font-size: 14px;
-    color: var(--text-main);
-  }
-
-  .role-rules-card ul {
-    margin: 0;
-    padding-left: 18px;
-    color: var(--text-soft);
-    line-height: 1.5;
-  }
-
-  .status-chip {
-    padding: 4px 8px;
-    border: 1px solid var(--panel-border);
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 700;
-  }
-
-  .status-chip.healthy {
-    background: color-mix(in srgb, var(--brand-soft) 75%, var(--panel));
-    color: var(--brand-strong);
-  }
-
-  .status-chip.warning {
-    background: color-mix(in srgb, var(--accent-warm) 18%, var(--panel));
     color: var(--accent-warm-strong);
   }
 
   @media (max-width: 760px) {
     .toolbar-card,
     .header-topline,
-    .person-row,
-    .confidence-row,
     .invite-actions {
       align-items: stretch;
       flex-direction: column;

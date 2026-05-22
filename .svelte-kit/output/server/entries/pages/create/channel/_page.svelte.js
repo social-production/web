@@ -1,12 +1,20 @@
 import "clsx";
-import { b as attr, e as escape_html } from "../../../../chunks/renderer.js";
+import { c as attr, e as escape_html } from "../../../../chunks/renderer.js";
+import "@sveltejs/kit/internal";
+import "../../../../chunks/exports.js";
+import "../../../../chunks/utils.js";
+import "@sveltejs/kit/internal/server";
+import "../../../../chunks/root.js";
+import "../../../../chunks/state.svelte.js";
 import { C as CreateFlowLayout, a as CreatePanel } from "../../../../chunks/CreatePanel.js";
 import { P as PreviewTile } from "../../../../chunks/PreviewTile.js";
+import "../../../../chunks/data.js";
 function CreateChannelPage($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     let canSubmit;
-    let name = "Energy Retrofit";
-    let description = "Discussion and discovery for retrofit planning, installation, and maintenance work.";
+    let name = "";
+    let description = "";
+    let isSubmitting = false;
     canSubmit = name.trim().length > 0 && description.trim().length > 0;
     CreateFlowLayout($$renderer2, {
       $$slots: {
@@ -21,7 +29,7 @@ function CreateChannelPage($$renderer, $$props) {
                 if ($$body) {
                   $$renderer4.push(`${$$body}`);
                 }
-                $$renderer4.push(`</textarea></label> <div class="button-row"><button class="button-primary"${attr("disabled", !canSubmit, true)} type="submit">Create Channel</button> <button class="button-ghost" type="button">Save Draft</button></div> `);
+                $$renderer4.push(`</textarea></label> <div class="button-row"><button class="button-primary"${attr("disabled", !canSubmit || isSubmitting, true)} type="submit">${escape_html("Create Channel")}</button> <button class="button-ghost" type="button">Save Draft</button></div> `);
                 {
                   $$renderer4.push("<!--[-1-->");
                 }
@@ -38,7 +46,11 @@ function CreateChannelPage($$renderer, $$props) {
               description: "How the new topic surface will appear in lists.",
               surface: "transparent",
               children: ($$renderer4) => {
-                PreviewTile($$renderer4, { title: name, body: description, meta: "Topic channel" });
+                PreviewTile($$renderer4, {
+                  title: name.trim() || "Untitled channel",
+                  body: description.trim() || "Describe the topic this channel gathers without turning it into a social group.",
+                  meta: "Topic channel"
+                });
               },
               $$slots: { default: true }
             });

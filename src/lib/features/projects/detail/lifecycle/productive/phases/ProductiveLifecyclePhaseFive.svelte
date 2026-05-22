@@ -4,12 +4,16 @@
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
   import ProjectActivityHistorySection from '$lib/features/projects/detail/components/ProjectActivityHistorySection.svelte';
+  import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import ProjectActivityViewTabs from '$lib/features/projects/detail/components/ProjectActivityViewTabs.svelte';
   import type {
     ProjectActivityRoleInput,
     ProjectPageData,
     ProjectServiceHistoryCompletionChoice,
-    ProjectServiceHistoryCompletionRole
+    ProjectServiceHistoryCompletionRole,
+    ProjectSoftwareMergeCapabilityChangeInput,
+    ProjectSoftwarePullRequestInput
+    ,ProjectSoftwareRepositoryReplacementInput
   } from '$lib/types/detail';
 
   type ActivityForm = {
@@ -36,6 +40,14 @@
   export let focusActivityCard: (activityId: string) => void | Promise<void> = () => {};
   export let submitActivity: () => void | Promise<void> = () => {};
   export let changecommitment: (activityId: string, roleLabel: string | null) => void | Promise<void> = () => {};
+  export let createPullRequest: (input: ProjectSoftwarePullRequestInput) => void | Promise<void> = () => {};
+  export let requestMergeCapabilityChange: (
+    input: ProjectSoftwareMergeCapabilityChangeInput
+  ) => void | Promise<void> = () => {};
+  export let requestRepositoryReplacement: (
+    input: ProjectSoftwareRepositoryReplacementInput
+  ) => void | Promise<void> = () => {};
+  export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
   export let toggleHistoryCompletion: (
     historyId: string,
     role: ProjectServiceHistoryCompletionRole,
@@ -143,6 +155,14 @@
 </script>
 
 <section class="phase-surface">
+  <ProjectSoftwareGovernancePanel
+    governance={data.lifecycle.phaseFive.softwareGovernance}
+    createPullRequest={createPullRequest}
+    requestMergeCapabilityChange={requestMergeCapabilityChange}
+    requestRepositoryReplacement={requestRepositoryReplacement}
+    recordMerge={recordPullRequestMerge}
+  />
+
   <ProjectActivityCalendarCard
     activities={calendarActivities}
     canCreate={data.lifecycle.phaseFive.viewerCanCreateActivities}

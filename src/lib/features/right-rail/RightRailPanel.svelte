@@ -2,7 +2,11 @@
   import { createEventDispatcher } from 'svelte';
   import { goto, invalidateAll } from '$app/navigation';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
-  import { setProjectActivityCommitment, toggleEventGoing } from '$lib/services/queries/details';
+  import {
+    setEventActivityCommitment,
+    setProjectActivityCommitment,
+    toggleEventGoing
+  } from '$lib/services/queries/details';
   import type { RightRailActivityItem } from '$lib/types/bootstrap';
   import { formatCalendarTime } from '$lib/utils/time';
 
@@ -13,15 +17,20 @@
 
   let pendingSubjectId = '';
 
-  $: activityItems = items.filter((item) => item.kind !== 'request');
+  $: activityItems = items.filter((item) => item.kind !== 'request' && item.kind !== 'vote');
   $: requestItems = items.filter((item) => item.kind === 'request');
+  $: voteItems = items.filter((item) => item.kind === 'vote');
 
   function requestClose() {
     dispatch('close');
   }
 
+  function usesRoleCommitment(item: RightRailActivityItem) {
+    return (item.kind === 'project' || item.kind === 'event') && !!item.activityId;
+  }
+
   function isRailActionActive(item: RightRailActivityItem) {
-    if (item.kind === 'project') {
+    if (usesRoleCommitment(item)) {
       return !!item.viewerAssignedRoleLabel;
     }
 
@@ -29,7 +38,7 @@
   }
 
   function isRailActionDisabled(item: RightRailActivityItem) {
-    return item.kind === 'project' && !item.viewerAssignedRoleLabel && item.projectHasOpenRole === false;
+    return usesRoleCommitment(item) && !item.viewerAssignedRoleLabel && item.hasOpenRole === false;
   }
 
   async function handleOpenItem(item: RightRailActivityItem) {
@@ -41,16 +50,12 @@
   }
 
   async function handleRailParticipation(item: RightRailActivityItem) {
-    if (item.kind === 'request') {
+    if (item.kind === 'request' || item.kind === 'vote') {
       return;
     }
 
-    if (item.kind === 'project') {
-      if (!item.projectSlug || !item.activityId) {
-        return;
-      }
-
-      if (!item.viewerAssignedRoleLabel && item.projectHasOpenRole === false) {
+    if (usesRoleCommitment(item)) {
+      if (!item.viewerAssignedRoleLabel && item.hasOpenRole === false) {
         return;
       }
 
@@ -58,7 +63,20 @@
         pendingSubjectId = item.subjectId;
 
         try {
-          await setProjectActivityCommitment(item.projectSlug, item.activityId, null);
+          if (item.kind === 'project') {
+            if (!item.projectSlug || !item.activityId) {
+              return;
+            }
+
+            await setProjectActivityCommitment(item.projectSlug, item.activityId, null);
+          } else {
+            if (!item.eventSlug || !item.activityId) {
+              return;
+            }
+
+            await setEventActivityCommitment(item.eventSlug, item.activityId, null);
+          }
+
           await invalidateAll();
         } finally {
           pendingSubjectId = '';
@@ -118,7 +136,7 @@
               <span class="event-going">{item.countLabel}</span>
               <button
                 aria-label={
-                  item.kind === 'project'
+                  usesRoleCommitment(item)
                     ? item.viewerAssignedRoleLabel
                       ? `Leave ${item.title}`
                       : `Open ${item.title}`
@@ -132,10 +150,10 @@
                 type="button"
                 on:click|stopPropagation={() => handleRailParticipation(item)}
               >
-                {#if item.kind === 'project'}
+                {#if usesRoleCommitment(item)}
                   {#if item.viewerAssignedRoleLabel}
                     Going
-                  {:else if item.projectHasOpenRole === false}
+                  {:else if item.hasOpenRole === false}
                     Full
                   {:else}
                     +
@@ -166,6 +184,38 @@
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
                 <SubjectTablet kind="project" projectMode={item.projectMode ?? 'collective-service'} />
+                <span class="snapshot-time">{formatCalendarTime(item.createdAt)}</span>
+              </div>
+              <strong>{item.title}</strong>
+              <span>{item.meta}</span>
+              {#if item.countLabel}
+                <span class="event-going request-detail">{item.countLabel}</span>
+              {/if}
+            </button>
+          </article>
+        {/each}
+      {/if}
+    </div>
+  </section>
+
+  <section class="rail-section rail-section-votes">
+    <h2>Active Votes</h2>
+    <p class="section-subtitle">Open project and event decisions where your vote is still needed.</p>
+    <div class:snapshot-scroll={voteItems.length > 5} class="snapshot-stack">
+      {#if voteItems.length === 0}
+        <div class="snapshot-row">
+          <strong>No active votes</strong>
+          <span>When your memberships have open decisions, they appear here for one-click voting.</span>
+        </div>
+      {:else}
+        {#each voteItems as item}
+          <article class="snapshot-row activity-row vote-row">
+            <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
+              <div class="activity-topline">
+                <SubjectTablet
+                  kind={item.voteEntityKind === 'event' ? 'event' : 'project'}
+                  projectMode={item.projectMode ?? 'productive'}
+                />
                 <span class="snapshot-time">{formatCalendarTime(item.createdAt)}</span>
               </div>
               <strong>{item.title}</strong>
@@ -213,6 +263,11 @@
   }
 
   .rail-section-requests {
+    padding-top: 4px;
+    border-top: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
+  }
+
+  .rail-section-votes {
     padding-top: 4px;
     border-top: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
   }

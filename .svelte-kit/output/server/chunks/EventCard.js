@@ -1,4 +1,4 @@
-import { f as bind_props, b as attr, e as escape_html } from "./renderer.js";
+import { d as bind_props, c as attr, e as escape_html } from "./renderer.js";
 import "@sveltejs/kit/internal";
 import "./exports.js";
 import "./utils.js";
@@ -30,11 +30,19 @@ function EventCard($$renderer, $$props) {
         });
         $$renderer3.push(`<!----></div> <div class="tag-stack svelte-622zm9">`);
         TagList($$renderer3, { columns: 4, tags: orderedTags });
-        $$renderer3.push(`<!----></div></div> <a class="title svelte-622zm9"${attr("href", item.href)}>${escape_html(item.title)}</a> <p class="body svelte-622zm9">${escape_html(item.description)}</p> <p class="location svelte-622zm9">${escape_html(item.timeLabel)} · ${escape_html(item.locationLabel)}</p> <div class="footer svelte-622zm9"><div class="engagement-row svelte-622zm9">`);
+        $$renderer3.push(`<!----></div></div> <a class="title svelte-622zm9"${attr("href", item.href)}>${escape_html(item.title)}</a> <p class="body svelte-622zm9">${escape_html(item.description)}</p> `);
+        if (item.timeLabel || item.locationLabel) {
+          $$renderer3.push("<!--[0-->");
+          $$renderer3.push(`<p class="location svelte-622zm9">${escape_html([item.timeLabel, item.locationLabel].filter(Boolean).join(" · "))}</p>`);
+        } else {
+          $$renderer3.push("<!--[-1-->");
+          $$renderer3.push(`<p class="location svelte-622zm9">Proposal schedule and location are set when an event plan is approved.</p>`);
+        }
+        $$renderer3.push(`<!--]--> <div class="footer svelte-622zm9"><div class="engagement-row svelte-622zm9">`);
         VoteStrip($$renderer3, { activeVote: item.activeVote, count: item.voteCount });
-        $$renderer3.push(`<!----> `);
+        $$renderer3.push(`<!----> <a class="comment-link svelte-622zm9"${attr("href", `${item.href}?tab=chat`)}>`);
         CountPill($$renderer3, { label: `${item.commentCount} comments` });
-        $$renderer3.push(`<!----></div> <div class="footer-meta svelte-622zm9"><span><a class="inline-link svelte-622zm9"${attr("href", `/profile/${item.createdByUsername}`)}>${escape_html(item.createdByUsername)}</a> · ${escape_html(item.goingCount)} going · <span class="activity-stamp">${escape_html(describeActivityTime(item.createdAt, item.lastActivityAt))}</span></span></div></div>`);
+        $$renderer3.push(`<!----></a></div> <div class="footer-meta svelte-622zm9"><span><a class="inline-link svelte-622zm9"${attr("href", `/profile/${item.createdByUsername}`)}>${escape_html(item.createdByUsername)}</a> · ${escape_html(item.goingCount)} members · <span class="activity-stamp">${escape_html(describeActivityTime(item.createdAt, item.lastActivityAt))}</span></span></div></div>`);
       },
       $$slots: { default: true }
     });

@@ -244,7 +244,7 @@
         <textarea
           bind:value={draftEditDescription}
           rows="5"
-          placeholder="Describe the event and what attendees should know..."
+          placeholder="Describe the event and what members should know..."
         ></textarea>
       </label>
       <div class="composer-actions">

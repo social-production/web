@@ -29,12 +29,14 @@ declare module "$app/types" {
 	type MatcherParam<M> = M extends (param : string) => param is (infer U extends string) ? U : string;
 
 	export interface AppTypes {
-		RouteId(): "/" | "/about" | "/channels" | "/channels/[slug]" | "/communities" | "/communities/[slug]" | "/create" | "/create/channel" | "/create/community" | "/create/event" | "/create/post" | "/create/project" | "/create/thread" | "/events" | "/events/[slug]" | "/messages" | "/notifications" | "/onboarding" | "/personal" | "/platform" | "/platform/assets" | "/platform/assets/[assetSlug]" | "/posts" | "/posts/[id]" | "/profile" | "/profile/[username]" | "/profile/[handle]" | "/projects" | "/projects/[slug]" | "/roadmap" | "/search" | "/settings" | "/stewardship" | "/threads" | "/threads/[slug]";
+		RouteId(): "/" | "/about" | "/channels" | "/channels/[slug]" | "/communities" | "/communities/[slug]" | "/create" | "/create/channel" | "/create/community" | "/create/event" | "/create/post" | "/create/project" | "/create/thread" | "/events" | "/events/[slug]" | "/messages" | "/notifications" | "/onboarding" | "/personal" | "/platform" | "/platform/assets" | "/platform/assets/[assetSlug]" | "/platform/assets/[assetSlug]/attached" | "/platform/assets/[assetSlug]/attached/[attachedAssetSlug]" | "/posts" | "/posts/[id]" | "/profile" | "/profile/[username]" | "/profile/[handle]" | "/projects" | "/projects/[slug]" | "/roadmap" | "/search" | "/settings" | "/stewardship" | "/threads" | "/threads/[slug]";
 		RouteParams(): {
 			"/channels/[slug]": { slug: string };
 			"/communities/[slug]": { slug: string };
 			"/events/[slug]": { slug: string };
 			"/platform/assets/[assetSlug]": { assetSlug: string };
+			"/platform/assets/[assetSlug]/attached": { assetSlug: string };
+			"/platform/assets/[assetSlug]/attached/[attachedAssetSlug]": { assetSlug: string; attachedAssetSlug: string };
 			"/posts/[id]": { id: string };
 			"/profile/[username]": { username: string };
 			"/profile/[handle]": { handle: string };
@@ -42,7 +44,7 @@ declare module "$app/types" {
 			"/threads/[slug]": { slug: string }
 		};
 		LayoutParams(): {
-			"/": { slug?: string; assetSlug?: string; id?: string; username?: string; handle?: string };
+			"/": { slug?: string; assetSlug?: string; attachedAssetSlug?: string; id?: string; username?: string; handle?: string };
 			"/about": Record<string, never>;
 			"/channels": { slug?: string };
 			"/channels/[slug]": { slug: string };
@@ -61,9 +63,11 @@ declare module "$app/types" {
 			"/notifications": Record<string, never>;
 			"/onboarding": Record<string, never>;
 			"/personal": Record<string, never>;
-			"/platform": { assetSlug?: string };
-			"/platform/assets": { assetSlug?: string };
-			"/platform/assets/[assetSlug]": { assetSlug: string };
+			"/platform": { assetSlug?: string; attachedAssetSlug?: string };
+			"/platform/assets": { assetSlug?: string; attachedAssetSlug?: string };
+			"/platform/assets/[assetSlug]": { assetSlug: string; attachedAssetSlug?: string };
+			"/platform/assets/[assetSlug]/attached": { assetSlug: string; attachedAssetSlug?: string };
+			"/platform/assets/[assetSlug]/attached/[attachedAssetSlug]": { assetSlug: string; attachedAssetSlug: string };
 			"/posts": { id?: string };
 			"/posts/[id]": { id: string };
 			"/profile": { username?: string; handle?: string };
@@ -78,7 +82,7 @@ declare module "$app/types" {
 			"/threads": { slug?: string };
 			"/threads/[slug]": { slug: string }
 		};
-		Pathname(): "/" | "/about" | `/channels/${string}` & {} | `/communities/${string}` & {} | "/create/channel" | "/create/community" | "/create/event" | "/create/post" | "/create/project" | "/create/thread" | `/events/${string}` & {} | "/messages" | "/notifications" | "/onboarding" | "/personal" | "/platform" | "/platform/assets" | `/platform/assets/${string}` & {} | `/posts/${string}` & {} | `/profile/${string}` & {} | `/projects/${string}` & {} | "/roadmap" | "/search" | "/settings" | "/stewardship" | `/threads/${string}` & {};
+		Pathname(): "/" | "/about" | `/channels/${string}` & {} | `/communities/${string}` & {} | "/create/channel" | "/create/community" | "/create/event" | "/create/post" | "/create/project" | "/create/thread" | `/events/${string}` & {} | "/messages" | "/notifications" | "/onboarding" | "/personal" | "/platform" | "/platform/assets" | `/platform/assets/${string}` & {} | `/platform/assets/${string}/attached/${string}` & {} | `/posts/${string}` & {} | `/profile/${string}` & {} | `/projects/${string}` & {} | "/roadmap" | "/search" | "/settings" | "/stewardship" | `/threads/${string}` & {};
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
 		Asset(): string & {};
 	}

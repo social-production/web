@@ -5,4 +5,4 @@
   export let data: PageData;
 </script>
 
-<LandAssetDetailPage scope={data.scope} asset={data.asset} featureOpen={data.featureOpen} />
+<LandAssetDetailPage scope={data.scope} asset={data.asset} />

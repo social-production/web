@@ -1,4 +1,5 @@
-import { k as fallback, c as attr_class, b as attr, s as slot, f as bind_props } from "./renderer.js";
+import { f as fallback, b as attr_class, c as attr, h as slot, d as bind_props } from "./renderer.js";
+/* empty css                                          */
 function FeedSurface($$renderer, $$props) {
   let tone = fallback($$props["tone"], "public");
   let href = fallback($$props["href"], null);

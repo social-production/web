@@ -5,6 +5,7 @@
   export let title = 'History';
   export let description = '';
   export let entries: DecisionHistoryEntry[] = [];
+  export let highlightedDecisionId: string | null = null;
   export let emptyMessage = 'No decision history yet.';
   export let onVote: (
     entry: DecisionHistoryEntry,
@@ -37,7 +38,7 @@
       <div class:scrollable={activeEntries.length > 5} class="history-list">
         {#each activeEntries as entry (entry.id)}
           <div class="history-rail-card">
-            <DecisionHistoryCard {entry} {onVote} />
+            <DecisionHistoryCard {entry} highlighted={highlightedDecisionId === entry.id} {onVote} />
           </div>
         {/each}
       </div>
@@ -58,7 +59,7 @@
       <div class:scrollable={completedEntries.length > 5} class="history-list">
         {#each completedEntries as entry (entry.id)}
           <div class="history-rail-card">
-            <DecisionHistoryCard {entry} {onVote} />
+            <DecisionHistoryCard {entry} highlighted={highlightedDecisionId === entry.id} {onVote} />
           </div>
         {/each}
       </div>

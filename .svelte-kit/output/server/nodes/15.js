@@ -1,10 +1,10 @@
-import * as universal from '../entries/pages/personal/_page.ts.js';
+import * as universal from '../entries/pages/onboarding/_page.ts.js';
 
 export const index = 15;
 let component_cache;
-export const component = async () => component_cache ??= (await import('../entries/pages/personal/_page.svelte.js')).default;
+export const component = async () => component_cache ??= (await import('../entries/pages/onboarding/_page.svelte.js')).default;
 export { universal };
-export const universal_id = "src/routes/personal/+page.ts";
-export const imports = ["_app/immutable/nodes/15.TwnxiI6J.js","_app/immutable/chunks/Ch_xBtBA.js","_app/immutable/chunks/BUhjs0ca.js","_app/immutable/chunks/CTP_sk8P.js","_app/immutable/chunks/BaheMG_i.js","_app/immutable/chunks/kQDwlutK.js","_app/immutable/chunks/Ba5nxIvg.js","_app/immutable/chunks/CKFfB9eO.js","_app/immutable/chunks/J4DalYHe.js","_app/immutable/chunks/BfXBhBuV.js","_app/immutable/chunks/DC4PtBbO.js","_app/immutable/chunks/BifhI8mU.js","_app/immutable/chunks/DuWrDhcz.js","_app/immutable/chunks/B3-XwVGj.js","_app/immutable/chunks/BhLHJG8Z.js","_app/immutable/chunks/UTiCOlGI.js","_app/immutable/chunks/8gkOnl04.js","_app/immutable/chunks/EXsrrEEt.js","_app/immutable/chunks/DR5w8z1B.js","_app/immutable/chunks/C_jCNQ9_.js","_app/immutable/chunks/De-ONlPH.js","_app/immutable/chunks/FOZwuFSZ.js","_app/immutable/chunks/BUpW7wSt.js","_app/immutable/chunks/B1Mhgvo9.js","_app/immutable/chunks/BXkj3kYT.js","_app/immutable/chunks/DVRpEZq1.js","_app/immutable/chunks/CXH-Q-Ft.js"];
-export const stylesheets = ["_app/immutable/assets/VoteStrip.DgQk-iDq.css","_app/immutable/assets/AvatarBadge.Dkl9kCiy.css","_app/immutable/assets/CountPill.DtmrF0X5.css","_app/immutable/assets/FeedSurface.26WSEYhM.css","_app/immutable/assets/SubjectTablet.s06eeYeV.css","_app/immutable/assets/TagList.BmuIFvgn.css","_app/immutable/assets/PersonalPostCard.CQ1_RGw1.css","_app/immutable/assets/PersonalFeedCard.9_QEERHF.css","_app/immutable/assets/15.0ajk-Aed.css"];
+export const universal_id = "src/routes/onboarding/+page.ts";
+export const imports = ["_app/immutable/nodes/15.CyXsZjKq.js","_app/immutable/chunks/DO0mf8hQ.js","_app/immutable/chunks/DmmZ4dUA.js","_app/immutable/chunks/D10GFEir.js","_app/immutable/chunks/BriRf5Ew.js","_app/immutable/chunks/qg8vPTS7.js","_app/immutable/chunks/Crk0g78b.js","_app/immutable/chunks/CHcPgaOC.js","_app/immutable/chunks/Bgm58JKr.js","_app/immutable/chunks/C5EuFZRK.js","_app/immutable/chunks/BwYMiQlm.js","_app/immutable/chunks/Ch6pQuGq.js","_app/immutable/chunks/ZBRnF01E.js","_app/immutable/chunks/DHutl17Y.js","_app/immutable/chunks/Bfc47y5P.js","_app/immutable/chunks/BIGFs4IE.js","_app/immutable/chunks/CWeFt6jb.js","_app/immutable/chunks/kFa3k0gM.js","_app/immutable/chunks/oxMorc5X.js"];
+export const stylesheets = ["_app/immutable/assets/15.Bja6q5rX.css"];
 export const fonts = [];

@@ -5,7 +5,11 @@ function getNotifications() {
 function getMessages() {
   return currentAdapter.getMessages();
 }
+function sendMessage(threadId, body) {
+  return currentAdapter.sendMessage(threadId, body);
+}
 export {
   getNotifications as a,
-  getMessages as g
+  getMessages as g,
+  sendMessage as s
 };

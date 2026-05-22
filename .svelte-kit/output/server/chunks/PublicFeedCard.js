@@ -1,4 +1,4 @@
-import { f as bind_props } from "./renderer.js";
+import { d as bind_props } from "./renderer.js";
 import { E as EventCard } from "./EventCard.js";
 import { P as ProjectCard } from "./ProjectCard.js";
 import { T as ThreadCard } from "./ThreadCard.js";

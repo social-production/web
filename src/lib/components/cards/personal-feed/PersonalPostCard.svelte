@@ -30,7 +30,7 @@
 <FeedSurface href={item.href} tone="personal">
   <div class="header-row">
     <div class="identity-row">
-      <AvatarBadge size="sm" username={item.author.username} />
+      <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
       <div class="identity-copy">
         <div class="name-line">
           <a class="name" href={`/profile/${item.author.username}`}>{item.author.username}</a>

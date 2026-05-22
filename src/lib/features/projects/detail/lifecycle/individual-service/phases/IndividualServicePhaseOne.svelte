@@ -493,11 +493,12 @@
               <label>
                 <span class="field-inline-label">Request mode</span>
                 <select bind:value={requestSettingsForm.requestMode}>
-                  <option value="calendar">Only through listed availability</option>
-                  <option value="direct">Direct written requests only</option>
-                  <option value="both">Availability and direct written requests</option>
+                  <option value="calendar">Scheduled slots only</option>
+                  <option value="direct">Message requests only</option>
+                  <option value="both">Scheduled slots and message requests</option>
                 </select>
               </label>
+              <p class="field-help">Scheduled slots start from listed times. Message requests let people write in without choosing a listed slot.</p>
             {/if}
 
             {#if !requestSettingsChanged}
