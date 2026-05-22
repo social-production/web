@@ -1,4 +1,4 @@
-import { f as bind_props, c as attr_class, b as attr, e as escape_html, d as ensure_array_like } from "../../../chunks/renderer.js";
+import { d as bind_props, b as attr_class, e as escape_html, c as attr, a as ensure_array_like } from "../../../chunks/renderer.js";
 import "@sveltejs/kit/internal";
 import "../../../chunks/exports.js";
 import "../../../chunks/utils.js";
@@ -12,62 +12,35 @@ import { a as formatRelativeTime } from "../../../chunks/time.js";
 import "../../../chunks/data.js";
 function NotificationCard($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
+    let orderedTags;
     let item = $$props["item"];
+    orderedTags = [...item.channelTags, ...item.communityTags];
     FeedSurface($$renderer2, {
       href: item.href,
       tone: item.surface === "personal" ? "personal" : "public",
       children: ($$renderer3) => {
-        $$renderer3.push(`<div${attr_class("notification-card svelte-zrp4gc", void 0, { "unread": item.isUnread })}><div class="topline svelte-zrp4gc">`);
-        if (item.surface === "personal") {
+        $$renderer3.push(`<div${attr_class("notification-card svelte-zrp4gc", void 0, { "unread": item.isUnread })}><div class="topline svelte-zrp4gc"><div class="kind-row svelte-zrp4gc">`);
+        if (item.isUnread) {
           $$renderer3.push("<!--[0-->");
-          $$renderer3.push(`<div class="identity-row svelte-zrp4gc"><div class="kind-row svelte-zrp4gc">`);
-          if (item.isUnread) {
-            $$renderer3.push("<!--[0-->");
-            $$renderer3.push(`<span class="unread-dot svelte-zrp4gc"></span>`);
-          } else {
-            $$renderer3.push("<!--[-1-->");
-          }
-          $$renderer3.push(`<!--]--> `);
-          if (item.actorUsername) {
-            $$renderer3.push("<!--[0-->");
-            $$renderer3.push(`<a class="actor-link svelte-zrp4gc"${attr("href", `/profile/${item.actorUsername}`)}>${escape_html(item.actorUsername)}</a>`);
-          } else {
-            $$renderer3.push("<!--[-1-->");
-          }
-          $$renderer3.push(`<!--]--> `);
-          if (item.actionLabel) {
-            $$renderer3.push("<!--[0-->");
-            $$renderer3.push(`<span class="action svelte-zrp4gc">- ${escape_html(item.actionLabel)}</span>`);
-          } else {
-            $$renderer3.push("<!--[-1-->");
-          }
-          $$renderer3.push(`<!--]--> `);
-          SubjectTablet($$renderer3, {
-            kind: item.subjectKind,
-            projectMode: item.projectMode ?? "productive"
-          });
-          $$renderer3.push(`<!----></div></div>`);
+          $$renderer3.push(`<span class="unread-dot svelte-zrp4gc"></span>`);
         } else {
           $$renderer3.push("<!--[-1-->");
-          $$renderer3.push(`<div class="kind-row svelte-zrp4gc">`);
-          if (item.isUnread) {
-            $$renderer3.push("<!--[0-->");
-            $$renderer3.push(`<span class="unread-dot svelte-zrp4gc"></span>`);
-          } else {
-            $$renderer3.push("<!--[-1-->");
-          }
-          $$renderer3.push(`<!--]--> `);
-          SubjectTablet($$renderer3, {
-            kind: item.subjectKind,
-            projectMode: item.projectMode ?? "productive"
-          });
-          $$renderer3.push(`<!----></div>`);
         }
-        $$renderer3.push(`<!--]--> <div class="tag-stack svelte-zrp4gc">`);
-        TagList($$renderer3, { tags: item.channelTags });
+        $$renderer3.push(`<!--]--> `);
+        SubjectTablet($$renderer3, {
+          kind: item.subjectKind,
+          projectMode: item.projectMode ?? "productive"
+        });
         $$renderer3.push(`<!----> `);
-        TagList($$renderer3, { tags: item.communityTags });
-        $$renderer3.push(`<!----></div></div> `);
+        if (item.actionLabel) {
+          $$renderer3.push("<!--[0-->");
+          $$renderer3.push(`<span class="action svelte-zrp4gc">- ${escape_html(item.actionLabel)}</span>`);
+        } else {
+          $$renderer3.push("<!--[-1-->");
+        }
+        $$renderer3.push(`<!--]--></div> `);
+        TagList($$renderer3, { tags: orderedTags });
+        $$renderer3.push(`<!----></div> `);
         if (item.title) {
           $$renderer3.push("<!--[0-->");
           $$renderer3.push(`<p class="title-text svelte-zrp4gc">${escape_html(item.title)}</p>`);
@@ -81,14 +54,21 @@ function NotificationCard($$renderer, $$props) {
         } else {
           $$renderer3.push("<!--[-1-->");
         }
-        $$renderer3.push(`<!--]--> <div class="footer svelte-zrp4gc"><span class="time svelte-zrp4gc">${escape_html(formatRelativeTime(item.createdAt))}</span> `);
+        $$renderer3.push(`<!--]--> <div class="footer svelte-zrp4gc">`);
         if (item.isUnread) {
           $$renderer3.push("<!--[0-->");
           $$renderer3.push(`<button class="mark-read svelte-zrp4gc" type="button">Mark read</button>`);
         } else {
           $$renderer3.push("<!--[-1-->");
         }
-        $$renderer3.push(`<!--]--></div></div>`);
+        $$renderer3.push(`<!--]--> <div class="footer-meta svelte-zrp4gc">`);
+        if (item.actorUsername) {
+          $$renderer3.push("<!--[0-->");
+          $$renderer3.push(`<a class="actor-link svelte-zrp4gc"${attr("href", `/profile/${item.actorUsername}`)}>${escape_html(item.actorUsername)}</a>`);
+        } else {
+          $$renderer3.push("<!--[-1-->");
+        }
+        $$renderer3.push(`<!--]--> <span class="time svelte-zrp4gc">${escape_html(formatRelativeTime(item.createdAt))}</span></div></div></div>`);
       },
       $$slots: { default: true }
     });

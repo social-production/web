@@ -6,15 +6,13 @@
   type DraftPlanPhase = {
     title: string;
     details: string;
-    materialsLabel: string;
-    costLabel: string;
+    materials: string[];
   };
 
   type DraftPlanForm = {
     title: string;
     description: string;
     demandConsiderationNote: string;
-    totalCostLabel: string;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;
   };
@@ -25,6 +23,9 @@
   export let addPlanPhase: () => void = () => {};
   export let removePlanPhase: (index: number) => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
+  export let editingPlanId: string | null = null;
+  export let startEditingPlan: (planId: string) => void | Promise<void> = () => {};
+  export let cancelEditingPlan: () => void | Promise<void> = () => {};
   export let isExpandedPlan: (planId: string) => boolean = () => false;
   export let valuevote: (planId: string, valueId: string, vote: ProjectApprovalVote | null) => void = () => {};
   export let overallvote: (planId: string, vote: ProjectApprovalVote | null) => void = () => {};
@@ -50,6 +51,9 @@
     {addPlanPhase}
     {removePlanPhase}
     {submitPlan}
+    {editingPlanId}
+    {startEditingPlan}
+    {cancelEditingPlan}
     {isExpandedPlan}
     {valuevote}
     {overallvote}

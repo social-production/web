@@ -4,6 +4,7 @@ export interface ViewerSummary {
   id: string;
   username: string;
   bio?: string;
+  profileImageUrl?: string;
 }
 
 export interface FeatureFlags {
@@ -21,6 +22,7 @@ export interface ScopeDirectoryItem {
   slug: string;
   label: string;
   href: string;
+  visibility?: 'public' | 'private';
 }
 
 export interface ScopeDirectory {
@@ -32,7 +34,7 @@ export interface ScopeDirectory {
 export interface RightRailActivityItem {
   id: string;
   subjectId: string;
-  kind: 'project' | 'event' | 'request';
+  kind: 'project' | 'event' | 'request' | 'vote';
   title: string;
   href: string;
   meta: string;
@@ -42,12 +44,16 @@ export interface RightRailActivityItem {
   viewerIsParticipating?: boolean;
   projectMode?: ProjectMode;
   projectSlug?: string;
+  eventSlug?: string;
   activityId?: string;
   requestId?: string;
   requesterUsername?: string;
   activityRoleLabels?: string[];
   viewerAssignedRoleLabel?: string | null;
-  projectHasOpenRole?: boolean;
+  hasOpenRole?: boolean;
+  voteEntityKind?: 'project' | 'event';
+  voteKindLabel?: string;
+  voteTargetId?: string;
 }
 
 export interface BootstrapPayload {
@@ -55,5 +61,6 @@ export interface BootstrapPayload {
   featureFlags: FeatureFlags;
   unreadCounts: UnreadCounts;
   directory: ScopeDirectory;
+  suggestedContacts: ViewerSummary[];
   activityRail: RightRailActivityItem[];
 }

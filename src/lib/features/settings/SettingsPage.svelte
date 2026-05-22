@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
+  import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import { signOut, updateSettings } from '$lib/services/queries/account';
   import type {
     AppearanceThemeMode,
@@ -13,10 +14,15 @@
   let pendingKey = '';
   let bioDraft = data.profileBio;
   let lastLoadedBio = data.profileBio;
+  let lastLoadedProfileImage = data.profileImageUrl;
 
   $: if (pendingKey !== 'bio' && data.profileBio !== lastLoadedBio) {
     bioDraft = data.profileBio;
     lastLoadedBio = data.profileBio;
+  }
+
+  $: if (pendingKey !== 'profile-image' && data.profileImageUrl !== lastLoadedProfileImage) {
+    lastLoadedProfileImage = data.profileImageUrl;
   }
 
   async function applySettings(key: string, patch: SettingsUpdateInput) {
@@ -45,6 +51,34 @@
   function saveBio() {
     return applySettings('bio', {
       profileBio: bioDraft.trim()
+    });
+  }
+
+  function clearProfileImage() {
+    return applySettings('profile-image', {
+      profileImageUrl: ''
+    });
+  }
+
+  async function handleProfileImageFileChange(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+
+    if (!file) {
+      return;
+    }
+
+    const dataUrl = await readFileAsDataUrl(file);
+    await applySettings('profile-image', { profileImageUrl: dataUrl });
+    input.value = '';
+  }
+
+  function readFileAsDataUrl(file: File) {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () => reject(reader.error ?? new Error('Could not read image file.'));
+      reader.readAsDataURL(file);
     });
   }
 
@@ -86,10 +120,18 @@
     <section class="panel">
       <h2>Account</h2>
       <div class="account-summary">
-        <strong>@{data.profileUsername}</strong>
+        <div class="account-headline">
+          <AvatarBadge size="md" username={data.profileUsername} imageUrl={data.profileImageUrl || null} />
+          <strong>{data.profileUsername}</strong>
+        </div>
         <p>{data.profileBio}</p>
       </div>
       <p class="helper-copy">Profile text is hydrated from the same mock account data as the shell and profile page.</p>
+
+      <label class="field-stack">
+        <span class="field-label">Upload profile image</span>
+        <input accept="image/*" type="file" on:change={handleProfileImageFileChange} />
+      </label>
 
       <label class="field-stack">
         <span class="field-label">Bio</span>
@@ -97,6 +139,7 @@
       </label>
 
       <div class="button-row">
+        <button class="button-ghost" disabled={pendingKey === 'profile-image'} type="button" on:click={clearProfileImage}>Remove photo</button>
         <button class="button-primary" disabled={pendingKey === 'bio'} type="button" on:click={saveBio}>Save bio</button>
         <button class="button-ghost" disabled={pendingKey === 'sign-out'} type="button" on:click={handleSignOut}>
           {pendingKey === 'sign-out' ? 'Signing out...' : 'Sign out'}
@@ -239,6 +282,12 @@
   .button-row {
     display: grid;
     gap: 8px;
+  }
+
+  .account-headline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
   .button-row {

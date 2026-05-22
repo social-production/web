@@ -3,8 +3,11 @@
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import {
+    isProductiveProject,
     isCollectiveServiceProject,
-    isPersonalServiceProject
+    isPersonalServiceProject,
+    projectSubjectLabel,
+    projectSubtypeLabel
   } from '$lib/features/projects/projectMode';
   import {
     formatProjectVoteRequirement,
@@ -14,6 +17,7 @@
     ProjectApprovalVote,
     ProjectLifecyclePhaseChangeRequest,
     ProjectLifecyclePhaseId,
+    ProjectPhaseChangeRequestOptions,
     ProjectPageData
   } from '$lib/types/detail';
 
@@ -26,7 +30,8 @@
   ) => void | Promise<void> = () => {};
   export let requestPhaseChange: (
     targetPhaseId: ProjectLifecyclePhaseId,
-    reason: string
+    reason: string,
+    options?: ProjectPhaseChangeRequestOptions
   ) => void | Promise<void> = () => {};
   export let voteOnPhaseChange: (
     requestId: string,
@@ -36,6 +41,7 @@
   let showNextPhaseComposer = false;
   let showRevertComposer = false;
   let nextPhaseReason = '';
+  let nextPhaseCloseOutcome: 'close' | 'convert' = 'close';
   let revertReason = '';
   let revertTargetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'> = 'phase-2';
   let expandedVoteGroup: 'return' | 'advance' | 'close' | null = null;
@@ -57,6 +63,15 @@
   $: showNextActions = personalDirectPhaseChange
     ? canDirectAdvance
     : !!data.lifecycle.nextPhaseId || nextActionRequests.length > 0;
+  $: canOfferConversionOnClose =
+    !personalDirectPhaseChange && isProductiveProject(data.projectMode) && isClosingTransition();
+  $: suggestedConversionTarget = canOfferConversionOnClose
+    ? {
+        projectMode: 'collective-service' as const,
+        projectSubtype:
+          data.projectSubtype === 'software' ? ('software' as const) : ('standard' as const)
+      }
+    : null;
 
   $: if (!data.lifecycle.revertablePhaseIds.includes(revertTargetPhaseId)) {
     revertTargetPhaseId = data.lifecycle.revertablePhaseIds[0] ?? 'phase-1';
@@ -100,6 +115,10 @@
     }
 
     if (isClosingTransition()) {
+      if (canOfferConversionOnClose) {
+        return 'Close or convert';
+      }
+
       return personalDirectPhaseChange ? 'Close service' : 'Close';
     }
 
@@ -111,6 +130,10 @@
       return 'Add the closure note that should appear in project updates.';
     }
 
+    if (canOfferConversionOnClose) {
+      return 'State why the project should close now or reopen as a governed follow-on service.';
+    }
+
     return isClosingTransition()
       ? 'State why the project should close or where the work continues next.'
       : 'State why this phase change should happen now.';
@@ -119,12 +142,20 @@
   function requestKindLabel(request: ProjectLifecyclePhaseChangeRequest) {
     switch (request.kind) {
       case 'close':
-        return 'Close decision';
+        return request.closeOutcome === 'convert' ? 'Convert decision' : 'Close decision';
       case 'return':
         return 'Return decision';
       default:
         return 'Advance decision';
     }
+  }
+
+  function closeOutcomeLabel() {
+    if (!suggestedConversionTarget) {
+      return null;
+    }
+
+    return `${projectSubjectLabel(suggestedConversionTarget.projectMode)} · ${projectSubtypeLabel(suggestedConversionTarget.projectSubtype)}`;
   }
 
   async function submitNextPhaseRequest() {
@@ -135,7 +166,18 @@
     if (personalDirectPhaseChange) {
       await advancePhase(nextPhaseReason);
     } else {
-      await requestPhaseChange(data.lifecycle.nextPhaseId, nextPhaseReason);
+      const options = isClosingTransition()
+        ? nextPhaseCloseOutcome === 'convert' && suggestedConversionTarget
+          ? {
+              closeOutcome: 'convert' as const,
+              conversionTarget: suggestedConversionTarget
+            }
+          : {
+              closeOutcome: 'close' as const
+            }
+        : undefined;
+
+      await requestPhaseChange(data.lifecycle.nextPhaseId, nextPhaseReason, options);
     }
 
     closeNextPhaseComposer();
@@ -169,6 +211,7 @@
   function closeNextPhaseComposer() {
     showNextPhaseComposer = false;
     nextPhaseReason = '';
+    nextPhaseCloseOutcome = 'close';
   }
 
   function closeRevertComposer() {
@@ -307,6 +350,26 @@
       <div bind:this={nextPhaseComposerElement} class="mechanics-card change-action-panel">
         <div class="composer-card">
           <h3>{nextPhaseActionLabel()}</h3>
+          {#if canOfferConversionOnClose}
+            <label>
+              <span class="field-inline-label">Outcome</span>
+              <select bind:value={nextPhaseCloseOutcome}>
+                <option value="close">Close project</option>
+                <option value="convert">Convert into collective service</option>
+              </select>
+            </label>
+
+            {#if nextPhaseCloseOutcome === 'convert' && suggestedConversionTarget}
+              <div class="conversion-preview-card">
+                <span class="field-inline-label">Governed successor</span>
+                <strong>{closeOutcomeLabel()}</strong>
+                <p>
+                  The successor will reopen in Proposal and inherit the current inventory framing once this close vote passes.
+                </p>
+              </div>
+            {/if}
+          {/if}
+
           <label>
             <span class="field-inline-label">Reason</span>
             <textarea bind:value={nextPhaseReason} rows="3" placeholder={nextPhasePlaceholder()}></textarea>
@@ -336,6 +399,19 @@
             </div>
 
             <p>{request.reason}</p>
+
+            {#if request.closeOutcome === 'convert' && request.conversionTarget}
+              <div class="detail-grid">
+                <div class="detail-card">
+                  <span>Successor target</span>
+                  <strong>{request.conversionTarget.projectModeLabel} · {request.conversionTarget.projectSubtypeLabel}</strong>
+                </div>
+                <div class="detail-card">
+                  <span>Successor entry phase</span>
+                  <strong>{request.conversionTarget.entryPhaseLabel}</strong>
+                </div>
+              </div>
+            {/if}
 
             <div class="vote-summary-row">
               <span>{formatProjectVoteSummary(request.voteSummary)}</span>
@@ -391,6 +467,7 @@
   .phase-change-stack,
   .change-action-panel,
   .composer-card,
+  .conversion-preview-card,
   .surface-stack,
   .vote-request-card,
   .vote-card-copy {
@@ -437,11 +514,19 @@
 
   .mechanics-card,
   .composer-card,
-  .surface-card {
+  .surface-card,
+  .detail-card,
+  .conversion-preview-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
+  }
+
+  .detail-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 
   .vote-request-card {

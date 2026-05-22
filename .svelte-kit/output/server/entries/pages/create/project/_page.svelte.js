@@ -1,21 +1,31 @@
 import "clsx";
-import { e as escape_html, c as attr_class, b as attr, d as ensure_array_like } from "../../../../chunks/renderer.js";
+import { s as store_get, u as unsubscribe_stores, e as escape_html, b as attr_class, c as attr, a as ensure_array_like } from "../../../../chunks/renderer.js";
+import "@sveltejs/kit/internal";
+import "../../../../chunks/exports.js";
+import "../../../../chunks/utils.js";
+import "@sveltejs/kit/internal/server";
+import "../../../../chunks/root.js";
+import "../../../../chunks/state.svelte.js";
+import { p as page } from "../../../../chunks/stores.js";
 import { P as ProjectCard } from "../../../../chunks/ProjectCard.js";
 import { C as CreateFlowLayout, a as CreatePanel } from "../../../../chunks/CreatePanel.js";
 import { i as isPersonalServiceProject } from "../../../../chunks/data.js";
-import { b as splitCommaValues, m as makeTagRef, a as communityOptions } from "../../../../chunks/options.js";
+import { s as splitCommaValues, m as makeTagRef, c as channelOptions, a as communityOptions } from "../../../../chunks/options.js";
 function CreateProjectPage($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
-    let projectPreview, canSubmit;
+    var $$store_subs;
+    let viewer, projectPreview, usesPlatformTag, personalServiceUsesPlatformTag, viewerCanCreatePlatformProject, canSubmit;
+    const platformTagSlug = "platform";
     let selectedType = "productive";
-    let title = "Neighborhood Heat Pump Retrofit Pilot";
-    let summary = "Research a small retrofit round before moving into full planning and procurement.";
-    let locationLabel = "Block 2 Retrofit Cluster, East Market, Riverbend";
-    let district = "East Market";
-    let primaryChannel = "Housing & Build";
+    let title = "";
+    let description = "";
+    let locationLabel = "";
+    let district = "";
+    let primaryChannel = "";
     let additionalChannels = "";
     let taggedCommunities = "";
-    let notes = "Looking for visible demand, likely participant count, and similar project overlap before the planning stage.";
+    let isSubmitting = false;
+    viewer = store_get($$store_subs ??= {}, "$page", page).data.bootstrap?.viewer ?? null;
     projectPreview = {
       kind: "project",
       id: "project-preview",
@@ -23,9 +33,9 @@ function CreateProjectPage($$renderer, $$props) {
       href: "#",
       createdAt: (/* @__PURE__ */ new Date()).toISOString(),
       title: title.trim() || "Untitled project",
-      authorUsername: "patchbay",
+      authorUsername: viewer?.username ?? "patchbay",
       projectMode: selectedType,
-      summary: summary.trim() || "Describe the project so need, labor interest, and overlap stay visible before planning begins.",
+      summary: description.trim() || "Describe the project so need, labor interest, and overlap stay visible before planning begins.",
       channelTags: [
         ...primaryChannel.trim() ? [makeTagRef(primaryChannel.trim(), "channel")] : [],
         ...splitCommaValues(additionalChannels).map((value) => makeTagRef(value, "channel"))
@@ -40,7 +50,10 @@ function CreateProjectPage($$renderer, $$props) {
       memberCount: 0,
       lastActivityAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    canSubmit = title.trim().length > 0 && summary.trim().length > 0 && primaryChannel.trim().length > 0;
+    usesPlatformTag = projectPreview.channelTags.some((tag) => tag.slug === platformTagSlug);
+    personalServiceUsesPlatformTag = usesPlatformTag && isPersonalServiceProject(selectedType);
+    viewerCanCreatePlatformProject = !usesPlatformTag || !!viewer;
+    canSubmit = title.trim().length > 0 && description.trim().length > 0 && primaryChannel.trim().length > 0 && viewerCanCreatePlatformProject && !personalServiceUsesPlatformTag;
     CreateFlowLayout($$renderer2, {
       $$slots: {
         primary: ($$renderer3) => {
@@ -56,16 +69,16 @@ function CreateProjectPage($$renderer, $$props) {
                 });
                 $$renderer4.option({ value: "West Terrace Laundry Room" }, ($$renderer5) => {
                 });
-                $$renderer4.push(`</datalist></label> <label><span class="field-label svelte-149tywm">District or neighborhood</span> <input${attr("value", district)}/></label> <label><span class="field-label svelte-149tywm">Summary</span> <textarea rows="3">`);
-                const $$body = escape_html(summary);
+                $$renderer4.push(`</datalist></label> <label><span class="field-label svelte-149tywm">District or neighborhood</span> <input${attr("value", district)}/></label> <label><span class="field-label svelte-149tywm">Description</span> <textarea rows="5">`);
+                const $$body = escape_html(description);
                 if ($$body) {
                   $$renderer4.push(`${$$body}`);
                 }
                 $$renderer4.push(`</textarea></label> <label><span class="field-label svelte-149tywm">Primary channel tag</span> <input${attr("value", primaryChannel)} list="project-channels"/> <datalist id="project-channels"><!--[-->`);
-                const each_array = ensure_array_like(["Housing & Build", "Mutual Aid", "Energy Retrofit"]);
+                const each_array = ensure_array_like(channelOptions);
                 for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
                   let option = each_array[$$index];
-                  $$renderer4.option({ value: option }, ($$renderer5) => {
+                  $$renderer4.option({ value: option.label }, ($$renderer5) => {
                   });
                 }
                 $$renderer4.push(`<!--]--></datalist></label> <label><span class="field-label svelte-149tywm">Additional channel tags</span> <input${attr("value", additionalChannels)} placeholder="Comma-separated"/></label> <label><span class="field-label svelte-149tywm">Community tags</span> <input${attr("value", taggedCommunities)} placeholder="Comma-separated" list="project-communities"/> <datalist id="project-communities"><!--[-->`);
@@ -77,15 +90,9 @@ function CreateProjectPage($$renderer, $$props) {
                 }
                 $$renderer4.push(`<!--]--></datalist></label> `);
                 {
-                  $$renderer4.push("<!--[0-->");
-                  $$renderer4.push(`<label><span class="field-label svelte-149tywm">Demand-signalling note</span> <textarea rows="4">`);
-                  const $$body_1 = escape_html(notes);
-                  if ($$body_1) {
-                    $$renderer4.push(`${$$body_1}`);
-                  }
-                  $$renderer4.push(`</textarea></label>`);
+                  $$renderer4.push("<!--[-1-->");
                 }
-                $$renderer4.push(`<!--]--> <div class="button-row"><button class="button-primary"${attr("disabled", !canSubmit, true)} type="submit">Create Project</button> <button class="button-ghost" type="button">Save Draft</button></div> `);
+                $$renderer4.push(`<!--]--> <div class="button-row"><button class="button-primary"${attr("disabled", !canSubmit || isSubmitting, true)} type="submit">${escape_html("Create Project")}</button> <button class="button-ghost" type="button">Save Draft</button></div> `);
                 {
                   $$renderer4.push("<!--[-1-->");
                 }
@@ -111,9 +118,24 @@ function CreateProjectPage($$renderer, $$props) {
               title: "Posting rules",
               description: "What happens immediately after creation in this frontend slice.",
               children: ($$renderer4) => {
-                $$renderer4.push(`<p class="helper-text">${escape_html(
-                  "New productive projects start in Proposal. Planning stays public because at least one channel tag is required."
-                )}</p>`);
+                $$renderer4.push(`<p class="helper-text">`);
+                if (usesPlatformTag) {
+                  $$renderer4.push("<!--[0-->");
+                  if (personalServiceUsesPlatformTag) {
+                    $$renderer4.push("<!--[0-->");
+                    $$renderer4.push(`Personal service projects cannot use the platform channel. The platform tag is only for collective governance surfaces.`);
+                  } else {
+                    $$renderer4.push("<!--[-1-->");
+                    $$renderer4.push(`Platform-tagged projects stay open to any signed-in user. Board members do not gate creation or phase changes; they only execute collectively approved platform outcomes.`);
+                  }
+                  $$renderer4.push(`<!--]-->`);
+                } else {
+                  $$renderer4.push("<!--[-1-->");
+                  $$renderer4.push(`${escape_html(
+                    "New productive projects start in Proposal. Planning stays public because at least one channel tag is required."
+                  )}`);
+                }
+                $$renderer4.push(`<!--]--></p>`);
               },
               $$slots: { default: true }
             });
@@ -122,6 +144,7 @@ function CreateProjectPage($$renderer, $$props) {
         }
       }
     });
+    if ($$store_subs) unsubscribe_stores($$store_subs);
   });
 }
 function _page($$renderer) {

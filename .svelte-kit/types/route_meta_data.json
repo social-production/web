@@ -65,6 +65,10 @@
 		"src/routes/platform/assets/[assetSlug]/+page.ts",
 		"src/routes/+layout.ts"
 	],
+	"/platform/assets/[assetSlug]/attached/[attachedAssetSlug]": [
+		"src/routes/platform/assets/[assetSlug]/attached/[attachedAssetSlug]/+page.ts",
+		"src/routes/+layout.ts"
+	],
 	"/posts/[id]": [
 		"src/routes/posts/[id]/+page.ts",
 		"src/routes/+layout.ts"

@@ -2,7 +2,6 @@
   import CollectiveServicePhaseOne from './phases/CollectiveServicePhaseOne.svelte';
   import CollectiveServicePhaseTwo from './phases/CollectiveServicePhaseTwo.svelte';
   import CollectiveServicePhaseThree from './phases/CollectiveServicePhaseThree.svelte';
-  import CollectiveServicePhaseFour from './phases/CollectiveServicePhaseFour.svelte';
   import CollectiveServicePhaseFive from './phases/CollectiveServicePhaseFive.svelte';
   import CollectiveServicePhaseSix from './phases/CollectiveServicePhaseSix.svelte';
   import type {
@@ -17,19 +16,20 @@
     ProjectServiceRequestSettingsChangeInput,
     ProjectServiceRequestStatus
   } from '$lib/types/detail';
+  import type { ProjectSubtype } from '$lib/types/feed';
 
   type DraftPlanPhase = {
     title: string;
     details: string;
-    materialsLabel: string;
-    costLabel: string;
+    materials: string[];
   };
 
   type DraftPlanForm = {
     title: string;
     description: string;
+    projectSubtype?: ProjectSubtype;
+    repositoryUrl?: string;
     demandConsiderationNote: string;
-    totalCostLabel: string;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;
     requestMode?: 'calendar' | 'direct' | 'both';
@@ -80,6 +80,9 @@
   export let addProductionPlanPhase: () => void = () => {};
   export let removeProductionPlanPhase: (index: number) => void = () => {};
   export let submitProductionPlan: () => void | Promise<void> = () => {};
+  export let editingProductionPlanId: string | null = null;
+  export let startEditingProductionPlan: (planId: string) => void | Promise<void> = () => {};
+  export let cancelEditingProductionPlan: () => void | Promise<void> = () => {};
   export let setPhaseTwoPlanValueVote: (
     planId: string,
     valueId: string,
@@ -128,6 +131,16 @@
     requestId: string,
     vote: ProjectApprovalVote | null
   ) => void | Promise<void> = () => {};
+  export let createPullRequest: (
+    input: import('$lib/types/detail').ProjectSoftwarePullRequestInput
+  ) => void | Promise<void> = () => {};
+  export let requestMergeCapabilityChange: (
+    input: import('$lib/types/detail').ProjectSoftwareMergeCapabilityChangeInput
+  ) => void | Promise<void> = () => {};
+  export let requestRepositoryReplacement: (
+    input: import('$lib/types/detail').ProjectSoftwareRepositoryReplacementInput
+  ) => void | Promise<void> = () => {};
+  export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
   export let toggleHistoryCompletion: (
     historyId: string,
     role: ProjectServiceHistoryCompletionRole,
@@ -152,6 +165,9 @@
     addPlanPhase={addProductionPlanPhase}
     removePlanPhase={removeProductionPlanPhase}
     submitPlan={submitProductionPlan}
+    editingPlanId={editingProductionPlanId}
+    startEditingPlan={startEditingProductionPlan}
+    cancelEditingPlan={cancelEditingProductionPlan}
     isExpandedPlan={(planId) => isExpandedPlan('phase-2', planId)}
     valuevote={setPhaseTwoPlanValueVote}
     overallvote={setPhaseTwoPlanOverallVote}
@@ -168,8 +184,6 @@
     valuevote={setPhaseThreePlanValueVote}
     overallvote={setPhaseThreePlanOverallVote}
   />
-{:else if activePhaseId === 'phase-4'}
-  <CollectiveServicePhaseFour />
 {:else if activePhaseId === 'phase-5'}
   <CollectiveServicePhaseFive
     {data}
@@ -198,6 +212,10 @@
     changecommitment={updateActivityCommitment}
     {requestServiceRequestSettingsChange}
     {voteOnRequestSettingsChange}
+    {createPullRequest}
+    {requestMergeCapabilityChange}
+    {requestRepositoryReplacement}
+    recordPullRequestMerge={recordPullRequestMerge}
     {toggleHistoryCompletion}
   />
 {:else}

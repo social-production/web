@@ -1,14 +1,28 @@
 import "clsx";
-import { g as store_get, u as unsubscribe_stores, e as escape_html, b as attr } from "../../../../chunks/renderer.js";
+import { s as store_get, u as unsubscribe_stores, e as escape_html, c as attr } from "../../../../chunks/renderer.js";
+import "@sveltejs/kit/internal";
+import "../../../../chunks/exports.js";
+import "../../../../chunks/utils.js";
+import "@sveltejs/kit/internal/server";
+import "../../../../chunks/root.js";
+import "../../../../chunks/state.svelte.js";
 import { p as page } from "../../../../chunks/stores.js";
 import { P as PersonalPostCard } from "../../../../chunks/PersonalPostCard.js";
 import { C as CreateFlowLayout, a as CreatePanel } from "../../../../chunks/CreatePanel.js";
+import "../../../../chunks/data.js";
 function CreatePostPage($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     var $$store_subs;
-    let viewer, previewItem, canSubmit;
-    let body = "Use this space for direct personal posting that should not start inside Public.";
+    let viewer, prefillBody, previewItem, canSubmit;
+    let body = "";
+    let isSubmitting = false;
+    let hasAppliedPrefill = false;
     viewer = store_get($$store_subs ??= {}, "$page", page).data.bootstrap?.viewer ?? null;
+    prefillBody = store_get($$store_subs ??= {}, "$page", page).url.searchParams.get("prefill")?.trim() ?? "";
+    if (!hasAppliedPrefill && prefillBody && !body.trim()) {
+      body = prefillBody;
+      hasAppliedPrefill = true;
+    }
     previewItem = viewer ? {
       kind: "post",
       id: "post-preview",
@@ -31,12 +45,12 @@ function CreatePostPage($$renderer, $$props) {
               title: "Post To Personal",
               description: "Text posts live here directly. Image posts can layer in later without changing the Personal/Public split.",
               children: ($$renderer4) => {
-                $$renderer4.push(`<form class="form-stack svelte-1c991i0"><label><span class="field-label svelte-1c991i0">Post body</span> <textarea rows="8" placeholder="Share a direct post to your personal timeline...">`);
+                $$renderer4.push(`<form class="form-stack svelte-1c991i0"><div class="audience-note svelte-1c991i0"><span class="field-label svelte-1c991i0">Audience</span> <p class="svelte-1c991i0">Followers only</p></div> <label><span class="field-label svelte-1c991i0">Post body</span> <textarea rows="8" placeholder="Share a direct post to your personal timeline...">`);
                 const $$body = escape_html(body);
                 if ($$body) {
                   $$renderer4.push(`${$$body}`);
                 }
-                $$renderer4.push(`</textarea></label> <div class="button-row"><button class="button-primary"${attr("disabled", !canSubmit, true)} type="submit">Post</button> <button class="button-ghost" type="button">Save Draft</button></div> `);
+                $$renderer4.push(`</textarea></label> <div class="button-row"><button class="button-primary"${attr("disabled", !canSubmit || isSubmitting, true)} type="submit">${escape_html("Post")}</button> <button class="button-ghost" type="button">Save Draft</button></div> `);
                 {
                   $$renderer4.push("<!--[-1-->");
                 }

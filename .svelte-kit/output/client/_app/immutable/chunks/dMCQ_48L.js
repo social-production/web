@@ -1,0 +1,1 @@
+import{c as t}from"./DmmZ4dUA.js";function u(e){return t.getChannel(e)}function a(e){return t.getCommunity(e)}function i(){return t.getPlatform()}function m(e,n){return t.toggleScopeMembership(e,n)}function c(e,n,r){return t.redeemScopeInvite(e,n,r)}export{u as a,a as b,i as g,c as r,m as t};

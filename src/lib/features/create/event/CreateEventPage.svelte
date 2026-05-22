@@ -2,23 +2,20 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import EventCard from '$lib/components/cards/public-feed/EventCard.svelte';
+  import CreateEventAudienceSelector from '$lib/features/create/event/components/CreateEventAudienceSelector.svelte';
+  import CreateEventVisibilityPanel from '$lib/features/create/event/components/CreateEventVisibilityPanel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import { createEvent } from '$lib/services/queries/create';
-  import {
-    channelOptions,
-    communityOptions,
-    followingUsernames,
-    selectedTags
-  } from '$lib/features/create/shared/options';
-  import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
-  import type { PublicEventItem } from '$lib/types/feed';
+  import type { ScopeDirectoryItem, ViewerSummary } from '$lib/types/bootstrap';
+  import type { PublicEventItem, TagKind, TagRef } from '$lib/types/feed';
+
+  type AudienceScopeItem = ScopeDirectoryItem & {
+    visibility?: 'public' | 'private';
+  };
 
   let title = '';
   let description = '';
-  let startTimeLabel = '';
-  let finishTimeLabel = '';
-  let locationLabel = '';
   let selectedChannelIds: string[] = [];
   let selectedCommunityIds: string[] = [];
   let invitedUsernames: string[] = [];
@@ -28,21 +25,29 @@
   let statusMessage = '';
   let isSubmitting = false;
 
+  function selectedScopeTags(
+    selectedSlugs: string[],
+    options: AudienceScopeItem[],
+    kind: TagKind
+  ): TagRef[] {
+    return selectedSlugs
+      .map((slug) => options.find((option) => option.slug === slug))
+      .filter((option): option is AudienceScopeItem => !!option)
+      .map((option) => ({ slug: option.slug, label: option.label, kind }));
+  }
+
+  function matchesQuery(option: Pick<AudienceScopeItem, 'slug' | 'label'>, normalizedQuery: string) {
+    return (
+      option.label.toLowerCase().includes(normalizedQuery) ||
+      option.slug.toLowerCase().includes(normalizedQuery)
+    );
+  }
+
   $: viewer = $page.data.bootstrap?.viewer ?? null;
-  $: memberChannelSlugs = ($page.data.bootstrap?.directory.channels ?? []).map(
-    (item: ScopeDirectoryItem) => item.slug
-  );
-  $: memberCommunitySlugs = ($page.data.bootstrap?.directory.communities ?? []).map(
-    (item: ScopeDirectoryItem) => item.slug
-  );
-  $: channelSuggestionPool = channelOptions.filter(
-    (option) => memberChannelSlugs.length === 0 || memberChannelSlugs.includes(option.slug)
-  );
-  $: communitySuggestionPool = communityOptions.filter(
-    (option) => memberCommunitySlugs.length === 0 || memberCommunitySlugs.includes(option.slug)
-  );
-  $: peopleSuggestionPool = followingUsernames;
-  $: selectedCommunityOptions = communityOptions.filter((option) =>
+  $: channelSuggestionPool = ($page.data.bootstrap?.directory.channels ?? []) as AudienceScopeItem[];
+  $: communitySuggestionPool = ($page.data.bootstrap?.directory.communities ?? []) as AudienceScopeItem[];
+  $: peopleSuggestionPool = ($page.data.bootstrap?.suggestedContacts ?? []) as ViewerSummary[];
+  $: selectedCommunityOptions = communitySuggestionPool.filter((option) =>
     selectedCommunityIds.includes(option.slug)
   );
   $: privateCommunity =
@@ -54,28 +59,54 @@
   $: personalInviteOnly =
     selectedChannelIds.length === 0 && selectedCommunityIds.length === 0 && invitedUsernames.length > 0;
   $: isPrivate = !!privateCommunity || personalInviteOnly;
-  $: timeLabel = [startTimeLabel.trim(), finishTimeLabel.trim()].filter(Boolean).join(' to ');
+  $: publicEventNeedsChannelTag = !isPrivate && selectedChannelIds.length === 0;
   $: normalizedChannelQuery = channelQuery.trim().toLowerCase();
   $: normalizedCommunityQuery = communityQuery.trim().toLowerCase();
   $: normalizedPeopleQuery = peopleQuery.trim().toLowerCase();
-  $: channelSuggestions = channelSuggestionPool
-    .filter((option) =>
-      option.label.toLowerCase().includes(normalizedChannelQuery) ||
-      option.slug.includes(normalizedChannelQuery)
-    )
-    .filter((option) => !selectedChannelIds.includes(option.slug))
-    .slice(0, 6);
-  $: communitySuggestions = communitySuggestionPool
-    .filter((option) =>
-      option.label.toLowerCase().includes(normalizedCommunityQuery) ||
-      option.slug.includes(normalizedCommunityQuery)
-    )
-    .filter((option) => !selectedCommunityIds.includes(option.slug))
-    .slice(0, 6);
-  $: peopleSuggestions = peopleSuggestionPool
-    .filter((username) => username.toLowerCase().includes(normalizedPeopleQuery))
-    .filter((username) => !invitedUsernames.includes(username))
-    .slice(0, 6);
+  $: channelSuggestions = normalizedChannelQuery
+    ? channelSuggestionPool
+        .filter((option) => matchesQuery(option, normalizedChannelQuery))
+        .filter((option) => !selectedChannelIds.includes(option.slug))
+        .slice(0, 6)
+    : [];
+  $: communitySuggestions = normalizedCommunityQuery
+    ? communitySuggestionPool
+        .filter((option) => matchesQuery(option, normalizedCommunityQuery))
+        .filter((option) => !selectedCommunityIds.includes(option.slug))
+        .slice(0, 6)
+    : [];
+  $: peopleSuggestions = normalizedPeopleQuery
+    ? peopleSuggestionPool
+        .filter((contact: ViewerSummary) =>
+          contact.username.toLowerCase().includes(normalizedPeopleQuery)
+        )
+        .filter((contact: ViewerSummary) => !invitedUsernames.includes(contact.username))
+        .slice(0, 6)
+    : [];
+  $: selectedChannelItems = selectedChannelIds
+    .map((slug) => channelSuggestionPool.find((option) => option.slug === slug))
+    .filter((option): option is AudienceScopeItem => !!option)
+    .map((option) => ({ key: option.slug, label: option.label }));
+  $: selectedCommunityItems = selectedCommunityIds
+    .map((slug) => communitySuggestionPool.find((option) => option.slug === slug))
+    .filter((option): option is AudienceScopeItem => !!option)
+    .map((option) => ({
+      key: option.slug,
+      label: `${option.label}${option.visibility === 'private' ? ' (Private)' : ''}`
+    }));
+  $: selectedInviteeItems = invitedUsernames.map((username) => ({ key: username, label: username }));
+  $: channelSuggestionItems = channelSuggestions.map((option) => ({
+    key: option.slug,
+    label: option.label
+  }));
+  $: communitySuggestionItems = communitySuggestions.map((option) => ({
+    key: option.slug,
+    label: `${option.label}${option.visibility === 'private' ? ' (Private)' : ''}`
+  }));
+  $: peopleSuggestionItems = peopleSuggestions.map((contact: ViewerSummary) => ({
+    key: contact.username,
+    label: contact.username
+  }));
 
   $: previewItem = viewer
     ? ({
@@ -87,13 +118,13 @@
         title: title.trim() || 'Untitled event',
         description:
           description.trim() ||
-          'Describe the one-off gathering, who it is for, and what should happen.',
+          'Describe the proposal, who it is for, and what an approved event plan should turn into.',
         isPrivate,
-        channelTags: selectedTags(selectedChannelIds, channelOptions, 'channel'),
-        communityTags: selectedTags(selectedCommunityIds, communityOptions, 'community'),
+        channelTags: selectedScopeTags(selectedChannelIds, channelSuggestionPool, 'channel'),
+        communityTags: selectedScopeTags(selectedCommunityIds, communitySuggestionPool, 'community'),
         createdByUsername: viewer.username,
-        timeLabel: timeLabel || 'Time not set',
-        locationLabel: locationLabel.trim() || 'Location not set',
+        timeLabel: '',
+        locationLabel: '',
         voteCount: 0,
         activeVote: 0,
         commentCount: 0,
@@ -105,9 +136,7 @@
   $: canSubmit =
     title.trim().length > 0 &&
     description.trim().length > 0 &&
-    startTimeLabel.trim().length > 0 &&
-    finishTimeLabel.trim().length > 0 &&
-    locationLabel.trim().length > 0;
+    !publicEventNeedsChannelTag;
 
   async function handleCreate() {
     isSubmitting = true;
@@ -117,11 +146,8 @@
       const result = await createEvent({
         title,
         description,
-        startTimeLabel,
-        finishTimeLabel,
-        locationLabel,
-        channelTags: selectedTags(selectedChannelIds, channelOptions, 'channel'),
-        communityTags: selectedTags(selectedCommunityIds, communityOptions, 'community'),
+        channelTags: selectedScopeTags(selectedChannelIds, channelSuggestionPool, 'channel'),
+        communityTags: selectedScopeTags(selectedCommunityIds, communitySuggestionPool, 'community'),
         invitedUsernames
       });
 
@@ -195,8 +221,8 @@
 <CreateFlowLayout>
   <svelte:fragment slot="primary">
     <CreatePanel
-      title="Event setup"
-      description="Privacy is derived from the tags and invitees you choose. Events stay public unless they are only personal-invite or only inside one private community."
+      title="Event proposal"
+      description="Privacy is derived from the tags and invitees you choose. The event starts as a proposal; time, date, and location are added by the approved event plan before activity begins."
     >
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
         <div>
@@ -218,124 +244,43 @@
         </label>
 
         <label>
-          <span class="field-label">Start time</span>
-          <input bind:value={startTimeLabel} />
-        </label>
-
-        <label>
-          <span class="field-label">Finish time</span>
-          <input bind:value={finishTimeLabel} />
-        </label>
-
-        <label>
-          <span class="field-label">Location</span>
-          <input bind:value={locationLabel} />
-        </label>
-
-        <label>
-          <span class="field-label">Description</span>
+          <span class="field-label">Proposal description</span>
           <textarea bind:value={description} rows="4"></textarea>
         </label>
 
-        <div>
-          <span class="field-label">Channel tags</span>
-          <div class="token-input-stack">
-            <div class="chip-row wrap-row">
-              {#each selectedChannelIds as selectedSlug}
-                {@const selectedOption = channelOptions.find((option) => option.slug === selectedSlug)}
-                {#if selectedOption}
-                  <button class="toggle-chip active" type="button" on:click={() => removeChannelTag(selectedSlug)}>
-                    {selectedOption.label} x
-                  </button>
-                {/if}
-              {/each}
-            </div>
-            <input
-              bind:value={channelQuery}
-              placeholder="Type to add a channel tag"
-              on:keydown={(event) =>
-                commitSingleSuggestion(
-                  event,
-                  channelSuggestions.map((item) => item.slug),
-                  addChannelTag
-                )}
-            />
-            {#if channelSuggestions.length > 0}
-              <div class="suggestion-row">
-                {#each channelSuggestions as option}
-                  <button class="suggestion-chip" type="button" on:click={() => addChannelTag(option.slug)}>
-                    {option.label}
-                  </button>
-                {/each}
-              </div>
-            {/if}
-          </div>
-        </div>
+        <CreateEventAudienceSelector
+          label="Channel tags"
+          bind:query={channelQuery}
+          placeholder="Type to add a channel tag"
+          selectedItems={selectedChannelItems}
+          suggestionItems={channelSuggestionItems}
+          onAdd={addChannelTag}
+          onRemove={removeChannelTag}
+          onCommitSingleSuggestion={commitSingleSuggestion}
+        />
 
-        <div>
-          <span class="field-label">Community tags</span>
-          <div class="token-input-stack">
-            <div class="chip-row wrap-row">
-              {#each selectedCommunityIds as selectedSlug}
-                {@const selectedOption = communityOptions.find((option) => option.slug === selectedSlug)}
-                {#if selectedOption}
-                  <button class="toggle-chip active" type="button" on:click={() => removeCommunityTag(selectedSlug)}>
-                    {selectedOption.label}{selectedOption.visibility === 'private' ? ' (Private)' : ''} x
-                  </button>
-                {/if}
-              {/each}
-            </div>
-            <input
-              bind:value={communityQuery}
-              placeholder="Type to add a community tag"
-              on:keydown={(event) =>
-                commitSingleSuggestion(
-                  event,
-                  communitySuggestions.map((item) => item.slug),
-                  addCommunityTag
-                )}
-            />
-            {#if communitySuggestions.length > 0}
-              <div class="suggestion-row">
-                {#each communitySuggestions as option}
-                  <button class="suggestion-chip" type="button" on:click={() => addCommunityTag(option.slug)}>
-                    {option.label}{option.visibility === 'private' ? ' (Private)' : ''}
-                  </button>
-                {/each}
-              </div>
-            {/if}
-          </div>
-        </div>
+        <CreateEventAudienceSelector
+          label="Community tags"
+          bind:query={communityQuery}
+          placeholder="Type to add a community tag"
+          selectedItems={selectedCommunityItems}
+          suggestionItems={communitySuggestionItems}
+          onAdd={addCommunityTag}
+          onRemove={removeCommunityTag}
+          onCommitSingleSuggestion={commitSingleSuggestion}
+        />
 
-        <div>
-          <span class="field-label">Add personal people</span>
-          <div class="token-input-stack">
-            <div class="chip-row wrap-row">
-              {#each invitedUsernames as username}
-                <button class="toggle-chip active" type="button" on:click={() => removePerson(username)}>
-                  {username} x
-                </button>
-              {/each}
-            </div>
-            <input
-              bind:value={peopleQuery}
-              placeholder="Type to add people"
-              on:keydown={(event) => commitSingleSuggestion(event, peopleSuggestions, addPerson)}
-            />
-            {#if peopleSuggestions.length > 0}
-              <div class="suggestion-row">
-                {#each peopleSuggestions as username}
-                  <button class="suggestion-chip" type="button" on:click={() => addPerson(username)}>
-                    {username}
-                  </button>
-                {/each}
-              </div>
-            {/if}
-          </div>
-          <p class="helper-text">
-            Personal invitees only make the event private when you do not also tag a channel or community.
-          </p>
-        </div>
+        <CreateEventAudienceSelector
+          label="Add personal people"
+          bind:query={peopleQuery}
+          placeholder="Type to add people"
+          helperText="Personal invitees only make the event private when you do not also tag a channel or community."
+          selectedItems={selectedInviteeItems}
+          suggestionItems={peopleSuggestionItems}
+          onAdd={addPerson}
+          onRemove={removePerson}
+          onCommitSingleSuggestion={commitSingleSuggestion}
+        />
 
         <div class="button-row">
           <button class="button-primary" disabled={!canSubmit || isSubmitting} type="submit">
@@ -354,7 +299,7 @@
   <svelte:fragment slot="secondary">
     <CreatePanel
       title="Live preview"
-      description="Shows how the event will appear in feeds and search."
+      description="Shows how the proposal will appear in feeds and search before a plan adds schedule and location."
       surface="transparent"
     >
       {#if previewItem}
@@ -362,17 +307,10 @@
       {/if}
     </CreatePanel>
 
-    <CreatePanel title="Visibility rule" description="How discovery works in this frontend slice.">
-      <p class="helper-text">
-        {#if privateCommunity}
-          Private events can live inside a single private community without leaking into Public.
-        {:else if personalInviteOnly}
-          Private personal events stay invite-only when they are only tied to directly added people.
-        {:else}
-          Public events can be untagged or tagged. Channels, public communities, and mixed tagging keep them discoverable in Public.
-        {/if}
-      </p>
-    </CreatePanel>
+    <CreateEventVisibilityPanel
+      privateCommunityLabel={privateCommunity?.label ?? null}
+      {personalInviteOnly}
+    />
   </svelte:fragment>
 </CreateFlowLayout>
 
@@ -387,36 +325,6 @@
     margin-bottom: 6px;
     font-size: 13px;
     font-weight: 700;
-  }
-
-  .chip-row {
-    display: flex;
-    gap: 8px;
-  }
-
-  .token-input-stack,
-  .suggestion-row {
-    display: grid;
-    gap: 8px;
-  }
-
-  .suggestion-row {
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  }
-
-  .suggestion-chip {
-    padding: 8px 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-    text-align: left;
-  }
-
-  .wrap-row {
-    flex-wrap: wrap;
   }
 
   .helper-text {

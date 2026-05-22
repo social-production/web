@@ -1,11 +1,13 @@
 <script lang="ts">
-  import type { ProjectDistributionPlan, ProjectProductionPlan } from '$lib/types/detail';
+  import type { EventPlan, ProjectDistributionPlan, ProjectProductionPlan } from '$lib/types/detail';
 
-  export let plan: ProjectProductionPlan | ProjectDistributionPlan;
+  export let plan: ProjectProductionPlan | ProjectDistributionPlan | EventPlan;
   export let expanded = false;
   export let canVote = false;
+  export let canEdit = false;
   export let showRequestSystem = false;
   export let statusLabel: string | null = null;
+  export let onEdit: () => void = () => {};
   export let valuevote: (planId: string, valueId: string, vote: 'yes' | 'no' | null) => void = () => {};
   export let overallvote: (planId: string, vote: 'yes' | 'no' | null) => void = () => {};
 
@@ -14,6 +16,26 @@
   function nextVote(activeVote: 'yes' | 'no' | null, vote: 'yes' | 'no') {
     return activeVote === vote ? null : vote;
   }
+
+  function handleEdit(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    onEdit();
+  }
+
+  function normalizeExternalUrl(value: string | null | undefined) {
+    const trimmed = value?.trim() ?? '';
+
+    if (!trimmed) {
+      return '';
+    }
+
+    if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed)) {
+      return trimmed;
+    }
+
+    return `https://${trimmed}`;
+  }
 </script>
 
 <details bind:open={open} class="surface-card plan-card collapsible-card" class:expanded={open}>
@@ -21,6 +43,9 @@
     <span class="plan-card-copy">
       <span class="plan-header">
         <strong class="plan-title">{plan.title}</strong>
+        {#if 'projectSubtypeLabel' in plan}
+          <span class="subtype-badge">{plan.projectSubtypeLabel}</span>
+        {/if}
         {#if statusLabel}
           <span class="phase-badge complete">{statusLabel}</span>
         {/if}
@@ -29,7 +54,12 @@
       {#if !open}
         <span class="plan-footer-meta base-footer">
           <span>Overall approval {plan.overallApproval.approvalPercent}% yes · {plan.overallApproval.yesCount} yes / {plan.overallApproval.noCount} no</span>
-          <span>{plan.authorUsername}</span>
+          <span class="author-row">
+            {#if canEdit}
+              <button class="vote-chip" type="button" on:click={handleEdit}>Edit plan</button>
+            {/if}
+            <span>{plan.authorUsername}</span>
+          </span>
         </span>
       {/if}
     </span>
@@ -37,6 +67,19 @@
 
   {#if open}
     <div class="plan-phase-stack">
+      {#if 'schedule' in plan}
+        <div class="event-plan-meta-stack">
+          <div class="event-plan-meta-item">
+            <strong>Timing</strong>
+            <span>{plan.schedule.label}</span>
+          </div>
+          <div class="event-plan-meta-item">
+            <strong>Location</strong>
+            <span>{plan.locationLabel}</span>
+          </div>
+        </div>
+      {/if}
+
       <div class="demand-context-card">
         <strong>Demand at submission</strong>
         <span class="plan-description">
@@ -46,23 +89,40 @@
             {plan.demandSignalSnapshot} demand signals were active when this plan was posted.
           {/if}
         </span>
-        <p>{plan.demandConsiderationNote}</p>
+        {#if 'schedule' in plan}
+          <div class="detail-copy">
+            <span class="detail-section-title">Response to demand signal</span>
+            <p>{plan.demandConsiderationNote}</p>
+          </div>
+        {:else}
+          <p>{plan.demandConsiderationNote}</p>
+        {/if}
       </div>
 
       {#each plan.planPhases as phase}
         <div class="step-card">
           <strong>Stage: {phase.title}</strong>
           <p>{phase.details}</p>
-          <div class="plan-footer-meta">
-            <span>{phase.materialsLabel}</span>
-            <span>{phase.costLabel}</span>
-          </div>
+          {#if 'materialsLabel' in phase}
+            <div class="plan-footer-meta">
+              {#if 'materialsLabel' in phase}
+                <span>{phase.materialsLabel}</span>
+              {/if}
+            </div>
+          {/if}
         </div>
       {/each}
-      <div class="plan-footer-meta total-cost-row">
-        <span>Total cost</span>
-        <span>{plan.totalCostLabel}</span>
-      </div>
+
+      {#if 'repositoryUrl' in plan}
+        <div class="detail-copy">
+          <span class="detail-section-title">Official repository</span>
+          {#if plan.repositoryUrl}
+            <a href={normalizeExternalUrl(plan.repositoryUrl)} rel="noreferrer" target="_blank">{plan.repositoryUrl}</a>
+          {:else}
+            <p>No repository link provided in this plan.</p>
+          {/if}
+        </div>
+      {/if}
       {#if showRequestSystem && 'requestSystemEnabled' in plan}
         <div class="plan-footer-meta total-cost-row">
           <span>Request system</span>
@@ -149,7 +209,12 @@
 
     <div class="plan-footer-meta base-footer expanded-footer">
       <span>Overall approval {plan.overallApproval.approvalPercent}% yes · {plan.overallApproval.yesCount} yes / {plan.overallApproval.noCount} no</span>
-      <span>{plan.authorUsername}</span>
+      <span class="author-row">
+        {#if canEdit}
+          <button class="vote-chip" type="button" on:click={handleEdit}>Edit plan</button>
+        {/if}
+        <span>{plan.authorUsername}</span>
+      </span>
     </div>
   {/if}
 </details>
@@ -187,7 +252,9 @@
 
   .plan-card-copy,
   .plan-phase-stack,
-  .assessment-copy {
+  .assessment-copy,
+  .event-plan-meta-stack,
+  .detail-copy {
     display: grid;
     gap: 12px;
   }
@@ -195,6 +262,21 @@
   .plan-description {
     color: var(--text-soft);
     line-height: 1.45;
+  }
+
+  .event-plan-meta-item {
+    display: grid;
+    gap: 4px;
+    color: var(--text-soft);
+    line-height: 1.45;
+  }
+
+  .event-plan-meta-item strong,
+  .detail-section-title {
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
   }
 
   .plan-title {
@@ -277,6 +359,12 @@
     margin-top: 2px;
   }
 
+  .author-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .phase-badge {
     padding: 6px 10px;
     border: 1px solid var(--panel-border);
@@ -287,6 +375,16 @@
     font-weight: 700;
     width: fit-content;
     justify-self: end;
+  }
+
+  .subtype-badge {
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--brand) 32%, var(--panel-border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--brand-soft) 65%, var(--panel));
+    color: var(--brand-strong);
+    font-size: 11px;
+    font-weight: 700;
   }
 
   .phase-badge.complete {

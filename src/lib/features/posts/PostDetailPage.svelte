@@ -34,7 +34,7 @@
   <section class="hero-card">
     <div class="identity-row">
       <div class="identity-main">
-        <AvatarBadge size="md" username={data.authorUsername} />
+        <AvatarBadge size="md" username={data.authorUsername} imageUrl={data.authorProfileImageUrl ?? null} />
         <div class="identity-copy">
           <div class="name-line">
             <a class="inline-link" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>

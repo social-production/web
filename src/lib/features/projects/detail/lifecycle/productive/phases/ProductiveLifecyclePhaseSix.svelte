@@ -1,15 +1,39 @@
 <script lang="ts">
   import { isCollectiveServiceProject, isPersonalServiceProject } from '$lib/features/projects/projectMode';
-  import type { ProjectPageData } from '$lib/types/detail';
+  import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
+  import type {
+    ProjectLifecyclePhaseId,
+    ProjectPageData,
+    ProjectSoftwareMergeCapabilityChangeInput,
+    ProjectSoftwarePullRequestInput,
+    ProjectSoftwareRepositoryReplacementInput
+  } from '$lib/types/detail';
 
-  export let projectMode: ProjectPageData['projectMode'];
+  export let data: ProjectPageData;
+  export let activePhaseId: ProjectLifecyclePhaseId;
+  export let createPullRequest: (input: ProjectSoftwarePullRequestInput) => void | Promise<void> = () => {};
+  export let requestMergeCapabilityChange: (
+    input: ProjectSoftwareMergeCapabilityChangeInput
+  ) => void | Promise<void> = () => {};
+  export let requestRepositoryReplacement: (
+    input: ProjectSoftwareRepositoryReplacementInput
+  ) => void | Promise<void> = () => {};
+  export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
 
   function completionCopy() {
-    if (isPersonalServiceProject(projectMode)) {
+    if (data.linksFrame.conversionLineage) {
+      return 'This project is already framed as a governed conversion. Keep the permanent predecessor/successor link and inherited inventory note visible in Links while the follow-on service history takes over.';
+    }
+
+    if (data.lifecycle.usesPlatformLifecycle && activePhaseId === 'phase-6') {
+      return 'This platform project is waiting for execution review before it can fully close. Keep merge confirmation and any final execution evidence visible in the history before advancing to Closed.';
+    }
+
+    if (isPersonalServiceProject(data.projectMode)) {
       return 'This phase records the service as closed, while still leaving room to point people toward a future collective service or productive project if the work grows beyond one person.';
     }
 
-    if (isCollectiveServiceProject(projectMode)) {
+    if (isCollectiveServiceProject(data.projectMode)) {
       return 'This phase closes the service while keeping its history visible. If related work continues later, it should either move back into planning or link to a new project.';
     }
 
@@ -18,6 +42,16 @@
 </script>
 
 <section class="phase-surface">
+  {#if data.lifecycle.usesPlatformLifecycle && data.lifecycle.phaseFive.softwareGovernance}
+    <ProjectSoftwareGovernancePanel
+      governance={data.lifecycle.phaseFive.softwareGovernance}
+      createPullRequest={createPullRequest}
+      requestMergeCapabilityChange={requestMergeCapabilityChange}
+      requestRepositoryReplacement={requestRepositoryReplacement}
+      recordMerge={recordPullRequestMerge}
+    />
+  {/if}
+
   <div class="empty-card">{completionCopy()}</div>
 </section>
 

@@ -13,26 +13,35 @@
     isCollectiveServiceProject,
     isPersonalServiceProject
   } from '$lib/features/projects/projectMode';
+  import { isAcquisitionSurfaceEnabled } from '$lib/config/features/phaseScope';
   import {
     addProjectActivity,
     addProjectDistributionPlan,
+    requestProjectMergeCapabilityChange,
+    addProjectPullRequest,
     addProjectProductionPlan,
+    updateProjectProductionPlan,
+    requestProjectRepositoryReplacement,
     addProjectServiceRequest,
     addProjectValue,
     advanceProjectPhase,
     planProjectServiceRequest,
+    recordProjectPullRequestMerge,
     revertProjectPhase,
     requestProjectPhaseChange,
     requestProjectServiceRequestSettingsChange,
     setProjectActivityCommitment,
+    setProjectMergeCapabilityChangeVote,
     setProjectPhaseChangeVote,
     setProjectPlanOverallVote,
     setProjectPlanValueVote,
+    setProjectRepositoryReplacementVote,
     setProjectServiceRequestSettingsChangeVote,
     setProjectServiceRequestStatus,
     toggleProjectServiceHistoryCompletion,
     setProjectValueImportance
   } from '$lib/services/queries/details';
+  import type { ProjectSubtype } from '$lib/types/feed';
   import type {
     ProjectActivityRoleInput,
     ProjectServiceHistoryCompletionChoice,
@@ -41,7 +50,10 @@
     ProjectImportanceVoteValue,
     ProjectLifecyclePhase,
     ProjectLifecyclePhaseId,
+    ProjectPhaseChangeRequestOptions,
     ProjectPageData,
+    ProjectSoftwareMergeCapabilityChangeInput,
+    ProjectSoftwareRepositoryReplacementInput,
     ProjectServiceRequestPlanInput,
     ProjectServiceRequestSettingsChangeInput,
     ProjectServiceRequestStatus
@@ -71,19 +83,49 @@
   type DraftPlanPhase = {
     title: string;
     details: string;
-    materialsLabel: string;
-    costLabel: string;
+    materials: string[];
   };
 
-  const fundingPhaseCopy = 'Funding opens in a later platform phase';
+  type DraftProductionForm = {
+    title: string;
+    description: string;
+    projectSubtype: ProjectSubtype;
+    repositoryUrl: string;
+    demandConsiderationNote: string;
+    planPhases: DraftPlanPhase[];
+    validationMessages: string[];
+  };
+
+  type DraftDistributionForm = {
+    title: string;
+    description: string;
+    demandConsiderationNote: string;
+    planPhases: DraftPlanPhase[];
+    requestSystemEnabled: boolean;
+    requestMode: 'calendar' | 'direct' | 'both';
+    allowOffScheduleRequests: boolean;
+    validationMessages: string[];
+  };
+
+  let draftEntityCounter = 0;
+
+  function nextDraftId(prefix: string) {
+    draftEntityCounter += 1;
+    return `${prefix}-${draftEntityCounter}`;
+  }
 
   function createDraftPlanPhase(): DraftPlanPhase {
     return {
       title: '',
       details: '',
-      materialsLabel: '',
-      costLabel: fundingPhaseCopy
+      materials: []
     };
+  }
+
+  function materialListLabel(phase: DraftPlanPhase) {
+    const normalized = phase.materials.map((material) => material.trim()).filter(Boolean);
+
+    return normalized.join(', ');
   }
 
   function createDraftActivityRole(): ProjectActivityRoleInput {
@@ -100,26 +142,95 @@
     );
   }
 
+  function projectPlanPhaseHasAnyInput(phase: DraftPlanPhase) {
+    return !!phase.title.trim() || !!phase.details.trim() || phase.materials.length > 0;
+  }
+
+  function projectPlanPhaseIsComplete(phase: DraftPlanPhase) {
+    return !!phase.title.trim() && !!phase.details.trim();
+  }
+
+  function validateProjectPlanForm(
+    form: {
+      title: string;
+      description: string;
+      demandConsiderationNote: string;
+      planPhases: DraftPlanPhase[];
+      projectSubtype?: ProjectSubtype;
+      repositoryUrl?: string;
+    },
+    options: {
+      requireSoftwareRepository?: boolean;
+      distributionLockedToSoftware?: boolean;
+    } = {}
+  ) {
+    const validationMessages: string[] = [];
+    const hasAnyCompleteStage = form.planPhases.some(projectPlanPhaseIsComplete);
+    const hasPartialStage = form.planPhases.some(
+      (phase) => projectPlanPhaseHasAnyInput(phase) && !projectPlanPhaseIsComplete(phase)
+    );
+    if (!form.title.trim()) {
+      validationMessages.push('Add a plan title.');
+    }
+
+    if (!form.description.trim()) {
+      validationMessages.push('Add a plan description.');
+    }
+
+    if (!form.demandConsiderationNote.trim()) {
+      validationMessages.push('Explain how this plan responds to the current demand signal.');
+    }
+
+    if (options.requireSoftwareRepository && !form.repositoryUrl?.trim()) {
+      validationMessages.push('Add the official repository URL for software plans.');
+    }
+
+    if (options.distributionLockedToSoftware) {
+      validationMessages.push(
+        'Software projects use the automatic open-source distribution path and do not accept distribution plans here.'
+      );
+    }
+
+    if (!hasAnyCompleteStage) {
+      validationMessages.push('Add at least one stage with a title and description.');
+    } else if (hasPartialStage) {
+      validationMessages.push('Finish every stage you start. Each stage needs a title and description.');
+    }
+
+    return validationMessages;
+  }
+
+  function resetProductionForm(): DraftProductionForm {
+    return {
+      title: '',
+      description: '',
+      projectSubtype: 'standard',
+      repositoryUrl: '',
+      demandConsiderationNote: '',
+      planPhases: [createDraftPlanPhase()],
+      validationMessages: []
+    };
+  }
+
+  function resetDistributionForm(): DraftDistributionForm {
+    return {
+      title: '',
+      description: '',
+      demandConsiderationNote: '',
+      planPhases: [createDraftPlanPhase()],
+      requestSystemEnabled: false,
+      requestMode: 'both',
+      allowOffScheduleRequests: false,
+      validationMessages: []
+    };
+  }
+
   let activePhaseId: ProjectLifecyclePhaseId = data.lifecycle.currentPhaseId;
   let lastCurrentPhaseId = data.lifecycle.currentPhaseId;
   let draftValue = '';
-  let productionForm = {
-    title: '',
-    description: '',
-    demandConsiderationNote: '',
-    totalCostLabel: fundingPhaseCopy,
-    planPhases: [createDraftPlanPhase()]
-  };
-  let distributionForm = {
-    title: '',
-    description: '',
-    demandConsiderationNote: '',
-    totalCostLabel: fundingPhaseCopy,
-    planPhases: [createDraftPlanPhase()],
-    requestSystemEnabled: false,
-    requestMode: 'both' as const,
-    allowOffScheduleRequests: false
-  };
+  let productionForm: DraftProductionForm = resetProductionForm();
+  let distributionForm: DraftDistributionForm = resetDistributionForm();
+  let editingProductionPlanId: string | null = null;
   let activityForm = {
     title: '',
     scheduledAt: '',
@@ -158,9 +269,21 @@
   let activityEndInputElement: HTMLInputElement | null = null;
   let showHowItWorks = false;
   let lastHowItWorksPhaseId = activePhaseId;
+  let acquisitionSurfaceEnabled = isAcquisitionSurfaceEnabled();
+  let visibleLifecyclePhases: ProjectLifecyclePhase[] = acquisitionSurfaceEnabled
+    ? data.lifecycle.phases
+    : data.lifecycle.phases.filter((phase) => phase.id !== 'phase-4');
 
   function phaseOrder(phaseId: ProjectLifecyclePhaseId) {
-    return data.lifecycle.phases.find((phase) => phase.id === phaseId)?.order ?? 1;
+    return visibleLifecyclePhases.find((phase) => phase.id === phaseId)?.order ?? 1;
+  }
+
+  function resolvedActivePhaseId(phaseId: ProjectLifecyclePhaseId): ProjectLifecyclePhaseId {
+    if (!acquisitionSurfaceEnabled && phaseId === 'phase-4') {
+      return 'phase-5';
+    }
+
+    return phaseId;
   }
 
   function readActivityTarget(url: URL) {
@@ -187,11 +310,15 @@
     return url.searchParams.get('request');
   }
 
-  $: currentPhaseOrder = phaseOrder(data.lifecycle.currentPhaseId);
+  $: currentPhaseOrder = phaseOrder(resolvedActivePhaseId(data.lifecycle.currentPhaseId));
+  $: acquisitionSurfaceEnabled = isAcquisitionSurfaceEnabled();
+  $: visibleLifecyclePhases = acquisitionSurfaceEnabled
+    ? data.lifecycle.phases
+    : data.lifecycle.phases.filter((phase) => phase.id !== 'phase-4');
 
   $: if (lastCurrentPhaseId !== data.lifecycle.currentPhaseId) {
     lastCurrentPhaseId = data.lifecycle.currentPhaseId;
-    activePhaseId = data.lifecycle.currentPhaseId;
+    activePhaseId = resolvedActivePhaseId(data.lifecycle.currentPhaseId);
     showPhaseOneComposer = false;
     showPersonalActivityComposer = false;
     showPersonalServiceRequestComposer = false;
@@ -199,6 +326,7 @@
     showPhaseTwoComposer = false;
     showPhaseThreeComposer = false;
     showPhaseFiveComposer = false;
+    editingProductionPlanId = null;
     selectedCollectiveRequestActivityId = null;
     expandedPhaseTwoPlanIds = [];
     expandedPhaseThreePlanIds = [];
@@ -216,16 +344,30 @@
   }
 
   $: activePhase =
-    data.lifecycle.phases.find((phase) => phase.id === activePhaseId) ??
-    data.lifecycle.phases.find((phase) => phase.id === data.lifecycle.currentPhaseId) ??
-    data.lifecycle.phases[0];
+    visibleLifecyclePhases.find((phase) => phase.id === activePhaseId) ??
+    visibleLifecyclePhases.find((phase) => phase.id === resolvedActivePhaseId(data.lifecycle.currentPhaseId)) ??
+    visibleLifecyclePhases[0];
 
   $: if (lastHowItWorksPhaseId !== activePhaseId) {
     lastHowItWorksPhaseId = activePhaseId;
     showHowItWorks = false;
   }
 
-  $: phaseTabs = data.lifecycle.phases.map((phase): LifecycleTabItem => ({
+  $: if (!showPhaseTwoComposer && productionForm.validationMessages.length > 0) {
+    productionForm = {
+      ...productionForm,
+      validationMessages: []
+    };
+  }
+
+  $: if (!showPhaseThreeComposer && distributionForm.validationMessages.length > 0) {
+    distributionForm = {
+      ...distributionForm,
+      validationMessages: []
+    };
+  }
+
+  $: phaseTabs = visibleLifecyclePhases.map((phase): LifecycleTabItem => ({
     phase,
     title: phaseTabTitle(phase),
     progressLabel: phaseProgressLabel(phase),
@@ -295,6 +437,10 @@
   }
 
   function phaseTabTitle(phase: ProjectLifecyclePhase) {
+    if (data.lifecycle.usesPlatformLifecycle) {
+      return phase.title;
+    }
+
     if (isPersonalServiceProject(data.projectMode)) {
       switch (phase.id) {
         case 'phase-1':
@@ -330,6 +476,8 @@
         return 'Activity';
       case 'phase-6':
         return 'Closed';
+      case 'phase-7':
+        return 'Closed';
     }
   }
 
@@ -338,8 +486,12 @@
     await invalidateAll();
   }
 
-  function handlePhaseChangeRequest(targetPhaseId: ProjectLifecyclePhaseId, reason: string) {
-    return refreshAfter(() => requestProjectPhaseChange(data.slug, targetPhaseId, reason));
+  function handlePhaseChangeRequest(
+    targetPhaseId: ProjectLifecyclePhaseId,
+    reason: string,
+    options?: ProjectPhaseChangeRequestOptions
+  ) {
+    return refreshAfter(() => requestProjectPhaseChange(data.slug, targetPhaseId, reason, options));
   }
 
   function handlePhaseChangeVote(requestId: string, vote: ProjectApprovalVote | null) {
@@ -385,76 +537,100 @@
   }
 
   async function submitProductionPlan() {
-    const planPhases = productionForm.planPhases.filter(
-      (phase) => phase.title.trim() && phase.details.trim() && phase.materialsLabel.trim() && phase.costLabel.trim()
-    );
+    const validationMessages = validateProjectPlanForm(productionForm, {
+      requireSoftwareRepository: productionForm.projectSubtype === 'software'
+    });
 
-    if (
-      !productionForm.title.trim() ||
-      !productionForm.description.trim() ||
-      !productionForm.demandConsiderationNote.trim() ||
-      !productionForm.totalCostLabel.trim() ||
-      planPhases.length === 0
-    ) {
+    if (validationMessages.length > 0) {
+      productionForm = {
+        ...productionForm,
+        validationMessages
+      };
       return;
     }
 
-    await refreshAfter(() =>
-      addProjectProductionPlan(data.slug, {
-        title: productionForm.title,
-        description: productionForm.description,
-        demandConsiderationNote: productionForm.demandConsiderationNote,
-        totalCostLabel: productionForm.totalCostLabel,
-        planPhases
-      })
-    );
-    productionForm = {
-      title: '',
-      description: '',
-      demandConsiderationNote: '',
-      totalCostLabel: fundingPhaseCopy,
-      planPhases: [createDraftPlanPhase()]
+    const planPhases = productionForm.planPhases
+      .filter(projectPlanPhaseIsComplete)
+      .map((phase) => ({
+        title: phase.title,
+        details: phase.details,
+        materialsLabel: materialListLabel(phase),
+        costLabel: 'Cost moved to acquisition'
+      }));
+    const input = {
+      title: productionForm.title,
+      description: productionForm.description,
+      projectSubtype: productionForm.projectSubtype,
+      repositoryUrl:
+        productionForm.projectSubtype === 'software' ? productionForm.repositoryUrl : undefined,
+      demandConsiderationNote: productionForm.demandConsiderationNote,
+      totalCostLabel: 'Cost moved to acquisition',
+      planPhases
     };
+    const created = editingProductionPlanId
+      ? await updateProjectProductionPlan(data.slug, editingProductionPlanId, input)
+      : await addProjectProductionPlan(data.slug, input);
+
+    if (!created) {
+      productionForm = {
+        ...productionForm,
+        validationMessages: [
+          editingProductionPlanId
+            ? 'This production plan could not be updated from the current state. Reload and try again.'
+            : 'This production plan could not be submitted from the current state. Reload and try again.'
+        ]
+      };
+      return;
+    }
+
+    await invalidateAll();
+    productionForm = resetProductionForm();
+    editingProductionPlanId = null;
     showPhaseTwoComposer = false;
   }
 
   async function submitDistributionPlan() {
-    const planPhases = distributionForm.planPhases.filter(
-      (phase) => phase.title.trim() && phase.details.trim() && phase.materialsLabel.trim() && phase.costLabel.trim()
-    );
+    const validationMessages = validateProjectPlanForm(distributionForm, {
+      distributionLockedToSoftware: data.lifecycle.currentSubtype === 'software'
+    });
 
-    if (
-      !distributionForm.title.trim() ||
-      !distributionForm.description.trim() ||
-      !distributionForm.demandConsiderationNote.trim() ||
-      !distributionForm.totalCostLabel.trim() ||
-      planPhases.length === 0
-    ) {
+    if (validationMessages.length > 0) {
+      distributionForm = {
+        ...distributionForm,
+        validationMessages
+      };
       return;
     }
 
-    await refreshAfter(() =>
-      addProjectDistributionPlan(data.slug, {
-        title: distributionForm.title,
-        description: distributionForm.description,
-        demandConsiderationNote: distributionForm.demandConsiderationNote,
-        totalCostLabel: distributionForm.totalCostLabel,
-        planPhases,
-        requestSystemEnabled: distributionForm.requestSystemEnabled,
-        requestMode: distributionForm.requestMode,
-        allowOffScheduleRequests: distributionForm.allowOffScheduleRequests
-      })
-    );
-    distributionForm = {
-      title: '',
-      description: '',
-      demandConsiderationNote: '',
-      totalCostLabel: fundingPhaseCopy,
-      planPhases: [createDraftPlanPhase()],
-      requestSystemEnabled: false,
-      requestMode: 'both',
-      allowOffScheduleRequests: false
-    };
+    const planPhases = distributionForm.planPhases
+      .filter(projectPlanPhaseIsComplete)
+      .map((phase) => ({
+        title: phase.title,
+        details: phase.details,
+        materialsLabel: materialListLabel(phase),
+        costLabel: 'Cost moved to acquisition'
+      }));
+    const created = await addProjectDistributionPlan(data.slug, {
+      title: distributionForm.title,
+      description: distributionForm.description,
+      demandConsiderationNote: distributionForm.demandConsiderationNote,
+      totalCostLabel: 'Cost moved to acquisition',
+      planPhases,
+      requestSystemEnabled: distributionForm.requestSystemEnabled,
+      requestMode: distributionForm.requestMode,
+      allowOffScheduleRequests: distributionForm.allowOffScheduleRequests
+    });
+
+    if (!created) {
+      distributionForm = {
+        ...distributionForm,
+        validationMessages: ['This distribution plan could not be submitted from the current state. Reload and try again.']
+      };
+      return;
+    }
+
+    await invalidateAll();
+    distributionForm = resetDistributionForm();
     showPhaseThreeComposer = false;
   }
 
@@ -616,12 +792,65 @@
     await refreshAfter(() => revertProjectPhase(data.slug, targetPhaseId, reason));
   }
 
+  async function submitSoftwarePullRequest(input: import('$lib/types/detail').ProjectSoftwarePullRequestInput) {
+    await refreshAfter(() => addProjectPullRequest(data.slug, input));
+  }
+
+  async function submitSoftwareMergeCapabilityChange(
+    input: ProjectSoftwareMergeCapabilityChangeInput
+  ) {
+    await refreshAfter(() => requestProjectMergeCapabilityChange(data.slug, input));
+  }
+
+  async function submitSoftwareRepositoryReplacement(
+    input: ProjectSoftwareRepositoryReplacementInput
+  ) {
+    await refreshAfter(() => requestProjectRepositoryReplacement(data.slug, input));
+  }
+
+  async function recordSoftwarePullRequestMerge(requestId: string, mergeId: string) {
+    await refreshAfter(() => recordProjectPullRequestMerge(data.slug, requestId, mergeId));
+  }
+
   function addProductionPlanPhase() {
     productionForm.planPhases = [...productionForm.planPhases, createDraftPlanPhase()];
   }
 
   function removeProductionPlanPhase(index: number) {
     productionForm.planPhases = productionForm.planPhases.filter((_, phaseIndex) => phaseIndex !== index);
+  }
+
+  function openProductionPlanEditor(planId: string) {
+    const plan = data.lifecycle.phaseTwo.plans.find((item) => item.id === planId);
+
+    if (!plan || !plan.viewerCanEdit) {
+      return;
+    }
+
+    editingProductionPlanId = plan.id;
+    productionForm = {
+      title: plan.title,
+      description: plan.description,
+      projectSubtype: plan.projectSubtype,
+      repositoryUrl: plan.repositoryUrl ?? '',
+      demandConsiderationNote: plan.demandConsiderationNote,
+      planPhases: plan.planPhases.map((phase) => ({
+        title: phase.title,
+        details: phase.details,
+        materials: phase.materialsLabel
+          .split(/\r?\n|,|;/)
+          .map((material) => material.trim())
+          .filter(Boolean)
+      })),
+      validationMessages: []
+    };
+    showPhaseTwoComposer = true;
+  }
+
+  function cancelProductionPlanEdit() {
+    editingProductionPlanId = null;
+    productionForm = resetProductionForm();
+    showPhaseTwoComposer = false;
   }
 
   function addDistributionPlanPhase() {
@@ -976,6 +1205,9 @@
         addProductionPlanPhase={addProductionPlanPhase}
         removeProductionPlanPhase={removeProductionPlanPhase}
         submitProductionPlan={submitProductionPlan}
+        editingProductionPlanId={editingProductionPlanId}
+        startEditingProductionPlan={openProductionPlanEditor}
+        cancelEditingProductionPlan={cancelProductionPlanEdit}
         setPhaseTwoPlanValueVote={handlePhaseTwoPlanValueVote}
         setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
         addDistributionPlanPhase={addDistributionPlanPhase}
@@ -998,6 +1230,10 @@
         updateActivityCommitment={updateActivityCommitment}
         requestServiceRequestSettingsChange={submitServiceRequestSettingsChange}
         voteOnRequestSettingsChange={voteOnServiceRequestSettingsChange}
+        createPullRequest={submitSoftwarePullRequest}
+        requestMergeCapabilityChange={submitSoftwareMergeCapabilityChange}
+        requestRepositoryReplacement={submitSoftwareRepositoryReplacement}
+        recordPullRequestMerge={recordSoftwarePullRequestMerge}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
       />
     {:else}
@@ -1022,6 +1258,9 @@
         addProductionPlanPhase={addProductionPlanPhase}
         removeProductionPlanPhase={removeProductionPlanPhase}
         submitProductionPlan={submitProductionPlan}
+        editingProductionPlanId={editingProductionPlanId}
+        startEditingProductionPlan={openProductionPlanEditor}
+        cancelEditingProductionPlan={cancelProductionPlanEdit}
         setPhaseTwoPlanValueVote={handlePhaseTwoPlanValueVote}
         setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
         addDistributionPlanPhase={addDistributionPlanPhase}
@@ -1035,6 +1274,10 @@
         focusActivityCard={focusActivityCard}
         submitActivity={submitActivity}
         updateActivityCommitment={updateActivityCommitment}
+        createPullRequest={submitSoftwarePullRequest}
+        requestMergeCapabilityChange={submitSoftwareMergeCapabilityChange}
+        requestRepositoryReplacement={submitSoftwareRepositoryReplacement}
+        recordPullRequestMerge={recordSoftwarePullRequestMerge}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
       />
     {/if}

@@ -5,6 +5,7 @@
   import { tick } from 'svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import EventHistoryTab from '$lib/features/events/detail/EventHistoryTab.svelte';
+  import EventLifecyclePanel from '$lib/features/events/detail/EventLifecyclePanel.svelte';
   import EventMembersPanel from '$lib/features/events/detail/EventMembersPanel.svelte';
   import EventOverviewHeader from '$lib/features/events/detail/EventOverviewHeader.svelte';
   import EventUpdatesSection from '$lib/features/events/detail/EventUpdatesSection.svelte';
@@ -14,6 +15,8 @@
 
   let highlightedCommentId: string | null = null;
   let highlightedUpdateId: string | null = null;
+  let highlightedActivityId: string | null = null;
+  let highlightedDecisionId: string | null = null;
   let lastRouteSignature = '';
   let showMembersPanel = false;
   let activeTab: 'overview' | 'chat' | 'history' = 'overview';
@@ -32,6 +35,22 @@
     }
 
     return url.searchParams.get('update');
+  }
+
+  function readActivityTarget(url: URL) {
+    if (url.hash.startsWith('#event-activity-')) {
+      return url.hash.slice('#event-activity-'.length) || null;
+    }
+
+    return url.searchParams.get('activity');
+  }
+
+  function readDecisionTarget(url: URL) {
+    if (url.hash.startsWith('#decision-')) {
+      return url.hash.slice('#decision-'.length) || null;
+    }
+
+    return url.searchParams.get('decision');
   }
 
   function selectTab(tab: 'overview' | 'chat' | 'history') {
@@ -89,9 +108,13 @@
       lastRouteSignature = routeSignature;
       highlightedCommentId = readCommentTarget($page.url);
       highlightedUpdateId = readUpdateTarget($page.url);
+      highlightedActivityId = readActivityTarget($page.url);
+      highlightedDecisionId = readDecisionTarget($page.url);
       const requestedTab = $page.url.searchParams.get('tab');
       activeTab = highlightedCommentId
         ? 'chat'
+        : highlightedDecisionId
+          ? 'history'
         : requestedTab === 'history'
           ? 'history'
           : requestedTab === 'chat'
@@ -144,6 +167,7 @@
       {#if showMembersPanel}
         <EventMembersPanel {data} panelId="event-members-panel" />
       {/if}
+      <EventLifecyclePanel {data} requestedActivityId={highlightedActivityId} />
     {:else if activeTab === 'chat'}
       <section class="chat-shell">
         <LiveChatPanel
@@ -151,7 +175,7 @@
           emptyCopy="No event chat yet."
           fitViewport={true}
           highlightedCommentId={highlightedCommentId}
-          placeholder="Message attendees..."
+          placeholder="Message members..."
           subjectId={data.id}
           submitLabel="Send message"
           title="Event chat"
@@ -159,7 +183,7 @@
         />
       </section>
     {:else}
-      <EventHistoryTab {data} />
+      <EventHistoryTab {data} highlightedDecisionId={highlightedDecisionId} />
     {/if}
   </section>
 </section>

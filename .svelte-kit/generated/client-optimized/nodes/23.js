@@ -1,3 +1,3 @@
-import * as universal from "../../../../src/routes/threads/[slug]/+page.ts";
+import * as universal from "../../../../src/routes/projects/[slug]/+page.ts";
 export { universal };
-export { default as component } from "../../../../src/routes/threads/[slug]/+page.svelte";
+export { default as component } from "../../../../src/routes/projects/[slug]/+page.svelte";

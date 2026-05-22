@@ -1,3 +1,3 @@
-import * as universal from "../../../../src/routes/search/+page.ts";
+import * as universal from "../../../../src/routes/platform/assets/[assetSlug]/attached/[attachedAssetSlug]/+page.ts";
 export { universal };
-export { default as component } from "../../../../src/routes/search/+page.svelte";
+export { default as component } from "../../../../src/routes/platform/assets/[assetSlug]/attached/[attachedAssetSlug]/+page.svelte";

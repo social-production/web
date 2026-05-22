@@ -10,6 +10,8 @@ import type {
 } from '$lib/types/account';
 import type {
   EventPageData,
+  EventPlanInput,
+  GovernanceSignalType,
   PostPageData,
   ContentReportVote,
   ProjectActivityInput,
@@ -18,12 +20,16 @@ import type {
   ProjectApprovalVote,
   ProjectDistributionPlanInput,
   ProjectImportanceVoteValue,
+  ProjectPhaseChangeRequestOptions,
   ProjectLifecyclePhaseId,
   ProjectPageData,
   ProjectProductionPlanInput,
   ProjectServiceRequestInput,
   ProjectServiceRequestPlanInput,
   ProjectServiceRequestSettingsChangeInput,
+  ProjectSoftwareMergeCapabilityChangeInput,
+  ProjectSoftwarePullRequestInput,
+  ProjectSoftwareRepositoryReplacementInput,
   ShareTargetResult,
   ProjectServiceRequestStatus,
   ThreadPageData
@@ -82,14 +88,29 @@ export interface AppAdapter {
   toggleEventGoing(eventId: string): Promise<void>;
   toggleProjectMembership(projectSlug: string): Promise<void>;
   toggleProjectDemandSignal(projectSlug: string): Promise<void>;
+  setProjectSignal(projectSlug: string, signal: GovernanceSignalType): Promise<void>;
   addProjectValue(projectSlug: string, label: string): Promise<void>;
   setProjectValueImportance(
     projectSlug: string,
     valueId: string,
     importance: ProjectImportanceVoteValue
   ): Promise<void>;
-  addProjectProductionPlan(projectSlug: string, input: ProjectProductionPlanInput): Promise<void>;
-  addProjectDistributionPlan(projectSlug: string, input: ProjectDistributionPlanInput): Promise<void>;
+  addProjectProductionPlan(projectSlug: string, input: ProjectProductionPlanInput): Promise<boolean>;
+  updateProjectProductionPlan(
+    projectSlug: string,
+    planId: string,
+    input: ProjectProductionPlanInput
+  ): Promise<boolean>;
+  addProjectDistributionPlan(projectSlug: string, input: ProjectDistributionPlanInput): Promise<boolean>;
+  addProjectPullRequest(projectSlug: string, input: ProjectSoftwarePullRequestInput): Promise<void>;
+  requestProjectMergeCapabilityChange(
+    projectSlug: string,
+    input: ProjectSoftwareMergeCapabilityChangeInput
+  ): Promise<void>;
+  requestProjectRepositoryReplacement(
+    projectSlug: string,
+    input: ProjectSoftwareRepositoryReplacementInput
+  ): Promise<void>;
   setProjectPlanValueVote(
     projectSlug: string,
     phaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>,
@@ -110,6 +131,17 @@ export interface AppAdapter {
     roleLabel: string | null
   ): Promise<void>;
   addProjectServiceRequest(projectSlug: string, input: ProjectServiceRequestInput): Promise<void>;
+  createProjectManualLinkRequest(
+    projectSlug: string,
+    targetProjectSlug: string,
+    relationshipLabel: string,
+    summary: string
+  ): Promise<void>;
+  setProjectManualLinkVote(
+    projectSlug: string,
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
   planProjectServiceRequest(
     projectSlug: string,
     requestId: string,
@@ -138,7 +170,8 @@ export interface AppAdapter {
   requestProjectPhaseChange(
     projectSlug: string,
     targetPhaseId: ProjectLifecyclePhaseId,
-    reason: string
+    reason: string,
+    options?: ProjectPhaseChangeRequestOptions
   ): Promise<void>;
   setProjectPhaseChangeVote(
     projectSlug: string,
@@ -166,6 +199,26 @@ export interface AppAdapter {
     requestId: string,
     vote: ProjectApprovalVote | null
   ): Promise<void>;
+  setProjectPullRequestVote(
+    projectSlug: string,
+    decisionId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  setProjectMergeCapabilityChangeVote(
+    projectSlug: string,
+    decisionId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  setProjectRepositoryReplacementVote(
+    projectSlug: string,
+    decisionId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  recordProjectPullRequestMerge(
+    projectSlug: string,
+    requestId: string,
+    mergeId: string
+  ): Promise<void>;
   advanceProjectPhase(projectSlug: string, closeNote?: string): Promise<void>;
   revertProjectPhase(
     projectSlug: string,
@@ -180,6 +233,41 @@ export interface AppAdapter {
   submitReport(subjectId: string, targetId: string, reason: string, details: string): Promise<void>;
   setReportVote(targetId: string, vote: ContentReportVote): Promise<void>;
   addProjectUpdate(projectSlug: string, title: string, body: string): Promise<void>;
+  setEventSignal(eventSlug: string, signal: GovernanceSignalType): Promise<void>;
+  addEventValue(eventSlug: string, label: string): Promise<void>;
+  setEventValueImportance(
+    eventSlug: string,
+    valueId: string,
+    importance: ProjectImportanceVoteValue
+  ): Promise<void>;
+  addEventPlan(eventSlug: string, input: EventPlanInput): Promise<boolean>;
+  setEventPlanValueVote(
+    eventSlug: string,
+    planId: string,
+    valueId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  setEventPlanOverallVote(
+    eventSlug: string,
+    planId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  addEventActivity(eventSlug: string, input: ProjectActivityInput): Promise<void>;
+  setEventActivityCommitment(
+    eventSlug: string,
+    activityId: string,
+    roleLabel: string | null
+  ): Promise<void>;
+  requestEventPhaseChange(
+    eventSlug: string,
+    targetPhaseId: import('$lib/types/detail').EventLifecyclePhaseId,
+    reason: string
+  ): Promise<void>;
+  setEventPhaseChangeVote(
+    eventSlug: string,
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
   requestEventUpdate(eventSlug: string, body: string): Promise<void>;
   setEventUpdateVote(
     eventSlug: string,

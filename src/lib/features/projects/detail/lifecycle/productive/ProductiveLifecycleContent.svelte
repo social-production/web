@@ -2,7 +2,6 @@
   import ProductiveLifecyclePhaseOne from './phases/ProductiveLifecyclePhaseOne.svelte';
   import ProductiveLifecyclePhaseTwo from './phases/ProductiveLifecyclePhaseTwo.svelte';
   import ProductiveLifecyclePhaseThree from './phases/ProductiveLifecyclePhaseThree.svelte';
-  import ProductiveLifecyclePhaseFour from './phases/ProductiveLifecyclePhaseFour.svelte';
   import ProductiveLifecyclePhaseFive from './phases/ProductiveLifecyclePhaseFive.svelte';
   import ProductiveLifecyclePhaseSix from './phases/ProductiveLifecyclePhaseSix.svelte';
   import type {
@@ -14,19 +13,20 @@
     ProjectLifecyclePhaseId,
     ProjectPageData
   } from '$lib/types/detail';
+  import type { ProjectSubtype } from '$lib/types/feed';
 
   type DraftPlanPhase = {
     title: string;
     details: string;
-    materialsLabel: string;
-    costLabel: string;
+    materials: string[];
   };
 
   type DraftPlanForm = {
     title: string;
     description: string;
+    projectSubtype?: ProjectSubtype;
+    repositoryUrl?: string;
     demandConsiderationNote: string;
-    totalCostLabel: string;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;
     requestMode?: 'calendar' | 'direct' | 'both';
@@ -65,6 +65,9 @@
   export let addProductionPlanPhase: () => void = () => {};
   export let removeProductionPlanPhase: (index: number) => void = () => {};
   export let submitProductionPlan: () => void | Promise<void> = () => {};
+  export let editingProductionPlanId: string | null = null;
+  export let startEditingProductionPlan: (planId: string) => void | Promise<void> = () => {};
+  export let cancelEditingProductionPlan: () => void | Promise<void> = () => {};
   export let setPhaseTwoPlanValueVote: (
     planId: string,
     valueId: string,
@@ -93,6 +96,16 @@
   export let submitActivity: () => void | Promise<void> = () => {};
   export let updateActivityCommitment: (activityId: string, roleLabel: string | null) => void | Promise<void> =
     () => {};
+  export let createPullRequest: (
+    input: import('$lib/types/detail').ProjectSoftwarePullRequestInput
+  ) => void | Promise<void> = () => {};
+  export let requestMergeCapabilityChange: (
+    input: import('$lib/types/detail').ProjectSoftwareMergeCapabilityChangeInput
+  ) => void | Promise<void> = () => {};
+  export let requestRepositoryReplacement: (
+    input: import('$lib/types/detail').ProjectSoftwareRepositoryReplacementInput
+  ) => void | Promise<void> = () => {};
+  export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
   export let toggleHistoryCompletion: (
     historyId: string,
     role: ProjectServiceHistoryCompletionRole,
@@ -117,6 +130,9 @@
     addPlanPhase={addProductionPlanPhase}
     removePlanPhase={removeProductionPlanPhase}
     submitPlan={submitProductionPlan}
+    editingPlanId={editingProductionPlanId}
+    startEditingPlan={startEditingProductionPlan}
+    cancelEditingPlan={cancelEditingProductionPlan}
     isExpandedPlan={(planId) => isExpandedPlan('phase-2', planId)}
     valuevote={setPhaseTwoPlanValueVote}
     overallvote={setPhaseTwoPlanOverallVote}
@@ -133,8 +149,6 @@
     valuevote={setPhaseThreePlanValueVote}
     overallvote={setPhaseThreePlanOverallVote}
   />
-{:else if activePhaseId === 'phase-4'}
-  <ProductiveLifecyclePhaseFour />
 {:else if activePhaseId === 'phase-5'}
   <ProductiveLifecyclePhaseFive
     {data}
@@ -149,8 +163,19 @@
     bind:showComposer={showPhaseFiveComposer}
     {submitActivity}
     changecommitment={updateActivityCommitment}
+    {createPullRequest}
+    {requestMergeCapabilityChange}
+    {requestRepositoryReplacement}
+    recordPullRequestMerge={recordPullRequestMerge}
     {toggleHistoryCompletion}
   />
-{:else}
-  <ProductiveLifecyclePhaseSix projectMode={data.projectMode} />
+{:else if activePhaseId === 'phase-6' || activePhaseId === 'phase-7'}
+  <ProductiveLifecyclePhaseSix
+    {data}
+    {activePhaseId}
+    {createPullRequest}
+    {requestMergeCapabilityChange}
+    {requestRepositoryReplacement}
+    recordPullRequestMerge={recordPullRequestMerge}
+  />
 {/if}

@@ -176,7 +176,7 @@
     >
       <p class="helper-text">
         {usesPlatformTag
-          ? 'Platform keeps public discussion open to regular users. Only platform-tagged projects are board-restricted.'
+          ? 'Platform keeps public discussion open to regular users, and platform-tagged projects can also be proposed by any signed-in user.'
           : 'Threads keep lightweight public discussion and idea comparison outside the project logistics view.'}
       </p>
     </CreatePanel>

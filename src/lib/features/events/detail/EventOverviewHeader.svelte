@@ -5,15 +5,35 @@
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import Tablet from '$lib/components/cards/shared/Tablet.svelte';
-  import { shareEventWithUser, toggleEventGoing } from '$lib/services/queries/details';
+  import {
+    setEventSignal,
+    shareEventWithUser,
+    toggleEventGoing
+  } from '$lib/services/queries/details';
   import type { EventPageData } from '$lib/types/detail';
 
   export let data: EventPageData;
 
   $: combinedTags = [...data.channelTags, ...data.communityTags];
-  $: membershipButtonLabel = `${data.memberCount}`;
+  $: signalSummary = data.lifecycle.phaseOne.signalSummary;
+  $: membershipButtonLabel = `${data.viewerIsGoing ? 'Joined' : 'Join'} · ${data.memberCount}`;
+  $: timeLabel = data.timeLabel.trim();
+  $: locationLabel = data.locationLabel.trim();
+  $: showScheduledMeta = !!timeLabel || !!locationLabel;
+  $: proposalMetaCopy = data.isPrivate
+    ? 'This private event stays proposal-first until an approved plan sets the live schedule and location.'
+    : 'This event stays proposal-first until an approved plan sets the live schedule and location.';
+  $: quorumLabel =
+    data.lifecycle.quorumVotesRequired <= 0
+      ? 'No votes required yet'
+      : `${data.lifecycle.quorumVotesRequired} ${data.lifecycle.quorumVotesRequired === 1 ? 'vote' : 'votes'} required from ${data.lifecycle.voteContextPopulation} ${data.lifecycle.voteContextLabel}`;
 
-  async function handleGoingToggle() {
+  async function handleSignalSet(signal: 'demand' | 'opposition') {
+    await setEventSignal(data.slug, signal);
+    await invalidateAll();
+  }
+
+  async function handleMembershipToggle() {
     await toggleEventGoing(data.id);
     await invalidateAll();
   }
@@ -60,16 +80,67 @@
 
 <section class="meta-block" aria-label="Event overview details">
   <ul class="event-meta-list">
+    {#if signalSummary}
+      <li class="meta-item demand-item">
+        <strong>Signals</strong>
+        <div class="signal-stack">
+          <div class="meta-button-row">
+            <button
+              aria-pressed={data.lifecycle.phaseOne.viewerHasDemandSignal}
+              class:active-demand={data.lifecycle.phaseOne.viewerHasDemandSignal}
+              class="demand-button"
+              type="button"
+              on:click={() => handleSignalSet('demand')}
+            >
+              Demand {signalSummary.demandCount}
+            </button>
+            <button
+              aria-pressed={data.lifecycle.phaseOne.viewerHasOppositionSignal}
+              class:active-opposition={data.lifecycle.phaseOne.viewerHasOppositionSignal}
+              class="demand-button opposition-button"
+              type="button"
+              on:click={() => handleSignalSet('opposition')}
+            >
+              Opposition {signalSummary.oppositionCount}
+            </button>
+          </div>
+          <span>
+            Demand is {signalSummary.signalRatioPercent}% of current proposal signals.
+            {#if signalSummary.usesPlatformVoteContext}
+              Proposal advancement also needs {signalSummary.requiredDemandCount} demand signals from {signalSummary.voteContextPopulation} weekly active users.
+            {:else}
+              Proposal advancement opens once demand stays above 66% of active signals.
+            {/if}
+          </span>
+        </div>
+      </li>
+    {/if}
+
     <li class="meta-item">
-      <strong>Time</strong>
-      <span>{data.timeLabel}</span>
+      <strong>Quorum</strong>
+      <span>{quorumLabel}</span>
     </li>
+
+    {#if timeLabel}
+      <li class="meta-item">
+        <strong>Time</strong>
+        <span>{timeLabel}</span>
+      </li>
+    {/if}
+    {#if locationLabel}
+      <li class="meta-item">
+        <strong>Location</strong>
+        <span>{locationLabel}</span>
+      </li>
+    {/if}
+    {#if !showScheduledMeta}
+      <li class="meta-item">
+        <strong>Proposal</strong>
+        <span>{proposalMetaCopy}</span>
+      </li>
+    {/if}
     <li class="meta-item">
-      <strong>Location</strong>
-      <span>{data.locationLabel}</span>
-    </li>
-    <li class="meta-item">
-      <strong>Going</strong>
+      <strong>Members</strong>
       <div class="meta-button-row">
         {#if data.viewerCanToggleGoing}
           <button
@@ -77,7 +148,7 @@
             class:active-demand={data.viewerIsGoing}
             class="demand-button"
             type="button"
-            on:click={handleGoingToggle}
+            on:click={handleMembershipToggle}
           >
             {membershipButtonLabel}
           </button>
@@ -198,11 +269,27 @@
     line-height: 1.45;
   }
 
+  .signal-stack {
+    display: grid;
+    gap: 8px;
+  }
+
   .meta-button-row {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
     align-items: center;
+  }
+
+  .demand-button:hover {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .opposition-button.active-opposition {
+    border-color: var(--tablet-community-bg);
+    color: var(--tablet-community-text);
   }
 
   @media (max-width: 760px) {

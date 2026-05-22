@@ -68,6 +68,7 @@ export interface PersonalFeedPreferences {
 export interface SettingsPageData {
   profileUsername: string;
   profileBio: string;
+  profileImageUrl: string;
   appearanceThemeMode: AppearanceThemeMode;
   defaultFeed: DefaultFeedMode;
   publicFeedPreferences: PublicFeedPreferences;
@@ -79,6 +80,7 @@ export interface SettingsPageData {
 
 export interface SettingsUpdateInput {
   profileBio?: string;
+  profileImageUrl?: string;
   appearanceThemeMode?: AppearanceThemeMode;
   defaultFeed?: DefaultFeedMode;
   publicFeedPreferences?: PublicFeedPreferences;

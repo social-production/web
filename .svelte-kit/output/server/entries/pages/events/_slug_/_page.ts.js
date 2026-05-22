@@ -1,5 +1,5 @@
 import { error } from "@sveltejs/kit";
-import { g as getEvent } from "../../../../chunks/details.js";
+import { k as getEvent } from "../../../../chunks/details.js";
 const load = async ({ params }) => {
   const event = await getEvent(params.slug);
   if (!event) {

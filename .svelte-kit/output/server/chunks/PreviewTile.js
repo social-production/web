@@ -1,4 +1,4 @@
-import { e as escape_html, f as bind_props } from "./renderer.js";
+import { e as escape_html, d as bind_props } from "./renderer.js";
 function PreviewTile($$renderer, $$props) {
   let title = $$props["title"];
   let body = $$props["body"];

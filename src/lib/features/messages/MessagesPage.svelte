@@ -63,6 +63,7 @@
         activeConversation.participants[0] ??
         null
       : null;
+  $: activeDirectAvatarImageUrl = directConversationPartner?.profileImageUrl ?? null;
   $: normalizedRecipientQuery = recipientDraft.trim().toLowerCase();
   $: normalizedGroupQuery = groupMemberDraft.trim().toLowerCase();
   $: directSuggestions = data.suggestedContacts.filter((contact) =>
@@ -111,6 +112,19 @@
     return `${chat.kind === 'project' ? 'Project chat' : 'Event chat'} · ${chat.meta}`;
   }
 
+  function directConversationAvatarImage(conversation: MessagesPageData['conversations'][number]) {
+    if (conversation.kind !== 'direct') {
+      return null;
+    }
+
+    const partner =
+      conversation.participants.find((participant) => participant.id !== data.viewer.id) ??
+      conversation.participants[0] ??
+      null;
+
+    return partner?.profileImageUrl ?? null;
+  }
+
   function findScrollContainer(node: HTMLElement) {
     let parent = node.parentElement;
 
@@ -157,15 +171,15 @@
     });
   }
 
-  function syncConversationShellHeight() {
-    if (!browser || !messagesShellElement || (!activeConversation && !activeLinkedChat)) {
+  function syncMessagesShellHeight() {
+    if (!browser || !messagesShellElement) {
       return;
     }
 
     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
     const topOffset = Math.max(messagesShellElement.getBoundingClientRect().top, visibleTopOffset());
     const nextHeight = Math.max(viewportHeight - topOffset, 320);
-    messagesShellElement.style.setProperty('--conversation-shell-height', `${Math.floor(nextHeight)}px`);
+    messagesShellElement.style.setProperty('--messages-shell-height', `${Math.floor(nextHeight)}px`);
   }
 
   async function focusConversationShell() {
@@ -177,7 +191,22 @@
     scrollConversationShellIntoView();
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     await tick();
-    syncConversationShellHeight();
+    syncMessagesShellHeight();
+  }
+
+  $: shellLayoutKey = [
+    activeListTab,
+    showComposer ? 'composer-open' : 'composer-closed',
+    activeConversation?.id ?? 'no-conversation',
+    activeLinkedChat?.id ?? 'no-linked-chat',
+    showGroupOptions ? 'group-options-open' : 'group-options-closed',
+    showDirectOptions ? 'direct-options-open' : 'direct-options-closed'
+  ].join(':');
+
+  $: if (browser && messagesShellElement && shellLayoutKey) {
+    tick().then(() => {
+      syncMessagesShellHeight();
+    });
   }
 
   async function openConversation(conversationId: string, unreadCount: number) {
@@ -257,7 +286,7 @@
     showDirectOptions = false;
     groupSettingsFeedback = '';
     directOptionsFeedback = '';
-    messagesShellElement?.style.removeProperty('--conversation-shell-height');
+    syncMessagesShellHeight();
   }
 
   function selectListTab(tab: 'messages' | 'linked-chats') {
@@ -428,7 +457,7 @@
   }
 </script>
 
-<svelte:window on:resize={syncConversationShellHeight} />
+<svelte:window on:resize={syncMessagesShellHeight} />
 
 <section class:conversation-page={!!activeConversation || !!activeLinkedChat} class="page">
   {#if !activeConversation && !activeLinkedChat}
@@ -481,7 +510,11 @@
                   <h2>{activeConversation.title}</h2>
                 </div>
 
-                <AvatarBadge size="md" username={activeConversation.title} />
+                <AvatarBadge
+                  size="md"
+                  username={activeConversation.title}
+                  imageUrl={activeDirectAvatarImageUrl}
+                />
               </button>
             {/if}
           </div>
@@ -625,7 +658,7 @@
           embedded={true}
           emptyCopy={activeLinkedChat.kind === 'project' ? 'No project chat yet.' : 'No event chat yet.'}
           onSubmitMessage={submitLinkedChatMessage}
-          placeholder={activeLinkedChat.kind === 'project' ? 'Message the project...' : 'Message attendees...'}
+          placeholder={activeLinkedChat.kind === 'project' ? 'Message the project...' : 'Message members...'}
           showHeader={false}
           subjectId={activeLinkedChat.subjectId}
           submitLabel="Send"
@@ -787,7 +820,11 @@
                 type="button"
                 on:click={() => openConversation(conversation.id, conversation.unreadCount)}
               >
-                <AvatarBadge size="sm" username={conversation.title} />
+                <AvatarBadge
+                  size="sm"
+                  username={conversation.title}
+                  imageUrl={directConversationAvatarImage(conversation)}
+                />
                 <div class="conversation-copy">
                   <div class="conversation-topline">
                     <strong>{conversation.title}</strong>
@@ -843,8 +880,8 @@
     background: var(--panel);
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    height: min(720px, calc(100dvh - 32px));
-    min-height: min(520px, calc(100dvh - 32px));
+    height: var(--messages-shell-height, min(720px, calc(100dvh - 32px)));
+    min-height: var(--messages-shell-height, min(520px, calc(100dvh - 32px)));
   }
 
   .messages-shell.list-view {
@@ -857,8 +894,8 @@
 
   .messages-shell.conversation-view {
     grid-template-rows: auto minmax(0, 1fr);
-    height: var(--conversation-shell-height, calc(100dvh - 32px));
-    min-height: var(--conversation-shell-height, calc(100dvh - 32px));
+    height: var(--messages-shell-height, calc(100dvh - 32px));
+    min-height: var(--messages-shell-height, calc(100dvh - 32px));
   }
 
   .messages-shell.conversation-view.with-chat-options {
@@ -1033,8 +1070,8 @@
     display: grid;
     grid-auto-rows: min-content;
     align-content: start;
-    gap: 10px;
-    padding: 12px;
+    gap: 0;
+    padding: 0;
     min-height: 0;
   }
 
@@ -1044,12 +1081,21 @@
     gap: 10px;
     align-items: start;
     min-height: 0;
-    padding: 8px 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    border-radius: 0;
     background: var(--panel-strong);
     color: var(--text-main);
     text-align: left;
+  }
+
+  .conversation-list > .empty-state {
+    padding: 12px;
+    border: none;
+    border-radius: 0;
+    background: var(--panel-strong);
   }
 
   .conversation-row.unread {
@@ -1178,10 +1224,6 @@
       text-align: left;
     }
 
-    .conversation-list {
-      padding: 10px;
-    }
-
     .conversation-row,
     .inline-field,
     .linked-chat-identity {
@@ -1195,13 +1237,13 @@
 
   @media (max-width: 760px) {
     .messages-shell {
-      height: min(640px, calc(100dvh - 24px));
-      min-height: min(420px, calc(100dvh - 24px));
+      height: var(--messages-shell-height, min(640px, calc(100dvh - 24px)));
+      min-height: var(--messages-shell-height, min(420px, calc(100dvh - 24px)));
     }
 
     .messages-shell.conversation-view {
-      height: var(--conversation-shell-height, calc(100dvh - 24px));
-      min-height: var(--conversation-shell-height, calc(100dvh - 24px));
+      height: var(--messages-shell-height, calc(100dvh - 24px));
+      min-height: var(--messages-shell-height, calc(100dvh - 24px));
     }
 
     .surface-tabs {

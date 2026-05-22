@@ -1,5 +1,4 @@
 <script lang="ts">
-  import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import type { LandAssetRecord } from '$lib/types/assets';
 
   export let landAssets: LandAssetRecord[];
@@ -7,110 +6,133 @@
 </script>
 
 <section class="asset-stack">
-  <div class="panel-copy intro-card">
+  <div class="intro-row">
     <h2>Land assets</h2>
-    <p>Every land asset is a record in the platform commons. Open a land card to inspect the stewardship service, storage services, and projects attached to that site.</p>
+    <span class={`status-pill ${featureOpen ? 'open' : 'closed'}`}>
+      {featureOpen ? 'Open' : 'Closed preview'}
+    </span>
   </div>
 
-  <div class="asset-grid">
+  <ul class="asset-list">
     {#each landAssets as asset}
-      <FeedSurface href={`/platform/assets/${asset.slug}`} tone="public">
-        <div class="asset-card-shell">
-          <div class="asset-card-main">
-            <div class="detail-header">
-              <div>
-                <div class="card-badge-row">
-                  <span class={`status-badge ${featureOpen ? 'open' : 'closed'}`}>
-                    {featureOpen ? 'Active registry' : 'Closed preview'}
-                  </span>
-                  <span class="acreage-badge">{asset.acreageLabel}</span>
-                </div>
-                <h3>{asset.title}</h3>
-                <p>{asset.locationLabel}</p>
-              </div>
+      <li>
+        <a class="asset-card" href={`/platform/assets/${asset.slug}`}>
+          <div class="asset-card-top">
+            <div class="asset-copy">
+              <span class="asset-title">{asset.title}</span>
+              <span class="asset-summary">{asset.stewardshipNote}</span>
             </div>
 
-            <p class="stewardship-note">{asset.stewardshipNote}</p>
-
-            <span class="open-copy">Open land record</span>
+            <span class="open-copy">Open land asset</span>
           </div>
 
-          <div class="stat-grid">
-            <div class="stat-card">
-              <strong>{asset.managementProjects.length}</strong>
-              <span>Land management services</span>
-            </div>
-            <div class="stat-card">
-              <strong>{asset.storageProjects.length}</strong>
-              <span>Storage services</span>
-            </div>
-            <div class="stat-card">
-              <strong>{asset.linkedProjects.length}</strong>
-              <span>Linked projects</span>
-            </div>
+          <div class="asset-metrics">
+            <span class="asset-chip">{asset.sizeLabel}</span>
+            <span class="asset-chip">{asset.locationLabel}</span>
+            <span class="asset-chip">{asset.attachedAssets.length} attached assets</span>
+            <span class="asset-chip">{asset.managementProjects.length} management project{asset.managementProjects.length === 1 ? '' : 's'}</span>
           </div>
-        </div>
-      </FeedSurface>
+        </a>
+      </li>
     {/each}
-  </div>
+  </ul>
 </section>
 
 <style>
   .asset-stack,
-  .asset-grid,
-  .asset-card-shell,
-  .asset-card-main,
-  .panel-copy,
-  .stat-grid {
+  .asset-list {
     display: grid;
     gap: 12px;
   }
 
-  .asset-grid {
-    grid-template-columns: 1fr;
+  .intro-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
   }
 
-  .intro-card,
-  .stat-card {
-    padding: 14px;
+  .asset-list {
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .asset-card,
+  .asset-card-top,
+  .asset-copy,
+  .asset-metrics {
+    display: grid;
+    gap: 10px;
+  }
+
+  .asset-card {
+    padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: var(--panel);
+    background:
+      radial-gradient(circle at top right, color-mix(in srgb, var(--brand-soft) 58%, transparent), transparent 42%),
+      var(--panel);
+    text-decoration: none;
+    transition:
+      transform 140ms ease,
+      border-color 140ms ease,
+      box-shadow 140ms ease;
   }
 
-  .asset-card-shell {
-    min-height: 100%;
-    grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.9fr);
+  .asset-card:hover,
+  .asset-card:focus-visible {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
+    box-shadow: 0 16px 30px color-mix(in srgb, var(--brand) 12%, transparent);
+  }
+
+  .asset-card-top {
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
   }
 
+  .asset-metrics {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
   h2,
-  h3,
-  strong {
+  .asset-title {
     color: var(--text-main);
   }
 
-  p,
-  span {
+  .asset-title {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .asset-summary {
     margin: 0;
     color: var(--text-soft);
     line-height: 1.55;
   }
 
-  .detail-header,
-  .card-badge-row {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    flex-wrap: wrap;
+  .asset-chip {
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    background: color-mix(in srgb, white 70%, var(--panel));
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
   }
 
-  .detail-header {
-    justify-content: space-between;
+  .open-copy {
+    color: var(--brand-strong);
+    font-size: 12px;
+    font-weight: 700;
   }
 
-  .status-badge,
-  .acreage-badge {
+  .status-pill {
     padding: 6px 10px;
     border-radius: 999px;
     border: 1px solid var(--panel-border);
@@ -118,45 +140,19 @@
     font-weight: 700;
   }
 
-  .acreage-badge {
-    background: var(--panel-strong);
-  }
-
-  .status-badge.closed {
+  .status-pill.closed {
     background: color-mix(in srgb, var(--accent-warm) 18%, var(--panel));
     color: var(--accent-warm-strong);
   }
 
-  .status-badge.open {
+  .status-pill.open {
     background: color-mix(in srgb, var(--brand-soft) 70%, var(--panel));
     color: var(--brand-strong);
   }
 
-  .stewardship-note {
-    padding: 12px 14px;
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-  }
-
-  .stat-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .stat-card {
-    gap: 6px;
-    background: var(--panel-strong);
-  }
-
-  .open-copy {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--brand-strong);
-  }
-
-  @media (max-width: 900px) {
-    .asset-card-shell,
-    .stat-grid {
-      grid-template-columns: 1fr;
+  @media (max-width: 760px) {
+    .asset-card-top {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>

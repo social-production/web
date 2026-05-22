@@ -24,34 +24,44 @@ export const nodes = [
 	() => import('./nodes/20'),
 	() => import('./nodes/21'),
 	() => import('./nodes/22'),
-	() => import('./nodes/23')
+	() => import('./nodes/23'),
+	() => import('./nodes/24'),
+	() => import('./nodes/25'),
+	() => import('./nodes/26'),
+	() => import('./nodes/27'),
+	() => import('./nodes/28')
 ];
 
 export const server_loads = [];
 
 export const dictionary = {
 		"/": [2],
-		"/channels/[slug]": [3],
-		"/communities/[slug]": [4],
-		"/create/channel": [5],
-		"/create/community": [6],
-		"/create/event": [7],
-		"/create/post": [8],
-		"/create/project": [9],
-		"/create/thread": [10],
-		"/events/[slug]": [11],
-		"/messages": [12],
-		"/notifications": [13],
-		"/onboarding": [14],
-		"/personal": [15],
-		"/posts/[id]": [16],
-		"/profile/[username]": [17],
-		"/projects/[slug]": [18],
-		"/roadmap": [19],
-		"/search": [20],
-		"/settings": [21],
-		"/stewardship": [22],
-		"/threads/[slug]": [23]
+		"/about": [3],
+		"/channels/[slug]": [4],
+		"/communities/[slug]": [5],
+		"/create/channel": [6],
+		"/create/community": [7],
+		"/create/event": [8],
+		"/create/post": [9],
+		"/create/project": [10],
+		"/create/thread": [11],
+		"/events/[slug]": [12],
+		"/messages": [13],
+		"/notifications": [14],
+		"/onboarding": [15],
+		"/personal": [16],
+		"/platform": [17],
+		"/platform/assets": [18],
+		"/platform/assets/[assetSlug]": [19],
+		"/platform/assets/[assetSlug]/attached/[attachedAssetSlug]": [20],
+		"/posts/[id]": [21],
+		"/profile/[username]": [22],
+		"/projects/[slug]": [23],
+		"/roadmap": [24],
+		"/search": [25],
+		"/settings": [26],
+		"/stewardship": [27],
+		"/threads/[slug]": [28]
 	};
 
 export const hooks = {

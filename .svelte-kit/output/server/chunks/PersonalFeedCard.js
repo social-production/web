@@ -1,4 +1,4 @@
-import { f as bind_props, b as attr, e as escape_html } from "./renderer.js";
+import { d as bind_props, c as attr, e as escape_html, g as attr_style } from "./renderer.js";
 import "@sveltejs/kit/internal";
 import "./exports.js";
 import "./utils.js";
@@ -16,9 +16,22 @@ import { a as formatRelativeTime } from "./time.js";
 import { P as PersonalPostCard } from "./PersonalPostCard.js";
 function PersonalActivityCard($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
-    let orderedTags, verbLabel;
+    let orderedTags, commentHref, verbLabel;
     let item = $$props["item"];
+    function buildCommentHref(href, subjectKind) {
+      const url = new URL(href, "https://socialproduction.local");
+      url.searchParams.delete("comment");
+      url.searchParams.delete("update");
+      url.hash = "";
+      if (subjectKind === "project" || subjectKind === "event") {
+        url.searchParams.set("tab", "chat");
+        return `${url.pathname}${url.search}`;
+      }
+      url.hash = "comments";
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
     orderedTags = [...item.channelTags, ...item.communityTags];
+    commentHref = buildCommentHref(item.href, item.subjectKind);
     verbLabel = item.actionLabel || "Created";
     FeedSurface($$renderer2, {
       href: item.href,
@@ -33,11 +46,18 @@ function PersonalActivityCard($$renderer, $$props) {
         });
         $$renderer3.push(`<!----></div></div></div> <div class="tag-stack svelte-fedfq1">`);
         TagList($$renderer3, { columns: 4, tags: orderedTags });
-        $$renderer3.push(`<!----></div></div> <a class="title svelte-fedfq1"${attr("href", item.href)}>${escape_html(item.title)}</a> <p class="body svelte-fedfq1">${escape_html(item.body)}</p> <div class="footer svelte-fedfq1"><div class="engagement-row svelte-fedfq1">`);
+        $$renderer3.push(`<!----></div></div> <a class="title svelte-fedfq1"${attr("href", item.href)}>${escape_html(item.title)}</a> <p class="body svelte-fedfq1">${escape_html(item.body)}</p> `);
+        if (item.subjectKind === "project" && item.subjectFundProgress) {
+          $$renderer3.push("<!--[0-->");
+          $$renderer3.push(`<div class="fund-progress-card svelte-fedfq1"><div class="fund-progress-copy svelte-fedfq1"><strong>${escape_html(item.subjectFundProgress.title)}</strong> <span>${escape_html(item.subjectFundProgress.raisedLabel)} raised · target ${escape_html(item.subjectFundProgress.targetLabel)}</span> <strong>${escape_html(item.subjectFundProgress.progressPercent)}%</strong></div> <div class="progress-rail svelte-fedfq1"><div class="progress-fill svelte-fedfq1"${attr_style(`width: ${item.subjectFundProgress.progressPercent}%`)}></div></div></div>`);
+        } else {
+          $$renderer3.push("<!--[-1-->");
+        }
+        $$renderer3.push(`<!--]--> <div class="footer svelte-fedfq1"><div class="engagement-row svelte-fedfq1">`);
         VoteStrip($$renderer3, { activeVote: item.activeVote, count: item.voteCount });
-        $$renderer3.push(`<!----> `);
+        $$renderer3.push(`<!----> <a class="comment-link svelte-fedfq1"${attr("href", commentHref)}>`);
         CountPill($$renderer3, { label: `${item.commentCount} comments` });
-        $$renderer3.push(`<!----></div> <span>${escape_html(formatRelativeTime(item.createdAt))}</span></div>`);
+        $$renderer3.push(`<!----></a></div> <span>${escape_html(formatRelativeTime(item.createdAt))}</span></div>`);
       },
       $$slots: { default: true }
     });

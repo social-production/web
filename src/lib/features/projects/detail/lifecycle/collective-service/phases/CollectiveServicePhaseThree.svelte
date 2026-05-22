@@ -6,15 +6,13 @@
   type DraftPlanPhase = {
     title: string;
     details: string;
-    materialsLabel: string;
-    costLabel: string;
+    materials: string[];
   };
 
   type DraftPlanForm = {
     title: string;
     description: string;
     demandConsiderationNote: string;
-    totalCostLabel: string;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;
     requestMode?: 'calendar' | 'direct' | 'both';

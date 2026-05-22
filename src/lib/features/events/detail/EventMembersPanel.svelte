@@ -38,11 +38,11 @@
   $: primaryHeading = data.isPrivate ? 'Event editors' : 'Event members';
   $: primaryCopy = data.isPrivate
     ? 'Private events keep change decisions with the creator and any members the creator promotes to editor.'
-    : 'Public event members can propose and vote on update and detail edit decisions.';
-  $: secondaryHeading = data.isPrivate ? 'Other members' : 'Attendees';
+    : 'Public event members can propose and vote on lifecycle, update, and detail decisions.';
+  $: secondaryHeading = 'Other members';
   $: secondaryCopy = data.isPrivate
     ? 'Members can attend normally, and the creator can grant edit access when they need help managing decisions.'
-    : 'Everyone going to the event stays visible here so event governance matches the actual attendee group.';
+    : 'Everyone who joined the event stays visible here so the event surface matches the actual member group.';
 
   $: sections = data.isPrivate
     ? [
@@ -63,7 +63,7 @@
         {
           title: secondaryHeading,
           description: secondaryCopy,
-          emptyCopy: 'No additional members are marked as going yet.',
+          emptyCopy: 'No additional members have joined yet.',
           members: data.members.map((member) => ({
             id: member.id,
             username: member.username,
@@ -75,7 +75,7 @@
       ]
     : [
         {
-          emptyCopy: 'No one is marked as going yet.',
+          emptyCopy: 'No one has joined this event yet.',
           members: data.members.map((member) => ({
             id: member.id,
             username: member.username,

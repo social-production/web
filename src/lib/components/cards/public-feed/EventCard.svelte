@@ -34,7 +34,11 @@
 
   <a class="title" href={item.href}>{item.title}</a>
   <p class="body">{item.description}</p>
-  <p class="location">{item.timeLabel} · {item.locationLabel}</p>
+  {#if item.timeLabel || item.locationLabel}
+    <p class="location">{[item.timeLabel, item.locationLabel].filter(Boolean).join(' · ')}</p>
+  {:else}
+    <p class="location">Proposal schedule and location are set when an event plan is approved.</p>
+  {/if}
 
   <div class="footer">
     <div class="engagement-row">
@@ -46,7 +50,7 @@
     <div class="footer-meta">
       <span>
         <a class="inline-link" href={`/profile/${item.createdByUsername}`}>{item.createdByUsername}</a>
-        · {item.goingCount} going · <span class="activity-stamp">{describeActivityTime(item.createdAt, item.lastActivityAt)}</span>
+        · {item.goingCount} members · <span class="activity-stamp">{describeActivityTime(item.createdAt, item.lastActivityAt)}</span>
       </span>
     </div>
   </div>

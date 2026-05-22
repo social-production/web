@@ -8,12 +8,17 @@
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let entry: DecisionHistoryEntry;
+  export let highlighted = false;
   export let onVote: (
     entry: DecisionHistoryEntry,
     vote: ProjectApprovalVote | null
   ) => void | Promise<void> = () => {};
 
   let open = false;
+
+  $: if (highlighted) {
+    open = true;
+  }
 
   function toggleOpen() {
     open = !open;
@@ -33,9 +38,19 @@
   function compactLabel(entry: DecisionHistoryEntry) {
     switch (entry.payload.type) {
       case 'phase-change':
+        if (entry.payload.closeOutcome === 'convert' && entry.payload.conversionTarget) {
+          return `Convert to ${entry.payload.conversionTarget.projectModeLabel} · ${entry.payload.conversionTarget.projectSubtypeLabel}`;
+        }
+
         return `${entry.payload.fromPhaseLabel} -> ${entry.payload.toPhaseLabel}`;
       case 'update':
         return 'Proposed Update';
+      case 'pull-request':
+        return entry.payload.pullRequestId;
+      case 'merge-capability':
+        return entry.payload.targetUsername;
+      case 'repository-replacement':
+        return entry.payload.repositoryUrl;
       case 'settings-change':
         return entry.payload.proposedSettings.summary;
       default:
@@ -50,9 +65,36 @@
 
     return `${entry.approvalThresholdPercent}% approval needed`;
   }
+
+  function historyVoteSummary(entry: DecisionHistoryEntry) {
+    const baseSummary = formatProjectVoteSummary(entry.voteSummary);
+
+    if (entry.status === 'open') {
+      return baseSummary;
+    }
+
+    const castLabel = entry.voteSummary.totalVotes === 1 ? 'vote' : 'votes';
+    const quorumLabel = entry.voteSummary.votesRequired === 1 ? 'vote' : 'votes';
+
+    return `${baseSummary} · ${entry.voteSummary.totalVotes} ${castLabel} cast out of ${entry.voteSummary.votesRequired} quorum ${quorumLabel}`;
+  }
+
+  function normalizeExternalUrl(value: string | null | undefined) {
+    const trimmed = value?.trim() ?? '';
+
+    if (!trimmed) {
+      return '';
+    }
+
+    if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed)) {
+      return trimmed;
+    }
+
+    return `https://${trimmed}`;
+  }
 </script>
 
-<article class:expanded={open} class="history-card">
+<article id={`decision-${entry.id}`} class:expanded={open} class="history-card" class:highlighted={highlighted}>
   <button
     aria-expanded={open}
     aria-controls={`history-details-${entry.id}`}
@@ -88,6 +130,18 @@
             <strong>{entry.payload.toPhaseLabel}</strong>
           </div>
         </div>
+        {#if entry.payload.closeOutcome === 'convert' && entry.payload.conversionTarget}
+          <div class="detail-grid two-up">
+            <div class="detail-card">
+              <span>Successor target</span>
+              <strong>{entry.payload.conversionTarget.projectModeLabel} · {entry.payload.conversionTarget.projectSubtypeLabel}</strong>
+            </div>
+            <div class="detail-card">
+              <span>Successor entry phase</span>
+              <strong>{entry.payload.conversionTarget.entryPhaseLabel}</strong>
+            </div>
+          </div>
+        {/if}
         <div class="detail-copy">
           <span class="detail-section-title">Reason</span>
           <p>{entry.payload.reason}</p>
@@ -114,6 +168,85 @@
               </div>
             </div>
           {/each}
+        </div>
+      {:else if entry.payload.type === 'pull-request'}
+        <div class="detail-grid two-up">
+          <div class="detail-card">
+            <span>Pull request</span>
+            <a href={entry.payload.pullRequestUrl} rel="noreferrer" target="_blank">
+              {entry.payload.pullRequestId}
+            </a>
+          </div>
+          <div class="detail-card">
+            <span>Repository</span>
+            {#if entry.payload.repositoryUrl}
+              <a href={normalizeExternalUrl(entry.payload.repositoryUrl)} rel="noreferrer" target="_blank">
+                {entry.payload.repositoryUrl}
+              </a>
+            {:else}
+              <strong>Not recorded</strong>
+            {/if}
+          </div>
+        </div>
+        <div class="detail-card">
+          <span>Pull request URL</span>
+          <a href={entry.payload.pullRequestUrl} rel="noreferrer" target="_blank">
+            {entry.payload.pullRequestUrl}
+          </a>
+        </div>
+        <div class="detail-copy">
+          <span class="detail-section-title">Title</span>
+          <p>{entry.payload.title}</p>
+        </div>
+        <div class="detail-copy">
+          <span class="detail-section-title">Summary</span>
+          <p>{entry.payload.summary}</p>
+        </div>
+        {#if entry.payload.mergeId}
+          <div class="detail-card">
+            <span>Merged commit</span>
+            <strong>{entry.payload.mergeId}</strong>
+          </div>
+        {/if}
+      {:else if entry.payload.type === 'merge-capability'}
+        <div class="detail-grid two-up">
+          <div class="detail-card">
+            <span>Action</span>
+            <strong>{entry.payload.actionLabel}</strong>
+          </div>
+          <div class="detail-card">
+            <span>Member</span>
+            <strong>{entry.payload.targetUsername}</strong>
+          </div>
+        </div>
+      {:else if entry.payload.type === 'repository-replacement'}
+        <div class="detail-grid two-up">
+          <div class="detail-card">
+            <span>Replacement repository</span>
+            <a href={normalizeExternalUrl(entry.payload.repositoryUrl)} rel="noreferrer" target="_blank">
+              {entry.payload.repositoryUrl}
+            </a>
+          </div>
+          <div class="detail-card">
+            <span>Previous repository</span>
+            {#if entry.payload.previousRepositoryUrl}
+              <a href={normalizeExternalUrl(entry.payload.previousRepositoryUrl)} rel="noreferrer" target="_blank">
+                {entry.payload.previousRepositoryUrl}
+              </a>
+            {:else}
+              <strong>Not recorded</strong>
+            {/if}
+          </div>
+        </div>
+        {#if entry.payload.relatedPullRequestId}
+          <div class="detail-card">
+            <span>Blocked pull request</span>
+            <strong>{entry.payload.relatedPullRequestId}</strong>
+          </div>
+        {/if}
+        <div class="detail-copy">
+          <span class="detail-section-title">Reason</span>
+          <p>{entry.payload.reason}</p>
         </div>
       {:else}
         <div class="detail-copy">
@@ -153,7 +286,7 @@
     on:click={toggleOpen}
   >
     <div class="history-meta-row">
-      <span class="history-meta-left">{formatProjectVoteSummary(entry.voteSummary)}</span>
+      <span class="history-meta-left">{historyVoteSummary(entry)}</span>
       <span class="history-meta-right">{entry.authorUsername} · {formatRelativeTime(entry.createdAt)}</span>
     </div>
   </button>
@@ -310,6 +443,10 @@
   .history-card.expanded {
     z-index: 1;
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 18%, transparent);
+  }
+
+  .history-card.highlighted {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--status-green) 45%, var(--brand));
   }
 
   @media (max-width: 720px) {

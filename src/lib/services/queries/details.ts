@@ -1,5 +1,8 @@
 import { currentAdapter } from '$lib/services/adapters';
 import type {
+  EventLifecyclePhaseId,
+  EventPlanInput,
+  GovernanceSignalType,
   ProjectActivityInput,
   ProjectServiceHistoryCompletionChoice,
   ProjectServiceHistoryCompletionRole,
@@ -7,10 +10,14 @@ import type {
   ProjectDistributionPlanInput,
   ProjectImportanceVoteValue,
   ProjectLifecyclePhaseId,
+  ProjectPhaseChangeRequestOptions,
   ProjectProductionPlanInput,
   ProjectServiceRequestInput,
   ProjectServiceRequestPlanInput,
   ProjectServiceRequestSettingsChangeInput,
+  ProjectSoftwareMergeCapabilityChangeInput,
+  ProjectSoftwarePullRequestInput,
+  ProjectSoftwareRepositoryReplacementInput,
   ProjectServiceRequestStatus
 } from '$lib/types/detail';
 
@@ -42,6 +49,10 @@ export function toggleProjectDemandSignal(projectSlug: string) {
   return currentAdapter.toggleProjectDemandSignal(projectSlug);
 }
 
+export function setProjectSignal(projectSlug: string, signal: GovernanceSignalType) {
+  return currentAdapter.setProjectSignal(projectSlug, signal);
+}
+
 export function addProjectValue(projectSlug: string, label: string) {
   return currentAdapter.addProjectValue(projectSlug, label);
 }
@@ -58,8 +69,34 @@ export function addProjectProductionPlan(projectSlug: string, input: ProjectProd
   return currentAdapter.addProjectProductionPlan(projectSlug, input);
 }
 
+export function updateProjectProductionPlan(
+  projectSlug: string,
+  planId: string,
+  input: ProjectProductionPlanInput
+) {
+  return currentAdapter.updateProjectProductionPlan(projectSlug, planId, input);
+}
+
 export function addProjectDistributionPlan(projectSlug: string, input: ProjectDistributionPlanInput) {
   return currentAdapter.addProjectDistributionPlan(projectSlug, input);
+}
+
+export function addProjectPullRequest(projectSlug: string, input: ProjectSoftwarePullRequestInput) {
+  return currentAdapter.addProjectPullRequest(projectSlug, input);
+}
+
+export function requestProjectMergeCapabilityChange(
+  projectSlug: string,
+  input: ProjectSoftwareMergeCapabilityChangeInput
+) {
+  return currentAdapter.requestProjectMergeCapabilityChange(projectSlug, input);
+}
+
+export function requestProjectRepositoryReplacement(
+  projectSlug: string,
+  input: ProjectSoftwareRepositoryReplacementInput
+) {
+  return currentAdapter.requestProjectRepositoryReplacement(projectSlug, input);
 }
 
 export function setProjectPlanValueVote(
@@ -95,6 +132,28 @@ export function setProjectActivityCommitment(
 
 export function addProjectServiceRequest(projectSlug: string, input: ProjectServiceRequestInput) {
   return currentAdapter.addProjectServiceRequest(projectSlug, input);
+}
+
+export function createProjectManualLinkRequest(
+  projectSlug: string,
+  targetProjectSlug: string,
+  relationshipLabel: string,
+  summary: string
+) {
+  return currentAdapter.createProjectManualLinkRequest(
+    projectSlug,
+    targetProjectSlug,
+    relationshipLabel,
+    summary
+  );
+}
+
+export function setProjectManualLinkVote(
+  projectSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setProjectManualLinkVote(projectSlug, requestId, vote);
 }
 
 export function planProjectServiceRequest(
@@ -140,9 +199,10 @@ export function toggleProjectServiceHistoryCompletion(
 export function requestProjectPhaseChange(
   projectSlug: string,
   targetPhaseId: ProjectLifecyclePhaseId,
-  reason: string
+  reason: string,
+  options?: ProjectPhaseChangeRequestOptions
 ) {
-  return currentAdapter.requestProjectPhaseChange(projectSlug, targetPhaseId, reason);
+  return currentAdapter.requestProjectPhaseChange(projectSlug, targetPhaseId, reason, options);
 }
 
 export function setProjectPhaseChangeVote(
@@ -189,6 +249,38 @@ export function setProjectEditVote(
   return currentAdapter.setProjectEditVote(projectSlug, requestId, vote);
 }
 
+export function setProjectPullRequestVote(
+  projectSlug: string,
+  decisionId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setProjectPullRequestVote(projectSlug, decisionId, vote);
+}
+
+export function setProjectMergeCapabilityChangeVote(
+  projectSlug: string,
+  decisionId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setProjectMergeCapabilityChangeVote(projectSlug, decisionId, vote);
+}
+
+export function setProjectRepositoryReplacementVote(
+  projectSlug: string,
+  decisionId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setProjectRepositoryReplacementVote(projectSlug, decisionId, vote);
+}
+
+export function recordProjectPullRequestMerge(
+  projectSlug: string,
+  requestId: string,
+  mergeId: string
+) {
+  return currentAdapter.recordProjectPullRequestMerge(projectSlug, requestId, mergeId);
+}
+
 export function advanceProjectPhase(projectSlug: string, closeNote?: string) {
   return currentAdapter.advanceProjectPhase(projectSlug, closeNote);
 }
@@ -219,6 +311,71 @@ export function setReportVote(targetId: string, vote: 'yes' | 'no') {
 
 export function addProjectUpdate(projectSlug: string, title: string, body: string) {
   return currentAdapter.addProjectUpdate(projectSlug, title, body);
+}
+
+export function setEventSignal(eventSlug: string, signal: GovernanceSignalType) {
+  return currentAdapter.setEventSignal(eventSlug, signal);
+}
+
+export function addEventValue(eventSlug: string, label: string) {
+  return currentAdapter.addEventValue(eventSlug, label);
+}
+
+export function setEventValueImportance(
+  eventSlug: string,
+  valueId: string,
+  importance: ProjectImportanceVoteValue
+) {
+  return currentAdapter.setEventValueImportance(eventSlug, valueId, importance);
+}
+
+export function addEventPlan(eventSlug: string, input: EventPlanInput) {
+  return currentAdapter.addEventPlan(eventSlug, input);
+}
+
+export function setEventPlanValueVote(
+  eventSlug: string,
+  planId: string,
+  valueId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setEventPlanValueVote(eventSlug, planId, valueId, vote);
+}
+
+export function setEventPlanOverallVote(
+  eventSlug: string,
+  planId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setEventPlanOverallVote(eventSlug, planId, vote);
+}
+
+export function addEventActivity(eventSlug: string, input: ProjectActivityInput) {
+  return currentAdapter.addEventActivity(eventSlug, input);
+}
+
+export function setEventActivityCommitment(
+  eventSlug: string,
+  activityId: string,
+  roleLabel: string | null
+) {
+  return currentAdapter.setEventActivityCommitment(eventSlug, activityId, roleLabel);
+}
+
+export function requestEventPhaseChange(
+  eventSlug: string,
+  targetPhaseId: EventLifecyclePhaseId,
+  reason: string
+) {
+  return currentAdapter.requestEventPhaseChange(eventSlug, targetPhaseId, reason);
+}
+
+export function setEventPhaseChangeVote(
+  eventSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setEventPhaseChangeVote(eventSlug, requestId, vote);
 }
 
 export function requestEventUpdate(eventSlug: string, body: string) {

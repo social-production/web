@@ -8,6 +8,7 @@
   };
 
   export let activities: ProjectActivityItem[] = [];
+  export let plannedDayIsos: string[] = [];
   export let selectedDayIso = '';
   export let selectedActivityId = '';
   export let canCreate = false;
@@ -23,6 +24,7 @@
     isoDay: string;
     dayNumber: number;
     isCurrentMonth: boolean;
+    isPlanned: boolean;
     items: Array<{
       id: string;
       title: string;
@@ -42,9 +44,9 @@
   let hoveredDayIso = '';
   let hoveredActivityId = '';
   let visibleMonthLabel = '';
-  let visibleMonthStart = defaultVisibleMonthStart(activities, selectedDayIso);
+  let visibleMonthStart = defaultVisibleMonthStart(activities, selectedDayIso, plannedDayIsos);
   let lastSelectedDayIso = selectedDayIso;
-  let lastActivitySignature = activities.map((activity) => activity.id).join('|');
+  let lastCalendarSignature = `${activities.map((activity) => activity.id).join('|')}::${plannedDayIsos.join('|')}`;
 
   function isoDayValue(date: Date) {
     const year = date.getFullYear();
@@ -78,11 +80,21 @@
 
   function defaultVisibleMonthStart(
     sourceActivities: ProjectActivityItem[],
-    selectedDayValue: string
+    selectedDayValue: string,
+    plannedDayValues: string[]
   ) {
     const selectedDate = dateFromValue(selectedDayValue);
     if (selectedDate) {
       return monthStartFor(selectedDate);
+    }
+
+    const firstPlannedDay = plannedDayValues
+      .map((isoDay) => dateFromValue(isoDay))
+      .filter((date): date is Date => !!date)
+      .sort((left, right) => left.getTime() - right.getTime())[0];
+
+    if (firstPlannedDay) {
+      return monthStartFor(firstPlannedDay);
     }
 
     const now = Date.now();
@@ -187,7 +199,11 @@
     }));
   }
 
-  function buildCalendarDays(sourceActivities: ProjectActivityItem[], anchor: Date): DayCell[] {
+  function buildCalendarDays(
+    sourceActivities: ProjectActivityItem[],
+    anchor: Date,
+    plannedDaySet: Set<string>
+  ): DayCell[] {
     const start = new Date(anchor);
     const offset = (anchor.getDay() + 6) % 7;
     start.setDate(anchor.getDate() - offset);
@@ -201,6 +217,7 @@
         isoDay,
         dayNumber: date.getDate(),
         isCurrentMonth: date.getMonth() === anchor.getMonth(),
+        isPlanned: plannedDaySet.has(isoDay),
         items: dayItems(isoDay, sourceActivities)
       };
     });
@@ -215,10 +232,10 @@
   }
 
   $: {
-    const nextActivitySignature = activities.map((activity) => activity.id).join('|');
-    if (!selectedDayIso && nextActivitySignature !== lastActivitySignature) {
-      visibleMonthStart = defaultVisibleMonthStart(activities, selectedDayIso);
-      lastActivitySignature = nextActivitySignature;
+    const nextCalendarSignature = `${activities.map((activity) => activity.id).join('|')}::${plannedDayIsos.join('|')}`;
+    if (!selectedDayIso && nextCalendarSignature !== lastCalendarSignature) {
+      visibleMonthStart = defaultVisibleMonthStart(activities, selectedDayIso, plannedDayIsos);
+      lastCalendarSignature = nextCalendarSignature;
     }
   }
 
@@ -227,7 +244,8 @@
     year: 'numeric'
   });
 
-  $: calendarDays = buildCalendarDays(activities, visibleMonthStart);
+  $: plannedDaySet = new Set(plannedDayIsos);
+  $: calendarDays = buildCalendarDays(activities, visibleMonthStart, plannedDaySet);
 
   function elementAnchor(element: HTMLElement): CalendarInteractionAnchor {
     const rect = element.getBoundingClientRect();
@@ -262,8 +280,16 @@
     return date.getTime() < today.getTime();
   }
 
-  function handleDaySelect(isoDay: string, anchor: CalendarInteractionAnchor) {
+  function isSelectableDay(isoDay: string) {
     if (isPastDay(isoDay)) {
+      return false;
+    }
+
+    return plannedDayIsos.length === 0 || plannedDaySet.has(isoDay);
+  }
+
+  function handleDaySelect(isoDay: string, anchor: CalendarInteractionAnchor) {
+    if (!isSelectableDay(isoDay)) {
       return;
     }
 
@@ -296,12 +322,14 @@
       <div
         class:muted-day={!day.isCurrentMonth}
         class:past-day={isPastDay(day.isoDay)}
+        class:planned-day={day.isPlanned}
+        class:unplanned-day={plannedDayIsos.length > 0 && !day.isPlanned}
         class:hovered-day={hoveredDayIso === day.isoDay}
         class:selected-day={selectedDayIso.startsWith(day.isoDay)}
         class="calendar-cell"
         role="button"
-        tabindex={isPastDay(day.isoDay) ? -1 : 0}
-        aria-disabled={isPastDay(day.isoDay)}
+        tabindex={isSelectableDay(day.isoDay) ? 0 : -1}
+        aria-disabled={!isSelectableDay(day.isoDay)}
         on:mouseenter={() => (hoveredDayIso = day.isoDay)}
         on:mouseleave={() => (hoveredDayIso = '')}
         on:focus={() => (hoveredDayIso = day.isoDay)}
@@ -317,6 +345,9 @@
         }}
       >
         <span class="calendar-day-number">{day.dayNumber}</span>
+        {#if day.isPlanned}
+          <span class="planned-indicator" aria-hidden="true"></span>
+        {/if}
         <div class="timeline-track">
           {#each day.items as item}
             <button
@@ -477,6 +508,16 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 35%, transparent);
   }
 
+  .planned-day {
+    border-color: color-mix(in srgb, var(--brand) 34%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 16%, var(--panel));
+  }
+
+  .unplanned-day {
+    cursor: default;
+    opacity: 0.62;
+  }
+
   .muted-day {
     opacity: 0.45;
   }
@@ -505,6 +546,17 @@
     padding: 2px 4px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--panel) 82%, transparent);
+  }
+
+  .planned-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--brand);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--panel) 88%, transparent);
   }
 
   .timeline-track {

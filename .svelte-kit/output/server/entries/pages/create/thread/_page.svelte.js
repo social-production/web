@@ -1,19 +1,28 @@
 import "clsx";
-import { g as store_get, u as unsubscribe_stores, b as attr, e as escape_html, d as ensure_array_like } from "../../../../chunks/renderer.js";
+import { s as store_get, u as unsubscribe_stores, e as escape_html, c as attr, a as ensure_array_like } from "../../../../chunks/renderer.js";
+import "@sveltejs/kit/internal";
+import "../../../../chunks/exports.js";
+import "../../../../chunks/utils.js";
+import "@sveltejs/kit/internal/server";
+import "../../../../chunks/root.js";
+import "../../../../chunks/state.svelte.js";
 import { p as page } from "../../../../chunks/stores.js";
 import { T as ThreadCard } from "../../../../chunks/ThreadCard.js";
 import { C as CreateFlowLayout, a as CreatePanel } from "../../../../chunks/CreatePanel.js";
-import { b as splitCommaValues, m as makeTagRef, a as communityOptions } from "../../../../chunks/options.js";
+import "../../../../chunks/data.js";
+import { s as splitCommaValues, m as makeTagRef, c as channelOptions, a as communityOptions } from "../../../../chunks/options.js";
 function CreateThreadPage($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     var $$store_subs;
-    let viewer, previewItem, canSubmit;
-    let title = "How should we coordinate first-round retrofit walkthroughs?";
-    let body = "Looking for a discussion space that stays separate from the project logistics view so people can compare options without cluttering the project page.";
+    let viewer, previewItem, canSubmit, usesPlatformTag;
+    const platformTagSlug = "platform";
+    let title = "";
+    let body = "";
     let primaryTagType = "Channel";
-    let primaryTagValue = "Housing & Build";
+    let primaryTagValue = "";
     let additionalChannels = "";
     let taggedCommunities = "";
+    let isSubmitting = false;
     viewer = store_get($$store_subs ??= {}, "$page", page).data.bootstrap?.viewer ?? null;
     previewItem = viewer ? {
       kind: "thread",
@@ -37,7 +46,8 @@ function CreateThreadPage($$renderer, $$props) {
       commentCount: 0,
       lastActivityAt: (/* @__PURE__ */ new Date()).toISOString()
     } : null;
-    canSubmit = title.trim().length > 0 && primaryTagValue.trim().length > 0;
+    canSubmit = title.trim().length > 0 && body.trim().length > 0 && primaryTagValue.trim().length > 0;
+    usesPlatformTag = primaryTagValue.trim().toLowerCase() === platformTagSlug || splitCommaValues(additionalChannels).some((value) => value.trim().toLowerCase() === platformTagSlug);
     CreateFlowLayout($$renderer2, {
       $$slots: {
         primary: ($$renderer3) => {
@@ -56,10 +66,10 @@ function CreateThreadPage($$renderer, $$props) {
                   });
                 });
                 $$renderer4.push(`</label> <label><span class="field-label svelte-cf76oo">${escape_html("Primary channel tag")}</span> <input${attr("value", primaryTagValue)}${attr("list", "thread-channels")}/> <datalist id="thread-channels"><!--[-->`);
-                const each_array = ensure_array_like(["Housing & Build", "Mutual Aid", "Energy Retrofit"]);
+                const each_array = ensure_array_like(channelOptions);
                 for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
                   let option = each_array[$$index];
-                  $$renderer4.option({ value: option }, ($$renderer5) => {
+                  $$renderer4.option({ value: option.label }, ($$renderer5) => {
                   });
                 }
                 $$renderer4.push(`<!--]--></datalist> <datalist id="thread-communities"><!--[-->`);
@@ -74,7 +84,7 @@ function CreateThreadPage($$renderer, $$props) {
                 if ($$body) {
                   $$renderer4.push(`${$$body}`);
                 }
-                $$renderer4.push(`</textarea></label> <div class="button-row"><button class="button-primary"${attr("disabled", !canSubmit, true)} type="submit">Create Thread</button> <button class="button-ghost" type="button">Save Draft</button></div> `);
+                $$renderer4.push(`</textarea></label> <div class="button-row"><button class="button-primary"${attr("disabled", !canSubmit || isSubmitting, true)} type="submit">${escape_html("Create Thread")}</button> <button class="button-ghost" type="button">Save Draft</button></div> `);
                 {
                   $$renderer4.push("<!--[-1-->");
                 }
@@ -106,7 +116,7 @@ function CreateThreadPage($$renderer, $$props) {
               title: "Discussion note",
               description: "How the tag choice affects discovery.",
               children: ($$renderer4) => {
-                $$renderer4.push(`<p class="helper-text">Threads keep lightweight public discussion and idea comparison outside the project logistics view.</p>`);
+                $$renderer4.push(`<p class="helper-text">${escape_html(usesPlatformTag ? "Platform keeps public discussion open to regular users, and platform-tagged projects can also be proposed by any signed-in user." : "Threads keep lightweight public discussion and idea comparison outside the project logistics view.")}</p>`);
               },
               $$slots: { default: true }
             });

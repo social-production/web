@@ -5,11 +5,11 @@ function getChannel(slug) {
 function getCommunity(slug) {
   return currentAdapter.getCommunity(slug);
 }
-function getStewardship() {
-  return currentAdapter.getStewardship();
+function getPlatform() {
+  return currentAdapter.getPlatform();
 }
 export {
   getCommunity as a,
-  getStewardship as b,
+  getPlatform as b,
   getChannel as g
 };

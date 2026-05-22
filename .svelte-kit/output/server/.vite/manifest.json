@@ -10,6 +10,17 @@
       "_internal.js"
     ]
   },
+  "_AboutPage.js": {
+    "file": "chunks/AboutPage.js",
+    "name": "AboutPage",
+    "css": [
+      "_app/immutable/assets/AboutPage.CV75OoRE.css"
+    ]
+  },
+  "_AssetProjectRelationshipsSection.svelte_svelte_type_style_lang.js": {
+    "file": "_app/immutable/assets/AssetProjectRelationshipsSection.BXrbq--Z.css",
+    "src": "_AssetProjectRelationshipsSection.svelte_svelte_type_style_lang.js"
+  },
   "_AvatarBadge.js": {
     "file": "chunks/AvatarBadge.js",
     "name": "AvatarBadge",
@@ -20,6 +31,16 @@
       "_app/immutable/assets/AvatarBadge.Dkl9kCiy.css"
     ]
   },
+  "_CountBadge.js": {
+    "file": "chunks/CountBadge.js",
+    "name": "CountBadge",
+    "imports": [
+      "_renderer.js"
+    ],
+    "css": [
+      "_app/immutable/assets/CountBadge.CLQ_VzHe.css"
+    ]
+  },
   "_CountPill.js": {
     "file": "chunks/CountPill.js",
     "name": "CountPill",
@@ -27,8 +48,12 @@
       "_renderer.js"
     ],
     "css": [
-      "_app/immutable/assets/CountPill.DtmrF0X5.css"
+      "_app/immutable/assets/CountPill.BJyKOBjc.css"
     ]
+  },
+  "_CountPill.svelte_svelte_type_style_lang.js": {
+    "file": "_app/immutable/assets/CountPill.BJyKOBjc.css",
+    "src": "_CountPill.svelte_svelte_type_style_lang.js"
   },
   "_CreatePanel.js": {
     "file": "chunks/CreatePanel.js",
@@ -45,10 +70,49 @@
     "name": "DetailUpdateCard",
     "imports": [
       "_renderer.js",
+      "_time.js",
+      "_data.js",
+      "_RoundPlusButton.js"
+    ],
+    "css": [
+      "_app/immutable/assets/DetailUpdateCard.C5IBlNSi.css"
+    ]
+  },
+  "_DirectoryFeedLayout.js": {
+    "file": "chunks/DirectoryFeedLayout.js",
+    "name": "DirectoryFeedLayout",
+    "imports": [
+      "_renderer.js",
+      "_render-context.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
+      "_stores.js",
+      "_PublicFeedCard.js",
+      "_data.js"
+    ],
+    "css": [
+      "_app/immutable/assets/DirectoryFeedLayout.Ds0VYdV5.css"
+    ]
+  },
+  "_DiscussionPanel.js": {
+    "file": "chunks/DiscussionPanel.js",
+    "name": "DiscussionPanel",
+    "imports": [
+      "_renderer.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
+      "_stores.js",
+      "_VoteStrip.js",
+      "_RoundPlusButton.js",
+      "_data.js",
       "_time.js"
     ],
     "css": [
-      "_app/immutable/assets/DetailUpdateCard.D0ox6V8-.css"
+      "_app/immutable/assets/DiscussionPanel.H4H66-hz.css"
     ]
   },
   "_EventCard.js": {
@@ -69,7 +133,7 @@
       "_time.js"
     ],
     "css": [
-      "_app/immutable/assets/EventCard.BvasaQIj.css"
+      "_app/immutable/assets/EventCard.AL0TFok4.css"
     ]
   },
   "_FeedSurface.js": {
@@ -79,7 +143,48 @@
       "_renderer.js"
     ],
     "css": [
-      "_app/immutable/assets/FeedSurface.CI_-8gqV.css"
+      "_app/immutable/assets/FeedSurface.W39ZkgFt.css"
+    ]
+  },
+  "_FeedSurface.svelte_svelte_type_style_lang.js": {
+    "file": "_app/immutable/assets/FeedSurface.W39ZkgFt.css",
+    "src": "_FeedSurface.svelte_svelte_type_style_lang.js"
+  },
+  "_LinkedPostBody.js": {
+    "file": "chunks/LinkedPostBody.js",
+    "name": "LinkedPostBody",
+    "imports": [
+      "_renderer.js"
+    ],
+    "css": [
+      "_app/immutable/assets/LinkedPostBody.BshwXtqR.css"
+    ]
+  },
+  "_LiveChatPanel.js": {
+    "file": "chunks/LiveChatPanel.js",
+    "name": "LiveChatPanel",
+    "imports": [
+      "_renderer.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
+      "_stores.js",
+      "_RoundPlusButton.js",
+      "_data.js"
+    ],
+    "css": [
+      "_app/immutable/assets/LiveChatPanel.Dko0iK1s.css"
+    ]
+  },
+  "_PageHeader.js": {
+    "file": "chunks/PageHeader.js",
+    "name": "PageHeader",
+    "imports": [
+      "_renderer.js"
+    ],
+    "css": [
+      "_app/immutable/assets/PageHeader.CNEGONF3.css"
     ]
   },
   "_PersonalFeedCard.js": {
@@ -102,7 +207,7 @@
       "_PersonalPostCard.js"
     ],
     "css": [
-      "_app/immutable/assets/PersonalFeedCard.9_QEERHF.css"
+      "_app/immutable/assets/PersonalFeedCard.CBX0f3u0.css"
     ]
   },
   "_PersonalPostCard.js": {
@@ -117,13 +222,22 @@
       "_AvatarBadge.js",
       "_CountPill.js",
       "_FeedSurface.js",
+      "_LinkedPostBody.js",
       "_SubjectTablet.js",
       "_VoteStrip.js",
       "_data.js",
       "_time.js"
     ],
     "css": [
-      "_app/immutable/assets/PersonalPostCard.CQ1_RGw1.css"
+      "_app/immutable/assets/PersonalPostCard.9fMPup9c.css"
+    ]
+  },
+  "_PlatformPage.js": {
+    "file": "chunks/PlatformPage.js",
+    "name": "PlatformPage",
+    "imports": [
+      "_renderer.js",
+      "_DirectoryFeedLayout.js"
     ]
   },
   "_PreviewTile.js": {
@@ -154,8 +268,12 @@
       "_time.js"
     ],
     "css": [
-      "_app/immutable/assets/ProjectCard.C5uwBQBq.css"
+      "_app/immutable/assets/ProjectCard.PS6nEh51.css"
     ]
+  },
+  "_ProjectCard.svelte_svelte_type_style_lang.js": {
+    "file": "_app/immutable/assets/ProjectCard.PS6nEh51.css",
+    "src": "_ProjectCard.svelte_svelte_type_style_lang.js"
   },
   "_PublicFeedCard.js": {
     "file": "chunks/PublicFeedCard.js",
@@ -167,23 +285,31 @@
       "_ThreadCard.js"
     ]
   },
-  "_ScopePage.js": {
-    "file": "chunks/ScopePage.js",
-    "name": "ScopePage",
+  "_ReportControl.js": {
+    "file": "chunks/ReportControl.js",
+    "name": "ReportControl",
     "imports": [
       "_renderer.js",
-      "_render-context.js",
       "_exports.js",
       "_utils.js",
       "_root.js",
       "_state.svelte.js",
       "_stores.js",
-      "_VoteStrip.js",
-      "_data.js",
-      "_PublicFeedCard.js"
+      "_RoundPlusButton.js",
+      "_data.js"
     ],
     "css": [
-      "_app/immutable/assets/ScopePage.C3WEGDmU.css"
+      "_app/immutable/assets/ReportControl.3SuJzO3v.css"
+    ]
+  },
+  "_RoundPlusButton.js": {
+    "file": "chunks/RoundPlusButton.js",
+    "name": "RoundPlusButton",
+    "imports": [
+      "_renderer.js"
+    ],
+    "css": [
+      "_app/immutable/assets/RoundPlusButton.sOjHmuIm.css"
     ]
   },
   "_SubjectTablet.js": {
@@ -194,8 +320,12 @@
       "_data.js"
     ],
     "css": [
-      "_app/immutable/assets/SubjectTablet.s06eeYeV.css"
+      "_app/immutable/assets/Tablet.B2rIXRdg.css"
     ]
+  },
+  "_Tablet.svelte_svelte_type_style_lang.js": {
+    "file": "_app/immutable/assets/Tablet.B2rIXRdg.css",
+    "src": "_Tablet.svelte_svelte_type_style_lang.js"
   },
   "_TagList.js": {
     "file": "chunks/TagList.js",
@@ -205,8 +335,12 @@
       "_SubjectTablet.js"
     ],
     "css": [
-      "_app/immutable/assets/TagList.BmuIFvgn.css"
+      "_app/immutable/assets/TagList.CToeKsRo.css"
     ]
+  },
+  "_TagList.svelte_svelte_type_style_lang.js": {
+    "file": "_app/immutable/assets/TagList.CToeKsRo.css",
+    "src": "_TagList.svelte_svelte_type_style_lang.js"
   },
   "_ThreadCard.js": {
     "file": "chunks/ThreadCard.js",
@@ -226,24 +360,7 @@
       "_time.js"
     ],
     "css": [
-      "_app/immutable/assets/ThreadCard.Xo7M8HJH.css"
-    ]
-  },
-  "_ThreadedComment.js": {
-    "file": "chunks/ThreadedComment.js",
-    "name": "ThreadedComment",
-    "imports": [
-      "_renderer.js",
-      "_exports.js",
-      "_utils.js",
-      "_root.js",
-      "_state.svelte.js",
-      "_VoteStrip.js",
-      "_data.js",
-      "_time.js"
-    ],
-    "css": [
-      "_app/immutable/assets/ThreadedComment.Bs7LW2tf.css"
+      "_app/immutable/assets/ThreadCard.D2uNrhzs.css"
     ]
   },
   "_VoteStrip.js": {
@@ -253,14 +370,36 @@
       "_renderer.js"
     ],
     "css": [
-      "_app/immutable/assets/VoteStrip.DgQk-iDq.css"
+      "_app/immutable/assets/VoteStrip.D_Y4qi_j.css"
     ]
+  },
+  "_VoteStrip.svelte_svelte_type_style_lang.js": {
+    "file": "_app/immutable/assets/VoteStrip.D_Y4qi_j.css",
+    "src": "_VoteStrip.svelte_svelte_type_style_lang.js"
   },
   "_account.js": {
     "file": "chunks/account.js",
     "name": "account",
     "imports": [
       "_index2.js"
+    ]
+  },
+  "_assets.js": {
+    "file": "chunks/assets.js",
+    "name": "assets",
+    "imports": [
+      "_index2.js"
+    ]
+  },
+  "_client.js": {
+    "file": "chunks/client.js",
+    "name": "client",
+    "imports": [
+      "_exports.js",
+      "_utils.js",
+      "_index.js",
+      "_root.js",
+      "_state.svelte.js"
     ]
   },
   "_data.js": {
@@ -402,10 +541,7 @@
     "imports": [
       "_renderer.js",
       "_state.svelte.js",
-      "_exports.js",
-      "_utils.js",
-      "_index.js",
-      "_root.js"
+      "_client.js"
     ]
   },
   "node_modules/@sveltejs/kit/src/runtime/server/index.js": {
@@ -439,12 +575,13 @@
       "_root.js",
       "_state.svelte.js",
       "_stores.js",
+      "_CountBadge.js",
       "_SubjectTablet.js",
       "_data.js",
       "_time.js"
     ],
     "css": [
-      "_app/immutable/assets/_layout.BlYjfe3z.css"
+      "_app/immutable/assets/_layout.CgkbCWvh.css"
     ],
     "assets": [
       "_app/immutable/assets/app-icon-no-background-full-white.BUoRzi80.png"
@@ -467,10 +604,13 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
-      "_PublicFeedCard.js"
+      "_stores.js",
+      "_PageHeader.js",
+      "_PublicFeedCard.js",
+      "_data.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.C21L2PuF.css"
+      "_app/immutable/assets/_page.BuosAUP3.css"
     ]
   },
   "src/routes/+page.ts": {
@@ -482,6 +622,15 @@
       "_feeds.js"
     ]
   },
+  "src/routes/about/+page.svelte": {
+    "file": "entries/pages/about/_page.svelte.js",
+    "name": "entries/pages/about/_page.svelte",
+    "src": "src/routes/about/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_AboutPage.js"
+    ]
+  },
   "src/routes/channels/[slug]/+page.svelte": {
     "file": "entries/pages/channels/_slug_/_page.svelte.js",
     "name": "entries/pages/channels/_slug_/_page.svelte",
@@ -489,7 +638,7 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
-      "_ScopePage.js"
+      "_DirectoryFeedLayout.js"
     ]
   },
   "src/routes/channels/[slug]/+page.ts": {
@@ -508,7 +657,7 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
-      "_ScopePage.js"
+      "_DirectoryFeedLayout.js"
     ]
   },
   "src/routes/communities/[slug]/+page.ts": {
@@ -527,8 +676,13 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
       "_CreatePanel.js",
-      "_PreviewTile.js"
+      "_PreviewTile.js",
+      "_data.js"
     ],
     "css": [
       "_app/immutable/assets/_page.LZ1dddtL.css"
@@ -541,8 +695,13 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
       "_CreatePanel.js",
-      "_PreviewTile.js"
+      "_PreviewTile.js",
+      "_data.js"
     ],
     "css": [
       "_app/immutable/assets/_page.D8TMTlN2.css"
@@ -555,13 +714,17 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
       "_stores.js",
       "_EventCard.js",
       "_CreatePanel.js",
-      "_options.js"
+      "_data.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.BmRahx1_.css"
+      "_app/immutable/assets/_page.DS8TkTJ8.css"
     ]
   },
   "src/routes/create/post/+page.svelte": {
@@ -571,12 +734,17 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
       "_stores.js",
       "_PersonalPostCard.js",
-      "_CreatePanel.js"
+      "_CreatePanel.js",
+      "_data.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.CxsVubsx.css"
+      "_app/immutable/assets/_page.BfmssTgA.css"
     ]
   },
   "src/routes/create/project/+page.svelte": {
@@ -586,6 +754,11 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
+      "_stores.js",
       "_ProjectCard.js",
       "_CreatePanel.js",
       "_data.js",
@@ -602,9 +775,14 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
       "_stores.js",
       "_ThreadCard.js",
       "_CreatePanel.js",
+      "_data.js",
       "_options.js"
     ],
     "css": [
@@ -618,21 +796,26 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
-      "_stores.js",
       "_exports.js",
       "_utils.js",
       "_root.js",
       "_state.svelte.js",
-      "_data.js",
-      "_time.js",
+      "_stores.js",
+      "_LiveChatPanel.js",
+      "_client.js",
       "_DetailUpdateCard.js",
-      "_CountPill.js",
+      "_details.js",
+      "_CountBadge.js",
+      "_data.js",
+      "_RoundPlusButton.js",
+      "_ReportControl.js",
       "_SubjectTablet.js",
       "_TagList.js",
-      "_VoteStrip.js"
+      "_VoteStrip.js",
+      "_time.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.DoFxyk7J.css"
+      "_app/immutable/assets/_page.Cghn5DxW.css"
     ]
   },
   "src/routes/events/[slug]/+page.ts": {
@@ -651,16 +834,17 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
-      "_exports.js",
-      "_utils.js",
-      "_root.js",
-      "_state.svelte.js",
+      "_client.js",
+      "_LiveChatPanel.js",
       "_AvatarBadge.js",
-      "_time.js",
-      "_data.js"
+      "_PageHeader.js",
+      "_RoundPlusButton.js",
+      "_details.js",
+      "_inbox.js",
+      "_time.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.Dnqdr6_K.css"
+      "_app/immutable/assets/_page.CNg5xKJ1.css"
     ]
   },
   "src/routes/messages/+page.ts": {
@@ -690,7 +874,7 @@
       "_data.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.Cc0kIrXh.css"
+      "_app/immutable/assets/_page.CAbZVFYT.css"
     ]
   },
   "src/routes/notifications/+page.ts": {
@@ -708,10 +892,16 @@
     "src": "src/routes/onboarding/+page.svelte",
     "isEntry": true,
     "imports": [
-      "_renderer.js"
+      "_renderer.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
+      "_stores.js",
+      "_data.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.DbD28QCf.css"
+      "_app/immutable/assets/_page.Bja6q5rX.css"
     ]
   },
   "src/routes/onboarding/+page.ts": {
@@ -730,10 +920,13 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
-      "_PersonalFeedCard.js"
+      "_stores.js",
+      "_PageHeader.js",
+      "_PersonalFeedCard.js",
+      "_data.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.0ajk-Aed.css"
+      "_app/immutable/assets/_page.BpOpKGOd.css"
     ]
   },
   "src/routes/personal/+page.ts": {
@@ -743,6 +936,116 @@
     "isEntry": true,
     "imports": [
       "_feeds.js"
+    ]
+  },
+  "src/routes/platform/+page.svelte": {
+    "file": "entries/pages/platform/_page.svelte.js",
+    "name": "entries/pages/platform/_page.svelte",
+    "src": "src/routes/platform/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_renderer.js",
+      "_PlatformPage.js"
+    ]
+  },
+  "src/routes/platform/+page.ts": {
+    "file": "entries/pages/platform/_page.ts.js",
+    "name": "entries/pages/platform/_page.ts",
+    "src": "src/routes/platform/+page.ts",
+    "isEntry": true,
+    "imports": [
+      "_scopes.js"
+    ]
+  },
+  "src/routes/platform/assets/+page.svelte": {
+    "file": "entries/pages/platform/assets/_page.svelte.js",
+    "name": "entries/pages/platform/assets/_page.svelte",
+    "src": "src/routes/platform/assets/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_renderer.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.Dtxn36Ts.css",
+      "_app/immutable/assets/FeedSurface.W39ZkgFt.css"
+    ]
+  },
+  "src/routes/platform/assets/+page.ts": {
+    "file": "entries/pages/platform/assets/_page.ts.js",
+    "name": "entries/pages/platform/assets/_page.ts",
+    "src": "src/routes/platform/assets/+page.ts",
+    "isEntry": true,
+    "imports": [
+      "_assets.js",
+      "_scopes.js"
+    ]
+  },
+  "src/routes/platform/assets/[assetSlug]/+page.svelte": {
+    "file": "entries/pages/platform/assets/_assetSlug_/_page.svelte.js",
+    "name": "entries/pages/platform/assets/_assetSlug_/_page.svelte",
+    "src": "src/routes/platform/assets/[assetSlug]/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_renderer.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
+      "_data.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.BTThP9Z5.css",
+      "_app/immutable/assets/AssetProjectRelationshipsSection.BXrbq--Z.css",
+      "_app/immutable/assets/CountPill.BJyKOBjc.css",
+      "_app/immutable/assets/FeedSurface.W39ZkgFt.css",
+      "_app/immutable/assets/Tablet.B2rIXRdg.css",
+      "_app/immutable/assets/TagList.CToeKsRo.css",
+      "_app/immutable/assets/VoteStrip.D_Y4qi_j.css",
+      "_app/immutable/assets/ProjectCard.PS6nEh51.css"
+    ]
+  },
+  "src/routes/platform/assets/[assetSlug]/+page.ts": {
+    "file": "entries/pages/platform/assets/_assetSlug_/_page.ts.js",
+    "name": "entries/pages/platform/assets/_assetSlug_/_page.ts",
+    "src": "src/routes/platform/assets/[assetSlug]/+page.ts",
+    "isEntry": true,
+    "imports": [
+      "_assets.js",
+      "_scopes.js"
+    ]
+  },
+  "src/routes/platform/assets/[assetSlug]/attached/[attachedAssetSlug]/+page.svelte": {
+    "file": "entries/pages/platform/assets/_assetSlug_/attached/_attachedAssetSlug_/_page.svelte.js",
+    "name": "entries/pages/platform/assets/_assetSlug_/attached/_attachedAssetSlug_/_page.svelte",
+    "src": "src/routes/platform/assets/[assetSlug]/attached/[attachedAssetSlug]/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_renderer.js",
+      "_exports.js",
+      "_utils.js",
+      "_root.js",
+      "_state.svelte.js",
+      "_data.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.BXE9-S14.css",
+      "_app/immutable/assets/AssetProjectRelationshipsSection.BXrbq--Z.css",
+      "_app/immutable/assets/CountPill.BJyKOBjc.css",
+      "_app/immutable/assets/FeedSurface.W39ZkgFt.css",
+      "_app/immutable/assets/Tablet.B2rIXRdg.css",
+      "_app/immutable/assets/TagList.CToeKsRo.css",
+      "_app/immutable/assets/VoteStrip.D_Y4qi_j.css",
+      "_app/immutable/assets/ProjectCard.PS6nEh51.css"
+    ]
+  },
+  "src/routes/platform/assets/[assetSlug]/attached/[attachedAssetSlug]/+page.ts": {
+    "file": "entries/pages/platform/assets/_assetSlug_/attached/_attachedAssetSlug_/_page.ts.js",
+    "name": "entries/pages/platform/assets/_assetSlug_/attached/_attachedAssetSlug_/_page.ts",
+    "src": "src/routes/platform/assets/[assetSlug]/attached/[attachedAssetSlug]/+page.ts",
+    "isEntry": true,
+    "imports": [
+      "_assets.js",
+      "_scopes.js"
     ]
   },
   "src/routes/posts/[id]/+page.svelte": {
@@ -757,15 +1060,17 @@
       "_utils.js",
       "_root.js",
       "_state.svelte.js",
-      "_ThreadedComment.js",
+      "_DiscussionPanel.js",
       "_AvatarBadge.js",
+      "_LinkedPostBody.js",
       "_CountPill.js",
+      "_ReportControl.js",
       "_VoteStrip.js",
       "_data.js",
       "_time.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.D9tUdFsF.css"
+      "_app/immutable/assets/_page.YLiQvAKd.css"
     ]
   },
   "src/routes/posts/[id]/+page.ts": {
@@ -787,7 +1092,7 @@
       "_PersonalFeedCard.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.DOF0FF6e.css"
+      "_app/immutable/assets/_page.CKvHl9HC.css"
     ]
   },
   "src/routes/profile/[username]/+page.ts": {
@@ -806,20 +1111,26 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
-      "_stores.js",
       "_exports.js",
       "_utils.js",
       "_root.js",
       "_state.svelte.js",
+      "_stores.js",
+      "_LiveChatPanel.js",
+      "_client.js",
+      "_DetailUpdateCard.js",
+      "_details.js",
       "_data.js",
+      "_RoundPlusButton.js",
       "_time.js",
-      "_VoteStrip.js",
+      "_CountBadge.js",
+      "_ReportControl.js",
       "_SubjectTablet.js",
       "_TagList.js",
-      "_DetailUpdateCard.js"
+      "_VoteStrip.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.D8ucWyt-.css"
+      "_app/immutable/assets/_page.BIHGl5vW.css"
     ]
   },
   "src/routes/projects/[slug]/+page.ts": {
@@ -836,8 +1147,8 @@
     "name": "entries/pages/roadmap/_page.svelte",
     "src": "src/routes/roadmap/+page.svelte",
     "isEntry": true,
-    "css": [
-      "_app/immutable/assets/_page.CCjStoL2.css"
+    "imports": [
+      "_AboutPage.js"
     ]
   },
   "src/routes/search/+page.svelte": {
@@ -875,7 +1186,7 @@
       "_data.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.BW9KxpGS.css"
+      "_app/immutable/assets/_page.CUmFZaZy.css"
     ]
   },
   "src/routes/settings/+page.ts": {
@@ -894,7 +1205,7 @@
     "isEntry": true,
     "imports": [
       "_renderer.js",
-      "_ScopePage.js"
+      "_PlatformPage.js"
     ]
   },
   "src/routes/stewardship/+page.ts": {
@@ -914,12 +1225,13 @@
     "imports": [
       "_renderer.js",
       "_stores.js",
+      "_DiscussionPanel.js",
       "_exports.js",
       "_utils.js",
       "_root.js",
       "_state.svelte.js",
-      "_ThreadedComment.js",
       "_CountPill.js",
+      "_ReportControl.js",
       "_SubjectTablet.js",
       "_TagList.js",
       "_VoteStrip.js",
@@ -927,7 +1239,7 @@
       "_time.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.CGDb2vjc.css"
+      "_app/immutable/assets/_page.BIk9UhEc.css"
     ]
   },
   "src/routes/threads/[slug]/+page.ts": {
