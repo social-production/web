@@ -20,6 +20,7 @@ import type { BootstrapPayload } from '$lib/types/bootstrap';
 import { fetchBootstrap, fetchOnboarding } from './domains/bootstrap';
 import { fetchSignIn, fetchSignOut, fetchSignUp } from './domains/auth';
 import { fetchSettings, fetchUpdateSettings, fetchProfile } from './domains/users';
+import { fetchPublicFeed, fetchPersonalFeed } from './domains/feeds';
 
 const bootstrapFallback: BootstrapPayload = {
   viewer: null,
@@ -57,6 +58,14 @@ export function createFastApiDriver(): AppAdapter {
 
     async getOnboarding() {
       return fetchOnboarding();
+    },
+
+    async getPublicFeed() {
+      return fetchPublicFeed();
+    },
+
+    async getPersonalFeed() {
+      return fetchPersonalFeed();
     },
 
     async getSettings() {

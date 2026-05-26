@@ -1,0 +1,61 @@
+import { getStoredToken } from './auth';
+
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+function getBaseUrl(): string {
+  return import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+}
+
+async function request<T>(method: HttpMethod, path: string, body?: unknown): Promise<T> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json'
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const options: RequestInit = {
+    method,
+    headers
+  };
+
+  if (body !== undefined && method !== 'GET' && method !== 'DELETE') {
+    headers['Content-Type'] = 'application/json';
+    options.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(`${getBaseUrl()}${path}`, options);
+
+  if (!response.ok) {
+    throw {
+      status: response.status,
+      body: await response.json().catch(() => null)
+    };
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export function createFastApiClient() {
+  return {
+    get<T>(path: string): Promise<T> {
+      return request<T>('GET', path);
+    },
+    post<T>(path: string, body?: unknown): Promise<T> {
+      return request<T>('POST', path, body);
+    },
+    put<T>(path: string, body?: unknown): Promise<T> {
+      return request<T>('PUT', path, body);
+    },
+    patch<T>(path: string, body?: unknown): Promise<T> {
+      return request<T>('PATCH', path, body);
+    },
+    delete<T>(path: string): Promise<T> {
+      return request<T>('DELETE', path);
+    }
+  };
+}
+
+export const apiClient = createFastApiClient();
