@@ -86,14 +86,14 @@ Step 4 — Apply small-group floor:
 The small-group floor (Step 4) ensures that for groups under roughly 50 members the required votes do not exceed 75% of the group. Above roughly 50, the Cochran formula naturally produces a lower number and takes over.
 
 **N is defined as:**
-- Project or event member count — for all non-platform votes
+- Weekly unique active users within the project or event membership — for all non-platform votes
 - Weekly unique active platform users — for all platform votes
 
 **Weekly unique active users** means users who performed at least one meaningful action (voted, contributed, posted, commented) within the current week, counted once regardless of how many days they were active. A user active four days counts as one.
 
-### Reference Table — Non-Platform (Project or Event Members)
+### Reference Table — Non-Platform (Weekly Unique Active Project or Event Members)
 
-| Members (N) | Required votes | % of members |
+| Weekly active members (N) | Required votes | % of members |
 |---|---|---|
 | 2 | 2 | 100% |
 | 5 | 4 | 80% |
@@ -135,7 +135,7 @@ Both tables use identical formula and structure. The only difference is what N r
 
 ### Why the Numbers Work This Way
 
-At small scale (10 members) nearly everyone voting makes sense — every voice is significant in a small collective. At medium scale a healthy engaged portion suffices. At large scale the required absolute vote count keeps growing, ensuring decisions affecting many people carry proportionally greater legitimacy. The percentage falls; the absolute count rises. This is the same principle used by reputable polling organisations worldwide.
+At small scale (10 active members) nearly everyone voting makes sense — every voice is significant in a small collective. At medium scale a healthy engaged portion suffices. At large scale the required absolute vote count keeps growing, ensuring decisions affecting many people carry proportionally greater legitimacy. The percentage falls; the absolute count rises. This is the same principle used by reputable polling organisations worldwide.
 
 ---
 
@@ -177,7 +177,7 @@ Demand and opposition signals remain open at every phase. Growing opposition dur
 Every phase transition requires a member vote. No transition is automatic.
 
 **All transition votes and plan votes require:**
-- Quorum: required votes formula on current member count (non-platform) or weekly active users (platform)
+- Quorum: required votes formula on weekly active project/event members (non-platform) or weekly active platform users (platform)
 - Approval: 66% of votes cast
 
 **Plan approval and phase advancement are separate actions.**
@@ -225,7 +225,7 @@ PROPOSAL → PRODUCTION_PLAN → DISTRIBUTION_PLAN → ACTIVITY → CLOSE/CONVER
 - Any signed-in user may signal demand (including desire for the output) or opposition
 - Proposal criteria created and voted on; above 50% importance carry into planning
 - Ratio must exceed 0.66 before transition vote can be initiated
-- Transition vote: required formula on project membership, 66%
+- Transition vote: required formula on weekly active project membership, 66%
 
 **PRODUCTION_PLAN**
 - Members draft production plans; any member may submit one
@@ -400,7 +400,7 @@ Pending asset entries created during execution are visible only inside acquisiti
 
 ### Confirmation Vote
 
-- Non-platform: required formula on project membership, 66%
+- Non-platform: required formula on weekly active project membership, 66%
 - Platform: required formula on weekly active users, 66%
 - If approved: the execution is accepted as matching the acquisition plan, pending asset entries become live, and each asset is entered into the chosen asset management service inventory. If a new asset management service was specified in the plan, it is created at this point and the plan creator becomes its first member.
 - If rejected: execution is flagged, board member standing is affected, pending asset entries do not become live, and acquisition remains open for re-execution
@@ -519,7 +519,7 @@ All data — repository URLs, pull request IDs, approval votes, merge IDs, confi
 Merge capability is a scoped technical role — the ability to merge approved pull requests into the official repository. It is not a governance privilege.
 
 - The creator of the accepted plan initially holds merge capability
-- Members may grant merge capability to additional members or reassign it by vote: required formula on project membership, 66%
+- Members may grant merge capability to additional members or reassign it by vote: required formula on weekly active project membership, 66%
 - Merge capability carries no additional voting weight or authority
 
 ### Pull Request Flow
@@ -528,10 +528,10 @@ During ACTIVITY, any member may raise a pull request:
 
 1. Member creates a pull request in the project's GitHub (or equivalent) repository
 2. Member submits the pull request ID to the project
-3. Members vote to approve: required formula on project membership, 66%
+3. Members vote to approve: required formula on weekly active project membership, 66%
 4. If approved: members holding merge capability are expected to execute the merge
 5. Executing member records the merge ID in the platform
-6. Members vote to confirm the merge occurred: required formula on project membership, 66%
+6. Members vote to confirm the merge occurred: required formula on weekly active project membership, 66%
 7. If confirmed: pull request closed and permanently recorded in project history with the merge ID
 
 All steps are stored and linked to the pull request ID for future bot compatibility.
@@ -542,7 +542,7 @@ If an approved pull request is not executed by any member holding merge capabili
 
 1. Create a new repository containing: the AGPL v3 licence, the existing codebase, and the approved changes already applied
 2. Submit the new repository URL to the project
-3. Members vote to approve the new repository and designate its submitter as the new merge capability holder: required formula on project membership, 66%
+3. Members vote to approve the new repository and designate its submitter as the new merge capability holder: required formula on weekly active project membership, 66%
 4. If approved: new repository becomes the official codebase; previous repository recorded as legacy in project history; submitter holds merge capability
 
 This is not a new project — it is a repository replacement within the same project. The AGPL v3 licence guarantees the legal right to do this. The platform formalises it as an explicit governance mechanism to ensure no individual can block progress by withholding merge execution.
@@ -796,7 +796,7 @@ n₀ = 0.9604 / E²
 cochran(N) = ceil( n₀ / (1 + (n₀ − 1) / N) )
 required = min( ceil(0.75 × N), cochran(N) )
 
-N = project/event members (non-platform)
+N = weekly active project/event members (non-platform)
 N = weekly unique active users (platform)
 ```
 
@@ -860,7 +860,7 @@ Phase 2+ only: acquisition and asset workflows are defined in Section 9 and Sect
 
 | Context | N (quorum denominator) | Approval |
 |---|---|---|
-| All non-platform project/event votes | Project/event members | 66% |
+| All non-platform project/event votes | Weekly active project/event members | 66% |
 | All platform votes | Weekly active users | 66% |
 | Pull request approval | Software project members | 66% |
 | Pull request confirmation | Software project members | 66% |
