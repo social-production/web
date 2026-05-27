@@ -73,6 +73,17 @@ import {
   fetchCreateProjectManualLinkRequest, fetchSetProjectManualLinkVote,
   fetchToggleProjectManagerNomination, fetchShareProjectWithUser,
 } from './domains/projects';
+import {
+  fetchEvent, fetchCreateEvent, fetchToggleEventGoing,
+  fetchSetEventSignal, fetchAddEventValue, fetchSetEventValueImportance,
+  fetchAddEventPlan, fetchSetEventPlanOverallVote, fetchSetEventPlanValueVote,
+  fetchAddEventActivity, fetchSetEventActivityCommitment,
+  fetchRequestEventPhaseChange, fetchSetEventPhaseChangeVote,
+  fetchRequestEventUpdate, fetchSetEventUpdateVote,
+  fetchRequestEventEdit, fetchSetEventEditVote,
+  fetchGrantEventEditAccess, fetchRevokeEventEditAccess,
+  fetchShareEventWithUser,
+} from './domains/events';
 
 const bootstrapFallback: BootstrapPayload = {
   viewer: null,
@@ -175,6 +186,27 @@ export function createFastApiDriver(): AppAdapter {
     async createCommunity(input) {
       return fetchCreateCommunity(input);
     },
+
+    async getEvent(slug) { return fetchEvent(slug); },
+    async createEvent(input) { return fetchCreateEvent(input); },
+    async toggleEventGoing(eventId) { return fetchToggleEventGoing(eventId); },
+    async setEventSignal(slug, signal) { return fetchSetEventSignal(slug, signal); },
+    async addEventValue(slug, label) { return fetchAddEventValue(slug, label); },
+    async setEventValueImportance(slug, valueId, importance) { return fetchSetEventValueImportance(slug, valueId, importance); },
+    async addEventPlan(slug, input) { return fetchAddEventPlan(slug, input); },
+    async setEventPlanOverallVote(slug, planId, vote) { return fetchSetEventPlanOverallVote(slug, planId, vote); },
+    async setEventPlanValueVote(slug, planId, valueId, vote) { return fetchSetEventPlanValueVote(slug, planId, valueId, vote); },
+    async addEventActivity(slug, input) { return fetchAddEventActivity(slug, input); },
+    async setEventActivityCommitment(slug, activityId, roleLabel) { return fetchSetEventActivityCommitment(slug, activityId, roleLabel); },
+    async requestEventPhaseChange(slug, targetPhaseId, reason) { return fetchRequestEventPhaseChange(slug, targetPhaseId, reason); },
+    async setEventPhaseChangeVote(slug, requestId, vote) { return fetchSetEventPhaseChangeVote(slug, requestId, vote); },
+    async requestEventUpdate(slug, body) { return fetchRequestEventUpdate(slug, body); },
+    async setEventUpdateVote(slug, requestId, vote) { return fetchSetEventUpdateVote(slug, requestId, vote); },
+    async requestEventEdit(slug, title, description) { return fetchRequestEventEdit(slug, title, description); },
+    async setEventEditVote(slug, requestId, vote) { return fetchSetEventEditVote(slug, requestId, vote); },
+    async grantEventEditAccess(slug, userId) { return fetchGrantEventEditAccess(slug, userId); },
+    async revokeEventEditAccess(slug, userId) { return fetchRevokeEventEditAccess(slug, userId); },
+    async shareEventWithUser(slug, username) { return fetchShareEventWithUser(slug, username); },
 
     async getProject(slug) { return fetchProject(slug); },
     async createProject(input) { return fetchCreateProject(input); },
