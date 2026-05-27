@@ -1,3 +1,68 @@
-export function buildFastApiNotificationsDomain(): never {
-  throw new Error('not implemented');
+import { apiClient } from '../client';
+import type { NotificationsPageData } from '$lib/types/inbox';
+import type { ViewerSummary } from '$lib/types/bootstrap';
+
+interface BackendUser { id: string; username: string; bio: string | null; profile_image_url: string | null; }
+interface BackendNotification {
+  id: string; kind: string; surface: string; subject_type: string;
+  title: string; body: string; href: string; is_unread: boolean; created_at: string;
+}
+interface BackendNotificationsResponse { total: number; items: BackendNotification[]; }
+
+const KIND_MAP: Record<string, 'reply' | 'mention' | 'message' | 'project' | 'event'> = {
+  reply: 'reply', mention: 'mention', message: 'message'
+};
+function mapKind(k: string): 'reply' | 'mention' | 'message' | 'project' | 'event' {
+  if (KIND_MAP[k]) return KIND_MAP[k];
+  if (k.startsWith('evt-')) return 'event';
+  if (k.startsWith('pr-') || k.startsWith('project-')) return 'project';
+  return 'project';
+}
+function mapSubjectKind(s: string) {
+  const map: Record<string, 'project' | 'thread' | 'event' | 'post'> = {
+    project: 'project', thread: 'thread', event: 'event', post: 'post'
+  };
+  return map[s] ?? 'project';
+}
+
+export async function fetchNotifications(): Promise<NotificationsPageData | null> {
+  try {
+    const [notifRes, meRes] = await Promise.all([
+      apiClient.get<BackendNotificationsResponse>('/notifications'),
+      apiClient.get<{ user: BackendUser }>('/users/me')
+    ]);
+    const viewer: ViewerSummary = {
+      id: meRes.user.id,
+      username: meRes.user.username,
+      bio: meRes.user.bio ?? undefined,
+      profileImageUrl: meRes.user.profile_image_url ?? undefined
+    };
+    return {
+      viewer,
+      items: notifRes.items.map(n => ({
+        id: n.id,
+        kind: mapKind(n.kind),
+        surface: (n.surface as 'public' | 'personal') ?? 'public',
+        subjectKind: mapSubjectKind(n.subject_type),
+        title: n.title,
+        body: n.body,
+        href: n.href,
+        createdAt: n.created_at,
+        isUnread: n.is_unread,
+        channelTags: [],
+        communityTags: []
+      }))
+    };
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) return null;
+    throw err;
+  }
+}
+
+export async function fetchMarkNotificationRead(notificationId: string): Promise<void> {
+  await apiClient.patch(`/notifications/${notificationId}/read`);
+}
+
+export async function fetchMarkAllNotificationsRead(): Promise<void> {
+  await apiClient.patch('/notifications/read-all');
 }

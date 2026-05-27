@@ -31,6 +31,17 @@ import {
   fetchCreateCommunity
 } from './domains/scopes';
 import { fetchSearch } from './domains/search';
+import { fetchNotifications, fetchMarkNotificationRead, fetchMarkAllNotificationsRead } from './domains/notifications';
+import {
+  fetchMessages,
+  fetchSendMessage,
+  fetchStartDirectMessage,
+  fetchCreateGroupConversation,
+  fetchRenameGroupConversation,
+  fetchAddGroupConversationMember,
+  fetchRemoveGroupConversationMember,
+  fetchMarkConversationRead
+} from './domains/messages';
 
 const bootstrapFallback: BootstrapPayload = {
   viewer: null,
@@ -104,6 +115,50 @@ export function createFastApiDriver(): AppAdapter {
 
     async getSearch(query) {
       return fetchSearch(query);
+    },
+
+    async getNotifications() {
+      return fetchNotifications();
+    },
+
+    async markNotificationRead(id) {
+      return fetchMarkNotificationRead(id);
+    },
+
+    async markAllNotificationsRead() {
+      return fetchMarkAllNotificationsRead();
+    },
+
+    async getMessages() {
+      return fetchMessages();
+    },
+
+    async sendMessage(conversationId, body) {
+      return fetchSendMessage(conversationId, body);
+    },
+
+    async startDirectMessage(username, body) {
+      return fetchStartDirectMessage(username, body);
+    },
+
+    async createGroupConversation(input) {
+      return fetchCreateGroupConversation(input);
+    },
+
+    async renameGroupConversation(id, title) {
+      return fetchRenameGroupConversation(id, title);
+    },
+
+    async addGroupConversationMember(id, username) {
+      return fetchAddGroupConversationMember(id, username);
+    },
+
+    async removeGroupConversationMember(id, username) {
+      return fetchRemoveGroupConversationMember(id, username);
+    },
+
+    async markConversationRead(id) {
+      return fetchMarkConversationRead(id);
     },
 
     async getPublicFeed() {
