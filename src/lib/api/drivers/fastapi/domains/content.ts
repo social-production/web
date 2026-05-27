@@ -2,7 +2,8 @@ import { apiClient } from '../client';
 import { registerEntityType, resolveEntityType } from '../typeRegistry';
 import type { PostPageData, ThreadPageData } from '$lib/types/detail';
 import type { CreatePostInput, CreateResult, CreateThreadInput } from '$lib/types/feed';
-import type { ContentReportVote, VoteDirection } from '$lib/types/detail';
+import type { ContentReportVote } from '$lib/types/detail';
+import type { VoteDirection } from '$lib/types/feed';
 
 function slugify(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

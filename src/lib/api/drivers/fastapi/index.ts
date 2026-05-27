@@ -1,19 +1,4 @@
 export { createFastApiClient } from './client';
-export { getFastApiAuthConfig } from './auth';
-export { serializeFastApiPayload } from './serializer';
-
-export { buildFastApiAuthDomain } from './domains/auth';
-export { buildFastApiUsersDomain } from './domains/users';
-export { buildFastApiScopesDomain } from './domains/scopes';
-export { buildFastApiContentDomain } from './domains/content';
-export { buildFastApiProjectsDomain } from './domains/projects';
-export { buildFastApiEventsDomain } from './domains/events';
-export { buildFastApiMessagesDomain } from './domains/messages';
-export { buildFastApiNotificationsDomain } from './domains/notifications';
-export { buildFastApiSearchDomain } from './domains/search';
-export { buildFastApiPlatformDomain } from './domains/platform';
-export { buildFastApiFeedsDomain } from './domains/feeds';
-export { buildFastApiBootstrapDomain } from './domains/bootstrap';
 
 import type { AppAdapter } from '$lib/services/adapters/types';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
