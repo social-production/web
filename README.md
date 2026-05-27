@@ -250,3 +250,62 @@ Use these as the main references while building:
 - the planning repo for product terminology and phase boundaries
 
 The mock app is a design reference, not literal implementation truth. The web frontend should become cleaner than the mock app while preserving the same core model.
+
+## Backend Driver System
+
+The frontend is fully decoupled from any specific backend. All data access goes through a single `AppAdapter` interface (`src/lib/services/adapters/types.ts`). At runtime, a driver is selected based on the `VITE_BACKEND` environment variable and injected app-wide.
+
+### Available drivers
+
+| `VITE_BACKEND` | Driver | Description |
+|---|---|---|
+| `fastapi` | `createFastApiDriver()` | Real HTTP calls to a FastAPI/Python backend |
+| `mock` (default) | `createMockDriver()` | In-memory dev adapter with seeded fixture data |
+
+A Holochain driver (or any other backend) can be added by implementing `AppAdapter` and registering it in `src/lib/api/drivers/index.ts` - no routes or components need to change.
+
+### Switching backends
+
+Create or edit `web/.env.local` (gitignored, never committed):
+
+**FastAPI (localhost):**
+```env
+VITE_BACKEND=fastapi
+VITE_API_URL=http://localhost:8000
+```
+
+**Mock (offline dev, no backend needed):**
+```env
+VITE_BACKEND=mock
+```
+
+Or just delete `.env.local` entirely - mock is the default.
+
+### Adding a new backend driver
+
+1. Create `src/lib/api/drivers/<name>/index.ts` exporting `create<Name>Driver(): AppAdapter`
+2. Implement every method in `AppAdapter` (see `src/lib/services/adapters/types.ts`)
+3. Add the case to `src/lib/api/drivers/index.ts`
+4. Set `VITE_BACKEND=<name>` in `.env.local`
+
+The driver is the only layer that knows what backend it talks to. Auth strategy, data shapes, and transport are all internal to the driver.
+
+### Known driver gaps (FastAPI)
+
+These `AppAdapter` methods currently throw `"no backend endpoint yet"` - backend endpoints need adding before they work:
+
+- `updateProjectDetails` - use `requestProjectEdit` (governance-approved) instead
+- `setProjectActivityCommitment` / `setEventActivityCommitment` - adapter sends `roleLabel`, backend needs `role_id`
+- `createProjectManualLinkRequest` / `setProjectManualLinkVote`
+- `planProjectServiceRequest`
+- `requestProjectServiceRequestSettingsChange` / `setProjectServiceRequestSettingsChangeVote`
+- `toggleProjectServiceHistoryCompletion`
+- `toggleProjectManagerNomination`
+
+### Partial implementations (FastAPI)
+
+These work but return incomplete data - backend endpoints need enriching:
+
+- `getThread` / `getPost` - `authorUsername` defaults to `''`, discussion/comments not loaded
+- `getChannel` / `getCommunity` - `feed` is always empty (no channel-scoped feed endpoint yet)
+- `toggleEventGoing` - requires `getEvent(slug)` to have been called first in the same session
