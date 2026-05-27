@@ -22,6 +22,16 @@ import { fetchSignIn, fetchSignOut, fetchSignUp } from './domains/auth';
 import { fetchSettings, fetchUpdateSettings, fetchProfile } from './domains/users';
 import { fetchPublicFeed, fetchPersonalFeed } from './domains/feeds';
 import {
+  fetchThread,
+  fetchPost,
+  fetchCreateThread,
+  fetchCreatePost,
+  fetchSetVote,
+  fetchAddComment,
+  fetchSubmitReport,
+  fetchSetReportVote
+} from './domains/content';
+import {
   fetchChannel,
   fetchCommunity,
   fetchPlatform,
@@ -79,6 +89,38 @@ export function createFastApiDriver(): AppAdapter {
 
     async getOnboarding() {
       return fetchOnboarding();
+    },
+
+    async getThread(slug) {
+      return fetchThread(slug);
+    },
+
+    async getPost(id) {
+      return fetchPost(id);
+    },
+
+    async createThread(input) {
+      return fetchCreateThread(input);
+    },
+
+    async createPost(input) {
+      return fetchCreatePost(input);
+    },
+
+    async setVote(targetId, vote) {
+      return fetchSetVote(targetId, vote);
+    },
+
+    async addComment(subjectId, body, parentId) {
+      return fetchAddComment(subjectId, body, parentId);
+    },
+
+    async submitReport(subjectId, targetId, reason, details) {
+      return fetchSubmitReport(subjectId, targetId, reason, details);
+    },
+
+    async setReportVote(targetId, vote) {
+      return fetchSetReportVote(targetId, vote);
     },
 
     async getChannel(slug) {
