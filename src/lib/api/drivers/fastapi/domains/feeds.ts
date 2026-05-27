@@ -1,4 +1,5 @@
 import { apiClient } from '../client';
+import { registerEntityType } from '../typeRegistry';
 import type { PersonalFeedItem, PublicFeedItem } from '$lib/types/feed';
 
 interface BackendTagRef {
@@ -182,6 +183,9 @@ export async function fetchPublicFeed(): Promise<PublicFeedItem[]> {
   const res = await apiClient.get<BackendFeedResponse>('/feeds/public');
   return res.items.flatMap(item => {
     const mapped = mapPublicItem(item);
+    if (mapped && item.entity_type === 'thread') {
+      registerEntityType(item.id, 'thread');
+    }
     return mapped ? [mapped] : [];
   });
 }
@@ -190,6 +194,9 @@ export async function fetchPersonalFeed(): Promise<PersonalFeedItem[]> {
   const res = await apiClient.get<BackendFeedResponse>('/feeds/personal');
   return res.items.flatMap(item => {
     const mapped = mapPersonalItem(item);
+    if (mapped && (item.entity_type === 'thread' || item.entity_type === 'post')) {
+      registerEntityType(item.id, item.entity_type as never);
+    }
     return mapped ? [mapped] : [];
   });
 }
