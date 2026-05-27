@@ -3,3 +3,6 @@
 
 ux design files
 /ux
+
+env
+.env.local
