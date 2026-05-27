@@ -21,6 +21,16 @@ import { fetchBootstrap, fetchOnboarding } from './domains/bootstrap';
 import { fetchSignIn, fetchSignOut, fetchSignUp } from './domains/auth';
 import { fetchSettings, fetchUpdateSettings, fetchProfile } from './domains/users';
 import { fetchPublicFeed, fetchPersonalFeed } from './domains/feeds';
+import {
+  fetchChannel,
+  fetchCommunity,
+  fetchPlatform,
+  fetchToggleScopeMembership,
+  fetchRedeemScopeInvite,
+  fetchCreateChannel,
+  fetchCreateCommunity
+} from './domains/scopes';
+import { fetchSearch } from './domains/search';
 
 const bootstrapFallback: BootstrapPayload = {
   viewer: null,
@@ -58,6 +68,42 @@ export function createFastApiDriver(): AppAdapter {
 
     async getOnboarding() {
       return fetchOnboarding();
+    },
+
+    async getChannel(slug) {
+      return fetchChannel(slug);
+    },
+
+    async getCommunity(slug) {
+      return fetchCommunity(slug);
+    },
+
+    async getPlatform() {
+      return fetchPlatform();
+    },
+
+    async getPlatformAssets() {
+      return null;
+    },
+
+    async toggleScopeMembership(kind, slug) {
+      return fetchToggleScopeMembership(kind, slug);
+    },
+
+    async redeemScopeInvite(kind, slug, inviteValue) {
+      return fetchRedeemScopeInvite(kind, slug, inviteValue);
+    },
+
+    async createChannel(input) {
+      return fetchCreateChannel(input);
+    },
+
+    async createCommunity(input) {
+      return fetchCreateCommunity(input);
+    },
+
+    async getSearch(query) {
+      return fetchSearch(query);
     },
 
     async getPublicFeed() {
