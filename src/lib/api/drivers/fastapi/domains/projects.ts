@@ -390,8 +390,12 @@ export async function fetchSetProjectUpdateVote(
   await apiClient.post(`/projects/${projectSlug}/update-requests/${requestId}/vote`, { vote });
 }
 
-export async function fetchUpdateProjectDetails(): Promise<void> {
-  notImplemented('updateProjectDetails');
+export async function fetchUpdateProjectDetails(
+  projectSlug: string,
+  title: string,
+  description: string
+): Promise<void> {
+  await apiClient.post(`/projects/${projectSlug}/edit-requests`, { title, description });
 }
 
 export async function fetchRequestProjectEdit(
@@ -430,10 +434,6 @@ export async function fetchSetProjectManualLinkVote(): Promise<void> {
 }
 
 // -- Misc --------------------------------------------------------------------
-
-export async function fetchToggleProjectManagerNomination(): Promise<void> {
-  notImplemented('toggleProjectManagerNomination');
-}
 
 export async function fetchShareProjectWithUser(
   projectSlug: string,

@@ -225,7 +225,6 @@ export interface AppAdapter {
     targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>,
     reason: string
   ): Promise<void>;
-  toggleProjectManagerNomination(projectSlug: string): Promise<void>;
   toggleScopeMembership(kind: ScopeKind, slug: string): Promise<void>;
   redeemScopeInvite(kind: ScopeKind, slug: string, inviteValue: string): Promise<boolean>;
   setVote(targetId: string, vote: VoteDirection): Promise<void>;

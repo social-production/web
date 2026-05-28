@@ -45,7 +45,6 @@ export interface RoleMember extends DetailMember {
   confidenceDownVotes?: number;
   confidenceRatio?: number;
   confidenceReviewCount?: number;
-  isManagerCandidate?: boolean;
 }
 
 export type ProjectRoleMember = RoleMember;
@@ -1157,14 +1156,10 @@ export interface ProjectPageData {
   linksFrame: ProjectLinksFrameData;
   inventoryFrame: ProjectInventoryFrameData | null;
   history: DecisionHistoryEntry[];
-  projectManagers: ProjectRoleMember[];
   members: ProjectRoleMember[];
   viewerIsMember: boolean;
   viewerCanToggleMembership: boolean;
   viewerCanShare: boolean;
-  viewerCanToggleManagerNomination: boolean;
-  viewerIsManagerCandidate: boolean;
-  viewerIsProjectManager: boolean;
   shareContacts: DetailMember[];
   report: ContentReportSummary | null;
   isRemovedByReport: boolean;

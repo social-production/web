@@ -300,7 +300,6 @@ These `AppAdapter` methods currently throw `"no backend endpoint yet"` - backend
 - `planProjectServiceRequest`
 - `requestProjectServiceRequestSettingsChange` / `setProjectServiceRequestSettingsChangeVote`
 - `toggleProjectServiceHistoryCompletion`
-- `toggleProjectManagerNomination`
 
 ### Partial implementations (FastAPI)
 

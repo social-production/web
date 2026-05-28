@@ -95,7 +95,6 @@ import {
   advanceMockProjectPhase,
   recordMockProjectPullRequestMerge,
   revertMockProjectPhase,
-  toggleMockProjectManagerNomination,
   toggleMockProjectMembership,
   toggleMockScopeMembership,
   updateMockProjectDetails,
@@ -361,10 +360,6 @@ export const devAdapter: AppAdapter = {
 
   async revertProjectPhase(projectSlug, targetPhaseId, reason) {
     revertMockProjectPhase(projectSlug, targetPhaseId, reason);
-  },
-
-  async toggleProjectManagerNomination(projectSlug) {
-    toggleMockProjectManagerNomination(projectSlug);
   },
 
   async toggleScopeMembership(kind, slug) {

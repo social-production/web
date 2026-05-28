@@ -172,10 +172,8 @@
   }
 
   $: showMembershipButton = !isPersonalServiceProject(data.projectMode);
-  $: canPostDirectUpdate = isPersonalServiceProject(data.projectMode) && data.viewerIsProjectManager;
-  $: canRequestUpdate = canPostDirectUpdate || data.viewerCanRequestUpdate;
-  $: canEditDirect = isPersonalServiceProject(data.projectMode) && data.viewerIsProjectManager;
-  $: canRequestEdit = canEditDirect || data.viewerCanRequestEdit;
+  $: canRequestUpdate = data.viewerCanRequestUpdate;
+  $: canRequestEdit = data.viewerCanRequestEdit;
   $: updateActionLabel = isPersonalServiceProject(data.projectMode)
     ? 'Post update'
     : 'Propose update';

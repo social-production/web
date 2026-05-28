@@ -56,7 +56,7 @@ import {
   fetchUpdateProjectDetails, fetchRequestProjectEdit, fetchSetProjectEditVote,
   fetchAddProjectUpdate,
   fetchCreateProjectManualLinkRequest, fetchSetProjectManualLinkVote,
-  fetchToggleProjectManagerNomination, fetchShareProjectWithUser,
+  fetchShareProjectWithUser,
 } from './domains/projects';
 import {
   fetchEvent, fetchCreateEvent, fetchToggleEventGoing,
@@ -226,13 +226,12 @@ export function createFastApiDriver(): AppAdapter {
     async revertProjectPhase(slug, targetPhaseId, reason) { return fetchRevertProjectPhase(slug, targetPhaseId, reason); },
     async requestProjectUpdate(slug, body) { return fetchRequestProjectUpdate(slug, body); },
     async setProjectUpdateVote(slug, requestId, vote) { return fetchSetProjectUpdateVote(slug, requestId, vote); },
-    async updateProjectDetails(_slug, _title, _description) { return fetchUpdateProjectDetails(); },
+    async updateProjectDetails(slug, title, description) { return fetchUpdateProjectDetails(slug, title, description); },
     async requestProjectEdit(slug, title, description) { return fetchRequestProjectEdit(slug, title, description); },
     async setProjectEditVote(slug, requestId, vote) { return fetchSetProjectEditVote(slug, requestId, vote); },
     async addProjectUpdate(slug, title, body) { return fetchAddProjectUpdate(slug, title, body); },
     async createProjectManualLinkRequest(_slug, _targetSlug, _label, _summary) { return fetchCreateProjectManualLinkRequest(); },
     async setProjectManualLinkVote(_slug, _requestId, _vote) { return fetchSetProjectManualLinkVote(); },
-    async toggleProjectManagerNomination(_slug) { return fetchToggleProjectManagerNomination(); },
     async shareProjectWithUser(slug, username) { return fetchShareProjectWithUser(slug, username); },
 
     async getSearch(query) {

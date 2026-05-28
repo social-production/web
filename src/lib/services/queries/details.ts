@@ -293,10 +293,6 @@ export function revertProjectPhase(
   return currentAdapter.revertProjectPhase(projectSlug, targetPhaseId, reason);
 }
 
-export function toggleProjectManagerNomination(projectSlug: string) {
-  return currentAdapter.toggleProjectManagerNomination(projectSlug);
-}
-
 export function addComment(subjectId: string, body: string, parentId?: string) {
   return currentAdapter.addComment(subjectId, body, parentId);
 }

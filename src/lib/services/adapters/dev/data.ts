@@ -1306,7 +1306,7 @@ const explicitAssetServiceProjectMembersBySlug = Object.fromEntries(
   explicitAssetServiceProjectSeeds.map((seed) => [seed.slug, seed.memberIds])
 );
 
-const explicitAssetServiceProjectManagersBySlug = Object.fromEntries(
+const explicitAssetServiceProjectRoleConfigsBySlug = Object.fromEntries(
   explicitAssetServiceProjectSeeds.map((seed) => [
     seed.slug,
     {
@@ -2964,8 +2964,8 @@ const scopeMembershipByKey: Record<string, ScopeMembershipConfig> = {
   }
 };
 
-const projectManagersBySlug: Record<string, RoleConfig> = {
-  ...explicitAssetServiceProjectManagersBySlug,
+const projectRoleConfigsBySlug: Record<string, RoleConfig> = {
+  ...explicitAssetServiceProjectRoleConfigsBySlug,
   'neighborhood-heat-pump-pilot': {
     managerIds: ['viewer-1'],
     candidateIds: ['user-rowan'],
@@ -9314,7 +9314,7 @@ function buildProjectLifecycle(
     phaseChangeRequests,
     viewerCanAdvancePhase:
       projectMode === 'personal-service' &&
-      memberState.viewerIsProjectManager &&
+      memberState.viewerIsMember &&
       !!nextPhaseId &&
       canAdvancePhaseNow,
     nextPhaseId,
@@ -9323,7 +9323,7 @@ function buildProjectLifecycle(
       : null,
     viewerCanRevertPhase:
       projectMode === 'personal-service' &&
-      memberState.viewerIsProjectManager &&
+      memberState.viewerIsMember &&
       revertablePhaseIds.length > 0,
     revertablePhaseIds,
     revertHistory: buildProjectRevertHistory(slug),
@@ -10803,8 +10803,7 @@ function toDetailMember(userId: string): DetailMember {
 
 function toProjectRoleMember(
   userId: string,
-  confidenceTargetId?: string,
-  isManagerCandidate = false
+  confidenceTargetId?: string
 ): ProjectRoleMember {
   const user = userById(userId) ?? patchbayUser;
 
@@ -10812,7 +10811,6 @@ function toProjectRoleMember(
     id: user.id,
     username: user.username,
     bio: user.bio,
-    isManagerCandidate,
     ...buildConfidenceFields(confidenceTargetId)
   };
 }
@@ -11085,7 +11083,6 @@ function buildEligibleVoterIdsForSubject(subjectId: string, excludedUserId: stri
     const memberState = buildProjectMemberState(publicItem.slug);
 
     return uniqueUserIds([
-      ...memberState.projectManagers.map((member) => member.id),
       ...memberState.members.map((member) => member.id)
     ]).filter((userId) => userId !== excludedUserId);
   }
@@ -12002,25 +11999,17 @@ function buildProjectMemberState(slug: string) {
 
     return {
       memberCount: followerIds.length,
-      projectManagers: creator ? [toProjectRoleMember(creator.id)] : [],
       members: followerIds.map((userId) => toProjectRoleMember(userId)),
       viewerIsMember: !!viewer && !!creator && viewer.id !== creator.id && followerIds.includes(viewer.id),
-      viewerCanToggleMembership: !!viewer && !!creator && viewer.id !== creator.id,
-      viewerCanToggleManagerNomination: false,
-      viewerIsManagerCandidate: false,
-      viewerIsProjectManager: !!viewer && !!creator && viewer.id === creator.id
+      viewerCanToggleMembership: !!viewer && !!creator && viewer.id !== creator.id
     };
   }
 
   return {
     memberCount: memberIds.length,
-    projectManagers: [],
     members: memberIds.map((userId) => toProjectRoleMember(userId)),
     viewerIsMember: !!viewer && memberIds.includes(viewer.id),
-    viewerCanToggleMembership: !!viewer,
-    viewerCanToggleManagerNomination: false,
-    viewerIsManagerCandidate: false,
-    viewerIsProjectManager: false
+    viewerCanToggleMembership: !!viewer
   };
 }
 
@@ -12948,14 +12937,10 @@ export function findProjectFixture(slug: string): ProjectPageData | null {
     linksFrame,
     inventoryFrame,
     history,
-    projectManagers: memberState.projectManagers,
     members: memberState.members,
     viewerIsMember: memberState.viewerIsMember,
     viewerCanToggleMembership: memberState.viewerCanToggleMembership,
     viewerCanShare: !!currentViewer(),
-    viewerCanToggleManagerNomination: memberState.viewerCanToggleManagerNomination,
-    viewerIsManagerCandidate: memberState.viewerIsManagerCandidate,
-    viewerIsProjectManager: memberState.viewerIsProjectManager,
     shareContacts,
     report,
     isRemovedByReport,
@@ -15419,7 +15404,7 @@ function acquisitionSummaryFromPurchaseRows(
 }
 
 function canViewerManageProjectPhase(slug: string) {
-  return buildProjectMemberState(slug).viewerIsProjectManager;
+  return buildProjectMemberState(slug).viewerIsMember;
 }
 
 function canViewerEditProjectPhase(slug: string, phaseId: ProjectLifecyclePhaseId) {
@@ -16925,10 +16910,6 @@ export function revertMockProjectPhase(
   }
 }
 
-export function toggleMockProjectManagerNomination(slug: string) {
-  return;
-}
-
 export function toggleMockScopeMembership(kind: ScopeKind, slug: string) {
   const viewer = currentViewer();
   const membership = scopeMembershipByKey[scopeMembershipKey(kind, slug)];
@@ -17630,7 +17611,7 @@ export function addMockProjectUpdate(slug: string, _title: string, body: string)
     !extras ||
     !trimmedBody ||
     projectMode !== 'personal-service' ||
-    !memberState.viewerIsProjectManager
+    !memberState.viewerIsMember
   ) {
     return;
   }

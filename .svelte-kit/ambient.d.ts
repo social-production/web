@@ -113,6 +113,7 @@ declare module '$env/static/private' {
 	export const TEMP: string;
 	export const TERM_PROGRAM: string;
 	export const TERM_PROGRAM_VERSION: string;
+	export const TEST_BASE_URL: string;
 	export const TMP: string;
 	export const USERDOMAIN: string;
 	export const USERDOMAIN_ROAMINGPROFILE: string;
@@ -287,6 +288,7 @@ declare module '$env/dynamic/private' {
 		TEMP: string;
 		TERM_PROGRAM: string;
 		TERM_PROGRAM_VERSION: string;
+		TEST_BASE_URL: string;
 		TMP: string;
 		USERDOMAIN: string;
 		USERDOMAIN_ROAMINGPROFILE: string;
