@@ -1,3 +1,3 @@
-import { devAdapter } from '$lib/services/adapters/dev';
+import { createApiDriver } from '$lib/api/drivers';
 
-export const currentAdapter = devAdapter;
+export const currentAdapter = createApiDriver();
