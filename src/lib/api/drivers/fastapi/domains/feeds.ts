@@ -1,5 +1,6 @@
 import { apiClient } from '../client';
 import { registerEntityType } from '../typeRegistry';
+import { registerEventSlug } from '../typeRegistry';
 import type { PersonalFeedItem, PublicFeedItem } from '$lib/types/feed';
 
 interface BackendTagRef {
@@ -182,6 +183,9 @@ function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null {
 export async function fetchPublicFeed(): Promise<PublicFeedItem[]> {
   const res = await apiClient.get<BackendFeedResponse>('/feeds/public');
   return res.items.flatMap(item => {
+    if (item.entity_type === 'event' && item.slug) {
+      registerEventSlug(item.id, item.slug);
+    }
     const mapped = mapPublicItem(item);
     if (mapped && item.entity_type === 'thread') {
       registerEntityType(item.id, 'thread');
@@ -193,6 +197,9 @@ export async function fetchPublicFeed(): Promise<PublicFeedItem[]> {
 export async function fetchPersonalFeed(): Promise<PersonalFeedItem[]> {
   const res = await apiClient.get<BackendFeedResponse>('/feeds/personal');
   return res.items.flatMap(item => {
+    if (item.entity_type === 'event' && item.slug) {
+      registerEventSlug(item.id, item.slug);
+    }
     const mapped = mapPersonalItem(item);
     if (mapped && (item.entity_type === 'thread' || item.entity_type === 'post')) {
       registerEntityType(item.id, item.entity_type as never);

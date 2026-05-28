@@ -1,4 +1,5 @@
 import { apiClient } from '../client';
+import { registerEventSlug, resolveEventSlug } from '../typeRegistry';
 import type {
   EventPageData,
   EventPlanInput,
@@ -28,6 +29,7 @@ export async function fetchEvent(slug: string): Promise<EventPageData | null> {
   try {
     const res = await apiClient.get<EventPageData>(`/events/${slug}`);
     eventIdToSlug.set(res.id, res.slug);
+    registerEventSlug(res.id, res.slug);
     return res;
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
@@ -57,9 +59,8 @@ export async function fetchCreateEvent(input: CreateEventInput): Promise<CreateR
 // -- Attendance --------------------------------------------------------------
 
 export async function fetchToggleEventGoing(eventId: string): Promise<void> {
-  const slug = eventIdToSlug.get(eventId);
-  if (!slug) throw new Error(`events.toggleEventGoing: unknown event id ${eventId} -- call getEvent(slug) first`);
-  // Toggle: try going first; if already going the backend will flip it
+  const slug = eventIdToSlug.get(eventId) ?? resolveEventSlug(eventId);
+  if (!slug) throw new Error(`events.toggleEventGoing: unknown event id ${eventId} — call getEvent(slug) first`);
   await apiClient.post(`/events/${slug}/attendance`, { attendance_state: 'going' });
 }
 
@@ -145,11 +146,15 @@ export async function fetchAddEventActivity(
 }
 
 export async function fetchSetEventActivityCommitment(
-  _eventSlug: string,
-  _activityId: string,
-  _roleLabel: string | null
+  eventSlug: string,
+  activityId: string,
+  roleLabel: string | null
 ): Promise<void> {
-  notImplemented('setEventActivityCommitment');
+  if (roleLabel === null) {
+    await apiClient.delete(`/events/${eventSlug}/activities/${activityId}/commit`);
+  } else {
+    await apiClient.post(`/events/${eventSlug}/activities/${activityId}/commit`, { role_label: roleLabel });
+  }
 }
 
 // -- Phase lifecycle ---------------------------------------------------------

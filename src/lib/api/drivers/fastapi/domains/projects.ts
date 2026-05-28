@@ -208,11 +208,15 @@ export async function fetchAddProjectActivity(
 }
 
 export async function fetchSetProjectActivityCommitment(
-  _projectSlug: string,
-  _activityId: string,
-  _roleLabel: string | null
+  projectSlug: string,
+  activityId: string,
+  roleLabel: string | null
 ): Promise<void> {
-  notImplemented('setProjectActivityCommitment');
+  if (roleLabel === null) {
+    await apiClient.delete(`/projects/${projectSlug}/activities/${activityId}/commit`);
+  } else {
+    await apiClient.post(`/projects/${projectSlug}/activities/${activityId}/commit`, { role_label: roleLabel });
+  }
 }
 
 // -- Software ----------------------------------------------------------------
