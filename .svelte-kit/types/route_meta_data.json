@@ -81,19 +81,12 @@
 		"src/routes/projects/[slug]/+page.ts",
 		"src/routes/+layout.ts"
 	],
-	"/roadmap": [
-		"src/routes/+layout.ts"
-	],
 	"/search": [
 		"src/routes/search/+page.ts",
 		"src/routes/+layout.ts"
 	],
 	"/settings": [
 		"src/routes/settings/+page.ts",
-		"src/routes/+layout.ts"
-	],
-	"/stewardship": [
-		"src/routes/stewardship/+page.ts",
 		"src/routes/+layout.ts"
 	],
 	"/threads/[slug]": [

@@ -38,8 +38,11 @@
  * The above values will be the same _even if_ different values for `ENVIRONMENT` or `PUBLIC_BASE_URL` are set at runtime, as they are statically replaced in your code with their build time values.
  */
 declare module '$env/static/private' {
+	export const VITE_BACKEND: string;
+	export const VITE_API_URL: string;
 	export const ALLUSERSPROFILE: string;
 	export const APPDATA: string;
+	export const BUNDLED_DEBUGPY_PATH: string;
 	export const CHROME_CRASHPAD_PIPE_NAME: string;
 	export const COLOR: string;
 	export const COLORTERM: string;
@@ -47,16 +50,22 @@ declare module '$env/static/private' {
 	export const CommonProgramW6432: string;
 	export const COMPUTERNAME: string;
 	export const ComSpec: string;
+	export const COPILOT_AGENT: string;
 	export const DriverData: string;
 	export const EDITOR: string;
-	export const EFC_4960_1262719628: string;
-	export const EFC_4960_1592913036: string;
-	export const EFC_4960_2283032206: string;
-	export const EFC_4960_2775293581: string;
-	export const EFC_4960_3789132940: string;
+	export const EFC_6760_1262719628: string;
+	export const EFC_6760_1592913036: string;
+	export const EFC_6760_2283032206: string;
+	export const EFC_6760_2775293581: string;
+	export const EFC_6760_344590478: string;
+	export const EFC_6760_3789132940: string;
+	export const EFC_6760_4126798990: string;
 	export const FPS_BROWSER_APP_PROFILE_STRING: string;
 	export const FPS_BROWSER_USER_PROFILE_STRING: string;
 	export const GIT_ASKPASS: string;
+	export const GIT_EDITOR: string;
+	export const GIT_MERGE_AUTOEDIT: string;
+	export const GIT_PAGER: string;
 	export const HOME: string;
 	export const HOMEDRIVE: string;
 	export const HOMEPATH: string;
@@ -101,6 +110,7 @@ declare module '$env/static/private' {
 	export const PROMPT: string;
 	export const PSModulePath: string;
 	export const PUBLIC: string;
+	export const PYDEVD_DISABLE_FILE_VALIDATION: string;
 	export const PYTHONSTARTUP: string;
 	export const PYTHON_BASIC_REPL: string;
 	export const SESSIONNAME: string;
@@ -109,11 +119,13 @@ declare module '$env/static/private' {
 	export const TEMP: string;
 	export const TERM_PROGRAM: string;
 	export const TERM_PROGRAM_VERSION: string;
+	export const TEST_BASE_URL: string;
 	export const TMP: string;
 	export const USERDOMAIN: string;
 	export const USERDOMAIN_ROAMINGPROFILE: string;
 	export const USERNAME: string;
 	export const USERPROFILE: string;
+	export const VSCODE_DEBUGPY_ADAPTER_ENDPOINTS: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 	export const VSCODE_GIT_ASKPASS_MAIN: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
@@ -207,8 +219,11 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
+		VITE_BACKEND: string;
+		VITE_API_URL: string;
 		ALLUSERSPROFILE: string;
 		APPDATA: string;
+		BUNDLED_DEBUGPY_PATH: string;
 		CHROME_CRASHPAD_PIPE_NAME: string;
 		COLOR: string;
 		COLORTERM: string;
@@ -216,16 +231,22 @@ declare module '$env/dynamic/private' {
 		CommonProgramW6432: string;
 		COMPUTERNAME: string;
 		ComSpec: string;
+		COPILOT_AGENT: string;
 		DriverData: string;
 		EDITOR: string;
-		EFC_4960_1262719628: string;
-		EFC_4960_1592913036: string;
-		EFC_4960_2283032206: string;
-		EFC_4960_2775293581: string;
-		EFC_4960_3789132940: string;
+		EFC_6760_1262719628: string;
+		EFC_6760_1592913036: string;
+		EFC_6760_2283032206: string;
+		EFC_6760_2775293581: string;
+		EFC_6760_344590478: string;
+		EFC_6760_3789132940: string;
+		EFC_6760_4126798990: string;
 		FPS_BROWSER_APP_PROFILE_STRING: string;
 		FPS_BROWSER_USER_PROFILE_STRING: string;
 		GIT_ASKPASS: string;
+		GIT_EDITOR: string;
+		GIT_MERGE_AUTOEDIT: string;
+		GIT_PAGER: string;
 		HOME: string;
 		HOMEDRIVE: string;
 		HOMEPATH: string;
@@ -270,6 +291,7 @@ declare module '$env/dynamic/private' {
 		PROMPT: string;
 		PSModulePath: string;
 		PUBLIC: string;
+		PYDEVD_DISABLE_FILE_VALIDATION: string;
 		PYTHONSTARTUP: string;
 		PYTHON_BASIC_REPL: string;
 		SESSIONNAME: string;
@@ -278,11 +300,13 @@ declare module '$env/dynamic/private' {
 		TEMP: string;
 		TERM_PROGRAM: string;
 		TERM_PROGRAM_VERSION: string;
+		TEST_BASE_URL: string;
 		TMP: string;
 		USERDOMAIN: string;
 		USERDOMAIN_ROAMINGPROFILE: string;
 		USERNAME: string;
 		USERPROFILE: string;
+		VSCODE_DEBUGPY_ADAPTER_ENDPOINTS: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 		VSCODE_GIT_ASKPASS_MAIN: string;
 		VSCODE_GIT_ASKPASS_NODE: string;

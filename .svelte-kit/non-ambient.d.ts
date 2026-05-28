@@ -29,7 +29,7 @@ declare module "$app/types" {
 	type MatcherParam<M> = M extends (param : string) => param is (infer U extends string) ? U : string;
 
 	export interface AppTypes {
-		RouteId(): "/" | "/about" | "/channels" | "/channels/[slug]" | "/communities" | "/communities/[slug]" | "/create" | "/create/channel" | "/create/community" | "/create/event" | "/create/post" | "/create/project" | "/create/thread" | "/events" | "/events/[slug]" | "/messages" | "/notifications" | "/onboarding" | "/personal" | "/platform" | "/platform/assets" | "/platform/assets/[assetSlug]" | "/platform/assets/[assetSlug]/attached" | "/platform/assets/[assetSlug]/attached/[attachedAssetSlug]" | "/posts" | "/posts/[id]" | "/profile" | "/profile/[username]" | "/profile/[handle]" | "/projects" | "/projects/[slug]" | "/roadmap" | "/search" | "/settings" | "/stewardship" | "/threads" | "/threads/[slug]";
+		RouteId(): "/" | "/about" | "/channels" | "/channels/[slug]" | "/communities" | "/communities/[slug]" | "/create" | "/create/channel" | "/create/community" | "/create/event" | "/create/post" | "/create/project" | "/create/thread" | "/events" | "/events/[slug]" | "/messages" | "/notifications" | "/onboarding" | "/personal" | "/platform" | "/platform/assets" | "/platform/assets/[assetSlug]" | "/platform/assets/[assetSlug]/attached" | "/platform/assets/[assetSlug]/attached/[attachedAssetSlug]" | "/posts" | "/posts/[id]" | "/profile" | "/profile/[username]" | "/profile/[handle]" | "/projects" | "/projects/[slug]" | "/search" | "/settings" | "/threads" | "/threads/[slug]";
 		RouteParams(): {
 			"/channels/[slug]": { slug: string };
 			"/communities/[slug]": { slug: string };
@@ -75,14 +75,12 @@ declare module "$app/types" {
 			"/profile/[handle]": { handle: string };
 			"/projects": { slug?: string };
 			"/projects/[slug]": { slug: string };
-			"/roadmap": Record<string, never>;
 			"/search": Record<string, never>;
 			"/settings": Record<string, never>;
-			"/stewardship": Record<string, never>;
 			"/threads": { slug?: string };
 			"/threads/[slug]": { slug: string }
 		};
-		Pathname(): "/" | "/about" | `/channels/${string}` & {} | `/communities/${string}` & {} | "/create/channel" | "/create/community" | "/create/event" | "/create/post" | "/create/project" | "/create/thread" | `/events/${string}` & {} | "/messages" | "/notifications" | "/onboarding" | "/personal" | "/platform" | "/platform/assets" | `/platform/assets/${string}` & {} | `/platform/assets/${string}/attached/${string}` & {} | `/posts/${string}` & {} | `/profile/${string}` & {} | `/projects/${string}` & {} | "/roadmap" | "/search" | "/settings" | "/stewardship" | `/threads/${string}` & {};
+		Pathname(): "/" | "/about" | `/channels/${string}` & {} | `/communities/${string}` & {} | "/create/channel" | "/create/community" | "/create/event" | "/create/post" | "/create/project" | "/create/thread" | `/events/${string}` & {} | "/messages" | "/notifications" | "/onboarding" | "/personal" | "/platform" | "/platform/assets" | `/platform/assets/${string}` & {} | `/platform/assets/${string}/attached/${string}` & {} | `/posts/${string}` & {} | `/profile/${string}` & {} | `/projects/${string}` & {} | "/search" | "/settings" | `/threads/${string}` & {};
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
 		Asset(): string & {};
 	}
