@@ -4,6 +4,7 @@ import type { PostPageData, ThreadPageData } from '$lib/types/detail';
 import type { CreatePostInput, CreateResult, CreateThreadInput } from '$lib/types/feed';
 import type { ContentReportVote } from '$lib/types/detail';
 import type { VoteDirection } from '$lib/types/feed';
+import type { DetailComment } from '$lib/types/detail';
 
 function slugify(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -13,11 +14,38 @@ const VOTE_DIR: Record<number, 'up' | 'down' | 'neutral'> = { 1: 'up', [-1]: 'do
 
 interface BackendThread {
   id: string; slug: string; title: string; body: string; author_id: string | null;
+  author_username: string;
   vote_count: number; comment_count: number; last_activity_at: string; created_at: string;
+  channel_tags: Array<{ slug: string; label: string; kind: 'channel' | 'community' }>;
+  community_tags: Array<{ slug: string; label: string; kind: 'channel' | 'community' }>;
+  discussion: BackendComment[];
 }
+
 interface BackendPost {
-  id: string; author_id: string | null; body: string; audience: string;
+  id: string; author_id: string | null; author_username: string;
+  author_profile_image_url: string | null;
+  body: string; audience: string;
   vote_count: number; comment_count: number; created_at: string;
+  discussion: BackendComment[];
+}
+
+interface BackendComment {
+  id: string; author_id: string | null; author_username: string;
+  body: string; vote_count: number; created_at: string;
+  replies: BackendComment[];
+}
+
+function mapComment(c: BackendComment): DetailComment {
+  return {
+    id: c.id,
+    authorUsername: c.author_username ?? '',
+    body: c.body,
+    createdAt: c.created_at,
+    voteCount: c.vote_count,
+    activeVote: 0 as VoteDirection,
+    report: null,
+    replies: (c.replies ?? []).map(mapComment),
+  };
 }
 
 export async function fetchThread(slug: string): Promise<ThreadPageData | null> {
@@ -27,10 +55,13 @@ export async function fetchThread(slug: string): Promise<ThreadPageData | null> 
     registerEntityType(t.id, 'thread');
     return {
       id: t.id, slug: t.slug, title: t.title, body: t.body,
-      authorUsername: '', channelTags: [], communityTags: [],
+      authorUsername: t.author_username,
+      channelTags: t.channel_tags ?? [],
+      communityTags: t.community_tags ?? [],
       voteCount: t.vote_count, activeVote: 0 as VoteDirection,
       commentCount: t.comment_count, lastActivityAt: t.last_activity_at,
-      report: null, isRemovedByReport: false, discussionNote: '', discussion: []
+      report: null, isRemovedByReport: false, discussionNote: '',
+      discussion: (t.discussion ?? []).map(mapComment),
     };
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
@@ -44,11 +75,15 @@ export async function fetchPost(id: string): Promise<PostPageData | null> {
     const p = res.post;
     registerEntityType(p.id, 'post');
     return {
-      id: p.id, authorUsername: '', body: p.body,
+      id: p.id,
+      authorUsername: p.author_username,
+      authorProfileImageUrl: p.author_profile_image_url ?? undefined,
+      body: p.body,
       audience: p.audience as 'followers' | 'public',
       voteCount: p.vote_count, activeVote: 0 as VoteDirection,
       commentCount: p.comment_count, createdAt: p.created_at,
-      report: null, isRemovedByReport: false, discussionNote: '', discussion: []
+      report: null, isRemovedByReport: false, discussionNote: '',
+      discussion: (p.discussion ?? []).map(mapComment),
     };
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
