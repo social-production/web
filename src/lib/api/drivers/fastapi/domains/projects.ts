@@ -8,7 +8,11 @@ import type {
   ProjectSoftwareRepositoryReplacementInput,
   ProjectActivityInput,
   ProjectServiceRequestInput,
+  ProjectServiceRequestPlanInput,
+  ProjectServiceRequestSettingsChangeInput,
   ProjectServiceRequestStatus,
+  ProjectServiceHistoryCompletionRole,
+  ProjectServiceHistoryCompletionChoice,
   ProjectLifecyclePhaseId,
   ProjectPhaseChangeRequestOptions,
   ProjectApprovalVote,
@@ -319,20 +323,58 @@ export async function fetchSetProjectServiceRequestStatus(
   await apiClient.patch(`/projects/${projectSlug}/service-requests/${requestId}`, { status });
 }
 
-export async function fetchPlanProjectServiceRequest(): Promise<void> {
-  notImplemented('planProjectServiceRequest');
+export async function fetchPlanProjectServiceRequest(
+  projectSlug: string,
+  requestId: string,
+  input: ProjectServiceRequestPlanInput
+): Promise<void> {
+  await apiClient.post(`/projects/${projectSlug}/service-requests/${requestId}/plan`, {
+    title: input.title,
+    location_label: input.locationLabel,
+    role_requirements: input.roleRequirements.map(r => ({
+      label: r.label,
+      required_count: r.requiredCount,
+      maximum_count: r.maximumCount ?? null,
+    })),
+    linked_plan_phase_id: input.linkedPlanPhaseId ?? null,
+    note: input.note,
+  });
 }
 
-export async function fetchRequestProjectServiceRequestSettingsChange(): Promise<void> {
-  notImplemented('requestProjectServiceRequestSettingsChange');
+export async function fetchRequestProjectServiceRequestSettingsChange(
+  projectSlug: string,
+  input: ProjectServiceRequestSettingsChangeInput
+): Promise<void> {
+  await apiClient.post(`/projects/${projectSlug}/service-request-settings-requests`, {
+    reason: input.reason,
+    enabled: input.enabled,
+    request_mode: input.requestMode,
+    allow_off_schedule_requests: input.allowOffScheduleRequests,
+  });
 }
 
-export async function fetchSetProjectServiceRequestSettingsChangeVote(): Promise<void> {
-  notImplemented('setProjectServiceRequestSettingsChangeVote');
+export async function fetchSetProjectServiceRequestSettingsChangeVote(
+  projectSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+): Promise<void> {
+  if (!vote) return;
+  await apiClient.post(
+    `/projects/${projectSlug}/service-request-settings-requests/${requestId}/vote`,
+    { vote }
+  );
 }
 
-export async function fetchToggleProjectServiceHistoryCompletion(): Promise<void> {
-  notImplemented('toggleProjectServiceHistoryCompletion');
+export async function fetchToggleProjectServiceHistoryCompletion(
+  projectSlug: string,
+  historyId: string,
+  role: ProjectServiceHistoryCompletionRole,
+  selection?: ProjectServiceHistoryCompletionChoice
+): Promise<void> {
+  await apiClient.post(`/projects/${projectSlug}/service-history/${historyId}/completion`, {
+    role,
+    selection: selection ?? null,
+  });
 }
 
 // -- Phase lifecycle ---------------------------------------------------------
@@ -425,12 +467,26 @@ export async function fetchAddProjectUpdate(
 
 // -- Manual links ------------------------------------------------------------
 
-export async function fetchCreateProjectManualLinkRequest(): Promise<void> {
-  notImplemented('createProjectManualLinkRequest');
+export async function fetchCreateProjectManualLinkRequest(
+  projectSlug: string,
+  targetProjectSlug: string,
+  relationshipLabel: string,
+  summary: string
+): Promise<void> {
+  await apiClient.post(`/projects/${projectSlug}/manual-links`, {
+    target_project_slug: targetProjectSlug,
+    relationship_label: relationshipLabel,
+    summary,
+  });
 }
 
-export async function fetchSetProjectManualLinkVote(): Promise<void> {
-  notImplemented('setProjectManualLinkVote');
+export async function fetchSetProjectManualLinkVote(
+  projectSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+): Promise<void> {
+  if (!vote) return;
+  await apiClient.post(`/projects/${projectSlug}/manual-links/${requestId}/vote`, { vote });
 }
 
 // -- Misc --------------------------------------------------------------------
