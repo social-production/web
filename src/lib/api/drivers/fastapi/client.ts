@@ -7,7 +7,8 @@ function getBaseUrl(): string {
 }
 
 async function request<T>(method: HttpMethod, path: string, body?: unknown): Promise<T> {
-  const token = getStoredToken();
+  const isBrowser = typeof window !== 'undefined';
+  const token = isBrowser ? getStoredToken() : null;
   const headers: Record<string, string> = {
     Accept: 'application/json'
   };
