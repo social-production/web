@@ -85,7 +85,7 @@ export interface AppAdapter {
   createCommunity(input: CreateCommunityInput): Promise<CreateResult>;
   getPost(id: string): Promise<PostPageData | null>;
   getEvent(slug: string): Promise<EventPageData | null>;
-  toggleEventGoing(eventId: string): Promise<void>;
+  toggleEventMembership(eventSlug: string): Promise<void>;
   toggleProjectMembership(projectSlug: string): Promise<void>;
   toggleProjectDemandSignal(projectSlug: string): Promise<void>;
   setProjectSignal(projectSlug: string, signal: GovernanceSignalType): Promise<void>;

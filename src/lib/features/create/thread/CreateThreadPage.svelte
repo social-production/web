@@ -6,12 +6,11 @@
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import { createThread } from '$lib/services/queries/create';
   import {
-    channelOptions,
-    communityOptions,
-    makeTagRef,
     splitCommaValues
   } from '$lib/features/create/shared/options';
+  import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
   import type { PublicThreadItem } from '$lib/types/feed';
+  import type { TagKind, TagRef } from '$lib/types/feed';
 
   const platformTagSlug = 'platform';
 
@@ -23,8 +22,34 @@
   let taggedCommunities = '';
   let statusMessage = '';
   let isSubmitting = false;
+  let channelOptions: ScopeDirectoryItem[] = [];
+  let communityOptions: ScopeDirectoryItem[] = [];
 
   $: viewer = $page.data.bootstrap?.viewer ?? null;
+  $: channelOptions = ($page.data.bootstrap?.directory.channels ?? []) as ScopeDirectoryItem[];
+  $: communityOptions = ($page.data.bootstrap?.directory.communities ?? []) as ScopeDirectoryItem[];
+
+  function labelToSlug(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function makeTagRef(label: string, kind: TagKind): TagRef {
+    const normalized = label.trim().toLowerCase();
+    const options = kind === 'channel' ? channelOptions : communityOptions;
+    const match = options.find(
+      (option) => option.label.toLowerCase() === normalized || option.slug.toLowerCase() === normalized
+    );
+
+    return {
+      slug: match?.slug ?? labelToSlug(label),
+      label: match?.label ?? label,
+      kind
+    };
+  }
 
   $: previewItem = viewer
     ? ({

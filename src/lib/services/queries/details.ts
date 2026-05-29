@@ -37,8 +37,8 @@ export function getEvent(slug: string) {
   return currentAdapter.getEvent(slug);
 }
 
-export function toggleEventGoing(eventId: string) {
-  return currentAdapter.toggleEventGoing(eventId);
+export function toggleEventMembership(eventSlug: string) {
+  return currentAdapter.toggleEventMembership(eventSlug);
 }
 
 export function toggleProjectMembership(projectSlug: string) {

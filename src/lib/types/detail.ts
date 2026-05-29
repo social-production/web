@@ -1218,7 +1218,6 @@ export interface EventPageData {
   voteCount: number;
   activeVote: VoteDirection;
   commentCount: number;
-  goingCount: number;
   memberCount: number;
   lastActivityAt: string;
   signalSummary: GovernanceSignalSummary | null;
@@ -1237,8 +1236,8 @@ export interface EventPageData {
   invitedUsernames: string[];
   eventEditors: EventRoleMember[];
   members: EventRoleMember[];
-  viewerIsGoing: boolean;
-  viewerCanToggleGoing: boolean;
+  viewerIsMember: boolean;
+  viewerCanToggleMembership: boolean;
   viewerHasEventEditAccess: boolean;
   viewerCanManageEditors: boolean;
   viewerCanShare: boolean;

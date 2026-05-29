@@ -126,7 +126,7 @@
         </div>
         <p>{data.profileBio}</p>
       </div>
-      <p class="helper-copy">Profile text is hydrated from the same mock account data as the shell and profile page.</p>
+      <p class="helper-copy">Profile text is hydrated from the same account data as the shell and profile page.</p>
 
       <label class="field-stack">
         <span class="field-label">Upload profile image</span>

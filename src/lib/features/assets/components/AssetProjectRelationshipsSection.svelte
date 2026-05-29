@@ -30,7 +30,7 @@
             <span class="relationship-copy">{project.relationshipLabel}</span>
             <p>{project.summary}</p>
             <span class:muted-open-copy={!project.href} class="open-copy">
-              {project.href ? 'Open project' : 'Project route not seeded yet'}
+              {project.href ? 'Open project' : 'Project route not available yet'}
             </span>
           </div>
         </FeedSurface>

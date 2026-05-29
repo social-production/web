@@ -8,7 +8,7 @@
   import {
     setEventSignal,
     shareEventWithUser,
-    toggleEventGoing
+    toggleEventMembership
   } from '$lib/services/queries/details';
   import type { EventPageData } from '$lib/types/detail';
 
@@ -16,7 +16,7 @@
 
   $: combinedTags = [...data.channelTags, ...data.communityTags];
   $: signalSummary = data.lifecycle.phaseOne.signalSummary;
-  $: membershipButtonLabel = `${data.viewerIsGoing ? 'Joined' : 'Join'} · ${data.memberCount}`;
+  $: membershipButtonLabel = `${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`;
   $: timeLabel = data.timeLabel.trim();
   $: locationLabel = data.locationLabel.trim();
   $: showScheduledMeta = !!timeLabel || !!locationLabel;
@@ -34,7 +34,7 @@
   }
 
   async function handleMembershipToggle() {
-    await toggleEventGoing(data.id);
+    await toggleEventMembership(data.slug);
     await invalidateAll();
   }
 
@@ -142,10 +142,10 @@
     <li class="meta-item">
       <strong>Members</strong>
       <div class="meta-button-row">
-        {#if data.viewerCanToggleGoing}
+        {#if data.viewerCanToggleMembership}
           <button
-            aria-pressed={data.viewerIsGoing}
-            class:active-demand={data.viewerIsGoing}
+            aria-pressed={data.viewerIsMember}
+            class:active-demand={data.viewerIsMember}
             class="demand-button"
             type="button"
             on:click={handleMembershipToggle}

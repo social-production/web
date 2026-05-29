@@ -91,7 +91,7 @@ import {
   requestMockEventEdit,
   requestMockEventUpdate,
   revokeMockEventEditAccess,
-  toggleMockEventGoing,
+  toggleMockEventMembership,
   advanceMockProjectPhase,
   recordMockProjectPullRequestMerge,
   revertMockProjectPhase,
@@ -214,8 +214,8 @@ export const devAdapter: AppAdapter = {
     return structuredClone(findEventFixture(slug));
   },
 
-  async toggleEventGoing(eventId) {
-    toggleMockEventGoing(eventId);
+  async toggleEventMembership(eventSlug) {
+    toggleMockEventMembership(eventSlug);
   },
 
   async toggleProjectMembership(projectSlug) {

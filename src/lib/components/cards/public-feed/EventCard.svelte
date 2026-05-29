@@ -50,7 +50,7 @@
     <div class="footer-meta">
       <span>
         <a class="inline-link" href={`/profile/${item.createdByUsername}`}>{item.createdByUsername}</a>
-        · {item.goingCount} members · <span class="activity-stamp">{describeActivityTime(item.createdAt, item.lastActivityAt)}</span>
+        · {item.memberCount} members · <span class="activity-stamp">{describeActivityTime(item.createdAt, item.lastActivityAt)}</span>
       </span>
     </div>
   </div>

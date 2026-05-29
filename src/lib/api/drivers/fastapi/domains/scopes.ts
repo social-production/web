@@ -141,7 +141,7 @@ async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Prom
           voteCount: item.vote_count,
           activeVote: 0 as never,
           commentCount: item.comment_count,
-          goingCount: item.going_count,
+          memberCount: item.member_count,
           lastActivityAt: item.last_activity_at
         }];
       }

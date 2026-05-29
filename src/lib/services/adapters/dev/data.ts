@@ -2495,7 +2495,7 @@ const publicFeedBase: PublicFeedItem[] = [
     voteCount: 12,
     activeVote: 1,
     commentCount: 0,
-    goingCount: 0,
+    memberCount: 0,
     lastActivityAt: '2026-04-29T20:15:00Z'
   },
   {
@@ -11488,7 +11488,7 @@ function buildPublicFeedFixture(): PublicFeedItem[] {
         voteCount: vote.voteCount,
         activeVote: vote.activeVote,
         commentCount,
-        goingCount: participation?.goingUserIds.length ?? item.goingCount,
+        memberCount: participation?.goingUserIds.length ?? item.memberCount,
         lastActivityAt
       } satisfies PublicEventItem;
     }
@@ -12043,10 +12043,10 @@ function buildEventMemberState(item: PublicEventItem) {
     ? Array.from(new Set(workflow.editorUserIds.filter((userId) => memberIds.includes(userId))))
     : [];
   const editorIdSet = new Set(editorIds);
-  const viewerIsGoing = !!viewer && (memberIds.includes(viewer.id) || viewer.id === creatorId);
+  const viewerIsMember = !!viewer && (memberIds.includes(viewer.id) || viewer.id === creatorId);
   const viewerHasScopeAccess = !!viewer && viewerHasEventScopeAccess(item, viewer.id);
-  const viewerCanToggleGoing =
-    !!viewer && (!item.isPrivate || viewerIsGoing || participation.invitedUserIds.includes(viewer.id) || viewerHasScopeAccess);
+  const viewerCanToggleMembership =
+    !!viewer && (!item.isPrivate || viewerIsMember || participation.invitedUserIds.includes(viewer.id) || viewerHasScopeAccess);
   const viewerHasEventEditAccess =
     !!viewer && (item.isPrivate ? editorIdSet.has(viewer.id) : memberIds.includes(viewer.id));
   const viewerCanManageEditors = !!viewer && !!creatorId && item.isPrivate && viewer.id === creatorId;
@@ -12058,8 +12058,8 @@ function buildEventMemberState(item: PublicEventItem) {
       .map((userId) => toProjectRoleMember(userId)),
     memberCount: memberIds.length,
     eligibleVoterCount: item.isPrivate ? editorIds.length : memberIds.length,
-    viewerIsGoing,
-    viewerCanToggleGoing,
+    viewerIsMember,
+    viewerCanToggleMembership,
     viewerHasEventEditAccess,
     viewerCanManageEditors,
     availableEditorInvitees:
@@ -14207,8 +14207,8 @@ export function findEventFixture(slug: string): EventPageData | null {
       .filter(Boolean),
     eventEditors: memberState.eventEditors,
     members: memberState.members,
-    viewerIsGoing: memberState.viewerIsGoing,
-    viewerCanToggleGoing: memberState.viewerCanToggleGoing,
+    viewerIsMember: memberState.viewerIsMember,
+    viewerCanToggleMembership: memberState.viewerCanToggleMembership,
     viewerHasEventEditAccess: memberState.viewerHasEventEditAccess,
     viewerCanManageEditors: memberState.viewerCanManageEditors,
     viewerCanShare: !!currentViewer(),
@@ -14303,12 +14303,13 @@ export function setMockVote(targetId: string, nextVote: VoteDirection) {
   }
 }
 
-export function toggleMockEventGoing(eventId: string) {
+export function toggleMockEventMembership(eventSlug: string) {
   const viewer = currentViewer();
-  const participation = eventParticipationById[eventId];
   const event = publicFeedBase.find(
-    (item): item is PublicEventItem => item.kind === 'event' && item.id === eventId
+    (item): item is PublicEventItem => item.kind === 'event' && item.slug === eventSlug
   );
+  const eventId = event?.id;
+  const participation = eventId ? eventParticipationById[eventId] : undefined;
   const creatorId = event ? userByUsername(event.createdByUsername)?.id ?? null : null;
   const viewerHasScopeAccess = !!viewer && !!event && viewerHasEventScopeAccess(event, viewer.id);
   const viewerCanToggle =
@@ -14329,7 +14330,7 @@ export function toggleMockEventGoing(eventId: string) {
 
   if (participation.goingUserIds.includes(viewer.id)) {
     participation.goingUserIds = participation.goingUserIds.filter((userId) => userId !== viewer.id);
-    delete (eventGoingSinceById[eventId] ?? {})[viewer.id];
+    delete (eventGoingSinceById[event.id] ?? {})[viewer.id];
 
     if (creatorId !== viewer.id) {
       removeUserFromEventRequestVotes(event.slug, viewer.id);
@@ -14341,8 +14342,8 @@ export function toggleMockEventGoing(eventId: string) {
 
     if (event.isPrivate && !participation.invitedUserIds.includes(viewer.id) && !viewerHasScopeAccess) {
       participation.invitedUserIds = [...participation.invitedUserIds, viewer.id];
-      eventInvitedSinceById[eventId] = {
-        ...(eventInvitedSinceById[eventId] ?? {}),
+      eventInvitedSinceById[event.id] = {
+        ...(eventInvitedSinceById[event.id] ?? {}),
         [viewer.id]: new Date().toISOString()
       };
     }
@@ -14354,9 +14355,9 @@ export function toggleMockEventGoing(eventId: string) {
 
   participation.goingUserIds = [...participation.goingUserIds, viewer.id];
   participation.invitedUserIds = participation.invitedUserIds.filter((userId) => userId !== viewer.id);
-  delete (eventInvitedSinceById[eventId] ?? {})[viewer.id];
-  eventGoingSinceById[eventId] = {
-    ...(eventGoingSinceById[eventId] ?? {}),
+  delete (eventInvitedSinceById[event.id] ?? {})[viewer.id];
+  eventGoingSinceById[event.id] = {
+    ...(eventGoingSinceById[event.id] ?? {}),
     [viewer.id]: new Date().toISOString()
   };
   recordMeaningfulAction(viewer.id);
@@ -15197,7 +15198,7 @@ function canViewerCreateEventActivity(slug: string) {
     ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null).currentPhaseId ??
     defaultEventCurrentPhaseId(event);
 
-  return currentPhaseId === 'activity' && buildEventMemberState(event).viewerIsGoing;
+  return currentPhaseId === 'activity' && buildEventMemberState(event).viewerIsMember;
 }
 
 function canViewerEditEventActivityCommitment(slug: string) {
@@ -15212,7 +15213,7 @@ function canViewerEditEventActivityCommitment(slug: string) {
     ensureEventWorkflowState(slug, userByUsername(event.createdByUsername)?.id ?? null).currentPhaseId ??
     defaultEventCurrentPhaseId(event);
 
-  return currentPhaseId === 'activity' && buildEventMemberState(event).viewerCanToggleGoing;
+  return currentPhaseId === 'activity' && buildEventMemberState(event).viewerCanToggleMembership;
 }
 
 function canAdvanceMockEventPhaseNow(slug: string) {
@@ -17304,7 +17305,7 @@ export function createMockEvent(input: CreateEventInput): CreateResult {
     voteCount: 0,
     activeVote: 0,
     commentCount: 0,
-    goingCount: 1,
+    memberCount: 1,
     lastActivityAt: createdAt
   });
   eventDetailExtras[slug] = {

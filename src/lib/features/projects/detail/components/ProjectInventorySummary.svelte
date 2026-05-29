@@ -29,7 +29,7 @@
       <h2>{group.title}</h2>
 
       {#if group.assets.length === 0}
-        <p class="group-empty">No {group.kind === 'land-asset' ? 'land asset' : 'asset'} records are seeded yet.</p>
+        <p class="group-empty">No {group.kind === 'land-asset' ? 'land asset' : 'asset'} records are available yet.</p>
       {:else}
         <ul class="asset-items">
           {#each group.assets as asset}

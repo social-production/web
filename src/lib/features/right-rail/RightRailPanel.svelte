@@ -5,7 +5,7 @@
   import {
     setEventActivityCommitment,
     setProjectActivityCommitment,
-    toggleEventGoing
+    toggleEventMembership
   } from '$lib/services/queries/details';
   import type { RightRailActivityItem } from '$lib/types/bootstrap';
   import { formatCalendarTime } from '$lib/utils/time';
@@ -93,7 +93,7 @@
     pendingSubjectId = item.subjectId;
 
     try {
-      await toggleEventGoing(item.subjectId);
+      await toggleEventMembership(item.eventSlug ?? item.subjectId);
       await invalidateAll();
     } finally {
       pendingSubjectId = '';

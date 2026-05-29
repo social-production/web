@@ -9,7 +9,7 @@
   export let description =
     'Close requests that choose Convert stay visible here with the selected successor type, inherited inventory note, and the live vote state.';
   export let items: ProjectConversionWorkflowItem[] = [];
-  export let emptyMessage = 'No governed conversion requests are seeded for this project yet.';
+  export let emptyMessage = 'No governed conversion requests are available for this project yet.';
 
   function tone(label: string) {
     const normalized = label.toLowerCase();
@@ -74,7 +74,7 @@
             {#if item.successor.href}
               <a class="open-link" href={item.successor.href}>Open planned successor record</a>
             {:else}
-              <span class="open-link muted-link">Successor route not seeded yet</span>
+              <span class="open-link muted-link">Successor route not available yet</span>
             {/if}
           {/if}
         </article>

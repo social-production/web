@@ -135,7 +135,7 @@ export interface PublicEventItem {
   voteCount: number;
   activeVote: VoteDirection;
   commentCount: number;
-  goingCount: number;
+  memberCount: number;
   lastActivityAt: string;
 }
 

@@ -4,7 +4,7 @@
   export let title = 'History';
   export let summary = 'Chronological custody and location records.';
   export let entries: AssetProvenanceEntry[] = [];
-  export let emptyMessage = 'No provenance history is seeded for this asset yet.';
+  export let emptyMessage = 'No provenance history is available for this asset yet.';
 </script>
 
 <section class="timeline-stack">

@@ -59,7 +59,7 @@ import {
   fetchShareProjectWithUser,
 } from './domains/projects';
 import {
-  fetchEvent, fetchCreateEvent, fetchToggleEventGoing,
+  fetchEvent, fetchCreateEvent, fetchToggleEventMembership,
   fetchSetEventSignal, fetchAddEventValue, fetchSetEventValueImportance,
   fetchAddEventPlan, fetchSetEventPlanOverallVote, fetchSetEventPlanValueVote,
   fetchAddEventActivity, fetchSetEventActivityCommitment,
@@ -174,7 +174,7 @@ export function createFastApiDriver(): AppAdapter {
 
     async getEvent(slug) { return fetchEvent(slug); },
     async createEvent(input) { return fetchCreateEvent(input); },
-    async toggleEventGoing(eventId) { return fetchToggleEventGoing(eventId); },
+    async toggleEventMembership(eventSlug) { return fetchToggleEventMembership(eventSlug); },
     async setEventSignal(slug, signal) { return fetchSetEventSignal(slug, signal); },
     async addEventValue(slug, label) { return fetchAddEventValue(slug, label); },
     async setEventValueImportance(slug, valueId, importance) { return fetchSetEventValueImportance(slug, valueId, importance); },

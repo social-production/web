@@ -10,10 +10,9 @@
     isPersonalServiceProject
   } from '$lib/features/projects/projectMode';
   import {
-    channelOptions,
-    communityOptions,
     splitCommaValues
   } from '$lib/features/create/shared/options';
+  import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
   import type { ProjectMode, PublicProjectItem, TagKind, TagRef } from '$lib/types/feed';
 
   const platformTagSlug = 'platform';
@@ -28,6 +27,8 @@
   let serviceRequestMode: 'calendar' | 'direct' | 'both' = 'both';
   let statusMessage = '';
   let isSubmitting = false;
+  let channelOptions: ScopeDirectoryItem[] = [];
+  let communityOptions: ScopeDirectoryItem[] = [];
 
   function findOptionTag(label: string, kind: TagKind): TagRef | null {
     const normalized = label.trim().toLowerCase();
@@ -46,6 +47,8 @@
   }
 
   $: viewer = $page.data.bootstrap?.viewer ?? null;
+  $: channelOptions = ($page.data.bootstrap?.directory.channels ?? []) as ScopeDirectoryItem[];
+  $: communityOptions = ($page.data.bootstrap?.directory.communities ?? []) as ScopeDirectoryItem[];
   $: primaryChannelTag = findOptionTag(primaryChannel, 'channel');
   $: additionalChannelEntries = splitCommaValues(additionalChannels);
   $: additionalChannelTags = additionalChannelEntries
@@ -69,7 +72,7 @@
     href: '#',
     createdAt: new Date().toISOString(),
     title: title.trim() || 'Untitled project',
-    authorUsername: viewer?.username ?? 'patchbay',
+    authorUsername: viewer?.username ?? 'member',
     projectMode: selectedType,
     summary:
       description.trim() ||

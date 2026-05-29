@@ -24,7 +24,7 @@
     },
     {
       title: 'Projects using this asset',
-      description: 'These seeded links show which current projects depend on this attached asset today.',
+      description: 'These links show which current projects depend on this attached asset today.',
       projects: asset.linkedProjects
     }
   ].filter((section) => section.projects.length > 0);

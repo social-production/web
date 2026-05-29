@@ -16,14 +16,14 @@
     title="Auto-created links"
     description="These links come from adapter-backed automation such as approved asset-use relationships, deliveries, and later conversion events."
     items={frame.autoLinks}
-    emptyMessage="No auto-created links are seeded yet."
+    emptyMessage="No auto-created links are available yet."
   />
 
   <ProjectLinksNetwork
     title="Manual links"
     description="These links already passed approval on both linked projects."
     items={frame.manualLinks}
-    emptyMessage="No manual links are seeded yet."
+    emptyMessage="No manual links are available yet."
   />
 
   <ProjectManualLinkRequestsSection

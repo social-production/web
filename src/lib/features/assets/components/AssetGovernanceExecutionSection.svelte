@@ -6,7 +6,7 @@
   export let title = 'Governance execution';
   export let summary = 'Availability decisions, borrowing policy votes, borrowing lifecycle, and delivery handoffs.';
   export let description =
-    'Availability approvals, borrowing policy votes, borrowing lifecycle, and delivery handoffs are all seeded here through the adapter-backed asset contract.';
+    'Availability approvals, borrowing policy votes, borrowing lifecycle, and delivery handoffs are all shown here through the adapter-backed asset contract.';
 
   let showHowItWorks = false;
 
@@ -56,7 +56,7 @@
       </div>
 
       {#if governance.availabilityRequests.length === 0}
-        <p>No availability requests are seeded for {assetLabel}.</p>
+        <p>No availability requests are available for {assetLabel}.</p>
       {:else}
         <div class="card-list">
           {#each governance.availabilityRequests as request}
@@ -91,7 +91,7 @@
       </div>
 
       {#if governance.borrowingPolicies.length === 0}
-        <p>No borrowing-policy votes are seeded for {assetLabel}.</p>
+        <p>No borrowing-policy votes are available for {assetLabel}.</p>
       {:else}
         <div class="card-list">
           {#each governance.borrowingPolicies as policy}
@@ -124,7 +124,7 @@
       </div>
 
       {#if governance.borrowingRequests.length === 0}
-        <p>No borrowing lifecycle records are seeded for {assetLabel}.</p>
+        <p>No borrowing lifecycle records are available for {assetLabel}.</p>
       {:else}
         <div class="card-list">
           {#each governance.borrowingRequests as request}
@@ -154,7 +154,7 @@
       </div>
 
       {#if governance.deliveryRequests.length === 0}
-        <p>No delivery lifecycle records are seeded for {assetLabel}.</p>
+        <p>No delivery lifecycle records are available for {assetLabel}.</p>
       {:else}
         <div class="card-list">
           {#each governance.deliveryRequests as delivery}

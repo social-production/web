@@ -13,7 +13,7 @@
   export let requests: ProjectManualLinkRequest[] = [];
   export let linkableProjects: ProjectLinkCandidate[] = [];
   export let viewerCanProposeLinks = false;
-  export let emptyMessage = 'No manual link requests are seeded yet.';
+  export let emptyMessage = 'No manual link requests are available yet.';
 
   let composerOpen = false;
   let selectedTargetProjectSlug = '';

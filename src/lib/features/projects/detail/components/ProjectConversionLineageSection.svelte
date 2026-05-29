@@ -9,7 +9,7 @@
     summary:
       'This frame is reserved for the permanent predecessor and successor link that appears when a project converts into a new project type.',
     permanenceNote:
-      'When conversion is seeded here, the predecessor/successor relationship will stay visible permanently instead of being handled through manual links.',
+      'When conversion is shown here, the predecessor/successor relationship will stay visible permanently instead of being handled through manual links.',
     inventoryNote:
       'The successor project will inherit the predecessor inventory framing once the governed conversion path is fully wired.',
     predecessor: null,
@@ -53,7 +53,7 @@
           {#if frame.successor.href}
             <a class="open-link" href={frame.successor.href}>Open successor record</a>
           {:else}
-            <span class="open-link muted-link">Successor route not seeded yet</span>
+            <span class="open-link muted-link">Successor route not available yet</span>
           {/if}
         </article>
       {/if}

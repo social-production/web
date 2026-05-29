@@ -64,7 +64,7 @@
     <section class="detail-card">
       <h3>Existing collective assets</h3>
       {#if preview.existingAssets.length === 0}
-        <p>No existing asset previews are seeded.</p>
+        <p>No existing asset previews are available.</p>
       {:else}
         <div class="item-stack">
           {#each preview.existingAssets as item}
@@ -87,7 +87,7 @@
     <section class="detail-card">
       <h3>Collective purchase targets</h3>
       {#if preview.purchaseTargets.length === 0}
-        <p>No purchase-target previews are seeded.</p>
+        <p>No purchase-target previews are available.</p>
       {:else}
         <div class="item-stack">
           {#each preview.purchaseTargets as item}
@@ -114,7 +114,7 @@
   <section class="detail-card">
     <h3>Destination bundles</h3>
     {#if preview.bundles.length === 0}
-      <p>No destination bundles are seeded yet.</p>
+      <p>No destination bundles are available yet.</p>
     {:else}
       <div class="item-stack">
         {#each preview.bundles as bundle}

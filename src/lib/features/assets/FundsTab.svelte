@@ -41,7 +41,7 @@
             </div>
 
             <span class:disabled-link={!fund.projectHref} class="open-copy">
-              {fund.projectHref ? 'Open acquisition project' : 'Related project not seeded yet'}
+              {fund.projectHref ? 'Open acquisition project' : 'Related project not available yet'}
             </span>
           </div>
 

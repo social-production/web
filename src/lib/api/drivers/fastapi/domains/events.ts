@@ -1,5 +1,4 @@
 import { apiClient } from '../client';
-import { registerEventSlug, resolveEventSlug } from '../typeRegistry';
 import type {
   EventPageData,
   EventPlanInput,
@@ -12,8 +11,8 @@ import type {
 } from '$lib/types/detail';
 import type { CreateEventInput, CreateResult } from '$lib/types/feed';
 
-// ID-to-slug cache for toggleEventGoing (adapter passes ID, backend needs slug)
-const eventIdToSlug = new Map<string, string>();
+// Membership cache for toggle direction (populated from getEvent viewerIsMember)
+const membershipCache = new Map<string, boolean>();
 
 function slugify(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -28,8 +27,7 @@ function notImplemented(method: string): never {
 export async function fetchEvent(slug: string): Promise<EventPageData | null> {
   try {
     const res = await apiClient.get<EventPageData>(`/events/${slug}`);
-    eventIdToSlug.set(res.id, res.slug);
-    registerEventSlug(res.id, res.slug);
+    membershipCache.set(res.slug, res.viewerIsMember);
     return res;
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
@@ -56,12 +54,17 @@ export async function fetchCreateEvent(input: CreateEventInput): Promise<CreateR
   }
 }
 
-// -- Attendance --------------------------------------------------------------
+// -- Membership --------------------------------------------------------------
 
-export async function fetchToggleEventGoing(eventId: string): Promise<void> {
-  const slug = eventIdToSlug.get(eventId) ?? resolveEventSlug(eventId);
-  if (!slug) throw new Error(`events.toggleEventGoing: unknown event id ${eventId} — call getEvent(slug) first`);
-  await apiClient.post(`/events/${slug}/attendance`, { attendance_state: 'going' });
+export async function fetchToggleEventMembership(eventSlug: string): Promise<void> {
+  const isMember = membershipCache.get(eventSlug) ?? false;
+  if (isMember) {
+    await apiClient.delete(`/events/${eventSlug}/leave`);
+    membershipCache.set(eventSlug, false);
+  } else {
+    await apiClient.post(`/events/${eventSlug}/join`);
+    membershipCache.set(eventSlug, true);
+  }
 }
 
 // -- Signals -----------------------------------------------------------------

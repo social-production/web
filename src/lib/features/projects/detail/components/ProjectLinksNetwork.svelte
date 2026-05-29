@@ -42,7 +42,7 @@
                 {#if item.href}
                   <a class="open-link" href={item.href}>Open linked project</a>
                 {:else}
-                  <span class="open-link muted">Route not seeded yet</span>
+                  <span class="open-link muted">Route not available yet</span>
                 {/if}
               </div>
             </FeedSurface>

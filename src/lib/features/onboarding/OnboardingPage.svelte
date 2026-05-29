@@ -46,11 +46,6 @@
   <section class="hero-card">
     <h1>{data.title}</h1>
     <p>{data.intro}</p>
-    <div class="credential-note">
-      <strong>Mock login</strong>
-      <span>Username: patchbay</span>
-      <span>Password: patchbay123</span>
-    </div>
     {#if viewer}
       <div class="signed-in-note">
         <strong>Signed in as @{viewer.username}</strong>
@@ -78,7 +73,7 @@
       <form class="stack" on:submit|preventDefault={handleSubmit}>
         <label>
           <span class="field-label">Username</span>
-          <input bind:value={username} placeholder="patchbay" />
+          <input bind:value={username} placeholder="Enter username" />
         </label>
 
         <label>
@@ -199,15 +194,13 @@
 
   .choice-row,
   .button-row,
-  .signed-in-note,
-  .credential-note {
+  .signed-in-note {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
     align-items: center;
   }
 
-  .credential-note,
   .signed-in-note {
     margin-top: 12px;
     padding: 12px;

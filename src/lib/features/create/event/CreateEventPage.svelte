@@ -128,7 +128,7 @@
         voteCount: 0,
         activeVote: 0,
         commentCount: 0,
-        goingCount: 1,
+        memberCount: 1,
         lastActivityAt: new Date().toISOString()
       } satisfies PublicEventItem)
     : null;

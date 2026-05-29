@@ -25,7 +25,7 @@
 
 {#if projectSections.length === 0}
   <section class="empty-card">
-    <p>No project relationships are seeded for this land asset yet.</p>
+    <p>No project relationships are available for this land asset yet.</p>
   </section>
 {:else}
   {#each projectSections as section}

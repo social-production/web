@@ -22,7 +22,7 @@
     <div class="hero-topline">
       <div>
         <h1>Notifications</h1>
-        <p>Project activity and event invites now come from the shared mock state instead of page-local placeholders.</p>
+        <p>Project activity and event invites come from shared adapter state instead of page-local placeholders.</p>
       </div>
 
       <button class="secondary-button" type="button" on:click={readAll}>Mark all read</button>
