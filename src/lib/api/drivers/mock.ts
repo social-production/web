@@ -1,6 +1,3 @@
-import { devAdapter } from '$lib/services/adapters/dev';
-import type { AppAdapter } from '$lib/services/adapters/types';
-
-export function createMockDriver(): AppAdapter {
-  return devAdapter;
+export function createMockDriver(): never {
+  throw new Error('Mock driver removed. Set VITE_BACKEND=fastapi and run the FastAPI backend.');
 }

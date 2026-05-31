@@ -6,3 +6,7 @@ ux design files
 
 env
 .env.local
+
+.svelte-kit
+build
+node_modules

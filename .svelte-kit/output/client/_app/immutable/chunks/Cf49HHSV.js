@@ -1,1 +1,0 @@
-import"./BriRf5Ew.js";import"./qg8vPTS7.js";import{p as r}from"./Crk0g78b.js";import{D as p}from"./BpsYGkg-.js";function a(o,t){let e=r(t,"scope",8);p(o,{get pageData(){return e()}})}function f(o,t){let e=r(t,"scope",8);a(o,{get scope(){return e()}})}export{f as P};

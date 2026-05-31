@@ -1,1 +1,0 @@
-import{a as s,f as p}from"./BriRf5Ew.js";import"./qg8vPTS7.js";import{ab as m,ac as n,a9 as f}from"./D10GFEir.js";import{s as c}from"./Bgm58JKr.js";import{p as i}from"./Crk0g78b.js";var u=p('<span class="count-badge svelte-13i1ukw"> </span>');function b(a,o){let r=i(o,"count",8);var t=u(),e=m(t,!0);n(t),f(()=>c(e,r())),s(a,t)}export{b as C};

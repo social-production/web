@@ -60,7 +60,6 @@ async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Prom
         vote_count: number;
         comment_count: number;
         member_count: number;
-        going_count: number;
         signal_count: number;
         last_activity_at: string;
         created_at: string;

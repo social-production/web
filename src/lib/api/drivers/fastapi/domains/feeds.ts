@@ -20,7 +20,6 @@ interface BackendFeedItem {
   vote_count: number;
   comment_count: number;
   member_count: number;
-  going_count: number;
   last_activity_at: string;
   created_at: string;
   project_mode: string | null;
