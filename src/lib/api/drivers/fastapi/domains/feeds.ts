@@ -1,6 +1,6 @@
 import { apiClient } from '../client';
 import { registerEntityType } from '../typeRegistry';
-import type { PersonalFeedItem, PublicFeedItem } from '$lib/types/feed';
+import type { PersonalFeedItem, PublicFeedItem, VoteDirection } from '$lib/types/feed';
 
 interface BackendTagRef {
   slug: string;
@@ -14,6 +14,7 @@ interface BackendFeedItem {
   slug: string | null;
   title: string;
   body: string;
+  audience?: 'followers' | 'public' | null;
   author_id: string | null;
   author_username: string | null;
   signal_count: number;
@@ -29,6 +30,7 @@ interface BackendFeedItem {
   is_private: boolean;
   scheduled_at: string | null;
   time_label: string | null;
+  active_vote?: number;
   channel_tags: BackendTagRef[];
   community_tags: BackendTagRef[];
 }
@@ -62,7 +64,7 @@ function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
       stage: item.stage_label ?? '',
       locationLabel: item.location_label ?? '',
       voteCount: item.vote_count,
-      activeVote: 0,
+      activeVote: (item.active_vote ?? 0) as VoteDirection,
       signalCount: item.signal_count,
       commentCount: item.comment_count,
       memberCount: item.member_count,
@@ -83,7 +85,7 @@ function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
       channelTags,
       communityTags,
       voteCount: item.vote_count,
-      activeVote: 0,
+      activeVote: (item.active_vote ?? 0) as VoteDirection,
       commentCount: item.comment_count,
       lastActivityAt: item.last_activity_at
     };
@@ -106,7 +108,7 @@ function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
       timeLabel: item.time_label ?? '',
       locationLabel: item.location_label ?? '',
       voteCount: item.vote_count,
-      activeVote: 0,
+      activeVote: (item.active_vote ?? 0) as VoteDirection,
       commentCount: item.comment_count,
       memberCount: item.member_count,
       lastActivityAt: item.last_activity_at
@@ -116,7 +118,7 @@ function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
   return null;
 }
 
-function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null {
+export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null {
   const author = {
     id: item.author_id ?? '',
     username: item.author_username ?? ''
@@ -131,14 +133,14 @@ function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null {
       href: `/posts/${item.id}`,
       author,
       feedSource: 'following',
-      audience: 'public',
       voteTargetId: item.id,
       body: item.body,
       linkedSubjects: [],
       voteCount: item.vote_count,
-      activeVote: 0,
+      activeVote: (item.active_vote ?? 0) as VoteDirection,
       commentCount: item.comment_count,
-      createdAt: item.created_at
+      createdAt: item.created_at,
+      audience: item.audience === 'followers' ? 'followers' : 'public'
     };
   }
 
@@ -170,7 +172,7 @@ function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null {
     body: item.body,
     meta: item.stage_label ?? item.time_label ?? '',
     voteCount: item.vote_count,
-    activeVote: 0,
+    activeVote: (item.active_vote ?? 0) as VoteDirection,
     commentCount: item.comment_count,
     createdAt: item.created_at,
     channelTags,

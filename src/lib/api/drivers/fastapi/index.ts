@@ -22,6 +22,9 @@ import {
   fetchPlatform,
   fetchToggleScopeMembership,
   fetchRedeemScopeInvite,
+  fetchCastModeratorVote,
+  fetchRemoveVolunteer,
+  fetchVolunteerForBoard,
   fetchCreateChannel,
   fetchCreateCommunity
 } from './domains/scopes';
@@ -162,6 +165,15 @@ export function createFastApiDriver(): AppAdapter {
 
     async redeemScopeInvite(kind, slug, inviteValue) {
       return fetchRedeemScopeInvite(kind, slug, inviteValue);
+    },
+    async volunteerForBoard() {
+      return fetchVolunteerForBoard();
+    },
+    async removeVolunteer() {
+      return fetchRemoveVolunteer();
+    },
+    async castModeratorVote(targetUserId, vote) {
+      return fetchCastModeratorVote(targetUserId, vote);
     },
 
     async createChannel(input) {

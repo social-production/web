@@ -399,9 +399,13 @@
       return;
     }
 
-    await requestEventPhaseChange(data.slug, targetPhaseId, reason);
-    phaseChangeReason = '';
-    await invalidateAll();
+    try {
+      await requestEventPhaseChange(data.slug, targetPhaseId, reason);
+      phaseChangeReason = '';
+      await invalidateAll();
+    } catch {
+      // Phase change failed — demand threshold may not be met
+    }
   }
 
   async function voteOnPhaseChange(requestId: string, vote: ProjectApprovalVote | null) {

@@ -1,4 +1,5 @@
-import { apiClient } from '../client';
+import { apiClient, extractErrorMessage } from '../client';
+import { registerEntityType, registerCommentIds } from '../typeRegistry';
 import type {
   ProjectPageData,
   ProjectProductionPlanInput,
@@ -39,6 +40,8 @@ export async function fetchProject(slug: string): Promise<ProjectPageData | null
   try {
     const res = await apiClient.get<ProjectPageData>(`/projects/${slug}`);
     membershipCache.set(slug, res.viewerIsMember);
+    registerEntityType(res.id, 'project');
+    if (res.discussion) registerCommentIds(res.discussion);
     return res;
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
@@ -60,7 +63,7 @@ export async function fetchCreateProject(input: CreateProjectInput): Promise<Cre
     });
     return { ok: true, slug: res.project.slug };
   } catch (err) {
-    return { ok: false, error: (err as { body?: { detail?: string } }).body?.detail ?? 'Could not create project' };
+    return { ok: false, error: extractErrorMessage(err, 'Could not create project') };
   }
 }
 
@@ -499,6 +502,6 @@ export async function fetchShareProjectWithUser(
     await apiClient.post(`/projects/${projectSlug}/share`, { username });
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: (err as { body?: { detail?: string } }).body?.detail ?? 'Could not share' };
+    return { ok: false, error: extractErrorMessage(err, 'Could not share') };
   }
 }

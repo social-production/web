@@ -1,7 +1,7 @@
-import { apiClient } from '../client';
+import { apiClient, extractErrorMessage } from '../client';
+import { mapPersonalItem } from './feeds';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
-import type { CreateChannelInput, CreateCommunityInput, CreateResult } from '$lib/types/feed';
-import type { PublicFeedItem } from '$lib/types/feed';
+import type { CreateChannelInput, CreateCommunityInput, CreateResult, PublicFeedItem, VoteDirection } from '$lib/types/feed';
 
 // In-memory membership cache for toggle direction
 const membershipCache = new Set<string>();
@@ -33,17 +33,25 @@ interface BackendBoardPerson {
   no_count: number;
   vote_count: number;
   approval_ratio: number;
+  weekly_active_users?: number;
+  required_quorum?: number;
+  active_vote: string | null;
 }
 
 function mapBoardPerson(p: BackendBoardPerson) {
   return {
     id: p.user_id,
     username: p.username,
+    confidenceTargetId: p.user_id,
     confidenceUpVotes: p.yes_count,
     confidenceDownVotes: p.no_count,
     confidenceVoteCount: p.vote_count,
     confidenceRatio: p.approval_ratio,
-    confidenceStandingState: p.standing_state as never
+    confidenceStandingState: p.standing_state as never,
+    confidenceVotesRequired: p.required_quorum ?? 0,
+    confidenceWeeklyActiveUserCount: p.weekly_active_users ?? 0,
+    confidenceReviewCount: p.vote_count,
+    confidenceActiveVote: (p.active_vote === 'yes' ? 1 : p.active_vote === 'no' ? -1 : 0) as never,
   };
 }
 
@@ -70,6 +78,7 @@ async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Prom
         is_private: boolean;
         scheduled_at: string | null;
         time_label: string | null;
+        active_vote: number;
         channel_tags: Array<{ slug: string; label: string; kind: 'channel' | 'community' }>;
         community_tags: Array<{ slug: string; label: string; kind: 'channel' | 'community' }>;
       }>;
@@ -96,7 +105,7 @@ async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Prom
           stage: item.stage_label ?? '',
           locationLabel: item.location_label ?? '',
           voteCount: item.vote_count,
-          activeVote: 0 as never,
+          activeVote: (item.active_vote ?? 0) as VoteDirection,
           signalCount: item.signal_count,
           commentCount: item.comment_count,
           memberCount: item.member_count,
@@ -116,7 +125,7 @@ async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Prom
           channelTags,
           communityTags,
           voteCount: item.vote_count,
-          activeVote: 0 as never,
+          activeVote: (item.active_vote ?? 0) as VoteDirection,
           commentCount: item.comment_count,
           lastActivityAt: item.last_activity_at
         }];
@@ -138,7 +147,7 @@ async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Prom
           timeLabel: item.time_label ?? '',
           locationLabel: item.location_label ?? '',
           voteCount: item.vote_count,
-          activeVote: 0 as never,
+          activeVote: (item.active_vote ?? 0) as VoteDirection,
           commentCount: item.comment_count,
           memberCount: item.member_count,
           lastActivityAt: item.last_activity_at
@@ -223,28 +232,54 @@ export async function fetchPlatform(): Promise<ScopePageData | null> {
   try {
     const res = await apiClient.get<{
       channel: BackendChannel | null;
-      board_members: BackendBoardPerson[];
-      board_candidates: BackendBoardPerson[];
-      board_candidacy_options: { viewer_state: string | null; can_volunteer: boolean } | null;
+      moderators: BackendBoardPerson[];
+      moderator_candidates: BackendBoardPerson[];
+      moderator_candidacy_options: { viewer_state: string | null; can_volunteer: boolean } | null;
     }>('/platform');
+
+    let memberCount = 0;
+    let viewerIsMember = false;
+    const channelSlug = res.channel?.slug ?? 'platform';
+
+    if (res.channel) {
+      const channelRes = await apiClient.get<{
+        channel: BackendChannel;
+        member_count: number;
+        viewer_is_member: boolean;
+      }>(`/scopes/channels/${channelSlug}`);
+
+      memberCount = channelRes.member_count;
+      viewerIsMember = channelRes.viewer_is_member;
+
+      if (viewerIsMember) {
+        membershipCache.add(cacheKey('channel', channelSlug));
+        membershipCache.add(cacheKey('platform', channelSlug));
+      } else {
+        membershipCache.delete(cacheKey('channel', channelSlug));
+        membershipCache.delete(cacheKey('platform', channelSlug));
+      }
+    }
 
     return {
       kind: 'platform',
-      slug: 'platform',
+      slug: channelSlug,
       title: res.channel?.name ?? 'Platform',
       description: res.channel?.description ?? '',
       badges: [],
       emptyFeedText: 'No platform activity yet.',
       membership: {
-        memberCount: 0,
-        viewerIsMember: false,
-        viewerCanToggleMembership: false,
+        memberCount,
+        viewerIsMember,
+        viewerCanToggleMembership: !!res.channel,
         joinPolicy: 'open',
         viewerCanSeeFeed: true
       },
-      feed: [],
-      boardMembers: res.board_members.map(mapBoardPerson),
-      boardCandidates: res.board_candidates.map(mapBoardPerson),
+      feed: await fetchScopeFeed('channel', channelSlug),
+      moderators: res.moderators.map(mapBoardPerson),
+      moderatorCandidates: res.moderator_candidates.map(mapBoardPerson),
+      moderatorCandidacyOptions: res.moderator_candidacy_options
+        ? { viewerState: res.moderator_candidacy_options.viewer_state, canVolunteer: res.moderator_candidacy_options.can_volunteer }
+        : null,
       stats: { projects: 0, threads: 0, events: 0, members: 0 }
     };
   } catch (err) {
@@ -256,14 +291,23 @@ export async function fetchPlatform(): Promise<ScopePageData | null> {
 export async function fetchToggleScopeMembership(kind: ScopeKind, slug: string): Promise<void> {
   const key = cacheKey(kind, slug);
   const isMember = membershipCache.has(key);
-  const kindPlural = kind === 'channel' ? 'channels' : 'communities';
+  const kindPlural = (kind === 'channel' || kind === 'platform') ? 'channels' : 'communities';
 
-  if (isMember) {
-    await apiClient.delete(`/scopes/${kindPlural}/${slug}/leave`);
-    membershipCache.delete(key);
-  } else {
-    await apiClient.post(`/scopes/${kindPlural}/${slug}/join`);
-    membershipCache.add(key);
+  try {
+    if (isMember) {
+      await apiClient.delete(`/scopes/${kindPlural}/${slug}/leave`);
+      membershipCache.delete(key);
+      // Also clear the channel-keyed cache when leaving via platform kind
+      if (kind === 'platform') membershipCache.delete(cacheKey('channel', slug));
+    } else {
+      await apiClient.post(`/scopes/${kindPlural}/${slug}/join`);
+      membershipCache.add(key);
+      // Also set the channel-keyed cache when joining via platform kind
+      if (kind === 'platform') membershipCache.add(cacheKey('channel', slug));
+    }
+  } catch (err) {
+    // On failure, don't update cache — let the server be source of truth
+    throw err;
   }
 }
 
@@ -280,6 +324,33 @@ export async function fetchRedeemScopeInvite(
   }
 }
 
+export async function fetchVolunteerForBoard(): Promise<boolean> {
+  try {
+    await apiClient.post('/board/volunteer');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchRemoveVolunteer(): Promise<boolean> {
+  try {
+    await apiClient.delete('/board/volunteer');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchCastModeratorVote(targetUserId: string, vote: string): Promise<boolean> {
+  try {
+    await apiClient.post('/board/votes', { target_user_id: targetUserId, vote });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchCreateChannel(input: CreateChannelInput): Promise<CreateResult> {
   try {
     const res = await apiClient.post<{ channel: BackendChannel }>('/scopes/channels', {
@@ -289,7 +360,7 @@ export async function fetchCreateChannel(input: CreateChannelInput): Promise<Cre
     });
     return { ok: true, slug: res.channel.slug };
   } catch (err) {
-    const message = (err as { body?: { detail?: string } }).body?.detail ?? 'Could not create channel';
+    const message = extractErrorMessage(err, 'Could not create channel');
     return { ok: false, error: message };
   }
 }
@@ -304,7 +375,7 @@ export async function fetchCreateCommunity(input: CreateCommunityInput): Promise
     });
     return { ok: true, slug: res.community.slug };
   } catch (err) {
-    const message = (err as { body?: { detail?: string } }).body?.detail ?? 'Could not create community';
+    const message = extractErrorMessage(err, 'Could not create community');
     return { ok: false, error: message };
   }
 }

@@ -52,12 +52,13 @@ export interface ScopePageData {
   description: string;
   note?: string;
   badges: string[];
-  boardNote?: string;
+  moderatorNote?: string;
   emptyFeedText: string;
   membership: ScopeMembershipState;
   feed: PublicFeedItem[];
-  boardMembers?: ScopeMemberSummary[];
-  boardCandidates?: ScopeMemberSummary[];
-  boardFeatureFrames?: ScopePlaceholderSection[];
+  moderators?: ScopeMemberSummary[];
+  moderatorCandidates?: ScopeMemberSummary[];
+  moderatorCandidacyOptions?: { viewerState: string | null; canVolunteer: boolean } | null;
+  moderatorFeatureFrames?: ScopePlaceholderSection[];
   stats: ScopeStats;
 }

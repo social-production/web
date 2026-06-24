@@ -85,10 +85,10 @@
   }
 
   .active-up {
-    color: var(--brand);
+    color: #22c55e;
   }
 
   .active-down {
-    color: var(--accent-warm);
+    color: #ef4444;
   }
 </style>

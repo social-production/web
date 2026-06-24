@@ -1,4 +1,4 @@
-import { apiClient } from '../client';
+import { apiClient, extractErrorMessage } from '../client';
 import { registerEntityType, resolveEntityType } from '../typeRegistry';
 import type { PostPageData, ThreadPageData } from '$lib/types/detail';
 import type { CreatePostInput, CreateResult, CreateThreadInput } from '$lib/types/feed';
@@ -16,6 +16,7 @@ interface BackendThread {
   id: string; slug: string; title: string; body: string; author_id: string | null;
   author_username: string;
   vote_count: number; comment_count: number; last_activity_at: string; created_at: string;
+  active_vote: number;
   channel_tags: Array<{ slug: string; label: string; kind: 'channel' | 'community' }>;
   community_tags: Array<{ slug: string; label: string; kind: 'channel' | 'community' }>;
   discussion: BackendComment[];
@@ -26,23 +27,25 @@ interface BackendPost {
   author_profile_image_url: string | null;
   body: string; audience: string;
   vote_count: number; comment_count: number; created_at: string;
+  active_vote: number;
   discussion: BackendComment[];
 }
 
 interface BackendComment {
   id: string; author_id: string | null; author_username: string;
-  body: string; vote_count: number; created_at: string;
+  body: string; vote_count: number; active_vote: number; created_at: string;
   replies: BackendComment[];
 }
 
 function mapComment(c: BackendComment): DetailComment {
+  registerEntityType(c.id, 'comment');
   return {
     id: c.id,
     authorUsername: c.author_username ?? '',
     body: c.body,
     createdAt: c.created_at,
     voteCount: c.vote_count,
-    activeVote: 0 as VoteDirection,
+    activeVote: (c.active_vote ?? 0) as VoteDirection,
     report: null,
     replies: (c.replies ?? []).map(mapComment),
   };
@@ -58,7 +61,7 @@ export async function fetchThread(slug: string): Promise<ThreadPageData | null> 
       authorUsername: t.author_username,
       channelTags: t.channel_tags ?? [],
       communityTags: t.community_tags ?? [],
-      voteCount: t.vote_count, activeVote: 0 as VoteDirection,
+      voteCount: t.vote_count, activeVote: (t.active_vote ?? 0) as VoteDirection,
       commentCount: t.comment_count, lastActivityAt: t.last_activity_at,
       report: null, isRemovedByReport: false, discussionNote: '',
       discussion: (t.discussion ?? []).map(mapComment),
@@ -80,7 +83,7 @@ export async function fetchPost(id: string): Promise<PostPageData | null> {
       authorProfileImageUrl: p.author_profile_image_url ?? undefined,
       body: p.body,
       audience: p.audience as 'followers' | 'public',
-      voteCount: p.vote_count, activeVote: 0 as VoteDirection,
+      voteCount: p.vote_count, activeVote: (p.active_vote ?? 0) as VoteDirection,
       commentCount: p.comment_count, createdAt: p.created_at,
       report: null, isRemovedByReport: false, discussionNote: '',
       discussion: (p.discussion ?? []).map(mapComment),
@@ -97,11 +100,12 @@ export async function fetchCreateThread(input: CreateThreadInput): Promise<Creat
       slug: slugify(input.title),
       title: input.title,
       body: input.body,
-      channel_slugs: input.channelTags.map(t => t.slug)
+      channel_slugs: input.channelTags.map(t => t.slug),
+      community_slugs: input.communityTags.map(t => t.slug),
     });
     return { ok: true, slug: res.thread.slug };
   } catch (err) {
-    return { ok: false, error: (err as { body?: { detail?: string } }).body?.detail ?? 'Could not create thread' };
+    return { ok: false, error: extractErrorMessage(err, 'Could not create thread') };
   }
 }
 
@@ -113,7 +117,7 @@ export async function fetchCreatePost(input: CreatePostInput): Promise<CreateRes
     });
     return { ok: true, id: res.post.id };
   } catch (err) {
-    return { ok: false, error: (err as { body?: { detail?: string } }).body?.detail ?? 'Could not create post' };
+    return { ok: false, error: extractErrorMessage(err, 'Could not create post') };
   }
 }
 
@@ -132,6 +136,18 @@ export async function fetchAddComment(subjectId: string, body: string, parentId?
     body,
     parent_id: parentId ?? null
   });
+}
+
+interface BackendComment {
+  id: string; author_id: string | null; author_username: string; body: string; created_at: string; vote_count: number;
+  parent_id: string | null; replies: BackendComment[];
+}
+
+export async function fetchComments(subjectType: string, subjectId: string): Promise<BackendComment[]> {
+  const res = await apiClient.get<{ items: BackendComment[] }>(
+    `/governance/comments?subject_type=${subjectType}&subject_id=${subjectId}`
+  );
+  return res.items;
 }
 
 export async function fetchSubmitReport(

@@ -20,3 +20,15 @@ export function toggleScopeMembership(kind: ScopeKind, slug: string) {
 export function redeemScopeInvite(kind: ScopeKind, slug: string, inviteValue: string) {
   return currentAdapter.redeemScopeInvite(kind, slug, inviteValue);
 }
+
+export function volunteerForBoard() {
+  return currentAdapter.volunteerForBoard();
+}
+
+export function removeVolunteer() {
+  return currentAdapter.removeVolunteer();
+}
+
+export function castModeratorVote(targetUserId: string, vote: string) {
+  return currentAdapter.castModeratorVote(targetUserId, vote);
+}

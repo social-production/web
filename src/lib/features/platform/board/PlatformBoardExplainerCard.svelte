@@ -1,10 +1,10 @@
 <div class="role-rules-card">
-  <h3>How board roles work</h3>
+  <h3>How moderator roles work</h3>
   <ul>
     <li>
-      Board members execute platform outcomes only after users approve them. They do not gate creation or decide platform direction on their own.
+      Moderators execute platform outcomes only after users approve them. They do not gate creation or decide platform direction on their own.
     </li>
-    <li>Board standing follows the weekly active platform vote context rather than raw member counts, so required standing votes rise and fall with real participation.</li>
+    <li>Moderator standing follows the weekly active platform vote context rather than raw member counts, so required standing votes rise and fall with real participation.</li>
     <li>Roles that keep the approval ratio but temporarily fall short on required standing votes stay visible in a grace period before they drop below threshold.</li>
     <li>Standing counts clear votes from users who have been inactive for 100 or more consecutive days, so old approval cannot hold a seat open indefinitely.</li>
   </ul>

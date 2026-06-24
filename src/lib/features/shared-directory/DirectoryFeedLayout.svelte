@@ -5,7 +5,7 @@
   import PublicFeedCard from '$lib/components/cards/public-feed/PublicFeedCard.svelte';
   import PlatformBoardPanel from '$lib/features/platform/board/PlatformBoardPanel.svelte';
   import { setVote } from '$lib/services/queries/feeds';
-  import { redeemScopeInvite, toggleScopeMembership } from '$lib/services/queries/scopes';
+  import { redeemScopeInvite, toggleScopeMembership, castModeratorVote } from '$lib/services/queries/scopes';
   import type { PublicFeedItem, VoteDirection } from '$lib/types/feed';
   import type { ScopeMemberSummary, ScopePageData } from '$lib/types/scope';
 
@@ -27,11 +27,7 @@
   let inviteFeedbackTone: 'soft' | 'warning' = 'soft';
   let lastInviteParam = '';
 
-  $: showRolePanel =
-    pageData.kind === 'platform' &&
-    ((pageData.boardMembers?.length ?? 0) > 0 ||
-      (pageData.boardCandidates?.length ?? 0) > 0 ||
-      (pageData.boardFeatureFrames?.length ?? 0) > 0);
+  $: showRolePanel = pageData.kind === 'platform';
   $: if (!showRolePanel && showBoardPanel) {
     showBoardPanel = false;
   }
@@ -121,7 +117,7 @@
 
   function boardStatusLabel(member: ScopeMemberSummary) {
     if (!member.confidenceStandingState) {
-      return 'Recorded board seat';
+      return 'Moderator';
     }
 
     if (member.confidenceStandingState === 'active') {
@@ -139,8 +135,11 @@
     if (!member.confidenceTargetId) {
       return;
     }
-
-    await setVote(member.confidenceTargetId, vote);
+    if (vote === 0) {
+      await castModeratorVote(member.confidenceTargetId, 'neutral');
+    } else {
+      await castModeratorVote(member.confidenceTargetId, vote === 1 ? 'yes' : 'no');
+    }
     await invalidateAll();
   }
 
@@ -149,9 +148,11 @@
 
     try {
       await toggleScopeMembership(pageData.kind, pageData.slug);
-      await invalidateAll();
+    } catch (err) {
+      console.error('Failed to toggle membership:', err);
     } finally {
       membershipPending = false;
+      await invalidateAll();
     }
   }
 
@@ -270,7 +271,7 @@
           type="button"
           on:click={() => (showBoardPanel = !showBoardPanel)}
         >
-          Board members
+          Moderators
         </button>
       </div>
     {/if}

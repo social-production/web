@@ -22,7 +22,7 @@
   }
 
   function requirementLabel(member: ScopeMemberSummary) {
-    return mode === 'candidate' ? 'counted votes to join the board' : 'counted votes to keep standing';
+      return mode === 'candidate' ? 'counted votes to become moderator' : 'counted votes to keep standing';
   }
 
   function requirementNote(member: ScopeMemberSummary) {
@@ -71,7 +71,7 @@
                 </button>
                 <button
                   aria-label={`Vote down for ${member.username}`}
-                  class="vote-pill"
+                  class="vote-pill down-vote"
                   type="button"
                   on:click={() => handleVote(member, -1)}
                 >
@@ -91,7 +91,7 @@
             </div>
 
             {#if member.confidenceRatio !== undefined}
-              <span class="approval-pill">{member.confidenceRatio}% approval</span>
+              <span class="approval-pill">{(member.confidenceRatio * 100).toFixed(0)}% approval</span>
             {/if}
           </div>
         </div>
@@ -184,6 +184,11 @@
   button.vote-pill:hover {
     border-color: var(--brand);
     background: color-mix(in srgb, var(--brand-soft) 84%, var(--panel-strong));
+  }
+
+  button.vote-pill.down-vote:hover {
+    border-color: var(--accent-warm);
+    background: color-mix(in srgb, var(--accent-warm) 16%, var(--panel-strong));
   }
 
   .vote-arrow {

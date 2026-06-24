@@ -1,4 +1,5 @@
-import { apiClient } from '../client';
+import { apiClient, extractErrorMessage } from '../client';
+import { registerEntityType, registerCommentIds } from '../typeRegistry';
 import type {
   EventPageData,
   EventPlanInput,
@@ -28,6 +29,8 @@ export async function fetchEvent(slug: string): Promise<EventPageData | null> {
   try {
     const res = await apiClient.get<EventPageData>(`/events/${slug}`);
     membershipCache.set(res.slug, res.viewerIsMember);
+    registerEntityType(res.id, 'event');
+    if (res.discussion) registerCommentIds(res.discussion);
     return res;
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
@@ -50,7 +53,7 @@ export async function fetchCreateEvent(input: CreateEventInput): Promise<CreateR
     });
     return { ok: true, slug: res.event.slug };
   } catch (err) {
-    return { ok: false, error: (err as { body?: { detail?: string } }).body?.detail ?? 'Could not create event' };
+    return { ok: false, error: extractErrorMessage(err, 'Could not create event') };
   }
 }
 
@@ -234,6 +237,6 @@ export async function fetchShareEventWithUser(
     await apiClient.post(`/events/${eventSlug}/share`, { username });
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: (err as { body?: { detail?: string } }).body?.detail ?? 'Could not share' };
+    return { ok: false, error: extractErrorMessage(err, 'Could not share') };
   }
 }

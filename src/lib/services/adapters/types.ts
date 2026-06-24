@@ -227,6 +227,9 @@ export interface AppAdapter {
   ): Promise<void>;
   toggleScopeMembership(kind: ScopeKind, slug: string): Promise<void>;
   redeemScopeInvite(kind: ScopeKind, slug: string, inviteValue: string): Promise<boolean>;
+  volunteerForBoard(): Promise<boolean>;
+  removeVolunteer(): Promise<boolean>;
+  castModeratorVote(targetUserId: string, vote: string): Promise<boolean>;
   setVote(targetId: string, vote: VoteDirection): Promise<void>;
   addComment(subjectId: string, body: string, parentId?: string): Promise<void>;
   submitReport(subjectId: string, targetId: string, reason: string, details: string): Promise<void>;

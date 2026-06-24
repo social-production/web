@@ -1,4 +1,4 @@
-import { apiClient } from '../client';
+import { apiClient, extractErrorMessage } from '../client';
 import type { MessagesPageData, MessageConversationResult, CreateGroupMessageInput } from '$lib/types/inbox';
 import type { ViewerSummary } from '$lib/types/bootstrap';
 
@@ -11,6 +11,17 @@ interface BackendConversation {
 }
 interface BackendConversationResponse { conversation: BackendConversation; }
 interface BackendConversationsListResponse { total: number; items: BackendConversation[]; }
+interface BackendLinkedChat {
+  id: string;
+  kind: string;
+  entity_id: string;
+  entity_slug: string;
+  title: string;
+  preview: string;
+  last_message_at: string;
+  comment_count: number;
+}
+interface BackendLinkedChatsResponse { total: number; items: BackendLinkedChat[]; }
 
 function mapParticipant(p: BackendParticipant): ViewerSummary {
   return { id: p.id, username: p.username };
@@ -31,8 +42,9 @@ function mapConversation(c: BackendConversation) {
 
 export async function fetchMessages(): Promise<MessagesPageData | null> {
   try {
-    const [convsRes, meRes] = await Promise.all([
+    const [convsRes, linkedRes, meRes] = await Promise.all([
       apiClient.get<BackendConversationsListResponse>('/messages/conversations'),
+      apiClient.get<BackendLinkedChatsResponse>('/messages/linked-chats'),
       apiClient.get<{ user: BackendUser }>('/users/me')
     ]);
     const viewer: ViewerSummary = {
@@ -44,7 +56,17 @@ export async function fetchMessages(): Promise<MessagesPageData | null> {
     return {
       viewer,
       conversations: convsRes.items.map(mapConversation),
-      linkedChats: [],
+      linkedChats: linkedRes.items.map(chat => ({
+        id: chat.id,
+        kind: chat.kind as 'project' | 'event',
+        subjectId: chat.entity_id,
+        title: chat.title,
+        href: `/${chat.kind}s/${chat.entity_slug}`,
+        meta: `${chat.comment_count} comments`,
+        preview: chat.preview,
+        lastMessageAt: chat.last_message_at,
+        comments: [],
+      })),
       suggestedContacts: [],
       activeConversationId: null
     };
@@ -55,7 +77,11 @@ export async function fetchMessages(): Promise<MessagesPageData | null> {
 }
 
 export async function fetchSendMessage(conversationId: string, body: string): Promise<void> {
-  await apiClient.post(`/messages/conversations/${conversationId}/messages`, { body });
+  try {
+    await apiClient.post(`/messages/conversations/${conversationId}/messages`, { body });
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Could not send message'));
+  }
 }
 
 export async function fetchStartDirectMessage(
@@ -70,7 +96,7 @@ export async function fetchStartDirectMessage(
     await apiClient.post(`/messages/conversations/${conversationId}/messages`, { body });
     return { ok: true, conversationId };
   } catch (err) {
-    const message = (err as { body?: { detail?: string } }).body?.detail ?? 'Could not start conversation';
+    const message = extractErrorMessage(err, 'Could not start conversation');
     return { ok: false, error: message };
   }
 }
@@ -89,7 +115,7 @@ export async function fetchCreateGroupConversation(
     }
     return { ok: true, conversationId };
   } catch (err) {
-    const message = (err as { body?: { detail?: string } }).body?.detail ?? 'Could not create group';
+    const message = extractErrorMessage(err, 'Could not create group');
     return { ok: false, error: message };
   }
 }
@@ -102,7 +128,7 @@ export async function fetchRenameGroupConversation(
     await apiClient.patch(`/messages/conversations/${conversationId}`, { title });
     return { ok: true, conversationId };
   } catch (err) {
-    const message = (err as { body?: { detail?: string } }).body?.detail ?? 'Could not rename conversation';
+    const message = extractErrorMessage(err, 'Could not rename conversation');
     return { ok: false, error: message };
   }
 }
@@ -115,7 +141,7 @@ export async function fetchAddGroupConversationMember(
     await apiClient.post(`/messages/conversations/${conversationId}/members`, { username });
     return { ok: true, conversationId };
   } catch (err) {
-    const message = (err as { body?: { detail?: string } }).body?.detail ?? 'Could not add member';
+    const message = extractErrorMessage(err, 'Could not add member');
     return { ok: false, error: message };
   }
 }
@@ -128,7 +154,7 @@ export async function fetchRemoveGroupConversationMember(
     await apiClient.delete(`/messages/conversations/${conversationId}/members/${username}`);
     return { ok: true, conversationId };
   } catch (err) {
-    const message = (err as { body?: { detail?: string } }).body?.detail ?? 'Could not remove member';
+    const message = extractErrorMessage(err, 'Could not remove member');
     return { ok: false, error: message };
   }
 }

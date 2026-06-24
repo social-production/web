@@ -1,4 +1,4 @@
-import { apiClient } from '../client';
+import { apiClient, extractErrorMessage } from '../client';
 import { storeToken, clearToken } from '../auth';
 import type { AuthResult, SignInInput, SignUpInput } from '$lib/types/account';
 
@@ -16,8 +16,7 @@ export async function fetchSignIn(input: SignInInput): Promise<AuthResult> {
     storeToken(res.access_token);
     return { ok: true };
   } catch (err) {
-    const message = (err as { body?: { detail?: string } }).body?.detail ?? 'Sign in failed';
-    return { ok: false, error: message };
+    return { ok: false, error: extractErrorMessage(err, 'Sign in failed') };
   }
 }
 
@@ -31,8 +30,7 @@ export async function fetchSignUp(input: SignUpInput): Promise<AuthResult> {
     storeToken(res.access_token);
     return { ok: true };
   } catch (err) {
-    const message = (err as { body?: { detail?: string } }).body?.detail ?? 'Sign up failed';
-    return { ok: false, error: message };
+    return { ok: false, error: extractErrorMessage(err, 'Sign up failed') };
   }
 }
 

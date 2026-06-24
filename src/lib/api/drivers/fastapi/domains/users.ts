@@ -1,4 +1,5 @@
 import { apiClient } from '../client';
+import { mapPersonalItem } from './feeds';
 import type { ProfilePageData, SettingsPageData, SettingsUpdateInput } from '$lib/types/account';
 import type { ViewerSummary } from '$lib/types/bootstrap';
 
@@ -104,10 +105,11 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
 
 export async function fetchProfile(username: string): Promise<ProfilePageData | null> {
   try {
-    const [profileRes, followersRes, followingRes] = await Promise.all([
+    const [profileRes, followersRes, followingRes, feedRes] = await Promise.all([
       apiClient.get<{ user: BackendUser }>(`/users/${username}`),
       apiClient.get<BackendFollowList>(`/users/${username}/followers`),
       apiClient.get<BackendFollowList>(`/users/${username}/following`),
+      apiClient.get<{ items: Parameters<typeof mapPersonalItem>[0][] }>(`/feeds/user/${encodeURIComponent(username)}`),
     ]);
     return {
       username: profileRes.user.username,
@@ -117,7 +119,7 @@ export async function fetchProfile(username: string): Promise<ProfilePageData | 
       followers: followersRes.items.map(mapUser),
       following: followingRes.items.map(mapUser),
       canViewPersonalFeed: false,
-      feed: [],
+      feed: feedRes.items.flatMap(item => { const m = mapPersonalItem(item); return m ? [m] : []; }),
     };
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;

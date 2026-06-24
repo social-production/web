@@ -60,3 +60,13 @@ export function createFastApiClient() {
 }
 
 export const apiClient = createFastApiClient();
+
+export function extractErrorMessage(err: unknown, fallback: string): string {
+  const detail = (err as { body?: { detail?: unknown } }).body?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0] as { msg?: string };
+    return first.msg ?? fallback;
+  }
+  return fallback;
+}

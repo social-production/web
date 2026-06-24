@@ -56,7 +56,8 @@
     (request) => request.kind === nextVoteKind
   );
   $: canDirectReturn = personalDirectPhaseChange && data.lifecycle.viewerCanRevertPhase;
-  $: canDirectAdvance = personalDirectPhaseChange && data.lifecycle.viewerCanAdvancePhase;
+  $: signalGatePasses = data.lifecycle.currentPhaseId !== 'phase-1' || (data.lifecycle.phaseOne?.signalSummary?.advancementUnlocked ?? false);
+  $: canDirectAdvance = personalDirectPhaseChange && data.lifecycle.viewerCanAdvancePhase && signalGatePasses;
   $: showReturnActions = personalDirectPhaseChange
     ? canDirectReturn
     : data.lifecycle.revertablePhaseIds.length > 0 || returnRequests.length > 0;
@@ -300,7 +301,7 @@
               <CountBadge count={nextActionRequests.length} />
             </button>
           {/if}
-          {#if (personalDirectPhaseChange ? canDirectAdvance : data.lifecycle.viewerCanRequestPhaseChanges) && data.lifecycle.nextPhaseId}
+          {#if (personalDirectPhaseChange ? canDirectAdvance : (data.lifecycle.viewerCanRequestPhaseChanges && signalGatePasses)) && data.lifecycle.nextPhaseId}
             <button
               class:active-toggle={showNextPhaseComposer}
               class="secondary-button action-button"

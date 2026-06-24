@@ -6,6 +6,8 @@
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import { addComment } from '$lib/services/queries/details';
+  import { fetchComments } from '$lib/api/drivers/fastapi/domains/content';
+  import { registerEntityType, registerCommentIds } from '$lib/api/drivers/fastapi/typeRegistry';
   import {
     addGroupConversationMember,
     createGroupConversation,
@@ -16,6 +18,8 @@
     startDirectMessage
   } from '$lib/services/queries/inbox';
   import type { MessageLinkedChat, MessagesPageData } from '$lib/types/inbox';
+  import type { DetailComment } from '$lib/types/detail';
+  import type { VoteDirection } from '$lib/types/feed';
   import { tick } from 'svelte';
   import { formatRelativeTime } from '$lib/utils/time';
 
@@ -42,6 +46,8 @@
   let directOptionsFeedback = '';
   let titleSyncKey = '';
   let messagesShellElement: HTMLElement | null = null;
+  let linkedChatComments: DetailComment[] = [];
+  let linkedChatCommentsLoading = false;
 
   $: activeConversation =
     data.conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
@@ -237,6 +243,38 @@
     groupSettingsFeedback = '';
     directOptionsFeedback = '';
 
+    const chat = data.linkedChats.find(c => c.id === chatId);
+    if (chat) {
+      registerEntityType(chat.id, chat.kind === 'event' ? 'event' : 'project');
+      linkedChatComments = [];
+      linkedChatCommentsLoading = true;
+      try {
+        linkedChatComments = (await fetchComments(chat.kind, chat.subjectId)).map(c => {
+          registerEntityType(c.id, 'comment');
+          return {
+          id: c.id,
+          authorUsername: c.author_username || '',
+          body: c.body,
+          createdAt: c.created_at,
+          voteCount: c.vote_count,
+          activeVote: (c.active_vote ?? 0) as VoteDirection,
+          replies: (c.replies ?? []).map(r => {
+            registerEntityType(r.id, 'comment');
+            return {
+            id: r.id,
+            authorUsername: r.author_username || '',
+            body: r.body,
+            createdAt: r.created_at,
+            voteCount: r.vote_count,
+            activeVote: (r.active_vote ?? 0) as VoteDirection,
+            replies: [],
+          }}),
+        }});
+      } finally {
+        linkedChatCommentsLoading = false;
+      }
+    }
+
     await focusConversationShell();
   }
 
@@ -245,8 +283,21 @@
       return;
     }
 
-    await sendMessage(activeConversation.id, body);
-    await invalidateAll();
+    composerError = '';
+    try {
+      await sendMessage(activeConversation.id, body);
+      await invalidateAll();
+    } catch (err) {
+      const detail = (err as { body?: { detail?: unknown } }).body?.detail;
+      if (typeof detail === 'string') {
+        composerError = detail;
+      } else if (Array.isArray(detail) && detail.length > 0) {
+        const first = detail[0] as { msg?: string };
+        composerError = first.msg ?? 'Could not send message';
+      } else {
+        composerError = 'Could not send message';
+      }
+    }
   }
 
   async function submitLinkedChatMessage(body: string) {
@@ -256,6 +307,29 @@
 
     await addComment(activeLinkedChat.subjectId, body);
     await invalidateAll();
+    if (activeLinkedChat) {
+      linkedChatComments = (await fetchComments(activeLinkedChat.kind, activeLinkedChat.subjectId)).map(c => {
+        registerEntityType(c.id, 'comment');
+        return {
+        id: c.id,
+        authorUsername: c.author_username || '',
+        body: c.body,
+        createdAt: c.created_at,
+        voteCount: c.vote_count,
+        activeVote: (c.active_vote ?? 0) as VoteDirection,
+        replies: (c.replies ?? []).map(r => {
+          registerEntityType(r.id, 'comment');
+          return {
+          id: r.id,
+          authorUsername: r.author_username || '',
+          body: r.body,
+          createdAt: r.created_at,
+          voteCount: r.vote_count,
+          activeVote: (r.active_vote ?? 0) as VoteDirection,
+          replies: [],
+        }}),
+      }});
+    }
   }
 
   function handleNewComposerKeydown(event: KeyboardEvent) {
@@ -654,7 +728,7 @@
         />
       {:else if activeLinkedChat}
         <LiveChatPanel
-          comments={activeLinkedChat.comments}
+          comments={linkedChatComments}
           embedded={true}
           emptyCopy={activeLinkedChat.kind === 'project' ? 'No project chat yet.' : 'No event chat yet.'}
           onSubmitMessage={submitLinkedChatMessage}

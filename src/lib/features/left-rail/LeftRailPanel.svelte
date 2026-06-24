@@ -30,6 +30,10 @@
     label: 'Platform',
     href: '/platform'
   };
+
+  $: nonPlatformChannels = bootstrap.directory.channels.filter(
+    (c: { slug: string }) => c.slug !== 'platform' && c.slug !== 'stewardship'
+  );
 </script>
 
 {#if compact}
@@ -89,7 +93,7 @@
   <h2>Channels</h2>
   <p class="section-subtitle">{railDescriptions.channels}</p>
   <div class="stack-links">
-    {#each bootstrap.directory.channels as link}
+    {#each nonPlatformChannels as link}
       <a class:active-link={isActive(link.href)} class="rail-link" href={link.href} on:click={closePanels}>
         {link.label}
       </a>

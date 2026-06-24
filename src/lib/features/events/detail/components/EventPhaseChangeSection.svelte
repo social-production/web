@@ -173,7 +173,13 @@
   }
 
   async function submitNextPhaseRequest() {
-    if (!data.lifecycle.nextPhaseId || !nextPhaseReason.trim() || !canAdvanceCurrentPhase) {
+    if (!data.lifecycle.nextPhaseId) {
+      return;
+    }
+    if (!nextPhaseReason.trim()) {
+      return;
+    }
+    if (!canAdvanceCurrentPhase) {
       return;
     }
 
