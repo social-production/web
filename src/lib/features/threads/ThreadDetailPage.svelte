@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import DiscussionPanel from '$lib/components/discussion/DiscussionPanel.svelte';
+  import ContextualBackButton from '$lib/components/shared/ContextualBackButton.svelte';
   import ThreadOverviewPanel from '$lib/features/threads/detail/ThreadOverviewPanel.svelte';
   import type { ThreadPageData } from '$lib/types/detail';
 
@@ -21,6 +22,7 @@
 
 <section class="page">
   <section class="hero-card">
+    <ContextualBackButton fallbackHref="/" />
     <section class="section-card">
       <ThreadOverviewPanel {data} />
     </section>

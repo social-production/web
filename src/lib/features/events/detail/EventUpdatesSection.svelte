@@ -25,6 +25,8 @@
   export let data: EventPageData;
   export let highlightedUpdateId: string | null = null;
   export let showMembersPanel = false;
+  export let autoExpandVoteCards = false;
+  export let autoExpandVoteKind: string | null = null;
 
   const dispatch = createEventDispatcher<{ togglemembers: void }>();
 
@@ -37,9 +39,16 @@
   let showEditVotes = false;
   let updatePending = false;
   let editPending = false;
+  let updateMessage = '';
+  let editMessage = '';
   let updateVotesElement: HTMLElement | null = null;
   let editVotesElement: HTMLElement | null = null;
   let editComposerElement: HTMLElement | null = null;
+
+  $: if (autoExpandVoteCards) {
+    if (!autoExpandVoteKind || autoExpandVoteKind === 'update') showUpdateVotes = true;
+    if (!autoExpandVoteKind || autoExpandVoteKind === 'edit') showEditVotes = true;
+  }
 
   function scrollElementIntoView(element: HTMLElement | null) {
     if (!element) {
@@ -63,16 +72,20 @@
 
   async function submitUpdate() {
     if (!draftUpdateBody.trim()) {
+      updateMessage = 'Write an update before submitting.';
       return;
     }
 
     updatePending = true;
+    updateMessage = '';
 
     try {
       await requestEventUpdate(data.slug, draftUpdateBody);
       draftUpdateBody = '';
       showUpdateComposer = false;
       await invalidateAll();
+    } catch {
+      updateMessage = 'This update request could not be submitted. Reload and try again.';
     } finally {
       updatePending = false;
     }
@@ -80,15 +93,19 @@
 
   async function submitEdit() {
     if (!draftEditTitle.trim() || !draftEditDescription.trim()) {
+      editMessage = 'Add both a title and description before submitting.';
       return;
     }
 
     editPending = true;
+    editMessage = '';
 
     try {
       await requestEventEdit(data.slug, draftEditTitle, draftEditDescription);
       showEditComposer = false;
       await invalidateAll();
+    } catch {
+      editMessage = 'This edit request could not be submitted. Reload and try again.';
     } finally {
       editPending = false;
     }
@@ -102,6 +119,7 @@
     showUpdateComposer = !showUpdateComposer;
 
     if (showUpdateComposer) {
+      updateMessage = '';
       showUpdateVotes = false;
       showEditComposer = false;
       showEditVotes = false;
@@ -124,6 +142,7 @@
     showEditComposer = !showEditComposer;
 
     if (showEditComposer) {
+      editMessage = '';
       draftEditTitle = data.title;
       draftEditDescription = data.description;
       showUpdateComposer = false;
@@ -175,6 +194,9 @@
 
   {#if data.viewerCanRequestUpdate && showUpdateComposer}
     <div class="composer-card">
+      {#if updateMessage}
+        <div class="warning-card" role="alert">{updateMessage}</div>
+      {/if}
       <label class="field-stack">
         <span class="field-label">Update</span>
         <textarea bind:value={draftUpdateBody} rows="4" placeholder="Share what changed for this event..."></textarea>
@@ -193,7 +215,7 @@
   {#if showUpdateVotes && data.updateRequests.length > 0}
     <div bind:this={updateVotesElement} class="surface-stack">
       {#each data.updateRequests as request (request.id)}
-        <article class="surface-card vote-request-card">
+        <article id={`vote-card-update-${request.id}`} class="surface-card vote-request-card">
           <div class="vote-card-top">
             <div class="vote-card-copy">
               <span class="vote-kicker">Update decision</span>
@@ -235,6 +257,9 @@
 
   {#if data.viewerCanRequestEdit && showEditComposer}
     <div bind:this={editComposerElement} class="composer-card">
+      {#if editMessage}
+        <div class="warning-card" role="alert">{editMessage}</div>
+      {/if}
       <label class="field-stack">
         <span class="field-label">Title</span>
         <input bind:value={draftEditTitle} maxlength="120" placeholder="Event title" />
@@ -255,39 +280,6 @@
           Propose edit
         </button>
       </div>
-    </div>
-  {/if}
-
-  {#if showEditVotes && data.editRequests.length > 0}
-    <div bind:this={editVotesElement} class="surface-stack">
-      {#each data.editRequests as request (request.id)}
-        <article class="surface-card vote-request-card">
-          <div class="vote-card-top">
-            <div class="vote-card-copy">
-              <span class="vote-kicker">Edit decision</span>
-            </div>
-            <span class="vote-requirement">
-              {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}
-            </span>
-          </div>
-
-          <div class="edit-request-copy">
-            <p>{request.description}</p>
-          </div>
-
-          <div class="vote-summary-row">
-            <span>{formatProjectVoteSummary(request.voteSummary)}</span>
-          </div>
-
-          <VoteCardFooter
-            authorUsername={request.authorUsername}
-            createdAt={request.createdAt}
-            activeVote={request.voteSummary.activeVote}
-            canVote={data.viewerCanVoteOnEditRequests}
-            onVote={(vote) => voteOnEditRequest(request.id, vote)}
-          />
-        </article>
-      {/each}
     </div>
   {/if}
 
@@ -324,12 +316,46 @@
       · {formatRelativeTime(data.createdAt)}
     </span>
   </div>
+
+  {#if showEditVotes && data.editRequests.length > 0}
+    <div bind:this={editVotesElement} class="surface-stack">
+      {#each data.editRequests as request (request.id)}
+        <article id={`vote-card-edit-${request.id}`} class="surface-card vote-request-card">
+          <div class="vote-card-top">
+            <div class="vote-card-copy">
+              <span class="vote-kicker">Edit decision</span>
+            </div>
+            <span class="vote-requirement">
+              {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}
+            </span>
+          </div>
+
+          <div class="edit-request-copy">
+            <p>{request.description}</p>
+          </div>
+
+          <div class="vote-summary-row">
+            <span>{formatProjectVoteSummary(request.voteSummary)}</span>
+          </div>
+
+          <VoteCardFooter
+            authorUsername={request.authorUsername}
+            createdAt={request.createdAt}
+            activeVote={request.voteSummary.activeVote}
+            canVote={data.viewerCanVoteOnEditRequests}
+            onVote={(vote) => voteOnEditRequest(request.id, vote)}
+          />
+        </article>
+      {/each}
+    </div>
+  {/if}
 </section>
 
 <style>
   .updates-shell,
   .stack,
   .composer-card,
+  .warning-card,
   .surface-stack,
   .vote-card-copy {
     display: grid;
@@ -411,6 +437,16 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
+  }
+
+  .warning-card {
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--status-yellow) 50%, var(--panel-border));
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--status-yellow) 14%, var(--panel-strong));
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .updates-list.scrollable {

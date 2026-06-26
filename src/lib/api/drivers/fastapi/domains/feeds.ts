@@ -23,9 +23,12 @@ interface BackendFeedItem {
   member_count: number;
   last_activity_at: string;
   created_at: string;
+  last_update_at?: string | null;
+  latest_update_body?: string | null;
   project_mode: string | null;
   project_subtype: string | null;
   stage_label: string | null;
+  current_phase_id?: string | null;
   location_label: string | null;
   is_private: boolean;
   scheduled_at: string | null;
@@ -41,6 +44,17 @@ interface BackendFeedResponse {
   limit: number;
   offset: number;
   items: BackendFeedItem[];
+}
+
+function registerFeedEntity(item: BackendFeedItem): void {
+  if (
+    item.entity_type === 'project' ||
+    item.entity_type === 'thread' ||
+    item.entity_type === 'event' ||
+    item.entity_type === 'post'
+  ) {
+    registerEntityType(item.id, item.entity_type);
+  }
 }
 
 function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
@@ -59,6 +73,8 @@ function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
       projectMode: (item.project_mode ?? 'productive') as never,
       projectSubtype: (item.project_subtype as never) ?? null,
       summary: item.body,
+      latestDescription: item.latest_update_body ?? undefined,
+      latestUpdateAt: item.last_update_at ?? undefined,
       channelTags,
       communityTags,
       stage: item.stage_label ?? '',
@@ -101,6 +117,7 @@ function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
       title: item.title,
       description: item.body,
       isPrivate: item.is_private,
+      stage: item.stage_label ?? '',
       scheduledAt: item.scheduled_at ?? undefined,
       channelTags,
       communityTags,
@@ -111,7 +128,9 @@ function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
       activeVote: (item.active_vote ?? 0) as VoteDirection,
       commentCount: item.comment_count,
       memberCount: item.member_count,
-      lastActivityAt: item.last_activity_at
+      lastActivityAt: item.last_activity_at,
+      latestUpdateBody: item.latest_update_body ?? undefined,
+      latestUpdateAt: item.last_update_at ?? undefined
     };
   }
 
@@ -184,9 +203,7 @@ export async function fetchPublicFeed(): Promise<PublicFeedItem[]> {
   const res = await apiClient.get<BackendFeedResponse>('/feeds/public');
   return res.items.flatMap(item => {
     const mapped = mapPublicItem(item);
-    if (mapped && item.entity_type === 'thread') {
-      registerEntityType(item.id, 'thread');
-    }
+    if (mapped) registerFeedEntity(item);
     return mapped ? [mapped] : [];
   });
 }
@@ -195,9 +212,7 @@ export async function fetchPersonalFeed(): Promise<PersonalFeedItem[]> {
   const res = await apiClient.get<BackendFeedResponse>('/feeds/personal');
   return res.items.flatMap(item => {
     const mapped = mapPersonalItem(item);
-    if (mapped && (item.entity_type === 'thread' || item.entity_type === 'post')) {
-      registerEntityType(item.id, item.entity_type as never);
-    }
+    if (mapped) registerFeedEntity(item);
     return mapped ? [mapped] : [];
   });
 }

@@ -46,6 +46,7 @@ export interface CreateThreadInput {
 export interface CreateEventInput {
   title: string;
   description: string;
+  isPrivate?: boolean;
   channelTags: TagRef[];
   communityTags: TagRef[];
   invitedUsernames: string[];
@@ -87,6 +88,7 @@ export interface PublicProjectItem {
   projectSubtype?: ProjectSubtype | null;
   summary: string;
   latestDescription?: string;
+  latestUpdateAt?: string;
   channelTags: TagRef[];
   communityTags: TagRef[];
   stage: string;
@@ -126,6 +128,7 @@ export interface PublicEventItem {
   title: string;
   description: string;
   isPrivate: boolean;
+  stage: string;
   scheduledAt?: string;
   channelTags: TagRef[];
   communityTags: TagRef[];
@@ -137,6 +140,8 @@ export interface PublicEventItem {
   commentCount: number;
   memberCount: number;
   lastActivityAt: string;
+  latestUpdateBody?: string;
+  latestUpdateAt?: string;
 }
 
 export type PublicFeedItem =

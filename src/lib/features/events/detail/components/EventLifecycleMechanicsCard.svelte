@@ -16,7 +16,6 @@
 
 <div class="phase-header">
   <div class="phase-line">
-    <span class="phase-kicker">{phase.shortLabel}</span>
     <div class="phase-badges">
       <span class={`phase-badge ${phase.progressState}`}>{progressLabel}</span>
       {#if phase.betaLocked}

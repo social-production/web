@@ -1,9 +1,16 @@
 <script lang="ts">
+  import { invalidateAll } from '$app/navigation';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
+  import { markLinkedChatRead } from '$lib/services/queries/inbox';
   import type { ProjectPageData } from '$lib/types/detail';
+  import { onMount } from 'svelte';
 
   export let data: ProjectPageData;
   export let highlightedCommentId: string | null = null;
+
+  onMount(() => {
+    void markLinkedChatRead('project', data.id).then(() => invalidateAll());
+  });
 </script>
 
 <section class="chat-shell">

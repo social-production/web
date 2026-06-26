@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
+  import { page } from '$app/stores';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
@@ -11,14 +12,16 @@
     toggleEventMembership
   } from '$lib/services/queries/details';
   import type { EventPageData } from '$lib/types/detail';
+  import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
+  import { requireViewer } from '$lib/utils/requireViewer';
 
   export let data: EventPageData;
 
   $: combinedTags = [...data.channelTags, ...data.communityTags];
   $: signalSummary = data.lifecycle.phaseOne.signalSummary;
   $: membershipButtonLabel = `${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`;
-  $: timeLabel = data.timeLabel.trim();
-  $: locationLabel = data.locationLabel.trim();
+  $: timeLabel = isImplementedScheduleLabel(data.timeLabel) ? data.timeLabel.trim() : '';
+  $: locationLabel = isImplementedScheduleLabel(data.locationLabel) ? data.locationLabel.trim() : '';
   $: showScheduledMeta = !!timeLabel || !!locationLabel;
   $: proposalMetaCopy = data.isPrivate
     ? 'This private event stays proposal-first until an approved plan sets the live schedule and location.'
@@ -29,11 +32,19 @@
       : `${data.lifecycle.quorumVotesRequired} ${data.lifecycle.quorumVotesRequired === 1 ? 'vote' : 'votes'} required from ${data.lifecycle.voteContextPopulation} ${data.lifecycle.voteContextLabel}`;
 
   async function handleSignalSet(signal: 'demand' | 'opposition') {
+    if (!requireViewer($page.data.bootstrap?.viewer)) {
+      return;
+    }
+
     await setEventSignal(data.slug, signal);
     await invalidateAll();
   }
 
   async function handleMembershipToggle() {
+    if (!requireViewer($page.data.bootstrap?.viewer)) {
+      return;
+    }
+
     await toggleEventMembership(data.slug);
     await invalidateAll();
   }

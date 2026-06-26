@@ -1,5 +1,9 @@
 <script lang="ts">
+  import { invalidateAll } from '$app/navigation';
+  import { page } from '$app/stores';
   import PersonalFeedCard from '$lib/components/cards/personal-feed/PersonalFeedCard.svelte';
+  import ContextualBackButton from '$lib/components/shared/ContextualBackButton.svelte';
+  import { followUser, unfollowUser } from '$lib/services/queries/account';
   import type { ProfilePageData } from '$lib/types/account';
   import type { PersonalFeedItem } from '$lib/types/feed';
 
@@ -12,6 +16,8 @@
   let activeFilter: FeedFilter = 'all';
   let activePeopleList: PeopleListMode = null;
   let sortMode: SortMode = 'newest';
+  let followPending = false;
+  let followMessage = '';
 
   function togglePeopleList(mode: Exclude<PeopleListMode, null>) {
     activePeopleList = activePeopleList === mode ? null : mode;
@@ -33,6 +39,28 @@
     return item.voteCount + item.commentCount;
   }
 
+  async function toggleFollow() {
+    if (data.isOwnProfile || followPending) {
+      return;
+    }
+
+    followPending = true;
+    followMessage = '';
+
+    try {
+      if (data.viewerIsFollowing) {
+        await unfollowUser(data.username);
+      } else {
+        await followUser(data.username);
+      }
+      await invalidateAll();
+    } catch {
+      followMessage = 'Could not update follow status. Reload and try again.';
+    } finally {
+      followPending = false;
+    }
+  }
+
   $: visibleFeed = data.feed
     .filter((item) => matchesFilter(item, activeFilter))
     .slice()
@@ -48,9 +76,11 @@
       return +new Date(right.createdAt) - +new Date(left.createdAt);
     });
   $: peopleItems = activePeopleList === 'followers' ? data.followers : data.following;
+  $: backFallback = $page.url.searchParams.get('from') || '/';
 </script>
 
 <section class="page">
+  <ContextualBackButton fallbackHref={backFallback} />
   <section class="hero-card">
     <div class="hero-topline">
       <div>
@@ -58,20 +88,32 @@
         <h1>{data.username}</h1>
       </div>
 
-      <div class="stats-row">
-        <button class:active={activePeopleList === 'followers'} class="stat-chip" type="button" on:click={() => togglePeopleList('followers')}>
-          <strong>{data.followersCount}</strong>
-          <span>Followers</span>
-        </button>
-        <button class:active={activePeopleList === 'following'} class="stat-chip" type="button" on:click={() => togglePeopleList('following')}>
-          <strong>{data.followingCount}</strong>
-          <span>Following</span>
-        </button>
+      <div class="profile-actions">
+        {#if !data.isOwnProfile}
+          <button class="follow-button" type="button" disabled={followPending} on:click={toggleFollow}>
+            {followPending ? 'Working...' : data.viewerIsFollowing ? 'Unfollow' : 'Follow'}
+          </button>
+        {/if}
+
+        <div class="stats-row">
+          <button class:active={activePeopleList === 'followers'} class="stat-chip" type="button" on:click={() => togglePeopleList('followers')}>
+            <strong>{data.followersCount}</strong>
+            <span>Followers</span>
+          </button>
+          <button class:active={activePeopleList === 'following'} class="stat-chip" type="button" on:click={() => togglePeopleList('following')}>
+            <strong>{data.followingCount}</strong>
+            <span>Following</span>
+          </button>
+        </div>
       </div>
     </div>
 
     {#if data.bio}
       <p>{data.bio}</p>
+    {/if}
+
+    {#if followMessage}
+      <div class="warning-card" role="alert">{followMessage}</div>
     {/if}
   </section>
 
@@ -170,6 +212,7 @@
   .hero-card,
   .toolbar-card,
   .people-card,
+  .warning-card,
   .empty-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
@@ -192,6 +235,17 @@
   .toolbar-card,
   .people-topline {
     justify-content: space-between;
+  }
+
+  .profile-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .hero-topline .stats-row {
+    margin-left: 0;
   }
 
   .eyebrow,
@@ -245,7 +299,8 @@
     font-weight: 700;
   }
 
-  .toolbar-button {
+  .toolbar-button,
+  .follow-button {
     padding: 7px 10px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -258,6 +313,24 @@
   .toolbar-button.active {
     border-color: var(--brand);
     color: var(--brand-strong);
+  }
+
+  .follow-button {
+    background: var(--brand);
+    color: var(--page-bg);
+  }
+
+  .follow-button:disabled {
+    opacity: 0.7;
+  }
+
+  .warning-card {
+    margin-top: 12px;
+    border-color: color-mix(in srgb, var(--status-yellow) 50%, var(--panel-border));
+    background: color-mix(in srgb, var(--status-yellow) 14%, var(--panel));
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .toolbar-button:hover,

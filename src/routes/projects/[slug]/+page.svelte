@@ -5,4 +5,6 @@
   export let data: PageData;
 </script>
 
-<ProjectDetailPage data={data.project} />
+{#key data.project.slug}
+  <ProjectDetailPage data={data.project} />
+{/key}

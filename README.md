@@ -36,17 +36,37 @@ The FastAPI driver lives here:
 
 - `src/lib/api/drivers/fastapi/`
 
-## Full Stack Setup
+## First-Time Setup
 
-To run the complete stack locally (backend + frontend together):
+The easiest way to run Social Production locally is to start the backend with Docker, then start the frontend with npm.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose for PostgreSQL, Redis, and the FastAPI backend
+- [Node.js 18+](https://nodejs.org/) and npm for the SvelteKit frontend
+- Git, if you are cloning the project for the first time
+
+Check your installed versions:
 
 ```bash
-# Terminal 1 — backend (from the web-backend folder)
+docker --version
+node --version
+npm --version
+```
+
+### 1. Start the backend
+
+```bash
+cd ../web-backend
 docker compose up -d --build
 ```
 
+Wait a minute for the database, migrations, and seed data. Then open `http://localhost:8000/docs`.
+
+### 2. Start the frontend
+
 ```bash
-# Terminal 2 — frontend (from the web folder)
+cd ../web
 npm install
 npm run dev
 ```
@@ -55,31 +75,32 @@ Then open `http://localhost:5173`. The backend API docs are at `http://localhost
 
 See `web-backend/README.md` for full backend setup details.
 
-## Prerequisites
-
-Before running the frontend you need:
-
-- **Node.js 18+** and **npm** — [nodejs.org](https://nodejs.org)
-- **The backend running** at `http://localhost:8000` — see `web-backend/README.md` for setup
-
-If the backend is not running the frontend will load but all data calls will fail.
-
 ## How To Run This
 
 If you are new to programming, use these steps exactly.
 
 ### 1. Create your local environment file
 
-Create a file called `.env.local` in the `web` folder with these two lines:
+Copy the template and edit if your backend URL differs:
+
+```bash
+cp .env.example .env.local
+```
+
+Or create `web/.env.local` manually with:
 
 ```env
 VITE_BACKEND=fastapi
 VITE_API_URL=http://localhost:8000
 ```
 
-This file is gitignored and never committed. It tells the frontend which backend driver to use and where the backend is running. Without it the app cannot load any data.
+This file is gitignored and never committed. The frontend only needs public config (which API to call). Login tokens are issued at runtime and stored in the browser — they do not belong in env files.
 
-### 2. Open the repo folder in a terminal
+The backend uses `web-backend/.env` for secrets (`DATABASE_URL`, `JWT_SECRET`, `MESSAGE_ENCRYPTION_KEY`, etc.). See `web-backend/.env.example` for that template.
+
+The frontend defaults to the FastAPI driver and `http://localhost:8000`; use `.env.local` whenever your backend URL is different.
+
+### 2. Open the frontend folder in a terminal
 
 Make sure your terminal is inside the `web` folder.
 

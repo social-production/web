@@ -30,10 +30,18 @@
   let showRevertComposer = false;
   let nextPhaseReason = '';
   let revertReason = '';
+  let nextPhaseMessage = '';
+  let revertMessage = '';
   let revertTargetPhaseId: EventLifecyclePhaseId = 'event-plan';
   let expandedVoteGroup: 'return' | 'advance' | 'close' | null = null;
   let nextPhaseComposerElement: HTMLDivElement | null = null;
   let revertComposerElement: HTMLDivElement | null = null;
+
+  export let autoExpandVoteGroup: 'return' | 'advance' | 'close' | null = null;
+
+  $: if (autoExpandVoteGroup && autoExpandVoteGroup !== expandedVoteGroup) {
+    expandedVoteGroup = autoExpandVoteGroup;
+  }
 
   $: currentPhaseVisible = activePhaseId === data.lifecycle.currentPhaseId;
   $: returnRequests = data.lifecycle.phaseChangeRequests.filter((request) => request.kind === 'return');
@@ -103,12 +111,14 @@
   function closeNextPhaseComposer() {
     showNextPhaseComposer = false;
     nextPhaseReason = '';
+    nextPhaseMessage = '';
     phaseChangeReason = '';
   }
 
   function closeRevertComposer() {
     showRevertComposer = false;
     revertReason = '';
+    revertMessage = '';
   }
 
   function scrollComposerIntoView(element: HTMLElement | null) {
@@ -132,6 +142,7 @@
     }
 
     showNextPhaseComposer = true;
+    nextPhaseMessage = '';
     closeRevertComposer();
     expandedVoteGroup = null;
     await tick();
@@ -154,6 +165,7 @@
     }
 
     showRevertComposer = true;
+    revertMessage = '';
     closeNextPhaseComposer();
     expandedVoteGroup = null;
     await tick();
@@ -174,25 +186,37 @@
 
   async function submitNextPhaseRequest() {
     if (!data.lifecycle.nextPhaseId) {
+      nextPhaseMessage = 'There is no next phase available from here.';
       return;
     }
     if (!nextPhaseReason.trim()) {
+      nextPhaseMessage = 'Add a reason before submitting this phase change.';
       return;
     }
     if (!canAdvanceCurrentPhase) {
+      nextPhaseMessage = data.lifecycle.currentPhaseId === 'event-plan'
+        ? 'This event needs an approved plan before it can advance.'
+        : 'This event has not met the requirements to advance yet.';
       return;
     }
 
+    nextPhaseMessage = '';
     phaseChangeReason = nextPhaseReason;
     await requestPhaseChange(data.lifecycle.nextPhaseId, nextPhaseReason);
     closeNextPhaseComposer();
   }
 
   async function submitRevertRequest() {
-    if (!data.lifecycle.revertablePhaseIds.length || !revertReason.trim()) {
+    if (!data.lifecycle.revertablePhaseIds.length) {
+      revertMessage = 'There is no earlier phase available to return to.';
+      return;
+    }
+    if (!revertReason.trim()) {
+      revertMessage = 'Add a reason before submitting this return request.';
       return;
     }
 
+    revertMessage = '';
     phaseChangeReason = revertReason;
     await requestPhaseChange(revertTargetPhaseId, revertReason);
     closeRevertComposer();
@@ -247,6 +271,9 @@
       <div bind:this={revertComposerElement} class="mechanics-card change-action-panel">
         <div class="composer-card">
           <h3>Return</h3>
+          {#if revertMessage}
+            <div class="warning-card" role="alert">{revertMessage}</div>
+          {/if}
           <label>
             <span class="field-inline-label">Return to</span>
             <select bind:value={revertTargetPhaseId}>
@@ -261,7 +288,7 @@
           </label>
           <div class="composer-actions">
             <button class="secondary-button" type="button" on:click={closeRevertComposer}>Cancel</button>
-            <button class="primary-button" disabled={!revertReason.trim()} type="button" on:click={submitRevertRequest}>
+            <button class="primary-button" type="button" on:click={submitRevertRequest}>
               Return
             </button>
           </div>
@@ -273,6 +300,9 @@
       <div bind:this={nextPhaseComposerElement} class="mechanics-card change-action-panel">
         <div class="composer-card">
           <h3>{nextPhaseActionLabel()}</h3>
+          {#if nextPhaseMessage}
+            <div class="warning-card" role="alert">{nextPhaseMessage}</div>
+          {/if}
           <label>
             <span class="field-inline-label">Reason</span>
             <textarea bind:value={nextPhaseReason} rows="3" placeholder={nextPhasePlaceholder()}></textarea>
@@ -290,7 +320,6 @@
             <button class="secondary-button" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
             <button
               class="primary-button"
-              disabled={!nextPhaseReason.trim() || !canAdvanceCurrentPhase}
               type="button"
               on:click={submitNextPhaseRequest}
             >
@@ -304,7 +333,7 @@
     {#if expandedVoteGroup === 'return' && returnRequests.length > 0}
       <div class="surface-stack">
         {#each returnRequests as request (request.id)}
-          <article class="surface-card vote-request-card">
+          <article id={`vote-card-phase_change-${request.id}`} class="surface-card vote-request-card">
             <div class="vote-card-top">
               <div class="vote-card-copy">
                 <span class="vote-kicker">{requestKindLabel(request)}</span>
@@ -336,7 +365,7 @@
     {#if expandedVoteGroup === nextVoteKind && nextActionRequests.length > 0}
       <div class="surface-stack">
         {#each nextActionRequests as request (request.id)}
-          <article class="surface-card vote-request-card">
+          <article id={`vote-card-phase_change-${request.id}`} class="surface-card vote-request-card">
             <div class="vote-card-top">
               <div class="vote-card-copy">
                 <span class="vote-kicker">{requestKindLabel(request)}</span>
@@ -371,6 +400,7 @@
   .phase-change-stack,
   .change-action-panel,
   .composer-card,
+  .warning-card,
   .surface-stack,
   .vote-request-card,
   .vote-card-copy {
@@ -428,6 +458,16 @@
   .vote-request-card {
     border-color: color-mix(in srgb, var(--brand) 16%, var(--panel-border));
     background: color-mix(in srgb, var(--panel) 82%, var(--panel-strong));
+  }
+
+  .warning-card {
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--status-yellow) 50%, var(--panel-border));
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--status-yellow) 14%, var(--panel-strong));
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .primary-button,

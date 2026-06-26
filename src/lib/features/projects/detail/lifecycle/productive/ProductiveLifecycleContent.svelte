@@ -169,10 +169,9 @@
     recordPullRequestMerge={recordPullRequestMerge}
     {toggleHistoryCompletion}
   />
-{:else if activePhaseId === 'phase-6' || activePhaseId === 'phase-7'}
+{:else if activePhaseId === 'phase-7' || activePhaseId === 'phase-6' || activePhaseId === 'phase-4'}
   <ProductiveLifecyclePhaseSix
     {data}
-    {activePhaseId}
     {createPullRequest}
     {requestMergeCapabilityChange}
     {requestRepositoryReplacement}

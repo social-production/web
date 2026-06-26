@@ -1,11 +1,13 @@
 .check-output.txt
 *.check-output.txt
 
-ux design files
+# UX design files (local only)
 /ux
 
-env
-.env.local
+# Environment (copy from .env.example; never commit real values)
+.env
+.env.*
+!.env.example
 
 .svelte-kit
 build

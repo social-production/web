@@ -31,3 +31,7 @@ export function createChannel(input: CreateChannelInput) {
 export function createCommunity(input: CreateCommunityInput) {
   return currentAdapter.createCommunity(input);
 }
+
+export function getTaggableScopes(query: string, kind?: 'channel' | 'community', limit?: number) {
+  return currentAdapter.getTaggableScopes(query, kind, limit);
+}

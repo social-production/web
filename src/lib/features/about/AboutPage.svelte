@@ -2,7 +2,10 @@
   <section class="hero-card">
     <h1>About</h1>
     <p>
-      Social Production is a coordination platform, a social network who's purpose is to help in the facilitation of collective activity. From birthday parties to protests, software creation, and eventually real world major construction.
+      Social Production is a coordination platform for collective activity. It is a social network built to help people organize work, events, services, software, mutual aid, and eventually larger real-world production outside the logic of markets, wages, and private profit.
+    </p>
+    <p>
+      The Phase 1 web prototype is focused on facilitation: helping people find each other, create projects and events, coordinate requests and activity, and test the social mechanics before legal, funding, asset-holding, and peer-to-peer infrastructure come online.
     </p>
   </section>
 
@@ -14,49 +17,66 @@
     <section class="phase-card current-phase">
       <div class="phase-head">
         <div class="phase-label current-label">Phase 1 · Current</div>
-        <h3>Web prototype</h3>
+        <h3>Web Prototype</h3>
         <span aria-hidden="true" class="phase-head-spacer"></span>
       </div>
       <ul>
-        <li>Build a conventional backend, PWA frontend.</li>
-        <li>No asset holding, facilitation only.</li>
-        <li>Invite-only test for functionality and security.</li>
-        <li>Open to public use.</li>
-        <li>If it proves useful and productive, move to Phase 2.</li>
+        <li>Conventional FastAPI backend and SvelteKit PWA frontend.</li>
+        <li>Facilitation only, with no asset holding.</li>
+        <li>Testing for usability, security, and governance behavior.</li>
+        <li>Open to public use as the prototype becomes stable.</li>
       </ul>
     </section>
 
     <section class="phase-card">
       <div class="phase-head">
         <div class="phase-label">Phase 2</div>
-        <h3>Legal entity and funding</h3>
+        <h3>Legal Entity and Funding</h3>
         <span aria-hidden="true" class="phase-head-spacer"></span>
       </div>
-      <p>Non-profit foundation formed.</p>
-      <p>Once the foundation is formed, community and funding activate within Social Production.</p>
-      <p>Asset holding comes online. Physical asset network becomes operational.</p>
+      <ul>
+        <li>Non-profit foundation formed.</li>
+        <li>Community funding and stewardship activated inside Social Production.</li>
+        <li>Asset holding and physical asset coordination come online.</li>
+      </ul>
     </section>
 
     <section class="phase-card">
       <div class="phase-head">
         <div class="phase-label">Phase 3</div>
-        <h3>P2P backend</h3>
+        <h3>Peer-to-Peer Backend</h3>
         <span aria-hidden="true" class="phase-head-spacer"></span>
       </div>
-      <p>Holochain or p2panda. Research and development can continue while in Phase 1.</p>
-      <p>Gradual migration from the conventional backend.</p>
+      <ul>
+        <li>Research and development toward Holochain, p2panda, or similar infrastructure.</li>
+        <li>Gradual migration away from the conventional backend.</li>
+      </ul>
     </section>
 
     <section class="phase-card">
       <div class="phase-head">
         <div class="phase-label">Phase 4</div>
-        <h3>Full model</h3>
+        <h3>Full Model</h3>
         <span aria-hidden="true" class="phase-head-spacer"></span>
       </div>
-      <p>Shutdown-resistant infrastructure live.</p>
-      <p>Non-market coordination at scale.</p>
+      <ul>
+        <li>Shutdown-resistant infrastructure.</li>
+        <li>Non-market coordination at scale.</li>
+      </ul>
     </section>
   </div>
+
+  <section class="hero-card community-card">
+    <h2>Community</h2>
+    <ul class="community-links">
+      <li>
+        <a href="https://discord.gg/VvbJ3hhEPb" rel="noreferrer" target="_blank">Discord</a>
+      </li>
+      <li>
+        <a href="https://www.reddit.com/r/SocialProduction/" rel="noreferrer" target="_blank">Reddit</a>
+      </li>
+    </ul>
+  </section>
 </section>
 
 <style>
@@ -138,5 +158,20 @@
   ul {
     margin: 8px 0 0;
     padding-left: 18px;
+  }
+
+  .community-links {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .community-links a {
+    color: var(--brand-strong);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .community-links a:hover {
+    text-decoration: underline;
   }
 </style>

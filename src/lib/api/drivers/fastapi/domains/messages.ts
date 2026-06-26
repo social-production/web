@@ -1,16 +1,61 @@
 import { apiClient, extractErrorMessage } from '../client';
-import type { MessagesPageData, MessageConversationResult, CreateGroupMessageInput } from '$lib/types/inbox';
+import type {
+  CreateGroupMessageInput,
+  DirectMessage,
+  MessageConversationResult,
+  MessagesPageData
+} from '$lib/types/inbox';
 import type { ViewerSummary } from '$lib/types/bootstrap';
 
-interface BackendUser { id: string; username: string; bio: string | null; profile_image_url: string | null; }
-interface BackendParticipant { id: string; username: string; }
+interface BackendUser {
+  id: string;
+  username: string;
+  bio: string | null;
+  profile_image_url: string | null;
+}
+
+interface BackendParticipant {
+  id: string;
+  username: string;
+}
+
 interface BackendConversation {
-  id: string; kind: string; title: string | null; created_by: string | null;
-  created_at: string; updated_at: string; last_message_at: string | null;
+  id: string;
+  kind: string;
+  title: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  last_message_at: string | null;
+  preview?: string;
+  unread_count?: number;
   participants: BackendParticipant[];
 }
-interface BackendConversationResponse { conversation: BackendConversation; }
-interface BackendConversationsListResponse { total: number; items: BackendConversation[]; }
+
+interface BackendConversationResponse {
+  conversation: BackendConversation;
+}
+
+interface BackendConversationsListResponse {
+  total: number;
+  items: BackendConversation[];
+}
+
+interface BackendMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string | null;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface BackendConversationMessagesResponse {
+  conversation_id: string;
+  total: number;
+  items: BackendMessage[];
+}
+
 interface BackendLinkedChat {
   id: string;
   kind: string;
@@ -20,23 +65,68 @@ interface BackendLinkedChat {
   preview: string;
   last_message_at: string;
   comment_count: number;
+  unread_count?: number;
 }
-interface BackendLinkedChatsResponse { total: number; items: BackendLinkedChat[]; }
+
+interface BackendLinkedChatsResponse {
+  total: number;
+  items: BackendLinkedChat[];
+}
+
+interface BackendMessageContact {
+  id: string;
+  username: string;
+  bio: string | null;
+  profileImageUrl: string | null;
+}
+
+interface BackendMessageContactsResponse {
+  total: number;
+  items: BackendMessageContact[];
+}
 
 function mapParticipant(p: BackendParticipant): ViewerSummary {
   return { id: p.id, username: p.username };
 }
 
-function mapConversation(c: BackendConversation) {
+function mapConversation(c: BackendConversation, viewerId?: string) {
+  const participants = c.participants.map(mapParticipant);
+  const directPartner =
+    c.kind === 'direct'
+      ? participants.find((participant) => participant.id !== viewerId) ?? participants[0]
+      : null;
+
   return {
     id: c.id,
     kind: c.kind as 'direct' | 'group',
-    title: c.title ?? c.participants.map(p => p.username).join(', '),
-    participants: c.participants.map(mapParticipant),
-    preview: '',
+    title:
+      c.kind === 'direct'
+        ? (directPartner?.username ?? c.participants.map((p) => p.username).join(', '))
+        : (c.title ?? c.participants.map((p) => p.username).join(', ')),
+    participants,
+    preview: c.preview ?? '',
     lastMessageAt: c.last_message_at ?? c.created_at,
-    unreadCount: 0,
-    messages: []
+    unreadCount: c.unread_count ?? 0,
+    messages: [] as DirectMessage[]
+  };
+}
+
+function mapMessage(
+  message: BackendMessage,
+  viewerId: string,
+  participants: ViewerSummary[]
+): DirectMessage {
+  const participantById = new Map(participants.map((participant) => [participant.id, participant]));
+  const senderId = message.sender_id ?? '';
+  const sender = participantById.get(senderId) ?? { id: senderId, username: 'unknown' };
+
+  return {
+    id: message.id,
+    sender,
+    body: message.body,
+    createdAt: message.created_at,
+    isOwn: senderId === viewerId,
+    report: null
   };
 }
 
@@ -55,8 +145,8 @@ export async function fetchMessages(): Promise<MessagesPageData | null> {
     };
     return {
       viewer,
-      conversations: convsRes.items.map(mapConversation),
-      linkedChats: linkedRes.items.map(chat => ({
+      conversations: convsRes.items.map((conversation) => mapConversation(conversation, viewer.id)),
+      linkedChats: linkedRes.items.map((chat) => ({
         id: chat.id,
         kind: chat.kind as 'project' | 'event',
         subjectId: chat.entity_id,
@@ -65,7 +155,8 @@ export async function fetchMessages(): Promise<MessagesPageData | null> {
         meta: `${chat.comment_count} comments`,
         preview: chat.preview,
         lastMessageAt: chat.last_message_at,
-        comments: [],
+        unreadCount: chat.unread_count ?? 0,
+        comments: []
       })),
       suggestedContacts: [],
       activeConversationId: null
@@ -74,6 +165,32 @@ export async function fetchMessages(): Promise<MessagesPageData | null> {
     if ((err as { status?: number }).status === 401) return null;
     throw err;
   }
+}
+
+export async function fetchConversationMessages(
+  conversationId: string,
+  viewerId: string,
+  participants: ViewerSummary[]
+): Promise<DirectMessage[]> {
+  const res = await apiClient.get<BackendConversationMessagesResponse>(
+    `/messages/conversations/${conversationId}/messages`
+  );
+  return res.items.map((message) => mapMessage(message, viewerId, participants));
+}
+
+export async function fetchMessageContacts(query: string, limit = 8): Promise<ViewerSummary[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (query.trim()) {
+    params.set('q', query.trim());
+  }
+
+  const res = await apiClient.get<BackendMessageContactsResponse>(`/messages/contacts?${params.toString()}`);
+  return res.items.map((contact) => ({
+    id: contact.id,
+    username: contact.username,
+    bio: contact.bio ?? undefined,
+    profileImageUrl: contact.profileImageUrl ?? undefined
+  }));
 }
 
 export async function fetchSendMessage(conversationId: string, body: string): Promise<void> {
@@ -161,4 +278,8 @@ export async function fetchRemoveGroupConversationMember(
 
 export async function fetchMarkConversationRead(conversationId: string): Promise<void> {
   await apiClient.post(`/messages/conversations/${conversationId}/read`);
+}
+
+export async function fetchMarkLinkedChatRead(subjectType: string, subjectId: string): Promise<void> {
+  await apiClient.post(`/messages/linked-chats/${subjectType}/${subjectId}/read`);
 }

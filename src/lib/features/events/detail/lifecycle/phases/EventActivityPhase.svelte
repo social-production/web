@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { tick } from 'svelte';
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
@@ -30,24 +29,14 @@
     roleLabel: string | null
   ) => void | Promise<void> = () => {};
 
-  let lastAutoScrollActivityId: string | null = null;
-
-  $: if (highlightedActivityId && highlightedActivityId !== lastAutoScrollActivityId) {
-    lastAutoScrollActivityId = highlightedActivityId;
-    void tick().then(() => {
-      document.getElementById(`event-activity-${highlightedActivityId}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
-    });
-  }
-
   function scrollToActivity(activityId: string) {
     highlightedActivityId = activityId;
-    document.getElementById(`event-activity-${activityId}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
+    if (typeof document !== 'undefined') {
+      document.getElementById(`event-activity-${activityId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }
   }
 
   $: plannedDayIsos = eventPlanScheduledDayIsos(selectedPlan);

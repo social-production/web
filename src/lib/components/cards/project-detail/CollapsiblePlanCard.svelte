@@ -13,6 +13,10 @@
 
   let open = expanded;
 
+  $: if (expanded) {
+    open = true;
+  }
+
   function nextVote(activeVote: 'yes' | 'no' | null, vote: 'yes' | 'no') {
     return activeVote === vote ? null : vote;
   }
@@ -38,7 +42,7 @@
   }
 </script>
 
-<details bind:open={open} class="surface-card plan-card collapsible-card" class:expanded={open}>
+<details id={`vote-card-plan-${plan.id}`} bind:open={open} class="surface-card plan-card collapsible-card" class:expanded={open}>
   <summary class="collapse-toggle">
     <span class="plan-card-copy">
       <span class="plan-header">

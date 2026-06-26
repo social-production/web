@@ -11,19 +11,24 @@
   import {
     addGroupConversationMember,
     createGroupConversation,
+    getConversationMessages,
+    getMessageContacts,
     markConversationRead,
+    markLinkedChatRead,
     removeGroupConversationMember,
     renameGroupConversation,
     sendMessage,
     startDirectMessage
   } from '$lib/services/queries/inbox';
-  import type { MessageLinkedChat, MessagesPageData } from '$lib/types/inbox';
+  import type { DirectMessage, MessageLinkedChat, MessagesPageData } from '$lib/types/inbox';
+  import type { ViewerSummary } from '$lib/types/bootstrap';
   import type { DetailComment } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
   import { tick } from 'svelte';
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let data: MessagesPageData;
+  export let openConversationId: string | null = null;
 
   let activeConversationId: string | null = null;
   let activeLinkedChatId: string | null = null;
@@ -48,19 +53,26 @@
   let messagesShellElement: HTMLElement | null = null;
   let linkedChatComments: DetailComment[] = [];
   let linkedChatCommentsLoading = false;
+  let conversationMessagesById: Record<string, DirectMessage[]> = {};
+  let messagesLoadingById: Record<string, boolean> = {};
+  let contactSuggestions: ViewerSummary[] = [];
+  let contactSearchKey = '';
+  let contactSearchRequestId = 0;
 
   $: activeConversation =
     data.conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
   $: activeLinkedChat = data.linkedChats.find((chat) => chat.id === activeLinkedChatId) ?? null;
-  $: activeConversationMessages = activeConversation
-    ? activeConversation.messages.map((message) => ({
+  $: activeConversationMessagesLoading =
+    activeConversationId ? (messagesLoadingById[activeConversationId] ?? false) : false;
+  $: activeConversationMessages = activeConversationId
+    ? (conversationMessagesById[activeConversationId] ?? []).map((message) => ({
         id: message.id,
         authorUsername: message.sender.username,
         body: message.body,
         createdAt: message.createdAt,
         isOwn: message.isOwn,
         report: message.report ?? null,
-        showAuthor: activeConversation.kind === 'group'
+        showAuthor: activeConversation?.kind === 'group'
       }))
     : [];
   $: directConversationPartner =
@@ -72,18 +84,31 @@
   $: activeDirectAvatarImageUrl = directConversationPartner?.profileImageUrl ?? null;
   $: normalizedRecipientQuery = recipientDraft.trim().toLowerCase();
   $: normalizedGroupQuery = groupMemberDraft.trim().toLowerCase();
-  $: directSuggestions = data.suggestedContacts.filter((contact) =>
-    contact.id !== data.viewer.id &&
-    (normalizedRecipientQuery ? contact.username.toLowerCase().includes(normalizedRecipientQuery) : true)
+  $: activeContactQuery =
+    showComposer && composerMode === 'direct'
+      ? recipientDraft
+      : (showComposer && composerMode === 'group') || showAddMembers
+        ? groupMemberDraft
+        : '';
+  $: if (browser) {
+    void updateContactSuggestions(activeContactQuery);
+  }
+  $: directSuggestions = contactSuggestions.filter(
+    (contact) =>
+      contact.id !== data.viewer.id &&
+      (normalizedRecipientQuery
+        ? contact.username.toLowerCase().includes(normalizedRecipientQuery)
+        : true)
   );
-  $: groupSuggestions = data.suggestedContacts.filter((contact) =>
-    contact.id !== data.viewer.id &&
-    !selectedGroupMembers.includes(contact.username) &&
-    (normalizedGroupQuery ? contact.username.toLowerCase().includes(normalizedGroupQuery) : true)
+  $: groupSuggestions = contactSuggestions.filter(
+    (contact) =>
+      contact.id !== data.viewer.id &&
+      !selectedGroupMembers.includes(contact.username) &&
+      (normalizedGroupQuery ? contact.username.toLowerCase().includes(normalizedGroupQuery) : true)
   );
   $: addableGroupMembers =
     activeConversation?.kind === 'group'
-      ? data.suggestedContacts.filter(
+      ? contactSuggestions.filter(
           (contact) =>
             contact.id !== data.viewer.id &&
             !activeConversation.participants.some((participant) => participant.id === contact.id) &&
@@ -114,8 +139,127 @@
     directOptionsFeedback = '';
   }
 
+  function linkedChatAuthorUsername(authorUsername: string, authorId: string | null) {
+    if (authorUsername) {
+      return authorUsername;
+    }
+
+    if (authorId === data.viewer.id) {
+      return data.viewer.username;
+    }
+
+    return 'unknown';
+  }
+
+  type RawLinkedChatComment = {
+    id: string;
+    author_id: string | null;
+    author_username: string;
+    body: string;
+    created_at: string;
+    vote_count: number;
+    active_vote?: number;
+    replies?: RawLinkedChatComment[];
+  };
+
+  function mapLinkedChatComment(c: RawLinkedChatComment): DetailComment {
+    registerEntityType(c.id, 'comment');
+    return {
+      id: c.id,
+      authorUsername: linkedChatAuthorUsername(c.author_username, c.author_id),
+      body: c.body,
+      createdAt: c.created_at,
+      voteCount: c.vote_count,
+      activeVote: (c.active_vote ?? 0) as VoteDirection,
+      report: null,
+      replies: (c.replies ?? []).map((reply) => {
+        registerEntityType(reply.id, 'comment');
+        return {
+          id: reply.id,
+          authorUsername: linkedChatAuthorUsername(reply.author_username, reply.author_id),
+          body: reply.body,
+          createdAt: reply.created_at,
+          voteCount: reply.vote_count,
+          activeVote: (reply.active_vote ?? 0) as VoteDirection,
+          replies: [],
+        };
+      }),
+    };
+  }
+
   function linkedChatMeta(chat: MessageLinkedChat) {
     return `${chat.kind === 'project' ? 'Project chat' : 'Event chat'} · ${chat.meta}`;
+  }
+
+  async function updateContactSuggestions(query: string) {
+    const normalized = query.trim();
+    const lookupKey = `${showAddMembers ? 'add' : composerMode}:${normalized}`;
+
+    if (lookupKey === contactSearchKey) {
+      return;
+    }
+
+    contactSearchKey = lookupKey;
+
+    if (!normalized) {
+      contactSuggestions = showAddMembers
+        ? (activeConversation?.participants.filter((participant) => participant.id !== data.viewer.id) ?? [])
+        : [];
+      return;
+    }
+
+    const requestId = ++contactSearchRequestId;
+
+    try {
+      const results = await getMessageContacts(normalized, 8);
+
+      if (requestId !== contactSearchRequestId) {
+        return;
+      }
+
+      contactSuggestions = results;
+    } catch {
+      if (requestId === contactSearchRequestId) {
+        contactSuggestions = [];
+      }
+    }
+  }
+
+  async function loadConversationMessages(conversationId: string) {
+    const conversation = data.conversations.find((item) => item.id === conversationId);
+
+    if (!conversation) {
+      return false;
+    }
+
+    messagesLoadingById = {
+      ...messagesLoadingById,
+      [conversationId]: true
+    };
+
+    try {
+      const messages = await getConversationMessages(
+        conversationId,
+        data.viewer.id,
+        conversation.participants
+      );
+      conversationMessagesById = {
+        ...conversationMessagesById,
+        [conversationId]: messages
+      };
+      return true;
+    } catch {
+      conversationMessagesById = {
+        ...conversationMessagesById,
+        [conversationId]: []
+      };
+      return false;
+    } finally {
+      messagesLoadingById = {
+        ...messagesLoadingById,
+        [conversationId]: false
+      };
+    }
   }
 
   function directConversationAvatarImage(conversation: MessagesPageData['conversations'][number]) {
@@ -225,12 +369,56 @@
     groupSettingsFeedback = '';
     directOptionsFeedback = '';
 
+    const loaded = await loadConversationMessages(conversationId);
+
+    if (!loaded) {
+      return false;
+    }
+
     if (unreadCount > 0) {
       await markConversationRead(conversationId);
       await invalidateAll();
+      await loadConversationMessages(conversationId);
     }
 
     await focusConversationShell();
+    return true;
+  }
+
+  let handledOpenConversationId: string | null = null;
+  let deepLinkRefreshAttempted = false;
+  let lastDeepLinkParam: string | null = null;
+
+  $: if (openConversationId !== lastDeepLinkParam) {
+    lastDeepLinkParam = openConversationId;
+    handledOpenConversationId = null;
+    deepLinkRefreshAttempted = false;
+  }
+
+  async function tryOpenDeepLinkConversation() {
+    if (!browser || !openConversationId || openConversationId === handledOpenConversationId) {
+      return;
+    }
+
+    const conversation = data.conversations.find((item) => item.id === openConversationId);
+
+    if (!conversation) {
+      if (!deepLinkRefreshAttempted) {
+        deepLinkRefreshAttempted = true;
+        await invalidateAll();
+      }
+      return;
+    }
+
+    const opened = await openConversation(conversation.id, conversation.unreadCount);
+
+    if (opened) {
+      handledOpenConversationId = openConversationId;
+    }
+  }
+
+  $: if (browser && openConversationId && openConversationId !== handledOpenConversationId) {
+    void tryOpenDeepLinkConversation();
   }
 
   async function openLinkedChat(chatId: string) {
@@ -249,29 +437,14 @@
       linkedChatComments = [];
       linkedChatCommentsLoading = true;
       try {
-        linkedChatComments = (await fetchComments(chat.kind, chat.subjectId)).map(c => {
-          registerEntityType(c.id, 'comment');
-          return {
-          id: c.id,
-          authorUsername: c.author_username || '',
-          body: c.body,
-          createdAt: c.created_at,
-          voteCount: c.vote_count,
-          activeVote: (c.active_vote ?? 0) as VoteDirection,
-          replies: (c.replies ?? []).map(r => {
-            registerEntityType(r.id, 'comment');
-            return {
-            id: r.id,
-            authorUsername: r.author_username || '',
-            body: r.body,
-            createdAt: r.created_at,
-            voteCount: r.vote_count,
-            activeVote: (r.active_vote ?? 0) as VoteDirection,
-            replies: [],
-          }}),
-        }});
+        linkedChatComments = (await fetchComments(chat.kind, chat.subjectId)).map(mapLinkedChatComment);
       } finally {
         linkedChatCommentsLoading = false;
+      }
+
+      if (chat.unreadCount > 0) {
+        await markLinkedChatRead(chat.kind, chat.subjectId);
+        await invalidateAll();
       }
     }
 
@@ -286,6 +459,7 @@
     composerError = '';
     try {
       await sendMessage(activeConversation.id, body);
+      await loadConversationMessages(activeConversation.id);
       await invalidateAll();
     } catch (err) {
       const detail = (err as { body?: { detail?: unknown } }).body?.detail;
@@ -308,27 +482,9 @@
     await addComment(activeLinkedChat.subjectId, body);
     await invalidateAll();
     if (activeLinkedChat) {
-      linkedChatComments = (await fetchComments(activeLinkedChat.kind, activeLinkedChat.subjectId)).map(c => {
-        registerEntityType(c.id, 'comment');
-        return {
-        id: c.id,
-        authorUsername: c.author_username || '',
-        body: c.body,
-        createdAt: c.created_at,
-        voteCount: c.vote_count,
-        activeVote: (c.active_vote ?? 0) as VoteDirection,
-        replies: (c.replies ?? []).map(r => {
-          registerEntityType(r.id, 'comment');
-          return {
-          id: r.id,
-          authorUsername: r.author_username || '',
-          body: r.body,
-          createdAt: r.created_at,
-          voteCount: r.vote_count,
-          activeVote: (r.active_vote ?? 0) as VoteDirection,
-          replies: [],
-        }}),
-      }});
+      linkedChatComments = (await fetchComments(activeLinkedChat.kind, activeLinkedChat.subjectId)).map(
+        mapLinkedChatComment
+      );
     }
   }
 
@@ -463,6 +619,10 @@
     showComposer = false;
     resetComposer();
     await invalidateAll();
+
+    if (activeConversationId) {
+      await loadConversationMessages(activeConversationId);
+    }
   }
 
   function toggleGroupOptions() {
@@ -496,6 +656,9 @@
 
     if (result.ok) {
       await invalidateAll();
+      if (activeConversationId) {
+        await loadConversationMessages(activeConversationId);
+      }
     }
   }
 
@@ -512,6 +675,9 @@
     if (result.ok) {
       groupMemberDraft = '';
       await invalidateAll();
+      if (activeConversationId) {
+        await loadConversationMessages(activeConversationId);
+      }
     }
   }
 
@@ -527,6 +693,9 @@
 
     if (result.ok) {
       await invalidateAll();
+      if (activeConversationId) {
+        await loadConversationMessages(activeConversationId);
+      }
     }
   }
 </script>
@@ -717,7 +886,7 @@
       {#if activeConversation}
         <LiveChatPanel
           embedded={true}
-          emptyCopy="No messages yet."
+          emptyCopy={activeConversationMessagesLoading ? 'Loading messages...' : 'No messages yet.'}
           messages={activeConversationMessages}
           onSubmitMessage={submitConversationMessage}
           placeholder="Write a message..."
@@ -916,7 +1085,12 @@
           <div class="empty-state">No project or event chats yet.</div>
         {:else}
           {#each data.linkedChats as chat}
-            <button class="conversation-row" type="button" on:click={() => openLinkedChat(chat.id)}>
+            <button
+              class:unread={chat.unreadCount > 0}
+              class="conversation-row"
+              type="button"
+              on:click={() => openLinkedChat(chat.id)}
+            >
               <AvatarBadge size="sm" username={chat.title} />
               <div class="conversation-copy">
                 <div class="conversation-topline">
@@ -925,6 +1099,9 @@
                 </div>
                 <p class="conversation-preview">{chat.preview}</p>
               </div>
+              {#if chat.unreadCount > 0}
+                <span class="unread-pill">{chat.unreadCount}</span>
+              {/if}
             </button>
           {/each}
         {/if}
@@ -1160,7 +1337,7 @@
     border: none;
     border-bottom: 1px solid var(--panel-border);
     border-radius: 0;
-    background: var(--panel-strong);
+    background: var(--panel);
     color: var(--text-main);
     text-align: left;
   }
@@ -1177,9 +1354,21 @@
     border-color: var(--panel-border);
   }
 
+  .conversation-row.unread .conversation-topline strong {
+    font-weight: 800;
+  }
+
+  .conversation-row.unread .conversation-copy p {
+    color: var(--text-main);
+  }
+
   .conversation-row:hover,
   .open-source-link:hover {
     border-color: color-mix(in srgb, var(--brand) 35%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 35%, var(--panel));
+  }
+
+  .conversation-row.unread:hover {
     background: color-mix(in srgb, var(--brand-soft) 35%, var(--panel-strong));
   }
 

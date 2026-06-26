@@ -79,7 +79,7 @@
           <div class="empty-card">No requests yet.</div>
         {:else}
           {#each data.lifecycle.requestSystem.requests as request}
-            <article class="surface-card request-card">
+            <article id={`request-card-${request.id}`} class="surface-card request-card">
               <div class="request-header-row">
                 <div>
                   <strong>{request.title}</strong>

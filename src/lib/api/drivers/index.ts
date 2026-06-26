@@ -4,7 +4,7 @@ import { createMockDriver } from './mock';
 export type BackendDriverName = 'mock' | 'fastapi';
 
 export function getBackendDriverName(): BackendDriverName {
-  const backend = (import.meta.env.VITE_BACKEND ?? 'mock').toLowerCase();
+  const backend = (import.meta.env.VITE_BACKEND ?? 'fastapi').toLowerCase();
   return backend === 'fastapi' ? 'fastapi' : 'mock';
 }
 

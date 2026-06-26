@@ -55,7 +55,7 @@ export function projectFeedPhaseLabel(mode: ProjectMode, phaseId: ProjectLifecyc
   if (mode === 'personal-service') {
     switch (phaseId) {
       case 'phase-1':
-        return 'Calendar';
+        return 'Activity';
       case 'phase-2':
         return 'Closed';
       default:
@@ -75,7 +75,7 @@ export function projectFeedPhaseLabel(mode: ProjectMode, phaseId: ProjectLifecyc
     case 'phase-5':
       return 'Activity';
     case 'phase-6':
-      return 'Closed';
+      return 'Activity';
   }
 }
 

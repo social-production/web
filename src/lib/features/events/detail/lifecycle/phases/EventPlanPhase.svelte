@@ -28,6 +28,7 @@
   export let addPlanPhase: () => void = () => {};
   export let removePlanPhase: (index: number) => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
+  export let targetedPlanId: string | null = null;
   export let voteOnPlanValue: (
     planId: string,
     valueId: string,
@@ -155,7 +156,7 @@
       {#each data.lifecycle.phaseTwo.plans as plan}
         <CollapsiblePlanCard
           {plan}
-          expanded={plan.id === data.lifecycle.phaseTwo.winningPlanId}
+          expanded={plan.id === data.lifecycle.phaseTwo.winningPlanId || plan.id === targetedPlanId}
           canVote={data.lifecycle.phaseTwo.viewerCanVoteOnPlans}
           statusLabel={statusLabel(plan.id)}
           valuevote={voteOnPlanValue}

@@ -1,7 +1,9 @@
 // Maps entity IDs to their votable/commentable types for governance calls
-const cache = new Map<string, 'thread' | 'post' | 'comment' | 'event' | 'project'>();
+type EntityType = 'thread' | 'post' | 'comment' | 'event' | 'project';
 
-export function registerEntityType(id: string, type: 'thread' | 'post' | 'comment' | 'event' | 'project'): void {
+const cache = new Map<string, EntityType>();
+
+export function registerEntityType(id: string, type: EntityType): void {
   cache.set(id, type);
 }
 
@@ -14,6 +16,14 @@ export function registerCommentIds(discussion: Array<{ id: string; replies?: Arr
   }
 }
 
-export function resolveEntityType(id: string): 'thread' | 'post' | 'comment' | 'event' | 'project' {
-  return cache.get(id) ?? 'thread';
+export function tryResolveEntityType(id: string): EntityType | null {
+  return cache.get(id) ?? null;
+}
+
+export function resolveEntityType(id: string): EntityType {
+  const type = tryResolveEntityType(id);
+  if (!type) {
+    throw new Error(`Unknown governance entity type for id ${id}`);
+  }
+  return type;
 }

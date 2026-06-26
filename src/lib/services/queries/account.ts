@@ -32,3 +32,11 @@ export function hydrateClientSettingsState() {
 export function getProfile(username: string) {
   return currentAdapter.getProfile(username);
 }
+
+export function followUser(username: string) {
+  return currentAdapter.followUser(username);
+}
+
+export function unfollowUser(username: string) {
+  return currentAdapter.unfollowUser(username);
+}

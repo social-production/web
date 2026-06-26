@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { page } from '$app/stores';
 
   type MemberListItem = {
     id: string;
@@ -75,7 +76,7 @@
           {#each section.members as member}
             <div class="member-row">
               <div class="member-main">
-                <a class="member-link" href={`/profile/${member.username}`}>{member.username}</a>
+                <a class="member-link" href={`/profile/${member.username}?from=${encodeURIComponent($page.url.pathname)}`}>{member.username}</a>
                 {#if member.badges?.length}
                   <div class="member-badges">
                     {#each member.badges as badge}

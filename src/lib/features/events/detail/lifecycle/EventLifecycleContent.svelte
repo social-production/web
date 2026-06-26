@@ -24,6 +24,7 @@
   export let showActivityComposer = false;
   export let selectedDayIso = '';
   export let highlightedActivityId: string | null = null;
+  export let targetedPlanId: string | null = null;
   export let planForm: EventPlanForm = {
     title: '',
     description: '',
@@ -91,6 +92,7 @@
     {addPlanPhase}
     {removePlanPhase}
     {submitPlan}
+    {targetedPlanId}
     {voteOnPlanValue}
     {voteOnPlanOverall}
   />

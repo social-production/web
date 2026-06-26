@@ -6,6 +6,7 @@
   import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
   import { addComment, setReportVote, submitReport } from '$lib/services/queries/details';
   import type { ContentReportSummary, DetailComment } from '$lib/types/detail';
+  import { linkifyMessageBody } from '$lib/utils/linkifyMessageBody';
   import { tick } from 'svelte';
 
   type ChatMessage = {
@@ -382,7 +383,11 @@
               {/if}
 
               <p class:hidden-message-body={supportsHiddenToggle(message) && messageBodyIsHidden(message)}>
-                {message.body}
+                {#if variant === 'message'}
+                  {@html linkifyMessageBody(message.body)}
+                {:else}
+                  {message.body}
+                {/if}
               </p>
             </div>
             <span class="message-time">{formatMessageTime(message.createdAt)}</span>
@@ -537,6 +542,17 @@
     margin: 0;
     color: var(--text-main);
     white-space: pre-wrap;
+  }
+
+  .message-copy p :global(a) {
+    color: var(--brand-strong);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .message-copy p :global(a:hover) {
+    color: var(--brand);
   }
 
   .hidden-message-body {

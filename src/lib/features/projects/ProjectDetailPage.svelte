@@ -10,6 +10,7 @@
   import ProjectMembersPanel from '$lib/features/projects/detail/ProjectMembersPanel.svelte';
   import ProjectOverviewHeader from '$lib/features/projects/detail/ProjectOverviewHeader.svelte';
   import ProjectUpdatesSection from '$lib/features/projects/detail/ProjectUpdatesSection.svelte';
+  import ContextualBackButton from '$lib/components/shared/ContextualBackButton.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import type { ProjectPageData } from '$lib/types/detail';
 
@@ -21,6 +22,26 @@
   let lastRouteSignature = '';
   let showMembersPanel = false;
   let activeTab: 'overview' | 'chat' | 'history' | 'links' = 'overview';
+  let autoExpandVoteCards = false;
+  let autoExpandVoteKind: string | null = null;
+  let autoExpandVoteTarget: string | null = null;
+
+  async function focusVoteTarget(voteKind: string | null, voteTarget: string | null) {
+    await tick();
+    if (typeof document === 'undefined') return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const targetCard = voteKind && voteTarget
+          ? document.getElementById(`vote-card-${voteKind}-${voteTarget}`)
+          : null;
+        const fallbackCard = document.querySelector('.vote-request-card');
+        const card = targetCard ?? fallbackCard;
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    });
+  }
 
   function readCommentTarget(url: URL) {
     if (url.hash.startsWith('#comment-')) {
@@ -115,10 +136,14 @@
           ? 'links'
         : requestedTab === 'history'
           ? 'history'
-          : requestedTab === 'chat'
-            ? 'chat'
-            : 'overview';
+        : requestedTab === 'chat'
+          ? 'chat'
+          : 'overview';
     }
+    autoExpandVoteCards = $page.url.searchParams.get('open') === 'vote';
+    autoExpandVoteKind = autoExpandVoteCards ? ($page.url.searchParams.get('voteKind') || null) : null;
+    autoExpandVoteTarget = autoExpandVoteCards ? ($page.url.searchParams.get('voteTarget') || null) : null;
+    if (autoExpandVoteCards) void focusVoteTarget(autoExpandVoteKind, autoExpandVoteTarget);
   }
 
   $: if (isPersonalServiceProject(data.projectMode) && showMembersPanel) {
@@ -128,6 +153,7 @@
 
 <section class="page">
   <section class="hero-card">
+    <ContextualBackButton fallbackHref="/" />
     <div class="top-tab-row" role="tablist" aria-label="Project detail tabs">
       <button
         class:active-tab={activeTab === 'overview'}
@@ -173,12 +199,16 @@
         {data}
         {highlightedUpdateId}
         {showMembersPanel}
+        {autoExpandVoteCards}
+        {autoExpandVoteKind}
         on:togglemembers={handleMembersPanelOpen}
       />
       {#if showMembersPanel && !isPersonalServiceProject(data.projectMode)}
         <ProjectMembersPanel {data} panelId="project-members-panel" />
       {/if}
-      <ProjectLifecyclePanel {data} />
+      <div id="governance">
+        <ProjectLifecyclePanel {data} {autoExpandVoteCards} {autoExpandVoteKind} {autoExpandVoteTarget} />
+      </div>
     {:else if activeTab === 'chat'}
       <ProjectChatTab {data} {highlightedCommentId} />
     {:else if activeTab === 'links'}

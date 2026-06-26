@@ -1,5 +1,8 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { invalidateAll } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { tick } from 'svelte';
   import EventLifecycleMechanicsCard from './components/EventLifecycleMechanicsCard.svelte';
   import EventLifecyclePhaseTabs from './components/EventLifecyclePhaseTabs.svelte';
   import EventPhaseChangeSection from './components/EventPhaseChangeSection.svelte';
@@ -44,7 +47,9 @@
   } from '$lib/types/detail';
 
   export let data: EventPageData;
-  export let requestedActivityId: string | null = null;
+  export let autoExpandVoteCards = false;
+  export let autoExpandVoteKind: string | null = null;
+  export let autoExpandVoteTarget: string | null = null;
 
   function currentWinningPlan() {
     return data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ?? null;
@@ -74,7 +79,6 @@
 
   let activePhaseId: EventLifecyclePhaseId = data.lifecycle.currentPhaseId;
   let lastCurrentPhaseId = data.lifecycle.currentPhaseId;
-  let lastRequestedActivityId: string | null = null;
   let showHowItWorks = false;
   let lastHowItWorksPhaseId = data.lifecycle.currentPhaseId;
   let showValueComposer = false;
@@ -86,6 +90,112 @@
   let highlightedActivityId: string | null = null;
   let planForm: EventPlanForm = createEventPlanForm();
   let activityForm: EventActivityForm = createDefaultActivityForm();
+  let activityHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
+  let lastActivityTargetId: string | null = null;
+  let lastVoteTargetSignature = '';
+
+  function readActivityTarget(url: URL): string | null {
+    if (url.hash.startsWith('#event-activity-')) {
+      return url.hash.slice('#event-activity-'.length) || null;
+    }
+    return url.searchParams.get('activity');
+  }
+
+  function scrollActivityCardIntoView(activityId: string) {
+    if (!browser) return;
+    document.getElementById(`event-activity-${activityId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function openActivityDetails(activityId: string) {
+    if (!browser) return;
+    const details = document.getElementById(`activity-${activityId}`);
+    if (details instanceof HTMLDetailsElement) {
+      details.open = true;
+    }
+  }
+
+  async function focusActivityCard(activityId: string) {
+    if (activityHighlightResetHandle) {
+      clearTimeout(activityHighlightResetHandle);
+    }
+    highlightedActivityId = activityId;
+    await tick();
+    openActivityDetails(activityId);
+    scrollActivityCardIntoView(activityId);
+
+    if (browser) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          openActivityDetails(activityId);
+          scrollActivityCardIntoView(activityId);
+        });
+      });
+    }
+
+    activityHighlightResetHandle = setTimeout(() => {
+      if (highlightedActivityId === activityId) {
+        highlightedActivityId = null;
+      }
+      activityHighlightResetHandle = null;
+    }, 1800);
+  }
+
+  function phaseChangeVoteGroup(requestId: string): 'return' | 'advance' | 'close' | null {
+    return data.lifecycle.phaseChangeRequests.find((request) => request.id === requestId)?.kind ?? null;
+  }
+
+  function scrollVoteCardIntoView(voteKind: string, voteTarget: string) {
+    if (!browser) return;
+    document.getElementById(`vote-card-${voteKind}-${voteTarget}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+  }
+
+  async function focusVoteCard(voteKind: string, voteTarget: string) {
+    if (voteKind === 'plan') {
+      activePhaseId = 'event-plan';
+    } else if (voteKind === 'phase_change') {
+      activePhaseId = data.lifecycle.currentPhaseId;
+    }
+
+    await tick();
+    scrollVoteCardIntoView(voteKind, voteTarget);
+
+    if (browser) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollVoteCardIntoView(voteKind, voteTarget);
+        });
+      });
+    }
+  }
+
+  // Watch for activity target in URL and scroll/expand like projects do
+  $: {
+    const activityTargetId = readActivityTarget($page.url);
+
+    if (!activityTargetId) {
+      lastActivityTargetId = null;
+    } else if (activityTargetId !== lastActivityTargetId) {
+      lastActivityTargetId = activityTargetId;
+      activePhaseId = 'activity';
+      void focusActivityCard(activityTargetId);
+    }
+  }
+
+  $: {
+    const voteSignature = autoExpandVoteCards && autoExpandVoteKind && autoExpandVoteTarget
+      ? `${autoExpandVoteKind}:${autoExpandVoteTarget}`
+      : '';
+
+    if (voteSignature && voteSignature !== lastVoteTargetSignature) {
+      lastVoteTargetSignature = voteSignature;
+      void focusVoteCard(autoExpandVoteKind as string, autoExpandVoteTarget as string);
+    } else if (!voteSignature) {
+      lastVoteTargetSignature = '';
+    }
+  }
 
   $: if (lastCurrentPhaseId !== data.lifecycle.currentPhaseId) {
     lastCurrentPhaseId = data.lifecycle.currentPhaseId;
@@ -95,15 +205,6 @@
     showActivityComposer = false;
     phaseChangeReason = '';
     highlightedActivityId = null;
-  }
-
-  $: if (requestedActivityId !== lastRequestedActivityId) {
-    lastRequestedActivityId = requestedActivityId;
-
-    if (requestedActivityId) {
-      activePhaseId = 'activity';
-      highlightedActivityId = requestedActivityId;
-    }
   }
 
   $: if (
@@ -121,6 +222,14 @@
     data.lifecycle.phases.find((phase) => phase.id === activePhaseId) ??
     data.lifecycle.phases.find((phase) => phase.id === data.lifecycle.currentPhaseId) ??
     data.lifecycle.phases[0];
+  $: targetedPhaseChangeGroup =
+    autoExpandVoteCards && autoExpandVoteKind === 'phase_change' && autoExpandVoteTarget
+      ? phaseChangeVoteGroup(autoExpandVoteTarget)
+      : null;
+  $: targetedPlanId =
+    autoExpandVoteCards && autoExpandVoteKind === 'plan'
+      ? autoExpandVoteTarget
+      : null;
   $: signalSummary = data.lifecycle.phaseOne.signalSummary;
   $: selectedPlan =
     data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ??
@@ -442,6 +551,7 @@
       bind:showActivityComposer
       bind:selectedDayIso
       bind:highlightedActivityId
+      {targetedPlanId}
       bind:planForm
       bind:activityForm
       {minimumParticipants}
@@ -464,6 +574,7 @@
       bind:phaseChangeReason
       {requestPhaseChange}
       {voteOnPhaseChange}
+      autoExpandVoteGroup={targetedPhaseChangeGroup}
     />
   </section>
 </section>

@@ -2,7 +2,9 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import EventCard from '$lib/components/cards/public-feed/EventCard.svelte';
-  import CreateEventAudienceSelector from '$lib/features/create/event/components/CreateEventAudienceSelector.svelte';
+  import CreateScopeTagSelector from '$lib/features/create/shared/CreateScopeTagSelector.svelte';
+  import { commitSingleSuggestion, mergeScopeOptions } from '$lib/features/create/shared/createFormActions';
+  import { loadTaggableScopeOptions } from '$lib/features/create/shared/taggableScopes';
   import CreateEventVisibilityPanel from '$lib/features/create/event/components/CreateEventVisibilityPanel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
@@ -24,6 +26,12 @@
   let peopleQuery = '';
   let statusMessage = '';
   let isSubmitting = false;
+  let channelSuggestionPool: AudienceScopeItem[] = [];
+  let communitySuggestionPool: AudienceScopeItem[] = [];
+  let selectedChannelOptions: AudienceScopeItem[] = [];
+  let selectedCommunityOptionsCache: AudienceScopeItem[] = [];
+  let taggableLookupKey = '';
+  let taggableRequestId = 0;
 
   function selectedScopeTags(
     selectedSlugs: string[],
@@ -44,10 +52,11 @@
   }
 
   $: viewer = $page.data.bootstrap?.viewer ?? null;
-  $: channelSuggestionPool = ($page.data.bootstrap?.directory.channels ?? []) as AudienceScopeItem[];
-  $: communitySuggestionPool = ($page.data.bootstrap?.directory.communities ?? []) as AudienceScopeItem[];
+  $: updateTaggableScopes(channelQuery, communityQuery);
+  $: allChannelOptions = mergeScopeOptions(channelSuggestionPool, selectedChannelOptions);
+  $: allCommunityOptions = mergeScopeOptions(communitySuggestionPool, selectedCommunityOptionsCache);
   $: peopleSuggestionPool = ($page.data.bootstrap?.suggestedContacts ?? []) as ViewerSummary[];
-  $: selectedCommunityOptions = communitySuggestionPool.filter((option) =>
+  $: selectedCommunityOptions = allCommunityOptions.filter((option) =>
     selectedCommunityIds.includes(option.slug)
   );
   $: privateCommunity =
@@ -84,11 +93,11 @@
         .slice(0, 6)
     : [];
   $: selectedChannelItems = selectedChannelIds
-    .map((slug) => channelSuggestionPool.find((option) => option.slug === slug))
+    .map((slug) => allChannelOptions.find((option) => option.slug === slug))
     .filter((option): option is AudienceScopeItem => !!option)
     .map((option) => ({ key: option.slug, label: option.label }));
   $: selectedCommunityItems = selectedCommunityIds
-    .map((slug) => communitySuggestionPool.find((option) => option.slug === slug))
+    .map((slug) => allCommunityOptions.find((option) => option.slug === slug))
     .filter((option): option is AudienceScopeItem => !!option)
     .map((option) => ({
       key: option.slug,
@@ -120,8 +129,9 @@
           description.trim() ||
           'Describe the proposal, who it is for, and what an approved event plan should turn into.',
         isPrivate,
-        channelTags: selectedScopeTags(selectedChannelIds, channelSuggestionPool, 'channel'),
-        communityTags: selectedScopeTags(selectedCommunityIds, communitySuggestionPool, 'community'),
+        stage: 'Proposal',
+        channelTags: selectedScopeTags(selectedChannelIds, allChannelOptions, 'channel'),
+        communityTags: selectedScopeTags(selectedCommunityIds, allCommunityOptions, 'community'),
         createdByUsername: viewer.username,
         timeLabel: '',
         locationLabel: '',
@@ -146,8 +156,9 @@
       const result = await createEvent({
         title,
         description,
-        channelTags: selectedScopeTags(selectedChannelIds, channelSuggestionPool, 'channel'),
-        communityTags: selectedScopeTags(selectedCommunityIds, communitySuggestionPool, 'community'),
+        isPrivate,
+        channelTags: selectedScopeTags(selectedChannelIds, allChannelOptions, 'channel'),
+        communityTags: selectedScopeTags(selectedCommunityIds, allCommunityOptions, 'community'),
         invitedUsernames
       });
 
@@ -172,6 +183,10 @@
       return;
     }
 
+    const option = channelSuggestionPool.find((item) => item.slug === slug);
+    if (option) {
+      selectedChannelOptions = mergeScopeOptions(selectedChannelOptions, [option]);
+    }
     selectedChannelIds = [...selectedChannelIds, slug];
     channelQuery = '';
   }
@@ -185,6 +200,10 @@
       return;
     }
 
+    const option = communitySuggestionPool.find((item) => item.slug === slug);
+    if (option) {
+      selectedCommunityOptionsCache = mergeScopeOptions(selectedCommunityOptionsCache, [option]);
+    }
     selectedCommunityIds = [...selectedCommunityIds, slug];
     communityQuery = '';
   }
@@ -206,14 +225,32 @@
     invitedUsernames = invitedUsernames.filter((value) => value !== username);
   }
 
-  function commitSingleSuggestion(
-    event: KeyboardEvent,
-    suggestions: string[],
-    handler: (value: string) => void
-  ) {
-    if (event.key === 'Enter' && suggestions.length === 1) {
-      event.preventDefault();
-      handler(suggestions[0]);
+  async function updateTaggableScopes(channelText: string, communityText: string) {
+    const normalizedChannelQuery = channelText.trim();
+    const normalizedCommunityQuery = communityText.trim();
+    const lookupKey = `${normalizedChannelQuery}|${normalizedCommunityQuery}`;
+
+    if (lookupKey === taggableLookupKey) {
+      return;
+    }
+
+    taggableLookupKey = lookupKey;
+    const requestId = ++taggableRequestId;
+
+    try {
+      const results = await loadTaggableScopeOptions(normalizedChannelQuery, normalizedCommunityQuery);
+
+      if (requestId !== taggableRequestId) {
+        return;
+      }
+
+      channelSuggestionPool = results.channels;
+      communitySuggestionPool = results.communities;
+    } catch {
+      if (requestId === taggableRequestId) {
+        channelSuggestionPool = [];
+        communitySuggestionPool = [];
+      }
     }
   }
 </script>
@@ -248,7 +285,7 @@
           <textarea bind:value={description} rows="4"></textarea>
         </label>
 
-        <CreateEventAudienceSelector
+        <CreateScopeTagSelector
           label="Channel tags"
           bind:query={channelQuery}
           placeholder="Type to add a channel tag"
@@ -259,7 +296,7 @@
           onCommitSingleSuggestion={commitSingleSuggestion}
         />
 
-        <CreateEventAudienceSelector
+        <CreateScopeTagSelector
           label="Community tags"
           bind:query={communityQuery}
           placeholder="Type to add a community tag"
@@ -270,7 +307,7 @@
           onCommitSingleSuggestion={commitSingleSuggestion}
         />
 
-        <CreateEventAudienceSelector
+        <CreateScopeTagSelector
           label="Add personal people"
           bind:query={peopleQuery}
           placeholder="Type to add people"

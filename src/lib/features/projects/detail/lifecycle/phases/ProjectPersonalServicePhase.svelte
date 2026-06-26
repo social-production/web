@@ -159,6 +159,8 @@
   $: personalRequestMode = data.lifecycle.personalService?.requestMode ?? 'calendar';
   $: allowsDirectRequests = personalRequestMode === 'direct' || personalRequestMode === 'both';
   $: requestScheduleRequired = data.lifecycle.requestSystem?.requiresSchedule ?? false;
+  $: showRequestScheduleFields =
+    requestScheduleRequired || !!serviceRequestForm.scheduledAt || !!selectedActivityId;
   $: calendarCanCreate = usesCalendar && data.lifecycle.phaseFive.viewerCanCreateActivities;
   $: calendarCreateActive = data.lifecycle.phaseFive.viewerCanCreateActivities
     ? showPersonalActivityComposer
@@ -198,7 +200,7 @@
             <div class="empty-card">No requests yet.</div>
           {:else}
             {#each data.lifecycle.requestSystem.requests as request}
-              <article class="surface-card request-card">
+              <article id={`request-card-${request.id}`} class="surface-card request-card">
                 <div class="request-header-row">
                   <div>
                     <strong>{request.title}</strong>
@@ -309,7 +311,7 @@
         <div>
           <h3>Request service</h3>
           <p>
-            {#if requestScheduleRequired}
+            {#if showRequestScheduleFields}
               Start from the selected available time and add the details for the creator.
             {:else}
               Describe what you need so the creator can review the request and reply in messages.
@@ -318,7 +320,7 @@
         </div>
       </div>
       <input bind:value={serviceRequestForm.title} maxlength="120" placeholder="Request title" />
-      {#if requestScheduleRequired}
+      {#if showRequestScheduleFields}
         <div class="number-grid">
           <label>
             <span class="field-inline-label">Start time</span>
@@ -333,7 +335,7 @@
       <textarea
         bind:value={serviceRequestForm.body}
         rows="3"
-        placeholder={requestScheduleRequired
+        placeholder={showRequestScheduleFields
           ? 'What do you need help with?'
           : 'What do you need, and what should the creator expect?'}
       ></textarea>

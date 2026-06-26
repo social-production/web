@@ -19,10 +19,6 @@ function slugify(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-function notImplemented(method: string): never {
-  throw new Error(`events.${method}: no backend endpoint yet`);
-}
-
 // -- Read -------------------------------------------------------------------
 
 export async function fetchEvent(slug: string): Promise<EventPageData | null> {
@@ -46,10 +42,11 @@ export async function fetchCreateEvent(input: CreateEventInput): Promise<CreateR
       slug: slugify(input.title),
       title: input.title,
       description: input.description,
-      is_private: false,
+      is_private: input.isPrivate ?? false,
       time_label: 'TBD',
       location_label: 'TBD',
       channel_slugs: input.channelTags.map(t => t.slug),
+      community_slugs: input.communityTags.map(t => t.slug),
     });
     return { ok: true, slug: res.event.slug };
   } catch (err) {

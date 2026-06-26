@@ -8,11 +8,14 @@
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { setVote } from '$lib/services/queries/feeds';
   import type { PublicEventItem, VoteDirection } from '$lib/types/feed';
-  import { describeActivityTime } from '$lib/utils/time';
+  import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
+  import { describeUpdateTime } from '$lib/utils/time';
 
   export let item: PublicEventItem;
 
   $: orderedTags = [...item.channelTags, ...item.communityTags];
+  $: scheduleTime = isImplementedScheduleLabel(item.timeLabel) ? item.timeLabel.trim() : '';
+  $: scheduleLocation = isImplementedScheduleLabel(item.locationLabel) ? item.locationLabel.trim() : '';
 
   async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
     await setVote(item.id, event.detail.vote);
@@ -25,6 +28,9 @@
     <div class="chips">
       <SubjectTablet kind="event" />
       <Tablet label={item.isPrivate ? 'Private' : 'Public'} variant="visibility" />
+      {#if item.stage}
+        <Tablet label={item.stage} variant="stage" />
+      {/if}
     </div>
 
     <div class="tag-stack">
@@ -34,8 +40,11 @@
 
   <a class="title" href={item.href}>{item.title}</a>
   <p class="body">{item.description}</p>
-  {#if item.timeLabel || item.locationLabel}
-    <p class="location">{[item.timeLabel, item.locationLabel].filter(Boolean).join(' · ')}</p>
+  {#if item.latestUpdateBody}
+    <p class="latest-summary">Latest: {item.latestUpdateBody}</p>
+  {/if}
+  {#if scheduleTime || scheduleLocation}
+    <p class="location">{[scheduleTime, scheduleLocation].filter(Boolean).join(' · ')}</p>
   {:else}
     <p class="location">Proposal schedule and location are set when an event plan is approved.</p>
   {/if}
@@ -50,7 +59,7 @@
     <div class="footer-meta">
       <span>
         <a class="inline-link" href={`/profile/${item.createdByUsername}`}>{item.createdByUsername}</a>
-        · {item.memberCount} members · <span class="activity-stamp">{describeActivityTime(item.createdAt, item.lastActivityAt)}</span>
+        · {item.memberCount} members · <span class="activity-stamp">{describeUpdateTime(item.createdAt, item.latestUpdateAt)}</span>
       </span>
     </div>
   </div>
@@ -85,14 +94,26 @@
 
   .body,
   .location,
+  .latest-summary,
   .footer {
     color: var(--text-soft);
   }
 
   .body,
-  .location {
+  .location,
+  .latest-summary {
     margin: 6px 0 0;
     line-height: 1.4;
+  }
+
+  .latest-summary {
+    display: -webkit-box;
+    overflow: hidden;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    color: var(--text-main);
+    opacity: 0.84;
   }
 
   .tag-stack {

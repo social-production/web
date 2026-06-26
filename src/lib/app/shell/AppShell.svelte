@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import brandIcon from '$lib/assets/brand/app-icon-no-background-full-white.png';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
+  import AuthActionNotice from '$lib/components/shared/AuthActionNotice.svelte';
   import LeftRailPanel from '$lib/features/left-rail/LeftRailPanel.svelte';
   import RightRailPanel from '$lib/features/right-rail/RightRailPanel.svelte';
   import { onMount } from 'svelte';
@@ -240,6 +241,8 @@
     </aside>
   </div>
 </div>
+
+<AuthActionNotice />
 
 <style>
   .shell {

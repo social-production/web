@@ -1,6 +1,7 @@
 import { apiClient, extractErrorMessage } from '../client';
 import { mapPersonalItem } from './feeds';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
+import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
 import type { CreateChannelInput, CreateCommunityInput, CreateResult, PublicFeedItem, VoteDirection } from '$lib/types/feed';
 
 // In-memory membership cache for toggle direction
@@ -23,6 +24,19 @@ interface BackendChannel {
 
 interface BackendCommunity extends BackendChannel {
   join_policy: string;
+}
+
+interface BackendTaggableScopeItem {
+  slug: string;
+  label: string;
+  href: string;
+  visibility: 'public' | 'private';
+  viewer_is_member: boolean;
+}
+
+interface BackendTaggableScopes {
+  channels: BackendTaggableScopeItem[];
+  communities: BackendTaggableScopeItem[];
 }
 
 interface BackendBoardPerson {
@@ -55,6 +69,31 @@ function mapBoardPerson(p: BackendBoardPerson) {
   };
 }
 
+function mapTaggableScope(item: BackendTaggableScopeItem): ScopeDirectoryItem {
+  return {
+    slug: item.slug,
+    label: item.label,
+    href: item.href,
+    visibility: item.visibility,
+    viewerIsMember: item.viewer_is_member
+  };
+}
+
+export async function fetchTaggableScopes(
+  query: string,
+  kind?: 'channel' | 'community',
+  limit = 8
+): Promise<{ channels: ScopeDirectoryItem[]; communities: ScopeDirectoryItem[] }> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  if (kind) params.set('kind', kind);
+
+  const res = await apiClient.get<BackendTaggableScopes>(`/scopes/taggable?${params.toString()}`);
+  return {
+    channels: res.channels.map(mapTaggableScope),
+    communities: res.communities.map(mapTaggableScope)
+  };
+}
+
 async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Promise<PublicFeedItem[]> {
   try {
     const res = await apiClient.get<{
@@ -71,6 +110,8 @@ async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Prom
         signal_count: number;
         last_activity_at: string;
         created_at: string;
+        last_update_at?: string | null;
+        latest_update_body?: string | null;
         project_mode: string | null;
         project_subtype: string | null;
         stage_label: string | null;
@@ -100,6 +141,8 @@ async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Prom
           projectMode: (item.project_mode ?? 'productive') as never,
           projectSubtype: (item.project_subtype as never) ?? null,
           summary: item.body,
+          latestDescription: item.latest_update_body ?? undefined,
+          latestUpdateAt: item.last_update_at ?? undefined,
           channelTags,
           communityTags,
           stage: item.stage_label ?? '',
@@ -140,6 +183,7 @@ async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Prom
           title: item.title,
           description: item.body,
           isPrivate: item.is_private,
+          stage: item.stage_label ?? '',
           scheduledAt: item.scheduled_at ?? undefined,
           channelTags,
           communityTags,
@@ -150,7 +194,9 @@ async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Prom
           activeVote: (item.active_vote ?? 0) as VoteDirection,
           commentCount: item.comment_count,
           memberCount: item.member_count,
-          lastActivityAt: item.last_activity_at
+          lastActivityAt: item.last_activity_at,
+          latestUpdateBody: item.latest_update_body ?? undefined,
+          latestUpdateAt: item.last_update_at ?? undefined
         }];
       }
       return [];

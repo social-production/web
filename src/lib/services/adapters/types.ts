@@ -1,4 +1,4 @@
-import type { BootstrapPayload } from '$lib/types/bootstrap';
+import type { BootstrapPayload, ScopeDirectoryItem, ViewerSummary } from '$lib/types/bootstrap';
 import type {
   AuthResult,
   OnboardingPageData,
@@ -37,6 +37,7 @@ import type {
 import type { PlatformAssetsPageData } from '$lib/types/assets';
 import type {
   CreateGroupMessageInput,
+  DirectMessage,
   MessageConversationResult,
   MessagesPageData,
   NotificationsPageData
@@ -72,8 +73,16 @@ export interface AppAdapter {
   getSettings(): Promise<SettingsPageData | null>;
   updateSettings(input: SettingsUpdateInput): Promise<void>;
   getProfile(username: string): Promise<ProfilePageData | null>;
+  followUser(username: string): Promise<void>;
+  unfollowUser(username: string): Promise<void>;
   getNotifications(): Promise<NotificationsPageData | null>;
   getMessages(): Promise<MessagesPageData | null>;
+  getConversationMessages(
+    conversationId: string,
+    viewerId: string,
+    participants: ViewerSummary[]
+  ): Promise<DirectMessage[]>;
+  getMessageContacts(query: string, limit?: number): Promise<ViewerSummary[]>;
   getSearch(query: string): Promise<SearchPageData>;
   getProject(slug: string): Promise<ProjectPageData | null>;
   getThread(slug: string): Promise<ThreadPageData | null>;
@@ -83,6 +92,11 @@ export interface AppAdapter {
   createPost(input: CreatePostInput): Promise<CreateResult>;
   createChannel(input: CreateChannelInput): Promise<CreateResult>;
   createCommunity(input: CreateCommunityInput): Promise<CreateResult>;
+  getTaggableScopes(
+    query: string,
+    kind?: 'channel' | 'community',
+    limit?: number
+  ): Promise<{ channels: ScopeDirectoryItem[]; communities: ScopeDirectoryItem[] }>;
   getPost(id: string): Promise<PostPageData | null>;
   getEvent(slug: string): Promise<EventPageData | null>;
   toggleEventMembership(eventSlug: string): Promise<void>;
@@ -130,7 +144,10 @@ export interface AppAdapter {
     activityId: string,
     roleLabel: string | null
   ): Promise<void>;
-  addProjectServiceRequest(projectSlug: string, input: ProjectServiceRequestInput): Promise<void>;
+  addProjectServiceRequest(
+    projectSlug: string,
+    input: ProjectServiceRequestInput
+  ): Promise<{ conversationId?: string }>;
   createProjectManualLinkRequest(
     projectSlug: string,
     targetProjectSlug: string,
@@ -289,6 +306,7 @@ export interface AppAdapter {
   markNotificationRead(notificationId: string): Promise<void>;
   markAllNotificationsRead(): Promise<void>;
   markConversationRead(conversationId: string): Promise<void>;
+  markLinkedChatRead(subjectType: string, subjectId: string): Promise<void>;
   sendMessage(conversationId: string, body: string): Promise<void>;
   startDirectMessage(participantUsername: string, body: string): Promise<MessageConversationResult>;
   createGroupConversation(input: CreateGroupMessageInput): Promise<MessageConversationResult>;

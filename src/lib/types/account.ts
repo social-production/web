@@ -39,6 +39,8 @@ export interface ProfilePageData {
   followers: ViewerSummary[];
   following: ViewerSummary[];
   canViewPersonalFeed: boolean;
+  viewerIsFollowing: boolean;
+  isOwnProfile: boolean;
   feed: PersonalFeedItem[];
 }
 

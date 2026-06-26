@@ -37,6 +37,13 @@ interface BackendFollowList {
   items: BackendFollowItem[];
 }
 
+interface BackendProfileResponse {
+  user: BackendUser;
+  viewer_is_following: boolean;
+  is_own_profile: boolean;
+  can_view_personal_feed: boolean;
+}
+
 function mapUser(u: BackendUser): ViewerSummary {
   return {
     id: u.id,
@@ -106,7 +113,7 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
 export async function fetchProfile(username: string): Promise<ProfilePageData | null> {
   try {
     const [profileRes, followersRes, followingRes, feedRes] = await Promise.all([
-      apiClient.get<{ user: BackendUser }>(`/users/${username}`),
+      apiClient.get<BackendProfileResponse>(`/users/${username}`),
       apiClient.get<BackendFollowList>(`/users/${username}/followers`),
       apiClient.get<BackendFollowList>(`/users/${username}/following`),
       apiClient.get<{ items: Parameters<typeof mapPersonalItem>[0][] }>(`/feeds/user/${encodeURIComponent(username)}`),
@@ -118,11 +125,21 @@ export async function fetchProfile(username: string): Promise<ProfilePageData | 
       followingCount: followingRes.total,
       followers: followersRes.items.map(mapUser),
       following: followingRes.items.map(mapUser),
-      canViewPersonalFeed: false,
+      canViewPersonalFeed: profileRes.can_view_personal_feed,
+      viewerIsFollowing: profileRes.viewer_is_following,
+      isOwnProfile: profileRes.is_own_profile,
       feed: feedRes.items.flatMap(item => { const m = mapPersonalItem(item); return m ? [m] : []; }),
     };
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
     throw err;
   }
+}
+
+export async function fetchFollowUser(username: string): Promise<void> {
+  await apiClient.post(`/users/${encodeURIComponent(username)}/follow`, {});
+}
+
+export async function fetchUnfollowUser(username: string): Promise<void> {
+  await apiClient.delete(`/users/${encodeURIComponent(username)}/follow`);
 }

@@ -1,5 +1,5 @@
 import { apiClient, extractErrorMessage } from '../client';
-import { registerEntityType, resolveEntityType } from '../typeRegistry';
+import { registerEntityType, resolveEntityType, tryResolveEntityType } from '../typeRegistry';
 import type { PostPageData, ThreadPageData } from '$lib/types/detail';
 import type { CreatePostInput, CreateResult, CreateThreadInput } from '$lib/types/feed';
 import type { ContentReportVote } from '$lib/types/detail';
@@ -156,9 +156,7 @@ export async function fetchSubmitReport(
   reason: string,
   details: string
 ): Promise<void> {
-  const targetType = resolveEntityType(targetId) !== 'thread'
-    ? resolveEntityType(targetId)
-    : resolveEntityType(subjectId);
+  const targetType = tryResolveEntityType(targetId) ?? resolveEntityType(subjectId);
   await apiClient.post('/governance/reports', {
     target_type: targetType,
     target_id: targetId,

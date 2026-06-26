@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { invalidateAll } from '$app/navigation';
+  import { page } from '$app/stores';
   import { tick } from 'svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
@@ -28,6 +29,8 @@
   export let data: ProjectPageData;
   export let highlightedUpdateId: string | null = null;
   export let showMembersPanel = false;
+  export let autoExpandVoteCards = false;
+  export let autoExpandVoteKind: string | null = null;
 
   const dispatch = createEventDispatcher<{ togglemembers: void }>();
 
@@ -40,9 +43,16 @@
   let showEditVotes = false;
   let updatePending = false;
   let editPending = false;
+  let updateMessage = '';
+  let editMessage = '';
   let updateVotesElement: HTMLElement | null = null;
   let editVotesElement: HTMLElement | null = null;
   let editComposerElement: HTMLElement | null = null;
+
+  $: if (autoExpandVoteCards) {
+    if (!autoExpandVoteKind || autoExpandVoteKind === 'update') showUpdateVotes = true;
+    if (!autoExpandVoteKind || autoExpandVoteKind === 'edit') showEditVotes = true;
+  }
 
   function scrollElementIntoView(element: HTMLElement | null) {
     if (!element) {
@@ -66,14 +76,16 @@
 
   async function submitUpdate() {
     if (!draftUpdateBody.trim()) {
+      updateMessage = 'Write an update before submitting.';
       return;
     }
 
     updatePending = true;
+    updateMessage = '';
 
     try {
       if (isPersonalServiceProject(data.projectMode)) {
-        await addProjectUpdate(data.slug, '', draftUpdateBody);
+        await addProjectUpdate(data.slug, 'Update', draftUpdateBody);
       } else {
         await requestProjectUpdate(data.slug, draftUpdateBody);
       }
@@ -81,6 +93,10 @@
       draftUpdateBody = '';
       showUpdateComposer = false;
       await invalidateAll();
+    } catch {
+      updateMessage = isPersonalServiceProject(data.projectMode)
+        ? 'This update could not be posted. Reload and try again.'
+        : 'This update request could not be submitted. Reload and try again.';
     } finally {
       updatePending = false;
     }
@@ -90,10 +106,12 @@
     const description = draftEditDescription.trim();
 
     if (!draftEditTitle.trim() || !description) {
+      editMessage = 'Add both a title and description before submitting.';
       return;
     }
 
     editPending = true;
+    editMessage = '';
 
     try {
       if (isPersonalServiceProject(data.projectMode)) {
@@ -104,6 +122,10 @@
 
       showEditComposer = false;
       await invalidateAll();
+    } catch {
+      editMessage = isPersonalServiceProject(data.projectMode)
+        ? 'These project details could not be saved. Reload and try again.'
+        : 'This edit request could not be submitted. Reload and try again.';
     } finally {
       editPending = false;
     }
@@ -117,6 +139,7 @@
     showUpdateComposer = !showUpdateComposer;
 
     if (showUpdateComposer) {
+      updateMessage = '';
       showUpdateVotes = false;
       showEditComposer = false;
       showEditVotes = false;
@@ -139,6 +162,7 @@
     showEditComposer = !showEditComposer;
 
     if (showEditComposer) {
+      editMessage = '';
       draftEditTitle = data.title;
       draftEditDescription = data.description;
       showUpdateComposer = false;
@@ -172,6 +196,7 @@
   }
 
   $: showMembershipButton = !isPersonalServiceProject(data.projectMode);
+  $: showGovernanceVotes = !isPersonalServiceProject(data.projectMode);
   $: canRequestUpdate = data.viewerCanRequestUpdate;
   $: canRequestEdit = data.viewerCanRequestEdit;
   $: updateActionLabel = isPersonalServiceProject(data.projectMode)
@@ -185,7 +210,7 @@
 <section class="updates-shell" id="updates">
   <div class="updates-title-row">
     <h2>Updates</h2>
-    {#if data.updateRequests.length > 0}
+    {#if showGovernanceVotes && data.updateRequests.length > 0}
       <button class="vote-chip notice-chip" type="button" on:click={toggleUpdateVotes}>
         Vote Active
         <CountBadge count={data.updateRequests.length} />
@@ -198,6 +223,9 @@
 
   {#if canRequestUpdate && showUpdateComposer}
     <div class="composer-card">
+      {#if updateMessage}
+        <div class="warning-card" role="alert">{updateMessage}</div>
+      {/if}
       <label class="field-stack">
         <span class="field-label">Update</span>
         <textarea bind:value={draftUpdateBody} rows="4" placeholder="Share what changed on this project..."></textarea>
@@ -213,10 +241,10 @@
     </div>
   {/if}
 
-  {#if showUpdateVotes && data.updateRequests.length > 0}
+  {#if showGovernanceVotes && showUpdateVotes && data.updateRequests.length > 0}
     <div bind:this={updateVotesElement} class="surface-stack">
       {#each data.updateRequests as request (request.id)}
-        <article class="surface-card vote-request-card">
+        <article id={`vote-card-update-${request.id}`} class="surface-card vote-request-card">
           <div class="vote-card-top">
             <div class="vote-card-copy">
               <span class="vote-kicker">Update decision</span>
@@ -258,6 +286,9 @@
 
   {#if canRequestEdit && showEditComposer}
     <div bind:this={editComposerElement} class="composer-card">
+      {#if editMessage}
+        <div class="warning-card" role="alert">{editMessage}</div>
+      {/if}
       <label class="field-stack">
         <span class="field-label">Title</span>
         <input bind:value={draftEditTitle} maxlength="120" placeholder="Project title" />
@@ -281,10 +312,46 @@
     </div>
   {/if}
 
-  {#if showEditVotes && data.editRequests.length > 0}
+  <div class="overview-footer-row">
+    <VoteStrip activeVote={data.activeVote} count={data.voteCount} on:vote={handleVote} />
+    {#if showMembershipButton}
+      <button
+        aria-expanded={showMembersPanel}
+        class:active-toggle={showMembersPanel}
+        class="secondary-button member-toggle-button"
+        type="button"
+        on:click={toggleMembersPanel}
+      >
+        Members
+      </button>
+    {/if}
+    {#if canRequestEdit}
+      <button
+        aria-expanded={showEditComposer}
+        class:active-toggle={showEditComposer}
+        class="secondary-button member-toggle-button"
+        type="button"
+        on:click={toggleEditComposer}
+      >
+        Edit details
+      </button>
+    {/if}
+    {#if showGovernanceVotes && data.editRequests.length > 0}
+      <button class="vote-chip notice-chip" type="button" on:click={toggleEditVotes}>
+        Vote Active
+        <CountBadge count={data.editRequests.length} />
+      </button>
+    {/if}
+    <span class="footer-author-row">
+      <a class="inline-link" href={`/profile/${data.authorUsername}?from=${encodeURIComponent($page.url.pathname)}`}>{data.authorUsername}</a>
+      · {formatRelativeTime(data.createdAt)}
+    </span>
+  </div>
+
+  {#if showGovernanceVotes && showEditVotes && data.editRequests.length > 0}
     <div bind:this={editVotesElement} class="surface-stack">
       {#each data.editRequests as request (request.id)}
-        <article class="surface-card vote-request-card">
+        <article id={`vote-card-edit-${request.id}`} class="surface-card vote-request-card">
           <div class="vote-card-top">
             <div class="vote-card-copy">
               <span class="vote-kicker">Edit decision</span>
@@ -313,48 +380,13 @@
       {/each}
     </div>
   {/if}
-
-  <div class="overview-footer-row">
-    <VoteStrip activeVote={data.activeVote} count={data.voteCount} on:vote={handleVote} />
-    {#if showMembershipButton}
-      <button
-        aria-expanded={showMembersPanel}
-        class:active-toggle={showMembersPanel}
-        class="secondary-button member-toggle-button"
-        type="button"
-        on:click={toggleMembersPanel}
-      >
-        Members
-      </button>
-    {/if}
-    {#if canRequestEdit}
-      <button
-        aria-expanded={showEditComposer}
-        class:active-toggle={showEditComposer}
-        class="secondary-button member-toggle-button"
-        type="button"
-        on:click={toggleEditComposer}
-      >
-        Edit details
-      </button>
-    {/if}
-    {#if data.editRequests.length > 0}
-      <button class="vote-chip notice-chip" type="button" on:click={toggleEditVotes}>
-        Vote Active
-        <CountBadge count={data.editRequests.length} />
-      </button>
-    {/if}
-    <span class="footer-author-row">
-      <a class="inline-link" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>
-      · {formatRelativeTime(data.createdAt)}
-    </span>
-  </div>
 </section>
 
 <style>
   .updates-shell,
   .stack,
   .composer-card,
+  .warning-card,
   .surface-stack,
   .vote-card-copy {
     display: grid;
@@ -435,6 +467,16 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
+  }
+
+  .warning-card {
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--status-yellow) 50%, var(--panel-border));
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--status-yellow) 14%, var(--panel-strong));
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .updates-list.scrollable {

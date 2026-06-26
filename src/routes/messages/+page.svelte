@@ -5,4 +5,4 @@
   export let data: PageData;
 </script>
 
-<MessagesPage data={data.messages} />
+<MessagesPage data={data.messages} openConversationId={data.openConversationId} />

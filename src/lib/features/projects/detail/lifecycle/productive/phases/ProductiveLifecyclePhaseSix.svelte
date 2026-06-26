@@ -2,7 +2,6 @@
   import { isCollectiveServiceProject, isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import type {
-    ProjectLifecyclePhaseId,
     ProjectPageData,
     ProjectSoftwareMergeCapabilityChangeInput,
     ProjectSoftwarePullRequestInput,
@@ -10,7 +9,6 @@
   } from '$lib/types/detail';
 
   export let data: ProjectPageData;
-  export let activePhaseId: ProjectLifecyclePhaseId;
   export let createPullRequest: (input: ProjectSoftwarePullRequestInput) => void | Promise<void> = () => {};
   export let requestMergeCapabilityChange: (
     input: ProjectSoftwareMergeCapabilityChangeInput
@@ -23,10 +21,6 @@
   function completionCopy() {
     if (data.linksFrame.conversionLineage) {
       return 'This project is already framed as a governed conversion. Keep the permanent predecessor/successor link and inherited inventory note visible in Links while the follow-on service history takes over.';
-    }
-
-    if (data.lifecycle.usesPlatformLifecycle && activePhaseId === 'phase-6') {
-      return 'This platform project is waiting for execution review before it can fully close. Keep merge confirmation and any final execution evidence visible in the history before advancing to Closed.';
     }
 
     if (isPersonalServiceProject(data.projectMode)) {

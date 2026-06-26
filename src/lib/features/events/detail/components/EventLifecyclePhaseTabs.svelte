@@ -18,7 +18,6 @@
       type="button"
       on:click={() => selectPhase(tab.phase)}
     >
-      <span class="phase-tab-number">{tab.phase.shortLabel}</span>
       <span class="phase-tab-title">{tab.title}</span>
       <small class:current-label={tab.phase.progressState === 'current'}>{tab.progressLabel}</small>
     </button>
@@ -74,7 +73,6 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 30%, transparent);
   }
 
-  .phase-tab-number,
   .phase-tab-title {
     color: var(--text-main);
   }

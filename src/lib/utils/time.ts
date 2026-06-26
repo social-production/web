@@ -63,6 +63,20 @@ export function describeActivityTime(createdAt: string, lastActivityAt: string):
   )}`;
 }
 
+export function describeUpdateTime(createdAt: string, lastUpdateAt?: string | null): string {
+  if (!lastUpdateAt) {
+    return `created ${formatRelativeTimeCompact(createdAt)}`;
+  }
+
+  const createdMs = new Date(createdAt).getTime();
+  const lastUpdateMs = new Date(lastUpdateAt).getTime();
+  const isUpdated = !Number.isNaN(createdMs) && !Number.isNaN(lastUpdateMs) && lastUpdateMs > createdMs;
+
+  return `${isUpdated ? 'updated' : 'created'} ${formatRelativeTimeCompact(
+    isUpdated ? lastUpdateAt : createdAt
+  )}`;
+}
+
 export function formatCalendarTime(value: string): string {
   const date = new Date(value);
 

@@ -30,10 +30,6 @@ function slugify(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-function notImplemented(method: string): never {
-  throw new Error(`projects.${method}: no backend endpoint yet`);
-}
-
 // -- Read -------------------------------------------------------------------
 
 export async function fetchProject(slug: string): Promise<ProjectPageData | null> {
@@ -42,6 +38,57 @@ export async function fetchProject(slug: string): Promise<ProjectPageData | null
     membershipCache.set(slug, res.viewerIsMember);
     registerEntityType(res.id, 'project');
     if (res.discussion) registerCommentIds(res.discussion);
+
+    if (!res.lifecycle) {
+      throw new Error('Project detail response is missing lifecycle data.');
+    }
+
+    res.lifecycle.phases = res.lifecycle.phases ?? [];
+    res.lifecycle.phaseOne = res.lifecycle.phaseOne ?? {
+      values: [],
+      viewerCanSignalDemand: false,
+      viewerCanSignalOpposition: false,
+      viewerCanAddValue: false,
+      viewerCanVoteOnValues: false,
+      viewerHasDemandSignal: false,
+      viewerHasOppositionSignal: false,
+      signalSummary: {
+        demandCount: 0,
+        oppositionCount: 0,
+        totalCount: 0,
+        viewerSignal: null,
+        signalRatioPercent: 0,
+        ratioRequirementMet: false,
+        requiredDemandCount: 0,
+        demandRequirementMet: false,
+        advancementUnlocked: false,
+        usesPlatformVoteContext: false,
+        voteContextLabel: '',
+        voteContextPopulation: 0
+      }
+    };
+    res.lifecycle.phaseTwo = res.lifecycle.phaseTwo ?? {
+      plans: [],
+      winningPlanId: null,
+      viewerCanSubmitPlans: false,
+      viewerCanVoteOnPlans: false,
+      availableAssetManagementServices: []
+    };
+    res.lifecycle.phaseThree = res.lifecycle.phaseThree ?? {
+      plans: [],
+      winningPlanId: null,
+      viewerCanSubmitPlans: false,
+      viewerCanVoteOnPlans: false,
+      requestSystemEnabled: false
+    };
+    res.lifecycle.phaseFive = res.lifecycle.phaseFive ?? {
+      activities: [],
+      history: [],
+      viewerCanCreateActivities: false,
+      selectablePlanPhases: [],
+      softwareGovernance: null
+    };
+
     return res;
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
@@ -60,6 +107,8 @@ export async function fetchCreateProject(input: CreateProjectInput): Promise<Cre
       project_mode: input.projectMode,
       location_label: input.locationLabel,
       channel_slugs: input.channelTags.map(t => t.slug),
+      community_slugs: input.communityTags.map(t => t.slug),
+      request_mode: input.serviceRequestMode,
     });
     return { ok: true, slug: res.project.slug };
   } catch (err) {
@@ -139,7 +188,7 @@ export async function fetchUpdateProjectProductionPlan(
   _planId: string,
   _input: ProjectProductionPlanInput
 ): Promise<boolean> {
-  notImplemented('updateProjectProductionPlan');
+  return false;
 }
 
 export async function fetchAddProjectDistributionPlan(
@@ -309,13 +358,20 @@ export async function fetchSetProjectRepositoryReplacementVote(
 export async function fetchAddProjectServiceRequest(
   projectSlug: string,
   input: ProjectServiceRequestInput
-): Promise<void> {
-  await apiClient.post(`/projects/${projectSlug}/service-requests`, {
-    title: input.title,
-    body: input.body,
-    scheduled_at: input.scheduledAt ?? null,
-    ends_at: input.endsAt ?? null,
-  });
+): Promise<{ conversationId?: string }> {
+  const res = await apiClient.post<{ conversation_id?: string | null }>(
+    `/projects/${projectSlug}/service-requests`,
+    {
+      title: input.title,
+      body: input.body,
+      scheduled_at: input.scheduledAt ?? null,
+      ends_at: input.endsAt ?? null,
+    }
+  );
+
+  return {
+    conversationId: res.conversation_id ?? undefined,
+  };
 }
 
 export async function fetchSetProjectServiceRequestStatus(
@@ -440,7 +496,7 @@ export async function fetchUpdateProjectDetails(
   title: string,
   description: string
 ): Promise<void> {
-  await apiClient.post(`/projects/${projectSlug}/edit-requests`, { title, description });
+  await apiClient.patch(`/projects/${projectSlug}/details`, { title, description });
 }
 
 export async function fetchRequestProjectEdit(

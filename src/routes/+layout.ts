@@ -5,6 +5,8 @@ import { hydrateClientSettingsState } from '$lib/services/queries/account';
 import { getBootstrap } from '$lib/services/queries/bootstrap';
 import type { LayoutLoad } from './$types';
 
+export const ssr = false;
+
 const protectedPrefixes = ['/personal', '/messages', '/notifications', '/settings', '/create'];
 let didHydrateClientState = false;
 

@@ -43,8 +43,16 @@
   let nextPhaseReason = '';
   let nextPhaseCloseOutcome: 'close' | 'convert' = 'close';
   let revertReason = '';
+  let nextPhaseMessage = '';
+  let revertMessage = '';
   let revertTargetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'> = 'phase-2';
   let expandedVoteGroup: 'return' | 'advance' | 'close' | null = null;
+
+  export let autoExpandVoteGroup: 'return' | 'advance' | 'close' | null = null;
+
+  $: if (autoExpandVoteGroup && autoExpandVoteGroup !== expandedVoteGroup) {
+    expandedVoteGroup = autoExpandVoteGroup;
+  }
   let nextPhaseComposerElement: HTMLDivElement | null = null;
   let revertComposerElement: HTMLDivElement | null = null;
 
@@ -57,12 +65,19 @@
   );
   $: canDirectReturn = personalDirectPhaseChange && data.lifecycle.viewerCanRevertPhase;
   $: signalGatePasses = data.lifecycle.currentPhaseId !== 'phase-1' || (data.lifecycle.phaseOne?.signalSummary?.advancementUnlocked ?? false);
-  $: canDirectAdvance = personalDirectPhaseChange && data.lifecycle.viewerCanAdvancePhase && signalGatePasses;
+  $: planGateMessage =
+    data.lifecycle.currentPhaseId === 'phase-2' && !data.lifecycle.phaseTwo.winningPlanId
+      ? 'This project needs an approved production or operations plan before it can advance.'
+      : data.lifecycle.currentPhaseId === 'phase-3' && !data.lifecycle.phaseThree.winningPlanId
+        ? 'This project needs an approved distribution or access plan before it can advance.'
+        : '';
+  $: phaseGatePasses = signalGatePasses && !planGateMessage;
+  $: canDirectAdvance = personalDirectPhaseChange && data.lifecycle.viewerCanAdvancePhase && phaseGatePasses;
   $: showReturnActions = personalDirectPhaseChange
     ? canDirectReturn
     : data.lifecycle.revertablePhaseIds.length > 0 || returnRequests.length > 0;
   $: showNextActions = personalDirectPhaseChange
-    ? canDirectAdvance
+    ? !!data.lifecycle.nextPhaseId && data.lifecycle.viewerCanAdvancePhase
     : !!data.lifecycle.nextPhaseId || nextActionRequests.length > 0;
   $: canOfferConversionOnClose =
     !personalDirectPhaseChange && isProductiveProject(data.projectMode) && isClosingTransition();
@@ -85,7 +100,11 @@
   }
 
   function closePhaseId() {
-    return isPersonalServiceProject(data.projectMode) ? 'phase-2' : 'phase-6';
+    if (isPersonalServiceProject(data.projectMode)) {
+      return 'phase-2';
+    }
+
+    return 'phase-7';
   }
 
   function isClosingTransition() {
@@ -160,10 +179,22 @@
   }
 
   async function submitNextPhaseRequest() {
-    if (!data.lifecycle.nextPhaseId || !nextPhaseReason.trim()) {
+    if (!data.lifecycle.nextPhaseId) {
+      nextPhaseMessage = 'There is no next phase available from here.';
       return;
     }
 
+    if (!nextPhaseReason.trim()) {
+      nextPhaseMessage = 'Add a reason before submitting this phase change.';
+      return;
+    }
+
+    if (!phaseGatePasses) {
+      nextPhaseMessage = planGateMessage || 'This project has not met the requirements to advance from proposal yet.';
+      return;
+    }
+
+    nextPhaseMessage = '';
     if (personalDirectPhaseChange) {
       await advancePhase(nextPhaseReason);
     } else {
@@ -186,9 +217,11 @@
 
   async function submitRevertRequest() {
     if (!revertReason.trim()) {
+      revertMessage = 'Add a reason before submitting this return request.';
       return;
     }
 
+    revertMessage = '';
     if (personalDirectPhaseChange) {
       await revertPhase(revertTargetPhaseId, revertReason);
     } else {
@@ -212,12 +245,14 @@
   function closeNextPhaseComposer() {
     showNextPhaseComposer = false;
     nextPhaseReason = '';
+    nextPhaseMessage = '';
     nextPhaseCloseOutcome = 'close';
   }
 
   function closeRevertComposer() {
     showRevertComposer = false;
     revertReason = '';
+    revertMessage = '';
   }
 
   async function toggleNextPhaseComposer() {
@@ -230,6 +265,7 @@
     }
 
     showNextPhaseComposer = true;
+    nextPhaseMessage = '';
     closeRevertComposer();
     expandedVoteGroup = null;
     await tick();
@@ -252,6 +288,7 @@
     }
 
     showRevertComposer = true;
+    revertMessage = '';
     closeNextPhaseComposer();
     expandedVoteGroup = null;
     await tick();
@@ -301,7 +338,7 @@
               <CountBadge count={nextActionRequests.length} />
             </button>
           {/if}
-          {#if (personalDirectPhaseChange ? canDirectAdvance : (data.lifecycle.viewerCanRequestPhaseChanges && signalGatePasses)) && data.lifecycle.nextPhaseId}
+          {#if (personalDirectPhaseChange ? data.lifecycle.viewerCanAdvancePhase : data.lifecycle.viewerCanRequestPhaseChanges) && data.lifecycle.nextPhaseId}
             <button
               class:active-toggle={showNextPhaseComposer}
               class="secondary-button action-button"
@@ -319,6 +356,9 @@
       <div bind:this={revertComposerElement} class="mechanics-card change-action-panel">
         <div class="composer-card">
           <h3>{personalDirectPhaseChange ? 'Return to active' : 'Return'}</h3>
+          {#if revertMessage}
+            <div class="warning-card" role="alert">{revertMessage}</div>
+          {/if}
           <label>
             <span class="field-inline-label">Return to</span>
             <select bind:value={revertTargetPhaseId}>
@@ -351,6 +391,14 @@
       <div bind:this={nextPhaseComposerElement} class="mechanics-card change-action-panel">
         <div class="composer-card">
           <h3>{nextPhaseActionLabel()}</h3>
+          {#if nextPhaseMessage}
+            <div class="warning-card" role="alert">{nextPhaseMessage}</div>
+          {/if}
+          {#if !phaseGatePasses}
+            <div class="inline-note">
+              {planGateMessage || 'Advancement is locked until proposal demand meets the required threshold.'}
+            </div>
+          {/if}
           {#if canOfferConversionOnClose}
             <label>
               <span class="field-inline-label">Outcome</span>
@@ -388,7 +436,7 @@
     {#if expandedVoteGroup === 'return' && returnRequests.length > 0}
       <div class="surface-stack">
         {#each returnRequests as request (request.id)}
-          <article class="surface-card vote-request-card">
+          <article id={`vote-card-phase_change-${request.id}`} class="surface-card vote-request-card">
             <div class="vote-card-top">
               <div class="vote-card-copy">
                 <span class="vote-kicker">{requestKindLabel(request)}</span>
@@ -433,7 +481,7 @@
     {#if expandedVoteGroup === nextVoteKind && nextActionRequests.length > 0}
       <div class="surface-stack">
         {#each nextActionRequests as request (request.id)}
-          <article class="surface-card vote-request-card">
+          <article id={`vote-card-phase_change-${request.id}`} class="surface-card vote-request-card">
             <div class="vote-card-top">
               <div class="vote-card-copy">
                 <span class="vote-kicker">{requestKindLabel(request)}</span>
@@ -468,6 +516,7 @@
   .phase-change-stack,
   .change-action-panel,
   .composer-card,
+  .warning-card,
   .conversion-preview-card,
   .surface-stack,
   .vote-request-card,
@@ -535,6 +584,16 @@
     background: color-mix(in srgb, var(--panel) 82%, var(--panel-strong));
   }
 
+  .warning-card {
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--status-yellow) 50%, var(--panel-border));
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--status-yellow) 14%, var(--panel-strong));
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
   .primary-button,
   .secondary-button,
   .vote-chip {
@@ -581,6 +640,7 @@
 
   p,
   span,
+  .inline-note,
   .vote-kicker {
     color: var(--text-soft);
   }

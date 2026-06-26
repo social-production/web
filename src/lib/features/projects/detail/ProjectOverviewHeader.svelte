@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
+  import { page } from '$app/stores';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
@@ -11,11 +12,18 @@
     toggleProjectMembership
   } from '$lib/services/queries/details';
   import type { ProjectPageData } from '$lib/types/detail';
+  import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
+  import { requireViewer } from '$lib/utils/requireViewer';
 
   export let data: ProjectPageData;
 
   $: combinedTags = [...data.channelTags, ...data.communityTags];
-  $: signalSummary = data.lifecycle.phaseOne.signalSummary;
+  $: signalSummary = data.lifecycle.phaseOne?.signalSummary ?? null;
+  $: implementedLocation = isImplementedScheduleLabel(data.locationLabel) ? data.locationLabel.trim() : '';
+  $: showProposalLocationCopy =
+    supportsProjectDemandSignals(data.projectMode) &&
+    data.lifecycle.currentPhaseId === 'phase-1' &&
+    !implementedLocation;
   $: membershipMetaLabel = 'Members';
   $: membershipButtonLabel = isPersonalServiceProject(data.projectMode)
     ? `${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`
@@ -26,11 +34,19 @@
       : `${data.lifecycle.quorumVotesRequired} ${data.lifecycle.quorumVotesRequired === 1 ? 'vote' : 'votes'} required from ${data.lifecycle.voteContextPopulation} ${data.lifecycle.voteContextLabel}`;
 
   async function handleSignalSet(signal: 'demand' | 'opposition') {
+    if (!requireViewer($page.data.bootstrap?.viewer)) {
+      return;
+    }
+
     await setProjectSignal(data.slug, signal);
     await invalidateAll();
   }
 
   async function handleMembershipToggle() {
+    if (!requireViewer($page.data.bootstrap?.viewer)) {
+      return;
+    }
+
     await toggleProjectMembership(data.slug);
     await invalidateAll();
   }
@@ -128,10 +144,17 @@
       </li>
     {/if}
 
-    <li class="meta-item">
-      <strong>Location</strong>
-      <span>{data.locationLabel}</span>
-    </li>
+    {#if implementedLocation}
+      <li class="meta-item">
+        <strong>Location</strong>
+        <span>{implementedLocation}</span>
+      </li>
+    {:else if showProposalLocationCopy}
+      <li class="meta-item">
+        <strong>Proposal</strong>
+        <span>This project stays proposal-first until an approved plan sets the live location.</span>
+      </li>
+    {/if}
 
     {#if data.lifecycle.personalService?.travelRadiusLabel}
       <li class="meta-item">

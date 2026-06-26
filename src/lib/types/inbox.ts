@@ -65,6 +65,7 @@ export interface MessageLinkedChat {
   meta: string;
   preview: string;
   lastMessageAt: string;
+  unreadCount: number;
   comments: DetailComment[];
 }
 

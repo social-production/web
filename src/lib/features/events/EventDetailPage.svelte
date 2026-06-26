@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { tick } from 'svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
@@ -9,17 +9,42 @@
   import EventMembersPanel from '$lib/features/events/detail/EventMembersPanel.svelte';
   import EventOverviewHeader from '$lib/features/events/detail/EventOverviewHeader.svelte';
   import EventUpdatesSection from '$lib/features/events/detail/EventUpdatesSection.svelte';
+  import ContextualBackButton from '$lib/components/shared/ContextualBackButton.svelte';
+  import { markLinkedChatRead } from '$lib/services/queries/inbox';
   import type { EventPageData } from '$lib/types/detail';
 
   export let data: EventPageData;
 
   let highlightedCommentId: string | null = null;
   let highlightedUpdateId: string | null = null;
-  let highlightedActivityId: string | null = null;
   let highlightedDecisionId: string | null = null;
   let lastRouteSignature = '';
   let showMembersPanel = false;
   let activeTab: 'overview' | 'chat' | 'history' = 'overview';
+  let autoExpandVoteCards = false;
+  let autoExpandVoteKind: string | null = null;
+  let autoExpandVoteTarget: string | null = null;
+
+  $: if (browser && activeTab === 'chat') {
+    void markLinkedChatRead('event', data.id).then(() => invalidateAll());
+  }
+
+  async function focusVoteTarget(voteKind: string | null, voteTarget: string | null) {
+    await tick();
+    if (typeof document === 'undefined') return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const targetCard = voteKind && voteTarget
+          ? document.getElementById(`vote-card-${voteKind}-${voteTarget}`)
+          : null;
+        const fallbackCard = document.querySelector('.vote-request-card');
+        const card = targetCard ?? fallbackCard;
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    });
+  }
 
   function readCommentTarget(url: URL) {
     if (url.hash.startsWith('#comment-')) {
@@ -35,14 +60,6 @@
     }
 
     return url.searchParams.get('update');
-  }
-
-  function readActivityTarget(url: URL) {
-    if (url.hash.startsWith('#event-activity-')) {
-      return url.hash.slice('#event-activity-'.length) || null;
-    }
-
-    return url.searchParams.get('activity');
   }
 
   function readDecisionTarget(url: URL) {
@@ -108,7 +125,6 @@
       lastRouteSignature = routeSignature;
       highlightedCommentId = readCommentTarget($page.url);
       highlightedUpdateId = readUpdateTarget($page.url);
-      highlightedActivityId = readActivityTarget($page.url);
       highlightedDecisionId = readDecisionTarget($page.url);
       const requestedTab = $page.url.searchParams.get('tab');
       activeTab = highlightedCommentId
@@ -117,15 +133,20 @@
           ? 'history'
         : requestedTab === 'history'
           ? 'history'
-          : requestedTab === 'chat'
+        : requestedTab === 'chat'
             ? 'chat'
             : 'overview';
     }
+    autoExpandVoteCards = $page.url.searchParams.get('open') === 'vote';
+    autoExpandVoteKind = autoExpandVoteCards ? ($page.url.searchParams.get('voteKind') || null) : null;
+    autoExpandVoteTarget = autoExpandVoteCards ? ($page.url.searchParams.get('voteTarget') || null) : null;
+    if (autoExpandVoteCards) void focusVoteTarget(autoExpandVoteKind, autoExpandVoteTarget);
   }
 </script>
 
 <section class="page">
   <section class="hero-card">
+    <ContextualBackButton fallbackHref="/" />
     <div class="top-tab-row" role="tablist" aria-label="Event detail tabs">
       <button
         class:active-tab={activeTab === 'overview'}
@@ -162,12 +183,16 @@
         {data}
         {highlightedUpdateId}
         {showMembersPanel}
+        {autoExpandVoteCards}
+        {autoExpandVoteKind}
         on:togglemembers={handleMembersPanelOpen}
       />
       {#if showMembersPanel}
         <EventMembersPanel {data} panelId="event-members-panel" />
       {/if}
-      <EventLifecyclePanel {data} requestedActivityId={highlightedActivityId} />
+      <div id="governance">
+        <EventLifecyclePanel {data} {autoExpandVoteCards} {autoExpandVoteKind} {autoExpandVoteTarget} />
+      </div>
     {:else if activeTab === 'chat'}
       <section class="chat-shell">
         <LiveChatPanel

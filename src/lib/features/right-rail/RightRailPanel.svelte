@@ -41,12 +41,28 @@
     return usesRoleCommitment(item) && !item.viewerAssignedRoleLabel && item.hasOpenRole === false;
   }
 
+  function itemSurfaceKind(item: RightRailActivityItem) {
+    return item.kind === 'event' || item.voteEntityKind === 'event' ? 'event' : 'project';
+  }
+
+  function itemKicker(item: RightRailActivityItem) {
+    if (item.kind === 'request') return 'Service request';
+    if (item.kind === 'vote') return item.voteKindLabel ? `Vote · ${item.voteKindLabel.replace('_', ' ')}` : 'Vote';
+    return item.kind === 'event' ? 'Event activity' : 'Project activity';
+  }
+
+  function itemTimeLabel(item: RightRailActivityItem) {
+    return item.kind === 'event' && item.timeLabel ? item.timeLabel : formatCalendarTime(item.createdAt);
+  }
+
+  function itemDetail(item: RightRailActivityItem) {
+    if (item.kind === 'request' && item.requesterUsername) return `Requested by ${item.requesterUsername}`;
+    return item.countLabel ?? '';
+  }
+
   async function handleOpenItem(item: RightRailActivityItem) {
     requestClose();
-    await goto(
-      item.href,
-      item.kind === 'project' || item.kind === 'request' ? { noScroll: true, keepFocus: true } : undefined
-    );
+    await goto(item.href);
   }
 
   async function handleRailParticipation(item: RightRailActivityItem) {
@@ -123,46 +139,16 @@
           <article class="snapshot-row activity-row">
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
-                <SubjectTablet kind={item.kind === 'event' ? 'event' : 'project'} projectMode={item.projectMode ?? 'productive'} />
-                <span class="snapshot-time">
-                  {item.kind === 'event' && item.timeLabel ? item.timeLabel : formatCalendarTime(item.createdAt)}
-                </span>
+                <SubjectTablet kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'productive'} />
+                <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
+              <span class="card-kicker">{itemKicker(item)}</span>
               <strong>{item.title}</strong>
-              <span>{item.meta}</span>
+              <span class="card-meta">{item.meta}</span>
+              {#if itemDetail(item)}
+                <span class="card-detail">{itemDetail(item)}</span>
+              {/if}
             </button>
-
-            <div class="event-footer">
-              <span class="event-going">{item.countLabel}</span>
-              <button
-                aria-label={
-                  usesRoleCommitment(item)
-                    ? item.viewerAssignedRoleLabel
-                      ? `Leave ${item.title}`
-                      : `Open ${item.title}`
-                    : item.viewerIsParticipating
-                      ? `Leave ${item.title}`
-                      : `Join ${item.title}`
-                }
-                class:attendance-state={isRailActionActive(item)}
-                class="attendance-button"
-                disabled={pendingSubjectId === item.subjectId || isRailActionDisabled(item)}
-                type="button"
-                on:click|stopPropagation={() => handleRailParticipation(item)}
-              >
-                {#if usesRoleCommitment(item)}
-                  {#if item.viewerAssignedRoleLabel}
-                    Going
-                  {:else if item.hasOpenRole === false}
-                    Full
-                  {:else}
-                    +
-                  {/if}
-                {:else}
-                  {item.viewerIsParticipating ? 'Going' : '+'}
-                {/if}
-              </button>
-            </div>
           </article>
         {/each}
       {/if}
@@ -171,7 +157,7 @@
 
   <section class="rail-section rail-section-requests">
     <h2>Requests</h2>
-    <p class="section-subtitle">Open service requests from projects you help run.</p>
+    <p class="section-subtitle">Open service requests on projects you manage or personal services you offer.</p>
     <div class:snapshot-scroll={requestItems.length > 5} class="snapshot-stack">
       {#if requestItems.length === 0}
         <div class="snapshot-row">
@@ -183,13 +169,14 @@
           <article class="snapshot-row activity-row request-row">
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
-                <SubjectTablet kind="project" projectMode={item.projectMode ?? 'collective-service'} />
-                <span class="snapshot-time">{formatCalendarTime(item.createdAt)}</span>
+                <SubjectTablet kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'collective-service'} />
+                <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
+              <span class="card-kicker">{itemKicker(item)}</span>
               <strong>{item.title}</strong>
-              <span>{item.meta}</span>
-              {#if item.countLabel}
-                <span class="event-going request-detail">{item.countLabel}</span>
+              <span class="card-meta">{item.meta}</span>
+              {#if itemDetail(item)}
+                <span class="card-detail">{itemDetail(item)}</span>
               {/if}
             </button>
           </article>
@@ -213,15 +200,16 @@
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
                 <SubjectTablet
-                  kind={item.voteEntityKind === 'event' ? 'event' : 'project'}
+                  kind={itemSurfaceKind(item)}
                   projectMode={item.projectMode ?? 'productive'}
                 />
-                <span class="snapshot-time">{formatCalendarTime(item.createdAt)}</span>
+                <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
+              <span class="card-kicker">{itemKicker(item)}</span>
               <strong>{item.title}</strong>
-              <span>{item.meta}</span>
-              {#if item.countLabel}
-                <span class="event-going request-detail">{item.countLabel}</span>
+              <span class="card-meta">{item.meta}</span>
+              {#if itemDetail(item)}
+                <span class="card-detail">{itemDetail(item)}</span>
               {/if}
             </button>
           </article>
@@ -298,8 +286,8 @@
   .snapshot-row {
     position: relative;
     display: grid;
-    gap: 8px;
-    padding: 10px 12px;
+    gap: 10px;
+    padding: 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-soft);
@@ -309,11 +297,6 @@
   .activity-row:hover {
     border-color: var(--brand);
     background: color-mix(in srgb, var(--brand-soft) 42%, var(--panel-soft));
-  }
-
-  .event-footer {
-    position: relative;
-    z-index: 1;
   }
 
   .activity-open-button {
@@ -328,15 +311,38 @@
     cursor: pointer;
   }
 
+  .card-kicker {
+    color: var(--brand-strong);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
   .snapshot-row strong {
     font-size: 13px;
     font-weight: 700;
+    color: var(--text-main);
   }
 
   .snapshot-row span {
     color: var(--text-soft);
     font-size: 12px;
     line-height: 1.45;
+  }
+
+  .card-meta {
+    color: var(--text-main);
+  }
+
+  .card-detail {
+    display: inline-flex;
+    width: fit-content;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--panel) 72%, var(--brand-soft));
+    color: var(--text-soft);
+    font-weight: 700;
   }
 
   .activity-topline {
@@ -352,62 +358,8 @@
     white-space: nowrap;
   }
 
-  .event-footer {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .event-going {
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-    min-width: 0;
-  }
-
-  .request-detail {
-    display: block;
-  }
-
-  .attendance-button,
-  .attendance-button.attendance-state {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 32px;
-    min-height: 30px;
-    padding: 0 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 800;
-    position: relative;
-    z-index: 2;
-    white-space: nowrap;
-    justify-self: end;
-  }
-
-  .attendance-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--brand-strong);
-    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
-  }
-
-  .attendance-button:hover:not(:disabled) {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .attendance-button.attendance-state {
-    border: 1px solid var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .attendance-button.attendance-state:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--brand-soft) 66%, white 8%);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 50%, transparent);
+  .request-row .card-kicker,
+  .vote-row .card-kicker {
+    color: var(--accent-warm-strong);
   }
 </style>

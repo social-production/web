@@ -23,6 +23,7 @@ export interface ScopeDirectoryItem {
   label: string;
   href: string;
   visibility?: 'public' | 'private';
+  viewerIsMember?: boolean;
 }
 
 export interface ScopeDirectory {
@@ -48,6 +49,7 @@ export interface RightRailActivityItem {
   activityId?: string;
   requestId?: string;
   requesterUsername?: string;
+  conversationId?: string;
   activityRoleLabels?: string[];
   viewerAssignedRoleLabel?: string | null;
   hasOpenRole?: boolean;

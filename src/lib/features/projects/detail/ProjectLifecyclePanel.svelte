@@ -1,7 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { tick } from 'svelte';
   import ProductiveLifecycleContent from './lifecycle/productive/ProductiveLifecycleContent.svelte';
   import CollectiveServiceLifecycleContent from './lifecycle/collective-service/CollectiveServiceLifecycleContent.svelte';
@@ -13,7 +13,6 @@
     isCollectiveServiceProject,
     isPersonalServiceProject
   } from '$lib/features/projects/projectMode';
-  import { isAcquisitionSurfaceEnabled } from '$lib/config/features/phaseScope';
   import {
     addProjectActivity,
     addProjectDistributionPlan,
@@ -79,6 +78,9 @@
   );
 
   export let data: ProjectPageData;
+  export let autoExpandVoteCards = false;
+  export let autoExpandVoteKind: string | null = null;
+  export let autoExpandVoteTarget: string | null = null;
 
   type DraftPlanPhase = {
     title: string;
@@ -225,8 +227,21 @@
     };
   }
 
-  let activePhaseId: ProjectLifecyclePhaseId = data.lifecycle.currentPhaseId;
+  function resolvedActivePhaseId(phaseId: ProjectLifecyclePhaseId): ProjectLifecyclePhaseId {
+    if (phaseId === 'phase-4') {
+      return 'phase-3';
+    }
+
+    if (phaseId === 'phase-6') {
+      return 'phase-5';
+    }
+
+    return phaseId;
+  }
+
+  let activePhaseId: ProjectLifecyclePhaseId = resolvedActivePhaseId(data.lifecycle.currentPhaseId);
   let lastCurrentPhaseId = data.lifecycle.currentPhaseId;
+  let lastProjectSlug = data.slug;
   let draftValue = '';
   let productionForm: DraftProductionForm = resetProductionForm();
   let distributionForm: DraftDistributionForm = resetDistributionForm();
@@ -263,27 +278,17 @@
   let requestHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let lastActivityTargetId: string | null = null;
   let lastRequestTargetId: string | null = null;
+  let lastVoteTargetSignature = '';
   let activityComposerElement: HTMLElement | null = null;
   let serviceRequestComposerElement: HTMLElement | null = null;
   let activityStartInputElement: HTMLInputElement | null = null;
   let activityEndInputElement: HTMLInputElement | null = null;
   let showHowItWorks = false;
   let lastHowItWorksPhaseId = activePhaseId;
-  let acquisitionSurfaceEnabled = isAcquisitionSurfaceEnabled();
-  let visibleLifecyclePhases: ProjectLifecyclePhase[] = acquisitionSurfaceEnabled
-    ? data.lifecycle.phases
-    : data.lifecycle.phases.filter((phase) => phase.id !== 'phase-4');
+  let visibleLifecyclePhases: ProjectLifecyclePhase[] = data.lifecycle.phases ?? [];
 
   function phaseOrder(phaseId: ProjectLifecyclePhaseId) {
     return visibleLifecyclePhases.find((phase) => phase.id === phaseId)?.order ?? 1;
-  }
-
-  function resolvedActivePhaseId(phaseId: ProjectLifecyclePhaseId): ProjectLifecyclePhaseId {
-    if (!acquisitionSurfaceEnabled && phaseId === 'phase-4') {
-      return 'phase-5';
-    }
-
-    return phaseId;
   }
 
   function readActivityTarget(url: URL) {
@@ -310,11 +315,82 @@
     return url.searchParams.get('request');
   }
 
+  function phaseContainingPlan(planId: string): 'phase-2' | 'phase-3' | null {
+    if (data.lifecycle.phaseTwo?.plans?.some((plan) => plan.id === planId)) {
+      return 'phase-2';
+    }
+
+    if (data.lifecycle.phaseThree?.plans?.some((plan) => plan.id === planId)) {
+      return 'phase-3';
+    }
+
+    return null;
+  }
+
+  function phaseChangeVoteGroup(requestId: string): 'return' | 'advance' | 'close' | null {
+    return data.lifecycle.phaseChangeRequests.find((request) => request.id === requestId)?.kind ?? null;
+  }
+
+  function scrollVoteCardIntoView(voteKind: string, voteTarget: string) {
+    if (!browser) return;
+    document.getElementById(`vote-card-${voteKind}-${voteTarget}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+  }
+
+  async function focusVoteCard(voteKind: string, voteTarget: string) {
+    if (voteKind === 'plan') {
+      const planPhase = phaseContainingPlan(voteTarget);
+      if (planPhase === 'phase-2') {
+        activePhaseId = 'phase-2';
+        if (!expandedPhaseTwoPlanIds.includes(voteTarget)) {
+          expandedPhaseTwoPlanIds = [...expandedPhaseTwoPlanIds, voteTarget];
+        }
+      } else if (planPhase === 'phase-3') {
+        activePhaseId = 'phase-3';
+        if (!expandedPhaseThreePlanIds.includes(voteTarget)) {
+          expandedPhaseThreePlanIds = [...expandedPhaseThreePlanIds, voteTarget];
+        }
+      }
+    } else if (voteKind === 'phase_change') {
+      activePhaseId = resolvedActivePhaseId(data.lifecycle.currentPhaseId);
+    }
+
+    await tick();
+    scrollVoteCardIntoView(voteKind, voteTarget);
+
+    if (browser) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollVoteCardIntoView(voteKind, voteTarget);
+        });
+      });
+    }
+  }
+
   $: currentPhaseOrder = phaseOrder(resolvedActivePhaseId(data.lifecycle.currentPhaseId));
-  $: acquisitionSurfaceEnabled = isAcquisitionSurfaceEnabled();
-  $: visibleLifecyclePhases = acquisitionSurfaceEnabled
-    ? data.lifecycle.phases
-    : data.lifecycle.phases.filter((phase) => phase.id !== 'phase-4');
+  $: visibleLifecyclePhases = data.lifecycle.phases ?? [];
+
+  $: if (data.slug !== lastProjectSlug) {
+    lastProjectSlug = data.slug;
+    lastCurrentPhaseId = data.lifecycle.currentPhaseId;
+    activePhaseId = resolvedActivePhaseId(data.lifecycle.currentPhaseId);
+    showPhaseOneComposer = false;
+    showPersonalActivityComposer = false;
+    showPersonalServiceRequestComposer = false;
+    showCollectiveRequestComposer = false;
+    showPhaseTwoComposer = false;
+    showPhaseThreeComposer = false;
+    showPhaseFiveComposer = false;
+    editingProductionPlanId = null;
+    selectedCollectiveRequestActivityId = null;
+    expandedPhaseTwoPlanIds = [];
+    expandedPhaseThreePlanIds = [];
+    expandedActivityIds = [];
+    highlightedActivityId = null;
+    highlightedRequestId = null;
+  }
 
   $: if (lastCurrentPhaseId !== data.lifecycle.currentPhaseId) {
     lastCurrentPhaseId = data.lifecycle.currentPhaseId;
@@ -346,11 +422,37 @@
   $: activePhase =
     visibleLifecyclePhases.find((phase) => phase.id === activePhaseId) ??
     visibleLifecyclePhases.find((phase) => phase.id === resolvedActivePhaseId(data.lifecycle.currentPhaseId)) ??
-    visibleLifecyclePhases[0];
+    visibleLifecyclePhases[0] ?? {
+      id: resolvedActivePhaseId(data.lifecycle.currentPhaseId),
+      order: 1,
+      shortLabel: 'P1',
+      title: data.stage,
+      summary: '',
+      progressState: 'current',
+      projectStatus: 'active',
+      mechanics: []
+    };
+  $: targetedPhaseChangeGroup =
+    autoExpandVoteCards && autoExpandVoteKind === 'phase_change' && autoExpandVoteTarget
+      ? phaseChangeVoteGroup(autoExpandVoteTarget)
+      : null;
 
   $: if (lastHowItWorksPhaseId !== activePhaseId) {
     lastHowItWorksPhaseId = activePhaseId;
     showHowItWorks = false;
+  }
+
+  $: {
+    const voteSignature = autoExpandVoteCards && autoExpandVoteKind && autoExpandVoteTarget
+      ? `${autoExpandVoteKind}:${autoExpandVoteTarget}`
+      : '';
+
+    if (voteSignature && voteSignature !== lastVoteTargetSignature) {
+      lastVoteTargetSignature = voteSignature;
+      void focusVoteCard(autoExpandVoteKind as string, autoExpandVoteTarget as string);
+    } else if (!voteSignature) {
+      lastVoteTargetSignature = '';
+    }
   }
 
   $: if (!showPhaseTwoComposer && productionForm.validationMessages.length > 0) {
@@ -374,6 +476,7 @@
     isFuture: isFuturePhase(phase)
   }));
 
+  $: lifecycleContentPhaseId = resolvedActivePhaseId(activePhaseId);
   $: activePhaseProgressLabel = phaseProgressLabel(activePhase);
 
   $: {
@@ -437,48 +540,7 @@
   }
 
   function phaseTabTitle(phase: ProjectLifecyclePhase) {
-    if (data.lifecycle.usesPlatformLifecycle) {
-      return phase.title;
-    }
-
-    if (isPersonalServiceProject(data.projectMode)) {
-      switch (phase.id) {
-        case 'phase-1':
-          return 'Activity';
-        case 'phase-2':
-          return 'Closed';
-        default:
-          return phase.shortLabel;
-      }
-    }
-
-    if (isCollectiveServiceProject(data.projectMode)) {
-      switch (phase.id) {
-        case 'phase-2':
-          return 'Operations';
-        case 'phase-3':
-          return 'Access';
-        case 'phase-6':
-          return 'Closed';
-      }
-    }
-
-    switch (phase.id) {
-      case 'phase-1':
-        return 'Proposal';
-      case 'phase-2':
-        return 'Production';
-      case 'phase-3':
-        return 'Distribution';
-      case 'phase-4':
-        return 'Acquisition';
-      case 'phase-5':
-        return 'Activity';
-      case 'phase-6':
-        return 'Closed';
-      case 'phase-7':
-        return 'Closed';
-    }
+    return phase.title;
   }
 
   async function refreshAfter(action: () => Promise<void>) {
@@ -729,27 +791,41 @@
     const endsAtValue = serviceRequestForm.endsAt;
     const requiresSchedule =
       isCollectiveServiceProject(data.projectMode) || (data.lifecycle.requestSystem?.requiresSchedule ?? false);
+    const usesScheduledRequest =
+      requiresSchedule || !!(scheduledAtValue && endsAtValue);
 
     if (!serviceRequestForm.title.trim() || !serviceRequestForm.body.trim()) {
       return;
     }
 
-    if (requiresSchedule && (!scheduledAtValue || !endsAtValue || new Date(endsAtValue).getTime() <= new Date(scheduledAtValue).getTime())) {
+    if (
+      usesScheduledRequest &&
+      (!scheduledAtValue ||
+        !endsAtValue ||
+        new Date(endsAtValue).getTime() <= new Date(scheduledAtValue).getTime())
+    ) {
       return;
     }
 
-    await refreshAfter(() =>
-      addProjectServiceRequest(data.slug, {
+    let conversationId: string | undefined;
+
+    await refreshAfter(async () => {
+      const result = await addProjectServiceRequest(data.slug, {
         title: serviceRequestForm.title,
         body: serviceRequestForm.body,
         scheduledAt: scheduledAtValue ? new Date(scheduledAtValue).toISOString() : undefined,
         endsAt: endsAtValue ? new Date(endsAtValue).toISOString() : undefined
-      })
-    );
+      });
+      conversationId = result.conversationId;
+    });
     resetServiceRequestForm();
     showPersonalServiceRequestComposer = false;
     showCollectiveRequestComposer = false;
     selectedCollectiveRequestActivityId = null;
+
+    if (isPersonalServiceProject(data.projectMode) && conversationId) {
+      await goto(`/messages?conversation=${encodeURIComponent(conversationId)}`, { invalidateAll: true });
+    }
   }
 
   async function updateRequestStatus(requestId: string, status: ProjectServiceRequestStatus) {
@@ -1055,7 +1131,7 @@
 
     document.getElementById(`activity-card-${activityId}`)?.scrollIntoView({
       behavior: 'smooth',
-      block: 'start'
+      block: 'center'
     });
   }
 
@@ -1157,7 +1233,7 @@
     {#if isPersonalServiceProject(data.projectMode)}
       <IndividualServiceLifecycleContent
         data={data}
-        activePhaseId={activePhase.id}
+        activePhaseId={lifecycleContentPhaseId}
         activityForm={activityForm}
         serviceRequestForm={serviceRequestForm}
         bind:showPersonalActivityComposer
@@ -1181,7 +1257,7 @@
     {:else if isCollectiveServiceProject(data.projectMode)}
       <CollectiveServiceLifecycleContent
         data={data}
-        activePhaseId={activePhase.id}
+        activePhaseId={lifecycleContentPhaseId}
         {importanceOptions}
         bind:draftValue
         bind:showPhaseOneComposer
@@ -1239,7 +1315,7 @@
     {:else}
       <ProductiveLifecycleContent
         data={data}
-        activePhaseId={activePhase.id}
+        activePhaseId={lifecycleContentPhaseId}
         {importanceOptions}
         bind:draftValue
         bind:showPhaseOneComposer
@@ -1289,6 +1365,7 @@
       {revertPhase}
       requestPhaseChange={handlePhaseChangeRequest}
       voteOnPhaseChange={handlePhaseChangeVote}
+      autoExpandVoteGroup={targetedPhaseChangeGroup}
     />
   </section>
 </section>

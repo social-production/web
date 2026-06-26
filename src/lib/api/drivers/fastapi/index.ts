@@ -4,7 +4,7 @@ import type { AppAdapter } from '$lib/services/adapters/types';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
 import { fetchBootstrap, fetchOnboarding } from './domains/bootstrap';
 import { fetchSignIn, fetchSignOut, fetchSignUp } from './domains/auth';
-import { fetchSettings, fetchUpdateSettings, fetchProfile } from './domains/users';
+import { fetchSettings, fetchUpdateSettings, fetchProfile, fetchFollowUser, fetchUnfollowUser } from './domains/users';
 import { fetchPublicFeed, fetchPersonalFeed } from './domains/feeds';
 import {
   fetchThread,
@@ -26,19 +26,23 @@ import {
   fetchRemoveVolunteer,
   fetchVolunteerForBoard,
   fetchCreateChannel,
-  fetchCreateCommunity
+  fetchCreateCommunity,
+  fetchTaggableScopes
 } from './domains/scopes';
 import { fetchSearch } from './domains/search';
 import { fetchNotifications, fetchMarkNotificationRead, fetchMarkAllNotificationsRead } from './domains/notifications';
 import {
   fetchMessages,
+  fetchConversationMessages,
+  fetchMessageContacts,
   fetchSendMessage,
   fetchStartDirectMessage,
   fetchCreateGroupConversation,
   fetchRenameGroupConversation,
   fetchAddGroupConversationMember,
   fetchRemoveGroupConversationMember,
-  fetchMarkConversationRead
+  fetchMarkConversationRead,
+  fetchMarkLinkedChatRead
 } from './domains/messages';
 import {
   fetchProject, fetchCreateProject, fetchToggleProjectMembership,
@@ -184,6 +188,10 @@ export function createFastApiDriver(): AppAdapter {
       return fetchCreateCommunity(input);
     },
 
+    async getTaggableScopes(query, kind, limit) {
+      return fetchTaggableScopes(query, kind, limit);
+    },
+
     async getEvent(slug) { return fetchEvent(slug); },
     async createEvent(input) { return fetchCreateEvent(input); },
     async toggleEventMembership(eventSlug) { return fetchToggleEventMembership(eventSlug); },
@@ -266,6 +274,14 @@ export function createFastApiDriver(): AppAdapter {
       return fetchMessages();
     },
 
+    async getConversationMessages(conversationId, viewerId, participants) {
+      return fetchConversationMessages(conversationId, viewerId, participants);
+    },
+
+    async getMessageContacts(query, limit) {
+      return fetchMessageContacts(query, limit);
+    },
+
     async sendMessage(conversationId, body) {
       return fetchSendMessage(conversationId, body);
     },
@@ -294,6 +310,10 @@ export function createFastApiDriver(): AppAdapter {
       return fetchMarkConversationRead(id);
     },
 
+    async markLinkedChatRead(subjectType, subjectId) {
+      return fetchMarkLinkedChatRead(subjectType, subjectId);
+    },
+
     async getPublicFeed() {
       return fetchPublicFeed();
     },
@@ -312,6 +332,14 @@ export function createFastApiDriver(): AppAdapter {
 
     async getProfile(username) {
       return fetchProfile(username);
+    },
+
+    async followUser(username) {
+      return fetchFollowUser(username);
+    },
+
+    async unfollowUser(username) {
+      return fetchUnfollowUser(username);
     },
 
     async signIn(input) {
