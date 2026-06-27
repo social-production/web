@@ -132,7 +132,7 @@
   async function handleActivitySelection(activityId: string) {
     const historyItem = historyItemByActivityId(activityId);
 
-    if (historyItem && historyItem.activity.statusTone === 'green') {
+    if (historyItem) {
       activeTab = 'history';
       await focusHistoryCard(historyItem.id);
       return;
@@ -146,7 +146,7 @@
   $: calendarActivities = [
     ...data.lifecycle.phaseFive.activities,
     ...data.lifecycle.phaseFive.history
-      .filter((item) => item.historyState !== 'request-only' && item.activity.statusTone === 'green')
+      .filter((item) => item.historyState !== 'request-only')
       .map((item) => item.activity)
   ];
   $: if (highlightedActivityId) {

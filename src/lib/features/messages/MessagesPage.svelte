@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
@@ -32,7 +32,7 @@
 
   let activeConversationId: string | null = null;
   let activeLinkedChatId: string | null = null;
-  let activeListTab: 'messages' | 'linked-chats' = 'messages';
+  let activeListTab: 'messages' | 'linked-chats' | 'help-request-chats' = 'messages';
   let showComposer = false;
   let composerMode: 'direct' | 'group' = 'direct';
   let recipientDraft = '';
@@ -62,6 +62,10 @@
   $: activeConversation =
     data.conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
   $: activeLinkedChat = data.linkedChats.find((chat) => chat.id === activeLinkedChatId) ?? null;
+  $: projectEventLinkedChats = data.linkedChats.filter(
+    (chat) => chat.kind === 'project' || chat.kind === 'event'
+  );
+  $: helpRequestLinkedChats = data.linkedChats.filter((chat) => chat.kind === 'help_request');
   $: activeConversationMessagesLoading =
     activeConversationId ? (messagesLoadingById[activeConversationId] ?? false) : false;
   $: activeConversationMessages = activeConversationId
@@ -90,7 +94,7 @@
       : (showComposer && composerMode === 'group') || showAddMembers
         ? groupMemberDraft
         : '';
-  $: if (browser) {
+  $: if (browser && (showComposer || showAddMembers)) {
     void updateContactSuggestions(activeContactQuery);
   }
   $: directSuggestions = contactSuggestions.filter(
@@ -187,8 +191,40 @@
     };
   }
 
+  function linkedChatEntityType(kind: MessageLinkedChat['kind']) {
+    if (kind === 'event') {
+      return 'event';
+    }
+
+    if (kind === 'help_request') {
+      return 'help_request';
+    }
+
+    return 'project';
+  }
+
   function linkedChatMeta(chat: MessageLinkedChat) {
+    if (chat.kind === 'help_request') {
+      return `Help request chat · ${chat.meta}`;
+    }
+
     return `${chat.kind === 'project' ? 'Project chat' : 'Event chat'} · ${chat.meta}`;
+  }
+
+  function linkedChatEmptyCopy(chat: MessageLinkedChat) {
+    if (chat.kind === 'help_request') {
+      return 'No help request chat yet.';
+    }
+
+    return chat.kind === 'project' ? 'No project chat yet.' : 'No event chat yet.';
+  }
+
+  function linkedChatPlaceholder(chat: MessageLinkedChat) {
+    if (chat.kind === 'help_request') {
+      return 'Write a message...';
+    }
+
+    return chat.kind === 'project' ? 'Message the project...' : 'Message members...';
   }
 
   async function updateContactSuggestions(query: string) {
@@ -360,7 +396,12 @@
   }
 
   async function openConversation(conversationId: string, unreadCount: number) {
-    activeConversationId = conversationId;
+    const conversation = data.conversations.find((item) => item.id === conversationId);
+
+    if (!conversation) {
+      return false;
+    }
+
     activeLinkedChatId = null;
     showComposer = false;
     composerError = '';
@@ -375,8 +416,10 @@
       return false;
     }
 
+    activeConversationId = conversationId;
+
     if (unreadCount > 0) {
-      await markConversationRead(conversationId);
+      await markConversationRead(conversationId, unreadCount);
       await invalidateAll();
       await loadConversationMessages(conversationId);
     }
@@ -433,7 +476,7 @@
 
     const chat = data.linkedChats.find(c => c.id === chatId);
     if (chat) {
-      registerEntityType(chat.id, chat.kind === 'event' ? 'event' : 'project');
+      registerEntityType(chat.id, linkedChatEntityType(chat.kind));
       linkedChatComments = [];
       linkedChatCommentsLoading = true;
       try {
@@ -443,8 +486,7 @@
       }
 
       if (chat.unreadCount > 0) {
-        await markLinkedChatRead(chat.kind, chat.subjectId);
-        await invalidateAll();
+        await markLinkedChatRead(chat.kind, chat.subjectId, chat.unreadCount);
       }
     }
 
@@ -517,9 +559,13 @@
     groupSettingsFeedback = '';
     directOptionsFeedback = '';
     syncMessagesShellHeight();
+
+    if (browser) {
+      void goto('/messages');
+    }
   }
 
-  function selectListTab(tab: 'messages' | 'linked-chats') {
+  function selectListTab(tab: 'messages' | 'linked-chats' | 'help-request-chats') {
     activeListTab = tab;
     closeActiveChat();
 
@@ -899,9 +945,9 @@
         <LiveChatPanel
           comments={linkedChatComments}
           embedded={true}
-          emptyCopy={activeLinkedChat.kind === 'project' ? 'No project chat yet.' : 'No event chat yet.'}
+          emptyCopy={linkedChatEmptyCopy(activeLinkedChat)}
           onSubmitMessage={submitLinkedChatMessage}
-          placeholder={activeLinkedChat.kind === 'project' ? 'Message the project...' : 'Message members...'}
+          placeholder={linkedChatPlaceholder(activeLinkedChat)}
           showHeader={false}
           subjectId={activeLinkedChat.subjectId}
           submitLabel="Send"
@@ -927,6 +973,15 @@
             on:click={() => selectListTab('linked-chats')}
           >
             Project & Event Chats
+          </button>
+          <button
+            class:active={activeListTab === 'help-request-chats'}
+            class="surface-tab"
+            role="tab"
+            type="button"
+            on:click={() => selectListTab('help-request-chats')}
+          >
+            Help Request Chats
           </button>
         </div>
 
@@ -1081,10 +1136,35 @@
               </button>
             {/each}
           {/if}
-        {:else if data.linkedChats.length === 0}
-          <div class="empty-state">No project or event chats yet.</div>
+        {:else if activeListTab === 'linked-chats'}
+          {#if projectEventLinkedChats.length === 0}
+            <div class="empty-state">No project or event chats yet.</div>
+          {:else}
+            {#each projectEventLinkedChats as chat}
+              <button
+                class:unread={chat.unreadCount > 0}
+                class="conversation-row"
+                type="button"
+                on:click={() => openLinkedChat(chat.id)}
+              >
+                <AvatarBadge size="sm" username={chat.title} />
+                <div class="conversation-copy">
+                  <div class="conversation-topline">
+                    <strong>{chat.title}</strong>
+                    <span class="conversation-time">{formatRelativeTime(chat.lastMessageAt)}</span>
+                  </div>
+                  <p class="conversation-preview">{chat.preview}</p>
+                </div>
+                {#if chat.unreadCount > 0}
+                  <span class="unread-pill">{chat.unreadCount}</span>
+                {/if}
+              </button>
+            {/each}
+          {/if}
+        {:else if helpRequestLinkedChats.length === 0}
+          <div class="empty-state">No help request chats yet.</div>
         {:else}
-          {#each data.linkedChats as chat}
+          {#each helpRequestLinkedChats as chat}
             <button
               class:unread={chat.unreadCount > 0}
               class="conversation-row"

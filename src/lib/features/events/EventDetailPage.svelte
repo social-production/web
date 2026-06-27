@@ -1,8 +1,9 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { tick } from 'svelte';
+  import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import EventHistoryTab from '$lib/features/events/detail/EventHistoryTab.svelte';
   import EventLifecyclePanel from '$lib/features/events/detail/EventLifecyclePanel.svelte';
@@ -10,7 +11,6 @@
   import EventOverviewHeader from '$lib/features/events/detail/EventOverviewHeader.svelte';
   import EventUpdatesSection from '$lib/features/events/detail/EventUpdatesSection.svelte';
   import ContextualBackButton from '$lib/components/shared/ContextualBackButton.svelte';
-  import { markLinkedChatRead } from '$lib/services/queries/inbox';
   import type { EventPageData } from '$lib/types/detail';
 
   export let data: EventPageData;
@@ -24,10 +24,6 @@
   let autoExpandVoteCards = false;
   let autoExpandVoteKind: string | null = null;
   let autoExpandVoteTarget: string | null = null;
-
-  $: if (browser && activeTab === 'chat') {
-    void markLinkedChatRead('event', data.id).then(() => invalidateAll());
-  }
 
   async function focusVoteTarget(voteKind: string | null, voteTarget: string | null) {
     await tick();
@@ -195,6 +191,7 @@
       </div>
     {:else if activeTab === 'chat'}
       <section class="chat-shell">
+        <LinkedChatReadMarker subjectType="event" subjectId={data.id} />
         <LiveChatPanel
           comments={data.discussion}
           emptyCopy="No event chat yet."

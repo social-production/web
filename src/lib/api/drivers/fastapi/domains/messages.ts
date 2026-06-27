@@ -17,6 +17,8 @@ interface BackendUser {
 interface BackendParticipant {
   id: string;
   username: string;
+  profileImageUrl?: string | null;
+  profile_image_url?: string | null;
 }
 
 interface BackendConversation {
@@ -86,7 +88,11 @@ interface BackendMessageContactsResponse {
 }
 
 function mapParticipant(p: BackendParticipant): ViewerSummary {
-  return { id: p.id, username: p.username };
+  return {
+    id: p.id,
+    username: p.username,
+    profileImageUrl: p.profileImageUrl ?? p.profile_image_url ?? undefined
+  };
 }
 
 function mapConversation(c: BackendConversation, viewerId?: string) {
@@ -148,10 +154,13 @@ export async function fetchMessages(): Promise<MessagesPageData | null> {
       conversations: convsRes.items.map((conversation) => mapConversation(conversation, viewer.id)),
       linkedChats: linkedRes.items.map((chat) => ({
         id: chat.id,
-        kind: chat.kind as 'project' | 'event',
+        kind: chat.kind as 'project' | 'event' | 'help_request',
         subjectId: chat.entity_id,
         title: chat.title,
-        href: `/${chat.kind}s/${chat.entity_slug}`,
+        href:
+          chat.kind === 'help_request'
+            ? `/help-requests/${chat.entity_id}`
+            : `/${chat.kind}s/${chat.entity_slug}`,
         meta: `${chat.comment_count} comments`,
         preview: chat.preview,
         lastMessageAt: chat.last_message_at,

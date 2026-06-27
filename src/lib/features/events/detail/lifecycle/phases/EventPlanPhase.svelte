@@ -1,5 +1,6 @@
 <script lang="ts">
   import CollapsiblePlanCard from '$lib/components/cards/project-detail/CollapsiblePlanCard.svelte';
+  import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import type {
     EventPageData,
@@ -40,11 +41,40 @@
   ) => void | Promise<void> = () => {};
 
   function statusLabel(planId: string) {
-    if (planId !== data.lifecycle.phaseTwo.winningPlanId) {
+    const plan = data.lifecycle.phaseTwo.plans.find((entry) => entry.id === planId);
+    if (!plan) {
       return null;
     }
 
-    return data.lifecycle.currentPhaseId === 'event-plan' ? 'Leading above threshold' : 'Selected';
+    if (data.lifecycle.currentPhaseId !== 'event-plan') {
+      return planId === data.lifecycle.phaseTwo.winningPlanId ? 'Selected' : null;
+    }
+
+    if (plan.leaderStatus === 'leading') {
+      return 'Leading above threshold';
+    }
+
+    if (plan.leaderStatus === 'tied') {
+      return 'Tied above threshold';
+    }
+
+    return null;
+  }
+
+  $: prominentValues = data.lifecycle.phaseOne.values.filter((value) => value.importanceScore >= 5);
+
+  function valueNote(valueId: string) {
+    return planForm.valueConsiderationNotes?.[valueId] ?? '';
+  }
+
+  function updateValueNote(valueId: string, note: string) {
+    planForm = {
+      ...planForm,
+      valueConsiderationNotes: {
+        ...(planForm.valueConsiderationNotes ?? {}),
+        [valueId]: note
+      }
+    };
   }
 </script>
 
@@ -60,6 +90,7 @@
 
     {#if showPlanComposer}
       <div class="composer-card">
+        <DirectUsePolicyNotice variant="plan" context="event" />
         {#if (planForm.validationMessages?.length ?? 0) > 0}
           <div class="warning-card" role="alert">
             <strong>Plan could not be submitted</strong>
@@ -122,8 +153,35 @@
               This private event uses editor approval instead of public demand signals.
             {/if}
           </span>
+          <span>State whether this plan actually meets that demand and, if not, why it still falls short.</span>
+          <textarea bind:value={planForm.demandConsiderationNote} rows="3" placeholder="Explain how this plan responds to the current event demand and values."></textarea>
+          {#if prominentValues.length > 0}
+            <div class="value-proposal-list">
+              <span class="value-proposal-heading">Value proposals rated 5/10 or higher</span>
+              <ul>
+                {#each prominentValues as value}
+                  <li>
+                    <strong>{value.label}</strong>
+                    <span>{value.importanceScore.toFixed(1).replace(/\.0$/, '')}/10 · {value.importanceLabel}</span>
+                  </li>
+                {/each}
+              </ul>
+            </div>
+            <div class="value-note-stack">
+              {#each prominentValues as value}
+                <label class="value-note-field">
+                  <span class="value-note-label">How does this plan address “{value.label}”? (optional)</span>
+                  <textarea
+                    rows="2"
+                    value={valueNote(value.id)}
+                    on:input={(event) => updateValueNote(value.id, (event.currentTarget as HTMLTextAreaElement).value)}
+                    placeholder="Explain how this plan meets or falls short on this value."
+                  ></textarea>
+                </label>
+              {/each}
+            </div>
+          {/if}
         </div>
-        <textarea bind:value={planForm.demandConsiderationNote} rows="3" placeholder="Explain how this plan responds to the current event demand and values."></textarea>
         <div class="step-stack">
           {#each planForm.planPhases as phase, index}
             <div class="step-card">
@@ -270,6 +328,39 @@
   textarea {
     min-height: 110px;
     resize: vertical;
+  }
+
+  .value-proposal-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .value-proposal-heading {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .value-proposal-list ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
+  }
+
+  .value-note-stack {
+    display: grid;
+    gap: 10px;
+  }
+
+  .value-note-field {
+    display: grid;
+    gap: 6px;
+  }
+
+  .value-note-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
   }
 
   .primary-button,

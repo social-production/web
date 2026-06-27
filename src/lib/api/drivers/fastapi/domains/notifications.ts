@@ -4,23 +4,45 @@ import type { ViewerSummary } from '$lib/types/bootstrap';
 
 interface BackendUser { id: string; username: string; bio: string | null; profile_image_url: string | null; }
 interface BackendNotification {
-  id: string; kind: string; surface: string; subject_type: string;
-  title: string; body: string; href: string; is_unread: boolean; created_at: string;
+  id: string;
+  kind: string;
+  surface: string;
+  subject_type: string;
+  actor_username?: string | null;
+  title: string;
+  body: string;
+  href: string;
+  is_unread: boolean;
+  created_at: string;
 }
 interface BackendNotificationsResponse { total: number; items: BackendNotification[]; }
 
-const KIND_MAP: Record<string, 'reply' | 'mention' | 'message' | 'project' | 'event'> = {
-  reply: 'reply', mention: 'mention', message: 'message'
+const KIND_MAP: Record<string, NotificationsPageData['items'][number]['kind']> = {
+  reply: 'reply',
+  mention: 'mention',
+  message: 'message',
+  'follow-request': 'follow-request',
+  'follow-accepted': 'follow-accepted',
+  'new-follower': 'new-follower',
+  'hr-role-signup': 'help-request'
 };
-function mapKind(k: string): 'reply' | 'mention' | 'message' | 'project' | 'event' {
+
+function mapKind(k: string): NotificationsPageData['items'][number]['kind'] {
   if (KIND_MAP[k]) return KIND_MAP[k];
   if (k.startsWith('evt-')) return 'event';
+  if (k.startsWith('hr-')) return 'help-request';
   if (k.startsWith('pr-') || k.startsWith('project-')) return 'project';
   return 'project';
 }
+
 function mapSubjectKind(s: string) {
-  const map: Record<string, 'project' | 'thread' | 'event' | 'post'> = {
-    project: 'project', thread: 'thread', event: 'event', post: 'post'
+  const map: Record<string, 'project' | 'thread' | 'event' | 'post' | 'help-request'> = {
+    project: 'project',
+    thread: 'thread',
+    event: 'event',
+    post: 'post',
+    user: 'post',
+    'help-request': 'help-request'
   };
   return map[s] ?? 'project';
 }
@@ -44,6 +66,7 @@ export async function fetchNotifications(): Promise<NotificationsPageData | null
         kind: mapKind(n.kind),
         surface: (n.surface as 'public' | 'personal') ?? 'public',
         subjectKind: mapSubjectKind(n.subject_type),
+        actorUsername: n.actor_username ?? undefined,
         title: n.title,
         body: n.body,
         href: n.href,

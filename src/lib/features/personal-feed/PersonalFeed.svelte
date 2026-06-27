@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import PersonalFeedCard from '$lib/components/cards/personal-feed/PersonalFeedCard.svelte';
+  import { getPersonalFeed } from '$lib/services/queries/feeds';
   import { getSettings, updateSettings } from '$lib/services/queries/account';
   import type {
     FeedSortPreference,
@@ -21,11 +22,16 @@
   type FeedWindow = FeedWindowPreference;
 
   const defaultPreferences: PersonalFeedPreferences = {
-    scope: 'following',
+    scope: 'popular',
     filter: 'all',
     sort: 'popular',
     window: 'all'
   };
+
+  let feedItems: PersonalFeedItem[] = items;
+  let feedItemsLoading = false;
+  let feedItemsRequestId = 0;
+  let lastLoadedQuery = '';
 
   let activeScope: PersonalScope = defaultPreferences.scope;
   let activeFilter: PersonalFilter = defaultPreferences.filter;
@@ -90,12 +96,45 @@
     void persistPreferences();
   }
 
-  function matchesScope(item: PersonalFeedItem, scope: PersonalScope) {
-    if (scope === 'following') {
-      return item.feedSource !== 'discovery';
+  function handleFeedQueryChange() {
+    lastLoadedQuery = '';
+    void persistPreferences();
+    void loadFeedItems();
+  }
+
+  async function loadFeedItems() {
+    if (!$page.data.bootstrap?.viewer) {
+      feedItems = [];
+      return;
     }
 
-    return item.kind === 'activity' ? item.feedSource !== 'discovery' : true;
+    const query = `${activeScope}:${activeSort}`;
+    if (query === lastLoadedQuery) {
+      return;
+    }
+
+    const requestId = ++feedItemsRequestId;
+    feedItemsLoading = true;
+
+    try {
+      const nextItems = await getPersonalFeed({ scope: activeScope, sort: activeSort });
+      if (requestId === feedItemsRequestId) {
+        feedItems = nextItems;
+        lastLoadedQuery = query;
+      }
+    } finally {
+      if (requestId === feedItemsRequestId) {
+        feedItemsLoading = false;
+      }
+    }
+  }
+
+  function matchesScope(item: PersonalFeedItem, scope: PersonalScope) {
+    if (scope === 'popular') {
+      return true;
+    }
+
+    return item.feedSource !== 'discovery';
   }
 
   function matchesFilter(item: PersonalFeedItem, filter: PersonalFilter) {
@@ -108,10 +147,18 @@
     }
 
     if (filter === 'posts') {
-      return item.kind === 'post';
+      return item.kind === 'post' || item.kind === 'help-request';
     }
 
     return item.kind === 'activity' && item.subjectKind === 'event';
+  }
+
+  function itemVoteCount(item: PersonalFeedItem) {
+    if (item.kind === 'post' || item.kind === 'activity') {
+      return item.voteCount;
+    }
+
+    return 0;
   }
 
   function itemTimestamp(item: PersonalFeedItem) {
@@ -145,7 +192,7 @@
 
   function compareItems(left: PersonalFeedItem, right: PersonalFeedItem, sort: FeedSort) {
     if (sort === 'popular') {
-      return right.voteCount - left.voteCount || itemTimestamp(right) - itemTimestamp(left);
+      return itemVoteCount(right) - itemVoteCount(left) || itemTimestamp(right) - itemTimestamp(left);
     }
 
     return itemTimestamp(right) - itemTimestamp(left);
@@ -160,7 +207,7 @@
   }
 
   $: referenceTime = Date.now();
-  $: visibleItems = items
+  $: visibleItems = feedItems
     .filter((item) => matchesScope(item, activeScope))
     .filter((item) => matchesFilter(item, activeFilter))
     .filter((item) => matchesWindow(item, activeWindow, referenceTime))
@@ -168,7 +215,10 @@
     .sort((left, right) => compareItems(left, right, activeSort));
 
   onMount(() => {
-    void hydratePreferences();
+    void (async () => {
+      await hydratePreferences();
+      await loadFeedItems();
+    })();
   });
 </script>
 
@@ -180,7 +230,7 @@
 
   <section class="toolbar-card">
     <div class="controls-row">
-      <select aria-label="Choose personal feed scope" bind:value={activeScope} on:change={handlePreferencesChange}>
+      <select aria-label="Choose personal feed scope" bind:value={activeScope} on:change={handleFeedQueryChange}>
         <option value="following">Following only</option>
         <option value="popular">Following + popular</option>
       </select>
@@ -192,7 +242,7 @@
         <option value="events">Events</option>
       </select>
 
-      <select aria-label="Sort personal feed by" bind:value={activeSort} on:change={handlePreferencesChange}>
+      <select aria-label="Sort personal feed by" bind:value={activeSort} on:change={handleFeedQueryChange}>
         <option value="popular">Most popular</option>
         <option value="recent">Most recent</option>
       </select>
@@ -209,7 +259,11 @@
   </section>
 
   <div class="stack">
-    {#if visibleItems.length === 0}
+    {#if feedItemsLoading && visibleItems.length === 0}
+      <section class="empty-card">
+        <p>Loading personal feed…</p>
+      </section>
+    {:else if visibleItems.length === 0}
       <section class="empty-card">
         <p>{activeScope === 'following' ? 'No posts or activity from people you follow match this filter yet.' : 'No followed activity or popular public posts match this filter yet.'}</p>
       </section>

@@ -11,6 +11,10 @@
       return projectSubjectLabel(mode);
     }
 
+    if (subjectKind === 'help-request') {
+      return 'Help Request';
+    }
+
     return subjectKind.charAt(0).toUpperCase() + subjectKind.slice(1);
   }
 
@@ -21,6 +25,7 @@
     | 'thread'
     | 'event'
     | 'post'
+    | 'help-request'
     | 'stage'
     | 'project-production'
     | 'project-service'
@@ -37,6 +42,10 @@
       return subjectKind;
     }
 
+    if (subjectKind === 'help-request') {
+      return 'help-request';
+    }
+
     return 'stage';
   }
 
@@ -45,6 +54,7 @@
     | 'thread'
     | 'event'
     | 'post'
+    | 'help-request'
     | 'stage'
     | 'project-production'
     | 'project-service'

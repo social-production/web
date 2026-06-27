@@ -1,5 +1,5 @@
 // Maps entity IDs to their votable/commentable types for governance calls
-type EntityType = 'thread' | 'post' | 'comment' | 'event' | 'project';
+type EntityType = 'thread' | 'post' | 'comment' | 'event' | 'project' | 'help_request';
 
 const cache = new Map<string, EntityType>();
 

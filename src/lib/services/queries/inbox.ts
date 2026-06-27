@@ -1,6 +1,53 @@
+import { get } from 'svelte/store';
+import { page } from '$app/stores';
 import { currentAdapter } from '$lib/services/adapters';
+import { unreadCounts } from '$lib/stores/unreadCounts';
 import type { CreateGroupMessageInput, DirectMessage } from '$lib/types/inbox';
-import type { ViewerSummary } from '$lib/types/bootstrap';
+import type { UnreadCounts, ViewerSummary } from '$lib/types/bootstrap';
+
+function currentUnreadBase(): UnreadCounts | undefined {
+  return get(unreadCounts) ?? get(page).data.bootstrap?.unreadCounts;
+}
+
+export function syncUnreadCountsFromBootstrap(counts: UnreadCounts) {
+  unreadCounts.set(counts);
+}
+
+export async function refreshUnreadCounts() {
+  const bootstrap = await currentAdapter.getBootstrap();
+  syncUnreadCountsFromBootstrap(bootstrap.unreadCounts);
+  return bootstrap.unreadCounts;
+}
+
+function decrementUnreadMessages(clearedCount = 1) {
+  unreadCounts.update((current) => {
+    const base: UnreadCounts | undefined = current ?? currentUnreadBase();
+
+    if (!base) {
+      return current;
+    }
+
+    return {
+      ...base,
+      messages: Math.max(0, base.messages - clearedCount)
+    };
+  });
+}
+
+function decrementUnreadNotifications(clearedCount = 1) {
+  unreadCounts.update((current) => {
+    const base: UnreadCounts | undefined = current ?? currentUnreadBase();
+
+    if (!base) {
+      return current;
+    }
+
+    return {
+      ...base,
+      notifications: Math.max(0, base.notifications - clearedCount)
+    };
+  });
+}
 
 export function getNotifications() {
   return currentAdapter.getNotifications();
@@ -23,19 +70,30 @@ export function getMessageContacts(query: string, limit?: number): Promise<Viewe
 }
 
 export function markNotificationRead(notificationId: string) {
-  return currentAdapter.markNotificationRead(notificationId);
+  return currentAdapter.markNotificationRead(notificationId).then(() => {
+    decrementUnreadNotifications(1);
+  });
 }
 
 export function markAllNotificationsRead() {
-  return currentAdapter.markAllNotificationsRead();
+  return currentAdapter.markAllNotificationsRead().then(() => {
+    const base = currentUnreadBase();
+    if (base) {
+      syncUnreadCountsFromBootstrap({ ...base, notifications: 0 });
+    }
+  });
 }
 
-export function markConversationRead(conversationId: string) {
-  return currentAdapter.markConversationRead(conversationId);
+export function markConversationRead(conversationId: string, clearedCount = 1) {
+  return currentAdapter.markConversationRead(conversationId).then(() => {
+    decrementUnreadMessages(clearedCount);
+  });
 }
 
-export function markLinkedChatRead(subjectType: string, subjectId: string) {
-  return currentAdapter.markLinkedChatRead(subjectType, subjectId);
+export function markLinkedChatRead(subjectType: string, subjectId: string, clearedCount = 1) {
+  return currentAdapter.markLinkedChatRead(subjectType, subjectId).then(() => {
+    decrementUnreadMessages(clearedCount);
+  });
 }
 
 export function sendMessage(threadId: string, body: string) {

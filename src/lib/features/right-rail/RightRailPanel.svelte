@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { createEventDispatcher } from 'svelte';
   import { goto, invalidateAll } from '$app/navigation';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
@@ -8,18 +9,77 @@
     toggleEventMembership
   } from '$lib/services/queries/details';
   import type { RightRailActivityItem } from '$lib/types/bootstrap';
-  import { formatCalendarTime } from '$lib/utils/time';
+  import { formatScheduleLabel } from '$lib/utils/time';
 
   export let compact = false;
   export let items: RightRailActivityItem[] = [];
 
   const dispatch = createEventDispatcher<{ close: void }>();
+  const dismissedStorageKey = 'dismissed-rail-ids';
 
   let pendingSubjectId = '';
+  let dismissedRailIds = new Set<string>();
 
-  $: activityItems = items.filter((item) => item.kind !== 'request' && item.kind !== 'vote');
-  $: requestItems = items.filter((item) => item.kind === 'request');
-  $: voteItems = items.filter((item) => item.kind === 'vote');
+  function readDismissedRailIds() {
+    if (!browser) {
+      return new Set<string>();
+    }
+
+    try {
+      const stored = localStorage.getItem(dismissedStorageKey);
+
+      if (!stored) {
+        return new Set<string>();
+      }
+
+      const parsed = JSON.parse(stored);
+
+      if (!Array.isArray(parsed)) {
+        return new Set<string>();
+      }
+
+      return new Set<string>(parsed.filter((value): value is string => typeof value === 'string'));
+    } catch {
+      return new Set<string>();
+    }
+  }
+
+  function persistDismissedRailIds() {
+    if (!browser) {
+      return;
+    }
+
+    localStorage.setItem(dismissedStorageKey, JSON.stringify([...dismissedRailIds]));
+  }
+
+  function dismissRailItem(itemId: string, event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    dismissedRailIds = new Set([...dismissedRailIds, itemId]);
+    persistDismissedRailIds();
+  }
+
+  if (browser) {
+    dismissedRailIds = readDismissedRailIds();
+  }
+
+  $: visibleItems = items.filter((item) => item.viewerIsAuthor || !dismissedRailIds.has(item.id));
+  $: activityItems = visibleItems.filter(
+    (item) =>
+      item.kind !== 'request' &&
+      item.kind !== 'vote' &&
+      item.kind !== 'help-request-open' &&
+      item.kind !== 'help-request-signup' &&
+      item.kind !== 'help-request-owned'
+  );
+  $: helpRequestItems = visibleItems.filter(
+    (item) =>
+      item.kind === 'help-request-open' ||
+      item.kind === 'help-request-signup' ||
+      item.kind === 'help-request-owned'
+  );
+  $: requestItems = visibleItems.filter((item) => item.kind === 'request');
+  $: voteItems = visibleItems.filter((item) => item.kind === 'vote');
 
   function requestClose() {
     dispatch('close');
@@ -41,18 +101,43 @@
     return usesRoleCommitment(item) && !item.viewerAssignedRoleLabel && item.hasOpenRole === false;
   }
 
-  function itemSurfaceKind(item: RightRailActivityItem) {
-    return item.kind === 'event' || item.voteEntityKind === 'event' ? 'event' : 'project';
-  }
-
   function itemKicker(item: RightRailActivityItem) {
+    if (
+      item.kind === 'help-request-signup' ||
+      item.kind === 'help-request-open' ||
+      item.kind === 'help-request-owned'
+    ) {
+      return '';
+    }
     if (item.kind === 'request') return 'Service request';
     if (item.kind === 'vote') return item.voteKindLabel ? `Vote · ${item.voteKindLabel.replace('_', ' ')}` : 'Vote';
     return item.kind === 'event' ? 'Event activity' : 'Project activity';
   }
 
+  function itemSurfaceKind(item: RightRailActivityItem) {
+    if (
+      item.kind === 'help-request-open' ||
+      item.kind === 'help-request-signup' ||
+      item.kind === 'help-request-owned'
+    ) {
+      return 'help-request';
+    }
+
+    return item.kind === 'event' || item.voteEntityKind === 'event' ? 'event' : 'project';
+  }
+
   function itemTimeLabel(item: RightRailActivityItem) {
-    return item.kind === 'event' && item.timeLabel ? item.timeLabel : formatCalendarTime(item.createdAt);
+    if (item.timeLabel && !item.timeLabel.includes('T')) {
+      return item.timeLabel;
+    }
+
+    const source = item.timeLabel ?? item.createdAt;
+
+    if (!source) {
+      return '';
+    }
+
+    return formatScheduleLabel(source);
   }
 
   function itemDetail(item: RightRailActivityItem) {
@@ -137,14 +222,73 @@
       {:else}
         {#each activityItems as item}
           <article class="snapshot-row activity-row">
+            <button
+              aria-label="Dismiss activity card"
+              class="dismiss-card"
+              type="button"
+              on:click={(event) => dismissRailItem(item.id, event)}
+            >
+              ×
+            </button>
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
                 <SubjectTablet kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'productive'} />
                 <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
-              <span class="card-kicker">{itemKicker(item)}</span>
+              {#if itemKicker(item)}
+                <span class="card-kicker">{itemKicker(item)}</span>
+              {/if}
               <strong>{item.title}</strong>
-              <span class="card-meta">{item.meta}</span>
+              {#if item.meta}
+                <span class="card-meta">{item.meta}</span>
+              {/if}
+              {#if itemDetail(item)}
+                <span class="card-detail">{itemDetail(item)}</span>
+              {/if}
+            </button>
+          </article>
+        {/each}
+      {/if}
+    </div>
+  </section>
+
+  <section class="rail-section rail-section-help-requests">
+    <h2>Help Requests</h2>
+    <p class="section-subtitle">Open help requests in your scopes and anything you signed up for.</p>
+    <div class:snapshot-scroll={helpRequestItems.length > 5} class="snapshot-stack">
+      {#if helpRequestItems.length === 0}
+        <div class="snapshot-row">
+          <strong>No help requests yet</strong>
+          <span>Open requests in channels and communities you belong to, plus any you sign up for, appear here.</span>
+        </div>
+      {:else}
+        {#each helpRequestItems as item}
+          <article class="snapshot-row activity-row help-request-row">
+            {#if !item.viewerIsAuthor}
+              <button
+                aria-label="Dismiss help request card"
+                class="dismiss-card"
+                type="button"
+                on:click={(event) => dismissRailItem(item.id, event)}
+              >
+                ×
+              </button>
+            {/if}
+            <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
+              <div class="activity-topline">
+                <SubjectTablet kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'productive'} />
+                <span class="snapshot-time">{itemTimeLabel(item)}</span>
+              </div>
+              {#if itemKicker(item)}
+                <span class="card-kicker">{itemKicker(item)}</span>
+              {/if}
+              <strong>{item.title}</strong>
+              {#if item.body}
+                <span class="card-body-preview">{item.body}</span>
+              {/if}
+              {#if item.meta}
+                <span class="card-meta">{item.meta}</span>
+              {/if}
               {#if itemDetail(item)}
                 <span class="card-detail">{itemDetail(item)}</span>
               {/if}
@@ -167,14 +311,26 @@
       {:else}
         {#each requestItems as item}
           <article class="snapshot-row activity-row request-row">
+            <button
+              aria-label="Dismiss request card"
+              class="dismiss-card"
+              type="button"
+              on:click={(event) => dismissRailItem(item.id, event)}
+            >
+              ×
+            </button>
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
                 <SubjectTablet kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'collective-service'} />
                 <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
-              <span class="card-kicker">{itemKicker(item)}</span>
+              {#if itemKicker(item)}
+                <span class="card-kicker">{itemKicker(item)}</span>
+              {/if}
               <strong>{item.title}</strong>
-              <span class="card-meta">{item.meta}</span>
+              {#if item.meta}
+                <span class="card-meta">{item.meta}</span>
+              {/if}
               {#if itemDetail(item)}
                 <span class="card-detail">{itemDetail(item)}</span>
               {/if}
@@ -197,6 +353,14 @@
       {:else}
         {#each voteItems as item}
           <article class="snapshot-row activity-row vote-row">
+            <button
+              aria-label="Dismiss vote card"
+              class="dismiss-card"
+              type="button"
+              on:click={(event) => dismissRailItem(item.id, event)}
+            >
+              ×
+            </button>
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
                 <SubjectTablet
@@ -205,9 +369,13 @@
                 />
                 <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
-              <span class="card-kicker">{itemKicker(item)}</span>
+              {#if itemKicker(item)}
+                <span class="card-kicker">{itemKicker(item)}</span>
+              {/if}
               <strong>{item.title}</strong>
-              <span class="card-meta">{item.meta}</span>
+              {#if item.meta}
+                <span class="card-meta">{item.meta}</span>
+              {/if}
               {#if itemDetail(item)}
                 <span class="card-detail">{itemDetail(item)}</span>
               {/if}
@@ -299,11 +467,36 @@
     background: color-mix(in srgb, var(--brand-soft) 42%, var(--panel-soft));
   }
 
+  .dismiss-card {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--text-soft);
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .dismiss-card:hover {
+    border-color: var(--brand);
+    color: var(--brand-strong);
+    background: var(--brand-soft);
+  }
+
   .activity-open-button {
     display: grid;
     gap: 8px;
     width: 100%;
-    padding: 0;
+    padding: 0 28px 0 0;
     border: none;
     background: transparent;
     color: inherit;
@@ -333,6 +526,16 @@
 
   .card-meta {
     color: var(--text-main);
+  }
+
+  .card-body-preview {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--text-soft);
+    line-height: 1.4;
   }
 
   .card-detail {

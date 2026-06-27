@@ -3,6 +3,7 @@
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { tick } from 'svelte';
+  import { preserveScrollDuring, scrollComposerIntoView } from '$lib/utils/time';
   import EventLifecycleMechanicsCard from './components/EventLifecycleMechanicsCard.svelte';
   import EventLifecyclePhaseTabs from './components/EventLifecyclePhaseTabs.svelte';
   import EventPhaseChangeSection from './components/EventPhaseChangeSection.svelte';
@@ -79,11 +80,11 @@
 
   let activePhaseId: EventLifecyclePhaseId = data.lifecycle.currentPhaseId;
   let lastCurrentPhaseId = data.lifecycle.currentPhaseId;
-  let showHowItWorks = false;
   let lastHowItWorksPhaseId = data.lifecycle.currentPhaseId;
   let showValueComposer = false;
   let showPlanComposer = false;
   let showActivityComposer = false;
+  let activityComposerElement: HTMLDivElement | null = null;
   let draftValue = '';
   let phaseChangeReason = '';
   let selectedDayIso = '';
@@ -257,7 +258,6 @@
 
   $: if (lastHowItWorksPhaseId !== activePhaseId) {
     lastHowItWorksPhaseId = activePhaseId;
-    showHowItWorks = false;
   }
 
   $: if (!showPlanComposer && (planForm.validationMessages?.length ?? 0) > 0) {
@@ -409,6 +409,7 @@
       title: planForm.title,
       description: planForm.description,
       demandConsiderationNote: planForm.demandConsiderationNote,
+      valueConsiderationNotes: planForm.valueConsiderationNotes,
       locationLabel,
       schedule,
       planPhases: planForm.planPhases
@@ -428,16 +429,20 @@
   }
 
   async function voteOnPlanValue(planId: string, valueId: string, vote: ProjectApprovalVote | null) {
-    await setEventPlanValueVote(data.slug, planId, valueId, vote);
-    await invalidateAll();
+    await preserveScrollDuring(async () => {
+      await setEventPlanValueVote(data.slug, planId, valueId, vote);
+      await invalidateAll();
+    });
   }
 
   async function voteOnPlanOverall(planId: string, vote: ProjectApprovalVote | null) {
-    await setEventPlanOverallVote(data.slug, planId, vote);
-    await invalidateAll();
+    await preserveScrollDuring(async () => {
+      await setEventPlanOverallVote(data.slug, planId, vote);
+      await invalidateAll();
+    });
   }
 
-  function openActivityComposerForDay(isoDay = selectedDayIso) {
+  async function openActivityComposerForDay(isoDay = selectedDayIso) {
     const targetDayIso = isoDay || selectedDayIso || defaultActivityDayIso();
 
     if (showActivityComposer && (!targetDayIso || targetDayIso === selectedDayIso)) {
@@ -469,6 +474,9 @@
           ? defaultWindow.endsAt
           : activityForm.endsAt
     };
+
+    await tick();
+    scrollComposerIntoView(activityComposerElement);
   }
 
   async function submitActivity() {
@@ -536,7 +544,6 @@
     <EventLifecycleMechanicsCard
       phase={activePhase}
       progressLabel={activePhaseProgressLabel}
-      bind:showHowItWorks
     />
 
     <EventLifecycleContent
@@ -562,6 +569,7 @@
       {submitPlan}
       {voteOnPlanValue}
       {voteOnPlanOverall}
+      bind:activityComposerElement
       {openActivityComposerForDay}
       {submitActivity}
       changeCommitment={changeCommitment}

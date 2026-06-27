@@ -3,6 +3,7 @@ import { browser } from '$app/environment';
 import { getSettings } from '$lib/services/queries/account';
 import { hydrateClientSettingsState } from '$lib/services/queries/account';
 import { getBootstrap } from '$lib/services/queries/bootstrap';
+import { syncUnreadCountsFromBootstrap } from '$lib/services/queries/inbox';
 import type { LayoutLoad } from './$types';
 
 export const ssr = false;
@@ -17,6 +18,7 @@ export const load = (async ({ url }) => {
   }
 
   const bootstrap = await getBootstrap();
+  syncUnreadCountsFromBootstrap(bootstrap.unreadCounts);
 
   if (
     !bootstrap.viewer &&

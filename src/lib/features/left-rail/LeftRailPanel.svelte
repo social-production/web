@@ -10,6 +10,7 @@
 
   const createLinks = [
     { href: '/create/post', label: 'Post' },
+    { href: '/create/help-request', label: 'Help request' },
     { href: '/create/thread', label: 'Thread' },
     { href: '/create/project', label: 'Project' },
     { href: '/create/event', label: 'Event' },

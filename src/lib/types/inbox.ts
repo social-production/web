@@ -4,7 +4,7 @@ import type { ProjectMode, SubjectKind, TagRef } from '$lib/types/feed';
 
 export interface NotificationItem {
   id: string;
-  kind: 'reply' | 'mention' | 'message' | 'project' | 'event';
+  kind: 'reply' | 'mention' | 'message' | 'project' | 'event' | 'follow-request' | 'follow-accepted' | 'new-follower' | 'help-request';
   surface: 'public' | 'personal';
   subjectKind: SubjectKind;
   projectMode?: ProjectMode;
@@ -58,7 +58,7 @@ export interface MessageConversation {
 
 export interface MessageLinkedChat {
   id: string;
-  kind: 'project' | 'event';
+  kind: 'project' | 'event' | 'help_request';
   subjectId: string;
   title: string;
   href: string;

@@ -62,11 +62,24 @@
   }
 
   function statusLabel(planId: string) {
-    if (planId !== winningPlanId) {
+    const plan = plans.find((entry) => entry.id === planId);
+    if (!plan) {
       return null;
     }
 
-    return data.lifecycle.currentPhaseId === phaseId ? 'Leading above threshold' : 'Selected';
+    if (data.lifecycle.currentPhaseId !== phaseId) {
+      return planId === winningPlanId ? 'Selected' : null;
+    }
+
+    if (plan.leaderStatus === 'leading') {
+      return 'Leading above threshold';
+    }
+
+    if (plan.leaderStatus === 'tied') {
+      return 'Tied above threshold';
+    }
+
+    return null;
   }
 </script>
 

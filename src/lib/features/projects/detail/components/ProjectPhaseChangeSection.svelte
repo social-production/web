@@ -353,11 +353,10 @@
     {/if}
 
     {#if showRevertComposer && (personalDirectPhaseChange ? canDirectReturn : data.lifecycle.viewerCanRequestPhaseChanges) && data.lifecycle.revertablePhaseIds.length > 0}
-      <div bind:this={revertComposerElement} class="mechanics-card change-action-panel">
-        <div class="composer-card">
+      <div bind:this={revertComposerElement} class="change-action-panel">
           <h3>{personalDirectPhaseChange ? 'Return to active' : 'Return'}</h3>
           {#if revertMessage}
-            <div class="warning-card" role="alert">{revertMessage}</div>
+            <div class="inline-alert" role="alert">{revertMessage}</div>
           {/if}
           <label>
             <span class="field-inline-label">Return to</span>
@@ -383,16 +382,14 @@
               {personalDirectPhaseChange ? 'Return to active' : 'Return'}
             </button>
           </div>
-        </div>
       </div>
     {/if}
 
     {#if showNextPhaseComposer && data.lifecycle.nextPhaseId}
-      <div bind:this={nextPhaseComposerElement} class="mechanics-card change-action-panel">
-        <div class="composer-card">
+      <div bind:this={nextPhaseComposerElement} class="change-action-panel">
           <h3>{nextPhaseActionLabel()}</h3>
           {#if nextPhaseMessage}
-            <div class="warning-card" role="alert">{nextPhaseMessage}</div>
+            <div class="inline-alert" role="alert">{nextPhaseMessage}</div>
           {/if}
           {#if !phaseGatePasses}
             <div class="inline-note">
@@ -409,7 +406,7 @@
             </label>
 
             {#if nextPhaseCloseOutcome === 'convert' && suggestedConversionTarget}
-              <div class="conversion-preview-card">
+              <div class="inline-note conversion-note">
                 <span class="field-inline-label">Governed successor</span>
                 <strong>{closeOutcomeLabel()}</strong>
                 <p>
@@ -429,7 +426,6 @@
               {nextPhaseActionLabel()}
             </button>
           </div>
-        </div>
       </div>
     {/if}
 
@@ -515,9 +511,6 @@
 <style>
   .phase-change-stack,
   .change-action-panel,
-  .composer-card,
-  .warning-card,
-  .conversion-preview-card,
   .surface-stack,
   .vote-request-card,
   .vote-card-copy {
@@ -560,13 +553,14 @@
 
   .change-action-panel {
     scroll-margin-top: 92px;
+    padding: 16px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
   }
 
-  .mechanics-card,
-  .composer-card,
   .surface-card,
-  .detail-card,
-  .conversion-preview-card {
+  .detail-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -584,14 +578,24 @@
     background: color-mix(in srgb, var(--panel) 82%, var(--panel-strong));
   }
 
-  .warning-card {
-    padding: 12px 14px;
-    border: 1px solid color-mix(in srgb, var(--status-yellow) 50%, var(--panel-border));
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--status-yellow) 14%, var(--panel-strong));
+  .inline-alert {
+    padding: 10px 12px;
+    border-left: 3px solid color-mix(in srgb, var(--status-yellow) 70%, var(--panel-border));
     color: var(--text-main);
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
+  }
+
+  .inline-note,
+  .conversion-note p {
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .conversion-note {
+    display: grid;
+    gap: 6px;
   }
 
   .primary-button,

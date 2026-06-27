@@ -3,7 +3,7 @@ import type { ViewerSummary } from '$lib/types/bootstrap';
 export type TagKind = 'channel' | 'community';
 export type ProjectMode = 'productive' | 'collective-service' | 'personal-service';
 export type ProjectSubtype = 'standard' | 'software' | 'asset-management';
-export type SubjectKind = 'project' | 'thread' | 'event' | 'post';
+export type SubjectKind = 'project' | 'thread' | 'event' | 'post' | 'help-request';
 export type VoteDirection = -1 | 0 | 1;
 
 export interface PostBodyLink {
@@ -66,6 +66,22 @@ export interface CreateCommunityInput {
   name: string;
   description: string;
   joinPolicy: 'open' | 'invite_only';
+}
+
+export interface HelpRequestRoleInput {
+  title: string;
+  description: string;
+  slots: number;
+}
+
+export interface CreateHelpRequestInput {
+  title: string;
+  body: string;
+  locationLabel: string;
+  neededAt: string;
+  roles: HelpRequestRoleInput[];
+  channelTags: TagRef[];
+  communityTags: TagRef[];
 }
 
 export interface ProjectFundProgress {
@@ -144,10 +160,32 @@ export interface PublicEventItem {
   latestUpdateAt?: string;
 }
 
+export interface PublicHelpRequestItem {
+  kind: 'help-request';
+  id: string;
+  href: string;
+  createdAt: string;
+  title: string;
+  body: string;
+  authorUsername: string;
+  locationLabel: string;
+  scheduleLabel: string;
+  roles: HelpRequestRoleInput[];
+  channelTags: TagRef[];
+  communityTags: TagRef[];
+  voteCount: number;
+  activeVote: VoteDirection;
+  commentCount: number;
+  lastActivityAt: string;
+  signupCount?: number;
+  slotsNeeded?: number;
+}
+
 export type PublicFeedItem =
   | PublicProjectItem
   | PublicThreadItem
-  | PublicEventItem;
+  | PublicEventItem
+  | PublicHelpRequestItem;
 
 export interface PersonalPostItem {
   kind: 'post';
@@ -187,4 +225,25 @@ export interface PersonalActivityItem {
   subjectFundProgress?: ProjectFundProgress;
 }
 
-export type PersonalFeedItem = PersonalPostItem | PersonalActivityItem;
+export interface PersonalHelpRequestItem {
+  kind: 'help-request';
+  id: string;
+  href: string;
+  author: ViewerSummary;
+  feedSource?: 'following' | 'discovery';
+  title: string;
+  body: string;
+  locationLabel: string;
+  scheduleLabel: string;
+  roles: HelpRequestRoleInput[];
+  channelTags: TagRef[];
+  communityTags: TagRef[];
+  voteCount: number;
+  activeVote: VoteDirection;
+  commentCount: number;
+  signupCount?: number;
+  slotsNeeded?: number;
+  createdAt: string;
+}
+
+export type PersonalFeedItem = PersonalPostItem | PersonalActivityItem | PersonalHelpRequestItem;

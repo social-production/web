@@ -2,6 +2,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import ThreadCard from '$lib/components/cards/public-feed/ThreadCard.svelte';
+  import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import CreateScopeTagSelector from '$lib/features/create/shared/CreateScopeTagSelector.svelte';
@@ -278,8 +279,8 @@
     >
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
         <label>
-          <span class="field-label">Thread title</span>
-          <input bind:value={title} />
+          <RequiredFieldLabel>Thread title</RequiredFieldLabel>
+          <input bind:value={title} aria-required="true" />
         </label>
 
         <label>
@@ -327,8 +328,8 @@
         />
 
         <label>
-          <span class="field-label">Opening post</span>
-          <textarea bind:value={body} rows="5"></textarea>
+          <RequiredFieldLabel>Opening post</RequiredFieldLabel>
+          <textarea bind:value={body} rows="5" aria-required="true"></textarea>
         </label>
 
         <div class="button-row">

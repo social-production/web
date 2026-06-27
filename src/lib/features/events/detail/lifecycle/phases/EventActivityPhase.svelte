@@ -28,6 +28,7 @@
     activityId: string,
     roleLabel: string | null
   ) => void | Promise<void> = () => {};
+  export let activityComposerElement: HTMLDivElement | null = null;
 
   function scrollToActivity(activityId: string) {
     highlightedActivityId = activityId;
@@ -74,7 +75,7 @@
   />
 
   {#if data.lifecycle.activity.viewerCanCreateActivities && showActivityComposer}
-    <div class="composer-card">
+    <div bind:this={activityComposerElement} class="composer-card">
       <input bind:value={activityForm.title} maxlength="120" placeholder="Activity title" />
       <div class="number-grid">
         <label>

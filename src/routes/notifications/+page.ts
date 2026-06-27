@@ -1,9 +1,9 @@
 import { error } from '@sveltejs/kit';
-import { getNotifications } from '$lib/services/queries/inbox';
+import { getNotifications, refreshUnreadCounts } from '$lib/services/queries/inbox';
 import type { PageLoad } from './$types';
 
 export const load = (async () => {
-  const notifications = await getNotifications();
+  const [notifications] = await Promise.all([getNotifications(), refreshUnreadCounts()]);
 
   if (!notifications) {
     throw error(404, 'Notifications not available');

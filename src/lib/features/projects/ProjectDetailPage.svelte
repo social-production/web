@@ -6,7 +6,6 @@
   import ProjectChatTab from '$lib/features/projects/detail/ProjectChatTab.svelte';
   import ProjectHistoryTab from '$lib/features/projects/detail/ProjectHistoryTab.svelte';
   import ProjectLifecyclePanel from '$lib/features/projects/detail/ProjectLifecyclePanel.svelte';
-  import ProjectLinksTab from '$lib/features/projects/detail/ProjectLinksTab.svelte';
   import ProjectMembersPanel from '$lib/features/projects/detail/ProjectMembersPanel.svelte';
   import ProjectOverviewHeader from '$lib/features/projects/detail/ProjectOverviewHeader.svelte';
   import ProjectUpdatesSection from '$lib/features/projects/detail/ProjectUpdatesSection.svelte';
@@ -21,7 +20,7 @@
   let highlightedDecisionId: string | null = null;
   let lastRouteSignature = '';
   let showMembersPanel = false;
-  let activeTab: 'overview' | 'chat' | 'history' | 'links' = 'overview';
+  let activeTab: 'overview' | 'chat' | 'history' = 'overview';
   let autoExpandVoteCards = false;
   let autoExpandVoteKind: string | null = null;
   let autoExpandVoteTarget: string | null = null;
@@ -67,7 +66,7 @@
     return url.searchParams.get('decision');
   }
 
-  function selectTab(tab: 'overview' | 'chat' | 'history' | 'links') {
+  function selectTab(tab: 'overview' | 'chat' | 'history') {
     activeTab = tab;
 
     if (!browser) {
@@ -132,8 +131,6 @@
         ? 'chat'
         : highlightedDecisionId
           ? 'history'
-        : requestedTab === 'links'
-          ? 'links'
         : requestedTab === 'history'
           ? 'history'
         : requestedTab === 'chat'
@@ -174,15 +171,6 @@
         Chat
       </button>
       <button
-        class:active-tab={activeTab === 'links'}
-        class="top-tab"
-        role="tab"
-        type="button"
-        on:click={() => selectTab('links')}
-      >
-        Links
-      </button>
-      <button
         class:active-tab={activeTab === 'history'}
         class="top-tab"
         role="tab"
@@ -211,8 +199,6 @@
       </div>
     {:else if activeTab === 'chat'}
       <ProjectChatTab {data} {highlightedCommentId} />
-    {:else if activeTab === 'links'}
-      <ProjectLinksTab frame={data.linksFrame} />
     {:else}
       <ProjectHistoryTab {data} highlightedDecisionId={highlightedDecisionId} />
     {/if}

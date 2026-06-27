@@ -1,13 +1,22 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
+  import { onMount } from 'svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
-  import { signOut, updateSettings } from '$lib/services/queries/account';
+  import { extractErrorMessage } from '$lib/api/drivers/fastapi/client';
+  import {
+    acceptFollowRequest,
+    getFollowRequests,
+    rejectFollowRequest,
+    signOut,
+    updateSettings
+  } from '$lib/services/queries/account';
   import type {
     AppearanceThemeMode,
     DefaultFeedMode,
     SettingsPageData,
     SettingsUpdateInput
   } from '$lib/types/account';
+  import type { ViewerSummary } from '$lib/types/bootstrap';
 
   export let data: SettingsPageData;
 
@@ -15,6 +24,9 @@
   let bioDraft = data.profileBio;
   let lastLoadedBio = data.profileBio;
   let lastLoadedProfileImage = data.profileImageUrl;
+  let pendingFollowRequests: ViewerSummary[] = [];
+  let followRequestPending = '';
+  let profileImageError = '';
 
   $: if (pendingKey !== 'bio' && data.profileBio !== lastLoadedBio) {
     bioDraft = data.profileBio;
@@ -28,9 +40,19 @@
   async function applySettings(key: string, patch: SettingsUpdateInput) {
     pendingKey = key;
 
+    if (key === 'profile-image') {
+      profileImageError = '';
+    }
+
     try {
       await updateSettings(patch);
       await invalidateAll();
+    } catch (err) {
+      if (key === 'profile-image') {
+        profileImageError = extractErrorMessage(err, 'Could not update profile photo.');
+      }
+
+      throw err;
     } finally {
       pendingKey = '';
     }
@@ -68,15 +90,49 @@
       return;
     }
 
-    const dataUrl = await readFileAsDataUrl(file);
-    await applySettings('profile-image', { profileImageUrl: dataUrl });
-    input.value = '';
+    profileImageError = '';
+
+    if (file.size > 5 * 1024 * 1024) {
+      profileImageError = 'Choose an image under 5 MB.';
+      input.value = '';
+      return;
+    }
+
+    try {
+      const dataUrl = await compressImageToDataUrl(file);
+      await applySettings('profile-image', { profileImageUrl: dataUrl });
+    } catch {
+      // profileImageError set in applySettings when applicable
+    } finally {
+      input.value = '';
+    }
   }
 
-  function readFileAsDataUrl(file: File) {
+  function compressImageToDataUrl(file: File, maxSize = 512, quality = 0.85) {
     return new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+          const width = Math.max(1, Math.round(img.width * scale));
+          const height = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d');
+
+          if (!context) {
+            reject(new Error('Could not process image.'));
+            return;
+          }
+
+          context.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => reject(new Error('Could not load image.'));
+        img.src = typeof reader.result === 'string' ? reader.result : '';
+      };
       reader.onerror = () => reject(reader.error ?? new Error('Could not read image file.'));
       reader.readAsDataURL(file);
     });
@@ -88,13 +144,49 @@
     });
   }
 
-  function togglePrivateProfile() {
+  function togglePrivatePosts() {
     const nextValue = !data.hidePersonalFeedFromNonFollowers;
 
-    return applySettings('private-profile', {
+    return applySettings('private-posts', {
       hidePersonalFeedFromNonFollowers: nextValue,
-      requireFollowApproval: nextValue
+      requireFollowApproval: nextValue ? true : data.requireFollowApproval
     });
+  }
+
+  function togglePrivateProfileActivity() {
+    return applySettings('private-profile-activity', {
+      hidePublicProfileActivityFromNonFollowers: !data.hidePublicProfileActivityFromNonFollowers
+    });
+  }
+
+  function toggleRequireFollowApproval() {
+    return applySettings('follow-approval', {
+      requireFollowApproval: !data.requireFollowApproval
+    });
+  }
+
+  onMount(async () => {
+    try {
+      pendingFollowRequests = await getFollowRequests();
+    } catch {
+      pendingFollowRequests = [];
+    }
+  });
+
+  async function handleFollowRequest(username: string, action: 'accept' | 'reject') {
+    followRequestPending = username;
+
+    try {
+      if (action === 'accept') {
+        await acceptFollowRequest(username);
+      } else {
+        await rejectFollowRequest(username);
+      }
+      pendingFollowRequests = pendingFollowRequests.filter((person) => person.username !== username);
+      await invalidateAll();
+    } finally {
+      followRequestPending = '';
+    }
   }
 
   async function handleSignOut() {
@@ -110,277 +202,352 @@
   }
 </script>
 
-<section class="page">
-  <section class="hero-card">
+<section class="settings-page">
+  <header class="page-header">
     <h1>Settings</h1>
-    <p>Manage appearance, feed defaults, and privacy in one place.</p>
-  </section>
+    <p>Profile, appearance, feeds, and privacy.</p>
+  </header>
 
-  <section class="grid">
-    <section class="panel">
-      <h2>Account</h2>
-      <div class="account-summary">
-        <div class="account-headline">
-          <AvatarBadge size="md" username={data.profileUsername} imageUrl={data.profileImageUrl || null} />
+  <section class="settings-section">
+    <h2>Profile</h2>
+    <div class="card">
+      <div class="profile-row">
+        <AvatarBadge size="md" username={data.profileUsername} imageUrl={data.profileImageUrl || null} />
+        <div>
           <strong>{data.profileUsername}</strong>
+          <p>{data.profileBio || 'No bio yet.'}</p>
         </div>
-        <p>{data.profileBio}</p>
       </div>
-      <p class="helper-copy">Profile text is hydrated from the same account data as the shell and profile page.</p>
 
-      <label class="field-stack">
-        <span class="field-label">Upload profile image</span>
+      <label class="field">
+        <span class="label">Profile photo</span>
         <input accept="image/*" type="file" on:change={handleProfileImageFileChange} />
       </label>
+      {#if profileImageError}
+        <p class="profile-image-error">{profileImageError}</p>
+      {/if}
 
-      <label class="field-stack">
-        <span class="field-label">Bio</span>
-        <textarea bind:value={bioDraft} rows="4" placeholder="Tell people what you work on."></textarea>
+      <label class="field">
+        <span class="label">Bio</span>
+        <textarea bind:value={bioDraft} rows="3" placeholder="Tell people what you work on."></textarea>
       </label>
 
-      <div class="button-row">
-        <button class="button-ghost" disabled={pendingKey === 'profile-image'} type="button" on:click={clearProfileImage}>Remove photo</button>
+      <div class="actions">
+        <button class="button-secondary" disabled={pendingKey === 'profile-image'} type="button" on:click={clearProfileImage}>
+          Remove photo
+        </button>
         <button class="button-primary" disabled={pendingKey === 'bio'} type="button" on:click={saveBio}>Save bio</button>
-        <button class="button-ghost" disabled={pendingKey === 'sign-out'} type="button" on:click={handleSignOut}>
-          {pendingKey === 'sign-out' ? 'Signing out...' : 'Sign out'}
+        <button class="button-secondary" disabled={pendingKey === 'sign-out'} type="button" on:click={handleSignOut}>
+          {pendingKey === 'sign-out' ? 'Signing out…' : 'Sign out'}
         </button>
       </div>
-    </section>
-
-    <section class="panel">
-      <h2>Appearance & Feed</h2>
-      <div class="setting-row">
-        <div>
-          <strong>Theme</strong>
-          <p>{data.appearanceThemeMode === 'dark' ? 'Dark mode is active.' : 'Light mode is active.'}</p>
-        </div>
-        <button
-          class="theme-toggle"
-          class:light-active={data.appearanceThemeMode === 'light'}
-          disabled={pendingKey === 'theme'}
-          type="button"
-          on:click={toggleTheme}
-        >
-          <span class="toggle-pill"></span>
-          <span class="toggle-label">{data.appearanceThemeMode === 'dark' ? 'Switch to light' : 'Switch to dark'}</span>
-        </button>
-      </div>
-
-      <div class="setting-row">
-        <div>
-          <strong>Default feed</strong>
-          <p>Choose which feed should feel primary for this account.</p>
-        </div>
-        <div class="choice-row">
-          <button
-            class:active={data.defaultFeed === 'public'}
-            class="toggle-chip"
-            disabled={pendingKey === 'default-feed'}
-            type="button"
-            on:click={() => setDefaultFeed('public')}
-          >
-            Public
-          </button>
-          <button
-            class:active={data.defaultFeed === 'personal'}
-            class="toggle-chip"
-            disabled={pendingKey === 'default-feed'}
-            type="button"
-            on:click={() => setDefaultFeed('personal')}
-          >
-            Personal
-          </button>
-        </div>
-      </div>
-    </section>
+    </div>
   </section>
 
-  <section class="grid">
-    <section class="panel">
-      <h2>Personal Feed</h2>
-      <div class="setting-row">
+  <section class="settings-section">
+    <h2>Appearance</h2>
+    <div class="card setting-item">
+      <div>
+        <strong>Theme</strong>
+        <p>{data.appearanceThemeMode === 'dark' ? 'Dark mode' : 'Light mode'}</p>
+      </div>
+      <button class="button-secondary" disabled={pendingKey === 'theme'} type="button" on:click={toggleTheme}>
+        Switch to {data.appearanceThemeMode === 'dark' ? 'light' : 'dark'}
+      </button>
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2>Feeds</h2>
+    <div class="card setting-item">
+      <div>
+        <strong>Default feed on sign-in</strong>
+        <p>Which feed opens first when you visit the app.</p>
+      </div>
+      <div class="segmented">
+        <button
+          class:active={data.defaultFeed === 'public'}
+          class="segment"
+          disabled={pendingKey === 'default-feed'}
+          type="button"
+          on:click={() => setDefaultFeed('public')}
+        >
+          Public
+        </button>
+        <button
+          class:active={data.defaultFeed === 'personal'}
+          class="segment"
+          disabled={pendingKey === 'default-feed'}
+          type="button"
+          on:click={() => setDefaultFeed('personal')}
+        >
+          Personal
+        </button>
+      </div>
+    </div>
+  </section>
+
+  {#if pendingFollowRequests.length > 0}
+    <section class="settings-section">
+      <h2>Follow requests</h2>
+      <div class="card stack">
+        {#each pendingFollowRequests as person (person.username)}
+          <div class="follow-request-row">
+            <div>
+              <strong>@{person.username}</strong>
+              {#if person.bio}
+                <p>{person.bio}</p>
+              {/if}
+            </div>
+            <div class="follow-request-actions">
+              <button
+                class="button-primary"
+                disabled={followRequestPending === person.username}
+                type="button"
+                on:click={() => handleFollowRequest(person.username, 'accept')}
+              >
+                Accept
+              </button>
+              <button
+                class="button-ghost"
+                disabled={followRequestPending === person.username}
+                type="button"
+                on:click={() => handleFollowRequest(person.username, 'reject')}
+              >
+                Decline
+              </button>
+            </div>
+          </div>
+        {/each}
+      </div>
+    </section>
+  {/if}
+
+  <section class="settings-section">
+    <h2>Privacy</h2>
+    <div class="card stack">
+      <div class="setting-item">
         <div>
-          <strong>Hide my public activity from personal feeds</strong>
-          <p>Use this if you do not want your public project, thread, event, or comment activity showing up in follow-based personal feeds.</p>
+          <strong>Hide profile activity from non-followers</strong>
+          <p>When on, only followers can see your projects, threads, events, and public posts on your profile.</p>
         </div>
-        <button class="toggle-chip" disabled={pendingKey === 'personal-activity'} type="button" on:click={togglePublicActivity}>
-          {data.hidePublicActivityFromPersonalFeeds ? 'On' : 'Off'}
+        <button class="toggle" class:on={data.hidePublicProfileActivityFromNonFollowers} disabled={pendingKey === 'private-profile-activity'} type="button" on:click={togglePrivateProfileActivity}>
+          {data.hidePublicProfileActivityFromNonFollowers ? 'On' : 'Off'}
         </button>
       </div>
 
-      <div class="status-note">
-        This already affects the hydrated personal feed in the development adapter.
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Privacy</h2>
-      <div class="setting-row">
+      <div class="setting-item">
         <div>
-          <strong>Hide my personal feed from non-followers</strong>
-          <p>Turn this on if you want your personal side to stay follower-only.</p>
+          <strong>Require approval to follow you</strong>
+          <p>When on, new followers must be approved before they can see follower-only content.</p>
         </div>
-        <button class="toggle-chip" disabled={pendingKey === 'private-profile'} type="button" on:click={togglePrivateProfile}>
+        <button class="toggle" class:on={data.requireFollowApproval} disabled={pendingKey === 'follow-approval'} type="button" on:click={toggleRequireFollowApproval}>
+          {data.requireFollowApproval ? 'On' : 'Off'}
+        </button>
+      </div>
+
+      <div class="setting-item">
+        <div>
+          <strong>Hide personal posts from non-followers</strong>
+          <p>Follower-only posts stay hidden from people who do not follow you.</p>
+        </div>
+        <button class="toggle" class:on={data.hidePersonalFeedFromNonFollowers} disabled={pendingKey === 'private-posts'} type="button" on:click={togglePrivatePosts}>
           {data.hidePersonalFeedFromNonFollowers ? 'On' : 'Off'}
         </button>
       </div>
 
-      <div class="status-note">
-        {data.requireFollowApproval
-          ? 'Follower approval is automatically required while your personal feed is hidden from non-followers.'
-          : 'Follower approval stays open while your personal feed is visible.'}
+      <div class="setting-item">
+        <div>
+          <strong>Hide my public activity from others’ personal feeds</strong>
+          <p>Stops your public project, thread, and event activity from appearing in follow-based personal timelines.</p>
+        </div>
+        <button class="toggle" class:on={data.hidePublicActivityFromPersonalFeeds} disabled={pendingKey === 'personal-activity'} type="button" on:click={togglePublicActivity}>
+          {data.hidePublicActivityFromPersonalFeeds ? 'On' : 'Off'}
+        </button>
       </div>
-    </section>
+    </div>
   </section>
 </section>
 
 <style>
-  .page,
-  .panel {
+  .settings-page {
     display: grid;
-    gap: 12px;
+    gap: 18px;
+    max-width: 760px;
   }
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-  }
-
-  .hero-card,
-  .panel {
-    padding: 18px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-  }
-
-  .hero-card {
-    background: color-mix(in srgb, var(--brand-soft) 16%, var(--panel));
-  }
-
-  h1 {
-    font-size: 22px;
-    letter-spacing: -0.02em;
+  .page-header h1 {
+    margin: 0;
+    font-size: 24px;
     color: var(--brand-strong);
   }
 
-  h2,
-  strong {
-    font-size: 14px;
-  }
-
-  p,
-  .helper-copy {
+  .page-header p {
+    margin: 6px 0 0;
     color: var(--text-soft);
-    line-height: 1.45;
   }
 
-  .account-summary,
-  .field-stack,
-  .setting-row,
-  .button-row {
+  .settings-section {
     display: grid;
-    gap: 8px;
-  }
-
-  .account-headline {
-    display: flex;
-    align-items: center;
     gap: 10px;
   }
 
-  .button-row {
-    display: flex;
-    flex-wrap: wrap;
+  .settings-section h2 {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-soft);
   }
 
-  .field-label {
+  .card {
+    padding: 16px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-md);
+    background: var(--panel);
+  }
+
+  .card.stack {
+    display: grid;
+    gap: 12px;
+  }
+
+  .profile-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .profile-row p {
+    margin: 4px 0 0;
     color: var(--text-soft);
+    font-size: 14px;
+  }
+
+  .field {
+    display: grid;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .label {
     font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    color: var(--text-soft);
   }
 
-  .setting-row {
+  .profile-image-error {
+    margin: 0;
+    color: var(--danger, #c0392b);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  textarea,
+  input[type='file'] {
+    width: 100%;
+  }
+
+  textarea {
+    padding: 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-bg);
+    color: var(--text-main);
+    resize: vertical;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .setting-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 16px;
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
   }
 
-  .account-summary {
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
+  .setting-item p {
+    margin: 4px 0 0;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.45;
+    max-width: 46ch;
   }
 
-  .account-summary strong {
-    font-size: 16px;
+  .follow-request-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
   }
 
-  .choice-row {
+  .follow-request-actions {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
   }
 
-  .theme-toggle {
+  .segmented {
     display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 10px;
     border: 1px solid var(--panel-border);
-    border-radius: 999px;
-    background: var(--panel);
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
   }
 
-  .toggle-pill {
-    width: 34px;
-    height: 20px;
-    border-radius: 999px;
-    border: 1px solid var(--panel-border);
-    background: color-mix(in srgb, var(--brand-soft) 56%, var(--panel));
-    position: relative;
-  }
-
-  .toggle-pill::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 14px;
-    height: 14px;
-    border-radius: 999px;
-    background: var(--brand);
-    transition: transform 0.12s ease;
-  }
-
-  .theme-toggle.light-active .toggle-pill::after {
-    transform: translateX(14px);
-  }
-
-  .toggle-label {
+  .segment {
+    padding: 8px 12px;
+    border: 0;
+    background: transparent;
     color: var(--text-soft);
+    font-weight: 700;
+    cursor: pointer;
   }
 
-  @media (max-width: 760px) {
-    .grid {
-      grid-template-columns: 1fr;
-    }
+  .segment.active {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
 
-    .setting-row {
-      align-items: stretch;
+  .button-primary,
+  .button-secondary,
+  .toggle {
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .button-primary {
+    padding: 8px 14px;
+    border: 0;
+    background: var(--accent-strong);
+    color: white;
+  }
+
+  .button-secondary,
+  .toggle {
+    padding: 8px 14px;
+    border: 1px solid var(--panel-border);
+    background: var(--panel-soft);
+    color: var(--text-main);
+  }
+
+  .toggle.on {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  @media (max-width: 720px) {
+    .setting-item {
       flex-direction: column;
+      align-items: stretch;
     }
   }
 </style>

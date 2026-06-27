@@ -4,8 +4,18 @@ import type { AppAdapter } from '$lib/services/adapters/types';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
 import { fetchBootstrap, fetchOnboarding } from './domains/bootstrap';
 import { fetchSignIn, fetchSignOut, fetchSignUp } from './domains/auth';
-import { fetchSettings, fetchUpdateSettings, fetchProfile, fetchFollowUser, fetchUnfollowUser } from './domains/users';
-import { fetchPublicFeed, fetchPersonalFeed } from './domains/feeds';
+import {
+  fetchAcceptFollowRequest,
+  fetchFollowRequests,
+  fetchFollowUser,
+  fetchProfile,
+  fetchRejectFollowRequest,
+  fetchSettings,
+  fetchUnfollowUser,
+  fetchUpdateSettings
+} from './domains/users';
+import { fetchPublicFeed, fetchHomeFeed, fetchPersonalFeed } from './domains/feeds';
+import { fetchCreateHelpRequest, fetchHelpRequest, fetchCommitHelpRequestRole, fetchUncommitHelpRequestRole } from './domains/helpRequests';
 import {
   fetchThread,
   fetchPost,
@@ -123,12 +133,28 @@ export function createFastApiDriver(): AppAdapter {
       return fetchPost(id);
     },
 
+    async getHelpRequest(id) {
+      return fetchHelpRequest(id);
+    },
+
+    async commitHelpRequestRole(helpRequestId, roleId) {
+      return fetchCommitHelpRequestRole(helpRequestId, roleId);
+    },
+
+    async uncommitHelpRequestRole(helpRequestId, roleId) {
+      return fetchUncommitHelpRequestRole(helpRequestId, roleId);
+    },
+
     async createThread(input) {
       return fetchCreateThread(input);
     },
 
     async createPost(input) {
       return fetchCreatePost(input);
+    },
+
+    async createHelpRequest(input) {
+      return fetchCreateHelpRequest(input);
     },
 
     async setVote(targetId, vote) {
@@ -220,9 +246,13 @@ export function createFastApiDriver(): AppAdapter {
     async setProjectSignal(slug, signal) { return fetchSetProjectSignal(slug, signal); },
     async addProjectValue(slug, label) { return fetchAddProjectValue(slug, label); },
     async setProjectValueImportance(slug, valueId, importance) { return fetchSetProjectValueImportance(slug, valueId, importance); },
-    async addProjectProductionPlan(slug, input) { return fetchAddProjectProductionPlan(slug, input); },
+    async addProjectProductionPlan(slug, input, projectMode) {
+      return fetchAddProjectProductionPlan(slug, input, projectMode);
+    },
     async updateProjectProductionPlan(slug, planId, input) { return fetchUpdateProjectProductionPlan(slug, planId, input); },
-    async addProjectDistributionPlan(slug, input) { return fetchAddProjectDistributionPlan(slug, input); },
+    async addProjectDistributionPlan(slug, input, projectMode) {
+      return fetchAddProjectDistributionPlan(slug, input, projectMode);
+    },
     async setProjectPlanOverallVote(slug, phaseId, planId, vote) { return fetchSetProjectPlanOverallVote(slug, phaseId, planId, vote); },
     async setProjectPlanValueVote(slug, phaseId, planId, valueId, vote) { return fetchSetProjectPlanValueVote(slug, phaseId, planId, valueId, vote); },
     async addProjectActivity(slug, input) { return fetchAddProjectActivity(slug, input); },
@@ -318,8 +348,12 @@ export function createFastApiDriver(): AppAdapter {
       return fetchPublicFeed();
     },
 
-    async getPersonalFeed() {
-      return fetchPersonalFeed();
+    async getHomeFeed() {
+      return fetchHomeFeed();
+    },
+
+    async getPersonalFeed(options) {
+      return fetchPersonalFeed(options);
     },
 
     async getSettings() {
@@ -340,6 +374,18 @@ export function createFastApiDriver(): AppAdapter {
 
     async unfollowUser(username) {
       return fetchUnfollowUser(username);
+    },
+
+    async acceptFollowRequest(username) {
+      return fetchAcceptFollowRequest(username);
+    },
+
+    async rejectFollowRequest(username) {
+      return fetchRejectFollowRequest(username);
+    },
+
+    async getFollowRequests() {
+      return fetchFollowRequests();
     },
 
     async signIn(input) {

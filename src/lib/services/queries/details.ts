@@ -33,6 +33,18 @@ export function getPost(id: string) {
   return currentAdapter.getPost(id);
 }
 
+export function getHelpRequest(id: string) {
+  return currentAdapter.getHelpRequest(id);
+}
+
+export function commitHelpRequestRole(helpRequestId: string, roleId: string) {
+  return currentAdapter.commitHelpRequestRole(helpRequestId, roleId);
+}
+
+export function uncommitHelpRequestRole(helpRequestId: string, roleId: string) {
+  return currentAdapter.uncommitHelpRequestRole(helpRequestId, roleId);
+}
+
 export function getEvent(slug: string) {
   return currentAdapter.getEvent(slug);
 }
@@ -65,8 +77,12 @@ export function setProjectValueImportance(
   return currentAdapter.setProjectValueImportance(projectSlug, valueId, importance);
 }
 
-export function addProjectProductionPlan(projectSlug: string, input: ProjectProductionPlanInput) {
-  return currentAdapter.addProjectProductionPlan(projectSlug, input);
+export function addProjectProductionPlan(
+  projectSlug: string,
+  input: ProjectProductionPlanInput,
+  projectMode?: string
+) {
+  return currentAdapter.addProjectProductionPlan(projectSlug, input, projectMode);
 }
 
 export function updateProjectProductionPlan(
@@ -77,8 +93,12 @@ export function updateProjectProductionPlan(
   return currentAdapter.updateProjectProductionPlan(projectSlug, planId, input);
 }
 
-export function addProjectDistributionPlan(projectSlug: string, input: ProjectDistributionPlanInput) {
-  return currentAdapter.addProjectDistributionPlan(projectSlug, input);
+export function addProjectDistributionPlan(
+  projectSlug: string,
+  input: ProjectDistributionPlanInput,
+  projectMode?: string
+) {
+  return currentAdapter.addProjectDistributionPlan(projectSlug, input, projectMode);
 }
 
 export function addProjectPullRequest(projectSlug: string, input: ProjectSoftwarePullRequestInput) {

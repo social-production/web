@@ -1,14 +1,47 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import NotificationCard from '$lib/components/cards/inbox/NotificationCard.svelte';
+  import { acceptFollowRequest, rejectFollowRequest } from '$lib/services/queries/account';
   import { markAllNotificationsRead, markNotificationRead } from '$lib/services/queries/inbox';
-  import type { NotificationsPageData } from '$lib/types/inbox';
+  import type { NotificationItem, NotificationsPageData } from '$lib/types/inbox';
 
   export let data: NotificationsPageData;
+
+  let followRequestPending = '';
 
   async function readNotification(notificationId: string) {
     await markNotificationRead(notificationId);
     await invalidateAll();
+  }
+
+  async function activateNotification(item: NotificationItem) {
+    if (item.isUnread) {
+      await markNotificationRead(item.id);
+      await invalidateAll();
+    }
+
+    const href =
+      (item.kind === 'follow-request' || item.kind === 'new-follower') && item.actorUsername
+        ? `/profile/${item.actorUsername}`
+        : item.href;
+
+    await goto(href);
+  }
+
+  async function handleFollowRequest(username: string, action: 'accept' | 'reject', notificationId: string) {
+    followRequestPending = username;
+
+    try {
+      if (action === 'accept') {
+        await acceptFollowRequest(username);
+      } else {
+        await rejectFollowRequest(username);
+      }
+      await markNotificationRead(notificationId);
+      await invalidateAll();
+    } finally {
+      followRequestPending = '';
+    }
   }
 
   async function readAll() {
@@ -31,7 +64,14 @@
 
   <div class="stack">
     {#each data.items as item}
-      <NotificationCard item={item} on:read={() => readNotification(item.id)} />
+      <NotificationCard
+        item={item}
+        {followRequestPending}
+        onAcceptFollowRequest={(username) => handleFollowRequest(username, 'accept', item.id)}
+        onRejectFollowRequest={(username) => handleFollowRequest(username, 'reject', item.id)}
+        on:read={() => readNotification(item.id)}
+        on:activate={() => activateNotification(item)}
+      />
     {/each}
   </div>
 </section>

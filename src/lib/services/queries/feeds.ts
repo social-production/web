@@ -8,8 +8,12 @@ export function getPublicFeed() {
   return currentAdapter.getPublicFeed();
 }
 
-export function getPersonalFeed() {
-  return currentAdapter.getPersonalFeed();
+export function getHomeFeed() {
+  return currentAdapter.getHomeFeed();
+}
+
+export function getPersonalFeed(options?: { scope?: 'following' | 'popular'; sort?: 'popular' | 'recent' }) {
+  return currentAdapter.getPersonalFeed(options);
 }
 
 export function setVote(targetId: string, vote: VoteDirection) {

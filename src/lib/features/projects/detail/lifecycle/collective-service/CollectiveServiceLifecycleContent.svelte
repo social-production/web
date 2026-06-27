@@ -66,6 +66,7 @@
   export let distributionForm: DraftPlanForm;
   export let activityForm: DraftActivityForm;
   export let serviceRequestForm: DraftServiceRequestForm;
+  export let serviceRequestFeedback = '';
   export let highlightedActivityId: string | null = null;
   export let highlightedRequestId: string | null = null;
   export let selectedRequestActivityId: string | null = null;
@@ -204,6 +205,7 @@
     {focusActivityCard}
     {planServiceRequest}
     {serviceRequestForm}
+    {serviceRequestFeedback}
     bind:showComposer={showPhaseFiveComposer}
     bind:showRequestComposer
     {submitActivity}

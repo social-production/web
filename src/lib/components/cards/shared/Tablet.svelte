@@ -3,6 +3,7 @@
   export let variant:
     | 'thread'
     | 'event'
+    | 'help-request'
     | 'project-production'
     | 'project-service'
     | 'project-personal-service'
@@ -39,6 +40,10 @@
 
   .event {
     background: var(--tablet-event-bg);
+  }
+
+  .help-request {
+    background: var(--tablet-help-request-bg);
   }
 
   .project-production {

@@ -35,13 +35,15 @@ export interface ScopeDirectory {
 export interface RightRailActivityItem {
   id: string;
   subjectId: string;
-  kind: 'project' | 'event' | 'request' | 'vote';
+  kind: 'project' | 'event' | 'request' | 'vote' | 'help-request-open' | 'help-request-signup' | 'help-request-owned';
   title: string;
   href: string;
   meta: string;
   createdAt: string;
   timeLabel?: string;
   countLabel?: string;
+  body?: string;
+  viewerIsAuthor?: boolean;
   viewerIsParticipating?: boolean;
   projectMode?: ProjectMode;
   projectSlug?: string;

@@ -157,11 +157,14 @@ export async function fetchSetProjectValueImportance(
 
 export async function fetchAddProjectProductionPlan(
   projectSlug: string,
-  input: ProjectProductionPlanInput
-): Promise<boolean> {
+  input: ProjectProductionPlanInput,
+  projectMode?: string
+): Promise<{ ok: boolean; error?: string }> {
+  const planType = projectMode === 'collective-service' ? 'organisation' : 'production';
+
   try {
     await apiClient.post(`/projects/${projectSlug}/plans`, {
-      plan_type: 'production',
+      plan_type: planType,
       title: input.title,
       description: input.description,
       demand_consideration_note: input.demandConsiderationNote,
@@ -170,6 +173,7 @@ export async function fetchAddProjectProductionPlan(
       plan_payload: {
         projectSubtype: input.projectSubtype,
         planPhases: input.planPhases,
+        valueConsiderationNotes: input.valueConsiderationNotes ?? {},
         outputSummary: input.outputSummary ?? '',
         materialsSummary: input.materialsSummary ?? '',
         acquisitionsSummary: input.acquisitionsSummary ?? '',
@@ -177,9 +181,9 @@ export async function fetchAddProjectProductionPlan(
         purchaseRows: input.purchaseRows ?? [],
       },
     });
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: extractErrorMessage(err, 'Could not submit plan') };
   }
 }
 
@@ -187,23 +191,27 @@ export async function fetchUpdateProjectProductionPlan(
   _projectSlug: string,
   _planId: string,
   _input: ProjectProductionPlanInput
-): Promise<boolean> {
-  return false;
+): Promise<{ ok: boolean; error?: string }> {
+  return { ok: false, error: 'Plan editing is not available yet.' };
 }
 
 export async function fetchAddProjectDistributionPlan(
   projectSlug: string,
-  input: ProjectDistributionPlanInput
-): Promise<boolean> {
+  input: ProjectDistributionPlanInput,
+  projectMode?: string
+): Promise<{ ok: boolean; error?: string }> {
+  const planType = projectMode === 'collective-service' ? 'access' : 'distribution';
+
   try {
     await apiClient.post(`/projects/${projectSlug}/plans`, {
-      plan_type: 'distribution',
+      plan_type: planType,
       title: input.title,
       description: input.description,
       demand_consideration_note: input.demandConsiderationNote,
       total_cost_label: input.totalCostLabel,
       plan_payload: {
         planPhases: input.planPhases,
+        valueConsiderationNotes: input.valueConsiderationNotes ?? {},
         distributionSummary: input.distributionSummary ?? '',
         accessSummary: input.accessSummary ?? '',
         reserveSummary: input.reserveSummary ?? '',
@@ -212,9 +220,9 @@ export async function fetchAddProjectDistributionPlan(
         allowOffScheduleRequests: input.allowOffScheduleRequests ?? false,
       },
     });
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: extractErrorMessage(err, 'Could not submit plan') };
   }
 }
 

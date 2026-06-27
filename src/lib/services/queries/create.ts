@@ -3,6 +3,7 @@ import type {
   CreateChannelInput,
   CreateCommunityInput,
   CreateEventInput,
+  CreateHelpRequestInput,
   CreatePostInput,
   CreateProjectInput,
   CreateThreadInput
@@ -30,6 +31,10 @@ export function createChannel(input: CreateChannelInput) {
 
 export function createCommunity(input: CreateCommunityInput) {
   return currentAdapter.createCommunity(input);
+}
+
+export function createHelpRequest(input: CreateHelpRequestInput) {
+  return currentAdapter.createHelpRequest(input);
 }
 
 export function getTaggableScopes(query: string, kind?: 'channel' | 'community', limit?: number) {

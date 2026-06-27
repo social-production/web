@@ -77,7 +77,7 @@
     reportPending = true;
 
     try {
-      await setReportVote(comment.report.targetId, vote);
+      await setReportVote(comment.report.id, vote);
       await invalidateAll();
     } finally {
       reportPending = false;

@@ -54,91 +54,54 @@
     {/if}
   </section>
 
-  <section class="grid">
-    <section class="panel">
-      <h2>Account Mode</h2>
-      <div class="choice-row">
-        {#each data.accountModes as option}
-          <button
-            class:active={mode === option.value}
-            class="toggle-chip"
-            type="button"
-            on:click={() => (mode = option.value as 'login' | 'signup')}
-          >
-            {option.label}
-          </button>
-        {/each}
-      </div>
+  <section class="panel">
+    <div class="choice-row">
+      {#each data.accountModes as option}
+        <button
+          class:active={mode === option.value}
+          class="toggle-chip"
+          type="button"
+          on:click={() => (mode = option.value as 'login' | 'signup')}
+        >
+          {option.label}
+        </button>
+      {/each}
+    </div>
 
-      <form class="stack" on:submit|preventDefault={handleSubmit}>
+    <form class="stack" on:submit|preventDefault={handleSubmit}>
+      <label>
+        <span class="field-label">Username</span>
+        <input bind:value={username} placeholder="Enter username" />
+      </label>
+
+      <label>
+        <span class="field-label">Password</span>
+        <input bind:value={password} type="password" placeholder="••••••••" />
+      </label>
+
+      {#if mode === 'signup'}
         <label>
-          <span class="field-label">Username</span>
-          <input bind:value={username} placeholder="Enter username" />
+          <span class="field-label">Bio</span>
+          <textarea bind:value={profileBio} rows="4" placeholder="Optional. What kind of work do you do?"></textarea>
         </label>
+      {/if}
 
-        <label>
-          <span class="field-label">Password</span>
-          <input bind:value={password} type="password" placeholder="••••••••" />
-        </label>
-
-        {#if mode === 'signup'}
-          <label>
-            <span class="field-label">Bio</span>
-            <textarea bind:value={profileBio} rows="4" placeholder="What kind of work do you want people to know you for?"></textarea>
-          </label>
-        {/if}
-
-        <div class="button-row">
-          <button class="button-primary" disabled={isSubmitting} type="submit">
-            {#if isSubmitting}
-              Working...
-            {:else if mode === 'login'}
-              Log in
-            {:else}
-              Create account
-            {/if}
-          </button>
-        </div>
-
-        {#if statusMessage}
-          <p class="status-note">{statusMessage}</p>
-        {/if}
-      </form>
-    </section>
-
-    <section class="panel">
-      <h2>Create Profile</h2>
-      <div class="stack">
-        <div class="option-row">
-          <strong>One account, one profile</strong>
-          <span>Your profile is just your profile. Add a bio if you want people to understand what kind of work you do.</span>
-        </div>
-        <div class="option-row">
-          <strong>Privacy still lives in settings</strong>
-          <span>Feed and follow controls still exist in Settings, but signup no longer asks you to pick a profile mode.</span>
-        </div>
+      <div class="button-row">
+        <button class="button-primary" disabled={isSubmitting} type="submit">
+          {#if isSubmitting}
+            Working...
+          {:else if mode === 'login'}
+            Log in
+          {:else}
+            Create account
+          {/if}
+        </button>
       </div>
-    </section>
-  </section>
 
-  <section class="grid">
-    <section class="panel">
-      <h2>Starter Channels</h2>
-      <div class="chip-row">
-        {#each data.starterChannels as label}
-          <span class="tag-chip">{label}</span>
-        {/each}
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Starter Communities</h2>
-      <div class="chip-row">
-        {#each data.starterCommunities as label}
-          <span class="tag-chip community">{label}</span>
-        {/each}
-      </div>
-    </section>
+      {#if statusMessage}
+        <p class="status-note">{statusMessage}</p>
+      {/if}
+    </form>
   </section>
 </section>
 
@@ -147,17 +110,11 @@
   .stack {
     display: grid;
     gap: 12px;
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    max-width: 480px;
   }
 
   .hero-card,
-  .panel,
-  .option-row {
+  .panel {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -170,26 +127,13 @@
     color: var(--brand-strong);
   }
 
-  h2,
-  strong {
-    font-size: 14px;
-  }
-
-  p,
-  span {
+  p {
     color: var(--text-soft);
     line-height: 1.45;
   }
 
-  .hero-card p,
-  .option-row span {
-    margin-top: 6px;
-  }
-
-  .chip-row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+  .hero-card p {
+    margin-top: 8px;
   }
 
   .choice-row,
@@ -199,6 +143,10 @@
     gap: 8px;
     flex-wrap: wrap;
     align-items: center;
+  }
+
+  .choice-row {
+    margin-bottom: 12px;
   }
 
   .signed-in-note {
@@ -234,29 +182,8 @@
     color: var(--brand-strong);
   }
 
-  .tag-chip {
-    display: inline-flex;
-    padding: 7px 10px;
-    border-radius: var(--radius-sm);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .community {
-    background: var(--accent-warm-soft);
-    color: var(--accent-warm-strong);
-  }
-
   .status-note {
     margin: 0;
     color: var(--accent-warm-strong);
-  }
-
-  @media (max-width: 760px) {
-    .grid {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

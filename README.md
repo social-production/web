@@ -75,6 +75,110 @@ Then open `http://localhost:5173`. The backend API docs are at `http://localhost
 
 See `web-backend/README.md` for full backend setup details.
 
+## Share on your local Wi-Fi (LAN)
+
+Use this when friends or family on the **same Wi-Fi** should try the app from their phones or laptops. The script detects your machine’s LAN address at runtime and writes it to `.env.local` (gitignored). Nothing personal is stored in the script itself.
+
+### What you need
+
+- Docker and Node.js (same as [First-Time Setup](#first-time-setup))
+- Your computer and testers connected to the **same Wi-Fi network**
+- Ports **5173** (frontend) and **8000** (backend) reachable on your machine
+
+### Start everything for LAN testing
+
+From the `web` folder:
+
+```bash
+./scripts/lan-dev.sh
+```
+
+The script will:
+
+1. Detect your LAN IP (or use `LAN_IP=192.168.x.x ./scripts/lan-dev.sh` if detection fails)
+2. Write `web/.env.local` so API calls are **proxied through the frontend** (testers only need port 5173)
+3. Start the backend in Docker with CORS allowed for that IP
+4. Start the frontend bound to all interfaces (`0.0.0.0`) so other devices can connect
+
+**Important:** Share only the `192.168.x.x` link printed by the script. Ignore Docker addresses like `172.17.x.x` or `172.18.x.x` — those only work on your computer.
+
+When it is ready, the terminal prints a link like:
+
+```text
+http://192.168.1.50:5173
+```
+
+**Send that link** to people on your Wi-Fi. They open it in a browser — no install needed.
+
+### What testers do
+
+1. Connect to the same Wi-Fi as your computer.
+2. Open the link you shared (for example `http://192.168.1.50:5173`).
+3. Sign up or log in and use the app like normal.
+
+Phones and tablets work too, as long as they are on the same network.
+
+### Stop LAN mode
+
+| Action | Command |
+|--------|---------|
+| Stop the frontend | Press `Ctrl+C` in the terminal running the script |
+| Stop the backend | `cd web-backend && docker compose down` |
+
+To go back to localhost-only development, run `npm run dev` again. You can delete `.env.local` or set `VITE_API_URL=http://localhost:8000` in it.
+
+### If others cannot connect
+
+Run diagnostics:
+
+```bash
+./scripts/lan-diagnose.sh
+```
+
+**Wrong URL:** Vite may also print `http://172.18.0.1:5173` — that is a Docker internal address. Only share the `192.168.x.x` URL.
+
+**Router client / AP isolation (most common):** Many home routers block devices on Wi-Fi from talking to each other. Symptoms: your computer works, but phones and other laptops time out. Fixes:
+
+- Turn off “AP isolation”, “client isolation”, or “wireless isolation” in router settings
+- Do not use **guest Wi-Fi** for testing
+- **Workaround:** create a hotspot on your phone, connect your PC and testers to that hotspot, run `./scripts/lan-dev.sh` again, share the new IP
+
+**Test from another device:**
+
+```bash
+ping 192.168.1.148
+```
+
+(replace with your printed IP). If ping fails, it is a network/router issue, not the app.
+
+**Firewall (common on Linux):** allow the dev port while testing, then remove when done.
+
+Fedora / RHEL:
+
+```bash
+sudo firewall-cmd --add-port=5173/tcp
+# when finished:
+sudo firewall-cmd --remove-port=5173/tcp
+```
+
+Ubuntu (ufw):
+
+```bash
+sudo ufw allow 5173/tcp
+```
+
+With LAN mode, testers only need port **5173** open (the API is proxied through Vite). Port 8000 is only used on your computer.
+
+**Wrong IP after switching networks?** Stop the script, run `./scripts/lan-dev.sh` again. It re-detects your IP and rewrites `.env.local`.
+
+**CORS or API errors in the browser console?** Make sure you started via `./scripts/lan-dev.sh`, not plain `npm run dev`. The script sets backend CORS for your LAN frontend URL.
+
+**Guest Wi-Fi / client isolation:** Some routers block devices from talking to each other. If that happens, use a network without isolation or test from your computer only.
+
+### Security note
+
+LAN mode uses **development defaults** (weak JWT secret, default DB password, etc.). Only use this on a network you trust, for short testing sessions — not on the public internet.
+
 ## How To Run This
 
 If you are new to programming, use these steps exactly.
@@ -93,6 +197,8 @@ Or create `web/.env.local` manually with:
 VITE_BACKEND=fastapi
 VITE_API_URL=http://localhost:8000
 ```
+
+For LAN testing with friends on the same Wi-Fi, skip manual setup and run `./scripts/lan-dev.sh` instead (see [Share on your local Wi-Fi (LAN)](#share-on-your-local-wi-fi-lan)).
 
 This file is gitignored and never committed. The frontend only needs public config (which API to call). Login tokens are issued at runtime and stored in the browser — they do not belong in env files.
 
@@ -216,7 +322,11 @@ All `AppAdapter` methods are currently implemented for the FastAPI backend. If y
 
 ### The browser console shows a CORS error
 
-The backend must allow `http://localhost:5173`. Check that `CORS_ORIGINS` in the backend environment includes `http://localhost:5173`. The default Docker Compose setup sets `CORS_ORIGINS` to `*`, which allows all origins.
+The backend must allow your frontend origin. For localhost, `CORS_ORIGINS` should include `http://localhost:5173`. For LAN testing, use `./scripts/lan-dev.sh`, which sets CORS for your detected LAN IP. You can also set `CORS_ORIGINS` manually when starting Docker, for example:
+
+```bash
+CORS_ORIGINS=http://localhost:5173,http://192.168.1.50:5173 docker compose up -d --build
+```
 
 ### TypeScript says it cannot find type definitions
 

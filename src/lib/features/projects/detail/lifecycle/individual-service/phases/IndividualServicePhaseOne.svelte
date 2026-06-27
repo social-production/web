@@ -3,6 +3,7 @@
   import CollapsibleServiceRequestCard from '$lib/components/cards/project-detail/CollapsibleServiceRequestCard.svelte';
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
+  import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import ProjectActivityHistorySection from '$lib/features/projects/detail/components/ProjectActivityHistorySection.svelte';
   import ProjectActivityViewTabs from '$lib/features/projects/detail/components/ProjectActivityViewTabs.svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
@@ -525,6 +526,7 @@
 
         {#if data.lifecycle.requestSystem?.viewerCanSubmitRequests && showPersonalServiceRequestComposer}
           <div bind:this={serviceRequestComposerElement} class="composer-card">
+            <DirectUsePolicyNotice variant="request" context="service" />
             <div class="request-header-row">
               <div>
                 <h3>Request service</h3>
@@ -619,6 +621,7 @@
 
       {#if data.lifecycle.phaseFive.viewerCanCreateActivities && showPersonalActivityComposer}
         <div bind:this={activityComposerElement} class="composer-card">
+          <DirectUsePolicyNotice variant="request" context="service" />
           <div class="request-header-row">
             <div>
               <h3>Add availability</h3>

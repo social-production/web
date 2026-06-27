@@ -18,6 +18,7 @@ export type EventPlanForm = {
   title: string;
   description: string;
   demandConsiderationNote: string;
+  valueConsiderationNotes?: Record<string, string>;
   scheduleMode: EventPlanScheduleMode;
   scheduledDate: string;
   rangeStartDate: string;
@@ -77,6 +78,7 @@ export function createEventPlanForm(): EventPlanForm {
     title: '',
     description: '',
     demandConsiderationNote: '',
+    valueConsiderationNotes: {},
     scheduleMode: 'date',
     scheduledDate: '',
     rangeStartDate: '',

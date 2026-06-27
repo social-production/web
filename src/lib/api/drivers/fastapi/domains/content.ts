@@ -31,13 +31,19 @@ interface BackendPost {
   discussion: BackendComment[];
 }
 
-interface BackendComment {
-  id: string; author_id: string | null; author_username: string;
-  body: string; vote_count: number; active_vote: number; created_at: string;
-  replies: BackendComment[];
+export interface BackendComment {
+  id: string;
+  author_id: string | null;
+  author_username: string;
+  body: string;
+  created_at: string;
+  vote_count: number;
+  active_vote?: number;
+  parent_id?: string | null;
+  replies?: BackendComment[];
 }
 
-function mapComment(c: BackendComment): DetailComment {
+export function mapComment(c: BackendComment): DetailComment {
   registerEntityType(c.id, 'comment');
   return {
     id: c.id,
@@ -136,11 +142,6 @@ export async function fetchAddComment(subjectId: string, body: string, parentId?
     body,
     parent_id: parentId ?? null
   });
-}
-
-interface BackendComment {
-  id: string; author_id: string | null; author_username: string; body: string; created_at: string; vote_count: number;
-  parent_id: string | null; replies: BackendComment[];
 }
 
 export async function fetchComments(subjectType: string, subjectId: string): Promise<BackendComment[]> {

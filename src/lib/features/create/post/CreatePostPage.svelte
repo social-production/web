@@ -2,6 +2,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import PersonalPostCard from '$lib/components/cards/personal-feed/PersonalPostCard.svelte';
+  import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import { createPost } from '$lib/services/queries/create';
@@ -77,8 +78,8 @@
         </div>
 
         <label>
-          <span class="field-label">Post body</span>
-          <textarea bind:value={body} rows="8" placeholder="Share a direct post to your personal timeline..."></textarea>
+          <RequiredFieldLabel>Post body</RequiredFieldLabel>
+          <textarea bind:value={body} rows="8" placeholder="Share a direct post to your personal timeline..." aria-required="true"></textarea>
         </label>
 
         <div class="button-row">

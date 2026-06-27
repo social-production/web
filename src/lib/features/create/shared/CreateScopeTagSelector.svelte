@@ -30,8 +30,11 @@
       {/each}
     </div>
     <input
-      bind:value={query}
+      value={query}
       {placeholder}
+      on:input={(event) => {
+        query = (event.currentTarget as HTMLInputElement).value;
+      }}
       on:keydown={(event) =>
         onCommitSingleSuggestion(
           event,

@@ -24,6 +24,7 @@ interface BackendSettings {
   personal_feed_window: string;
   hide_public_activity_from_personal_feeds: boolean;
   hide_personal_feed_from_non_followers: boolean;
+  hide_public_profile_activity_from_non_followers: boolean;
   require_follow_approval: boolean;
 }
 
@@ -40,8 +41,15 @@ interface BackendFollowList {
 interface BackendProfileResponse {
   user: BackendUser;
   viewer_is_following: boolean;
+  viewer_follow_status: string | null;
   is_own_profile: boolean;
   can_view_personal_feed: boolean;
+  can_view_public_profile_activity: boolean;
+}
+
+interface BackendFollowRequestList {
+  total: number;
+  items: BackendFollowItem[];
 }
 
 function mapUser(u: BackendUser): ViewerSummary {
@@ -74,6 +82,7 @@ function mapSettings(user: BackendUser, s: BackendSettings): SettingsPageData {
     },
     hidePublicActivityFromPersonalFeeds: s.hide_public_activity_from_personal_feeds,
     hidePersonalFeedFromNonFollowers: s.hide_personal_feed_from_non_followers,
+    hidePublicProfileActivityFromNonFollowers: s.hide_public_profile_activity_from_non_followers,
     requireFollowApproval: s.require_follow_approval,
   };
 }
@@ -105,6 +114,8 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
     body.hide_public_activity_from_personal_feeds = input.hidePublicActivityFromPersonalFeeds;
   if (input.hidePersonalFeedFromNonFollowers !== undefined)
     body.hide_personal_feed_from_non_followers = input.hidePersonalFeedFromNonFollowers;
+  if (input.hidePublicProfileActivityFromNonFollowers !== undefined)
+    body.hide_public_profile_activity_from_non_followers = input.hidePublicProfileActivityFromNonFollowers;
   if (input.requireFollowApproval !== undefined)
     body.require_follow_approval = input.requireFollowApproval;
   await apiClient.patch('/users/me/settings', body);
@@ -112,21 +123,28 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
 
 export async function fetchProfile(username: string): Promise<ProfilePageData | null> {
   try {
-    const [profileRes, followersRes, followingRes, feedRes] = await Promise.all([
-      apiClient.get<BackendProfileResponse>(`/users/${username}`),
+    const profileRes = await apiClient.get<BackendProfileResponse>(`/users/${username}`);
+    const [followersRes, followingRes, feedRes, followRequestsRes] = await Promise.all([
       apiClient.get<BackendFollowList>(`/users/${username}/followers`),
       apiClient.get<BackendFollowList>(`/users/${username}/following`),
       apiClient.get<{ items: Parameters<typeof mapPersonalItem>[0][] }>(`/feeds/user/${encodeURIComponent(username)}`),
+      profileRes.is_own_profile
+        ? apiClient.get<BackendFollowRequestList>('/users/me/follow-requests')
+        : Promise.resolve({ total: 0, items: [] }),
     ]);
     return {
       username: profileRes.user.username,
       bio: profileRes.user.bio ?? undefined,
+      profileImageUrl: profileRes.user.profile_image_url ?? undefined,
       followersCount: followersRes.total,
       followingCount: followingRes.total,
       followers: followersRes.items.map(mapUser),
       following: followingRes.items.map(mapUser),
+      pendingFollowRequests: followRequestsRes.items.map(mapUser),
       canViewPersonalFeed: profileRes.can_view_personal_feed,
+      canViewPublicProfileActivity: profileRes.can_view_public_profile_activity,
       viewerIsFollowing: profileRes.viewer_is_following,
+      viewerFollowStatus: (profileRes.viewer_follow_status as ProfilePageData['viewerFollowStatus']) ?? null,
       isOwnProfile: profileRes.is_own_profile,
       feed: feedRes.items.flatMap(item => { const m = mapPersonalItem(item); return m ? [m] : []; }),
     };
@@ -136,10 +154,24 @@ export async function fetchProfile(username: string): Promise<ProfilePageData | 
   }
 }
 
-export async function fetchFollowUser(username: string): Promise<void> {
-  await apiClient.post(`/users/${encodeURIComponent(username)}/follow`, {});
+export async function fetchFollowUser(username: string): Promise<{ followStatus: string | null }> {
+  const res = await apiClient.post<{ follow_status?: string | null }>(`/users/${encodeURIComponent(username)}/follow`, {});
+  return { followStatus: res.follow_status ?? null };
 }
 
 export async function fetchUnfollowUser(username: string): Promise<void> {
   await apiClient.delete(`/users/${encodeURIComponent(username)}/follow`);
+}
+
+export async function fetchAcceptFollowRequest(username: string): Promise<void> {
+  await apiClient.post(`/users/me/follow-requests/${encodeURIComponent(username)}/accept`, {});
+}
+
+export async function fetchRejectFollowRequest(username: string): Promise<void> {
+  await apiClient.post(`/users/me/follow-requests/${encodeURIComponent(username)}/reject`, {});
+}
+
+export async function fetchFollowRequests(): Promise<ViewerSummary[]> {
+  const res = await apiClient.get<BackendFollowRequestList>('/users/me/follow-requests');
+  return res.items.map(mapUser);
 }

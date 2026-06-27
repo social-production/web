@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
+  import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import PreviewTile from '$lib/features/create/shared/PreviewTile.svelte';
   import { createCommunity } from '$lib/services/queries/create';
@@ -49,8 +50,8 @@
     >
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
         <label>
-          <span class="field-label">Community name</span>
-          <input bind:value={name} />
+          <RequiredFieldLabel>Community name</RequiredFieldLabel>
+          <input bind:value={name} aria-required="true" />
         </label>
 
         <label>
@@ -62,8 +63,8 @@
         </label>
 
         <label>
-          <span class="field-label">Description</span>
-          <textarea bind:value={description} rows="4"></textarea>
+          <RequiredFieldLabel>Description</RequiredFieldLabel>
+          <textarea bind:value={description} rows="4" aria-required="true"></textarea>
         </label>
 
         <div class="button-row">

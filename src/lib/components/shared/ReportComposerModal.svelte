@@ -75,7 +75,7 @@
 
       <div class="report-actions">
         <button class="secondary-button" type="button" on:click={closeModal}>Cancel</button>
-        <button class="primary-button" disabled={pending} type="button" on:click={submitModal}>
+        <button class="primary-button" disabled={pending || !description.trim()} type="button" on:click={submitModal}>
           Submit report
         </button>
       </div>

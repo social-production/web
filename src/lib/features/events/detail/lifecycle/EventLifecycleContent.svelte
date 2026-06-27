@@ -71,6 +71,7 @@
     activityId: string,
     roleLabel: string | null
   ) => void | Promise<void> = () => {};
+  export let activityComposerElement: HTMLDivElement | null = null;
 </script>
 
 {#if activePhaseId === 'proposal'}
@@ -105,6 +106,7 @@
     {minimumParticipants}
     bind:selectedDayIso
     bind:highlightedActivityId
+    bind:activityComposerElement
     {openActivityComposerForDay}
     {submitActivity}
     changeCommitment={changeCommitment}

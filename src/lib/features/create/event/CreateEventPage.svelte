@@ -2,6 +2,8 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import EventCard from '$lib/components/cards/public-feed/EventCard.svelte';
+  import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
+  import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreateScopeTagSelector from '$lib/features/create/shared/CreateScopeTagSelector.svelte';
   import { commitSingleSuggestion, mergeScopeOptions } from '$lib/features/create/shared/createFormActions';
   import { loadTaggableScopeOptions } from '$lib/features/create/shared/taggableScopes';
@@ -276,14 +278,16 @@
         </div>
 
         <label>
-          <span class="field-label">Event title</span>
-          <input bind:value={title} />
+          <RequiredFieldLabel>Event title</RequiredFieldLabel>
+          <input bind:value={title} aria-required="true" />
         </label>
 
         <label>
-          <span class="field-label">Proposal description</span>
-          <textarea bind:value={description} rows="4"></textarea>
+          <RequiredFieldLabel>Proposal description</RequiredFieldLabel>
+          <textarea bind:value={description} rows="4" aria-required="true"></textarea>
         </label>
+
+        <DirectUsePolicyNotice variant="create" context="event" />
 
         <CreateScopeTagSelector
           label="Channel tags"

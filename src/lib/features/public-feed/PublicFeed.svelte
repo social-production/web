@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import PublicFeedCard from '$lib/components/cards/public-feed/PublicFeedCard.svelte';
+  import { getHomeFeed } from '$lib/services/queries/feeds';
   import { getSettings, updateSettings } from '$lib/services/queries/account';
   import type {
     FeedSortPreference,
@@ -21,7 +22,7 @@
   type FeedWindow = FeedWindowPreference;
 
   const defaultPreferences: PublicFeedPreferences = {
-    scope: 'home',
+    scope: 'global',
     filter: 'all',
     sort: 'popular',
     window: 'all'
@@ -35,6 +36,9 @@
   let isHydratingPreferences = false;
   let lastHydratedViewerId = '';
   let lastPersistedPreferences = preferenceSignature(defaultPreferences);
+  let homeItems: PublicFeedItem[] = [];
+  let homeItemsLoading = false;
+  let homeItemsRequestId = 0;
 
   function preferenceSignature(preferences: PublicFeedPreferences) {
     return [preferences.scope, preferences.filter, preferences.sort, preferences.window].join(':');
@@ -68,6 +72,28 @@
     const settings = await getSettings();
     applyPreferences(settings?.publicFeedPreferences);
     preferencesReady = true;
+  }
+
+  async function loadHomeItems() {
+    if (!$page.data.bootstrap?.viewer) {
+      homeItems = [];
+      return;
+    }
+
+    const requestId = ++homeItemsRequestId;
+    homeItemsLoading = true;
+
+    try {
+      const nextItems = await getHomeFeed();
+
+      if (requestId === homeItemsRequestId) {
+        homeItems = nextItems;
+      }
+    } finally {
+      if (requestId === homeItemsRequestId) {
+        homeItemsLoading = false;
+      }
+    }
   }
 
   async function persistPreferences() {
@@ -175,13 +201,17 @@
   }
   $: followedChannelSlugs = slugSet($page.data.bootstrap?.directory.channels as Array<{ slug: string }> | undefined);
   $: followedCommunitySlugs = slugSet($page.data.bootstrap?.directory.communities as Array<{ slug: string }> | undefined);
-  $: viewerHasPlatformMembership = !!$page.data.bootstrap?.directory.platform;
+  $: viewerHasPlatformMembership = !!$page.data.bootstrap?.directory.platform?.viewerIsMember;
   $: if (!$page.data.bootstrap?.viewer && activeScope === 'home') {
     activeScope = 'global';
   }
+  $: if (activeScope === 'home' && preferencesReady && $page.data.bootstrap?.viewer) {
+    void loadHomeItems();
+  }
   $: referenceTime = Date.now();
-  $: visibleItems = items
-    .filter((item) => matchesScope(item, activeScope, followedChannelSlugs, followedCommunitySlugs, viewerHasPlatformMembership))
+  $: sourceItems = activeScope === 'home' ? homeItems : items;
+  $: visibleItems = sourceItems
+    .filter((item) => activeScope === 'home' || matchesScope(item, activeScope, followedChannelSlugs, followedCommunitySlugs, viewerHasPlatformMembership))
     .filter((item) => matchesFilter(item, activeFilter))
     .filter((item) => matchesWindow(item, activeWindow, referenceTime))
     .slice()
@@ -229,7 +259,11 @@
   </section>
 
   <div class="stack">
-    {#if visibleItems.length === 0}
+    {#if homeItemsLoading && activeScope === 'home'}
+      <section class="empty-card">
+        <p>Loading your home feed...</p>
+      </section>
+    {:else if visibleItems.length === 0}
       <section class="empty-card">
         <p>{activeScope === 'home' ? 'No items from your followed channels, communities, or platform membership match this filter yet.' : 'No public items match this filter yet.'}</p>
       </section>

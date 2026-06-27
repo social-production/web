@@ -2,15 +2,20 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import ProjectCard from '$lib/components/cards/public-feed/ProjectCard.svelte';
+  import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
+  import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import CreateScopeTagSelector from '$lib/features/create/shared/CreateScopeTagSelector.svelte';
+  import CreateTypeSelector from '$lib/features/create/shared/CreateTypeSelector.svelte';
   import { commitSingleSuggestion, mergeScopeOptions } from '$lib/features/create/shared/createFormActions';
   import { loadTaggableScopeOptions } from '$lib/features/create/shared/taggableScopes';
   import { createProject } from '$lib/services/queries/create';
   import {
-    isCollectiveServiceProject,
-    isPersonalServiceProject
+    isPersonalServiceProject,
+    projectCreateTypeOption,
+    projectCreateTypeOptions,
+    serviceRequestModeOptions
   } from '$lib/features/projects/projectMode';
   import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
   import type { ProjectMode, PublicProjectItem, TagRef } from '$lib/types/feed';
@@ -104,6 +109,10 @@
     key: option.slug,
     label: option.label
   }));
+  $: selectedTypeOption = projectCreateTypeOption(selectedType);
+  $: selectedServiceModeOption =
+    serviceRequestModeOptions.find((option) => option.value === serviceRequestMode) ??
+    serviceRequestModeOptions[2];
   $: showLocationField = isPersonalServiceProject(selectedType);
   $: resolvedLocationLabel = showLocationField ? locationLabel.trim() : defaultProductiveLocation;
 
@@ -272,53 +281,24 @@
       description="Choose the project type, describe the proposal, and anchor discovery with at least one channel tag."
     >
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
-        <div class="section-block">
-          <p class="section-label">Project type</p>
-          <div class="type-grid three-up">
-            <button
-              type="button"
-              class:active={selectedType === 'productive'}
-              class="type-card"
-              on:click={() => (selectedType = 'productive')}
-            >
-              <span class="type-title">Productive Project</span>
-              <span class="type-body">
-                Starts in proposal so members can signal demand before planning locks.
-              </span>
-            </button>
-            <button
-              type="button"
-              class:active={selectedType === 'collective-service'}
-              class="type-card"
-              on:click={() => (selectedType = 'collective-service')}
-            >
-              <span class="type-title">Collective Service</span>
-              <span class="type-body">
-                Starts in proposal and can move into operations and access planning before service begins.
-              </span>
-            </button>
-            <button
-              type="button"
-              class:active={selectedType === 'personal-service'}
-              class="type-card"
-              on:click={() => (selectedType = 'personal-service')}
-            >
-              <span class="type-title">Personal Service</span>
-              <span class="type-body">
-                Skips planning and opens directly into availability, requests, and scheduling.
-              </span>
-            </button>
-          </div>
-        </div>
+        <DirectUsePolicyNotice variant="create" context="project" />
+
+        <CreateTypeSelector
+          label="Project type"
+          name="project-type"
+          bind:selected={selectedType}
+          options={projectCreateTypeOptions}
+          showDetailPanel={false}
+        />
 
         <label>
-          <span class="field-label">Title</span>
-          <input bind:value={title} />
+          <RequiredFieldLabel>Title</RequiredFieldLabel>
+          <input bind:value={title} aria-required="true" />
         </label>
 
         <label>
-          <span class="field-label">Proposal description</span>
-          <textarea bind:value={description} rows="5"></textarea>
+          <RequiredFieldLabel>Proposal description</RequiredFieldLabel>
+          <textarea bind:value={description} rows="5" aria-required="true"></textarea>
         </label>
 
         <CreateScopeTagSelector
@@ -365,38 +345,13 @@
         {/if}
 
         {#if isPersonalServiceProject(selectedType)}
-          <div class="section-block">
-            <span class="field-label">Service request mode</span>
-            <div class="type-grid">
-              <button
-                type="button"
-                class:active={serviceRequestMode === 'calendar'}
-                class="type-card"
-                on:click={() => (serviceRequestMode = 'calendar')}
-              >
-                <span class="type-title">Calendar booking</span>
-                <span class="type-body">Show availability on the calendar and let people request a slot.</span>
-              </button>
-              <button
-                type="button"
-                class:active={serviceRequestMode === 'direct'}
-                class="type-card"
-                on:click={() => (serviceRequestMode = 'direct')}
-              >
-                <span class="type-title">Direct requests</span>
-                <span class="type-body">Let people send written requests without calendar booking.</span>
-              </button>
-              <button
-                type="button"
-                class:active={serviceRequestMode === 'both'}
-                class="type-card"
-                on:click={() => (serviceRequestMode = 'both')}
-              >
-                <span class="type-title">Calendar + direct</span>
-                <span class="type-body">Keep slot booking and allow standalone written requests.</span>
-              </button>
-            </div>
-          </div>
+          <CreateTypeSelector
+            label="Service request mode"
+            name="service-request-mode"
+            bind:selected={serviceRequestMode}
+            options={serviceRequestModeOptions}
+            showDetailPanel={false}
+          />
         {/if}
 
         <div class="button-row">
@@ -423,89 +378,86 @@
     </CreatePanel>
 
     <CreatePanel
-      title="Posting rules"
-      description="What happens immediately after creation in this frontend slice."
+      title="About this project type"
+      description="What the selected type is for and what happens after creation."
     >
-      <p class="helper-text">
-        {#if usesPlatformTag}
-          {#if personalServiceUsesPlatformTag}
-            Personal service projects cannot use the platform channel. The platform tag is only for collective governance surfaces.
-          {:else}
-            Platform-tagged projects stay open to any signed-in user.
-          {/if}
-        {:else}
-          {selectedType === 'productive'
-            ? 'New productive projects start in Proposal. Location stays hidden until later planning phases.'
-            : isCollectiveServiceProject(selectedType)
-              ? 'Collective service projects also start in Proposal so members can shape operations and access before scheduling begins.'
-              : serviceRequestMode === 'direct'
-                ? 'Personal services can open directly into written requests when the work does not need calendar booking.'
-                : serviceRequestMode === 'both'
-                  ? 'Personal services can open with both slot booking and direct written requests.'
-                  : 'Personal services skip planning and open directly into availability, requests, and scheduling.'}
+      <div class="type-guidance">
+        <strong>{selectedTypeOption.label}</strong>
+        <p>{selectedTypeOption.summary}</p>
+        <div class="type-guidance-block">
+          <span class="type-guidance-heading">Best for</span>
+          <ul>
+            {#each selectedTypeOption.bestFor as item}
+              <li>{item}</li>
+            {/each}
+          </ul>
+        </div>
+        <p class="type-guidance-lifecycle">{selectedTypeOption.lifecycleNote}</p>
+        {#if isPersonalServiceProject(selectedType)}
+          <p class="type-guidance-lifecycle">{selectedServiceModeOption.lifecycleNote}</p>
         {/if}
-      </p>
+        {#if usesPlatformTag}
+          <p class="type-guidance-note">
+            {#if personalServiceUsesPlatformTag}
+              Personal service projects cannot use the platform channel. The platform tag is only for collective governance surfaces.
+            {:else}
+              Platform-tagged projects stay open to any signed-in user.
+            {/if}
+          </p>
+        {/if}
+      </div>
     </CreatePanel>
   </svelte:fragment>
 </CreateFlowLayout>
 
 <style>
-  .form-stack,
-  .section-block {
+  .form-stack {
     display: grid;
     gap: 12px;
   }
 
-  .field-label,
-  .section-label {
+  .field-label {
     display: block;
     margin-bottom: 6px;
     font-size: 13px;
     font-weight: 700;
   }
 
-  .type-grid {
+  .type-guidance {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
 
-  .type-grid.three-up {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .type-card {
-    display: grid;
-    gap: 8px;
-    width: 100%;
-    text-align: left;
-    padding: 14px;
-    border-radius: var(--radius-sm);
-    border-left: 3px solid transparent;
-    background: var(--panel);
-  }
-
-  .type-card.active {
-    background: var(--brand-soft);
-    border-left-color: var(--panel-border);
-  }
-
-  .type-title {
-    color: var(--brand-strong);
+  .type-guidance strong {
+    color: var(--text-main);
     font-size: 14px;
-    font-weight: 800;
   }
 
-  .type-body {
+  .type-guidance p,
+  .type-guidance-note,
+  .type-guidance-lifecycle {
+    margin: 0;
     color: var(--text-soft);
     font-size: 13px;
-    line-height: 1.4;
+    line-height: 1.45;
   }
 
-  @media (max-width: 760px) {
-    .type-grid,
-    .type-grid.three-up {
-      grid-template-columns: 1fr;
-    }
+  .type-guidance-block {
+    display: grid;
+    gap: 6px;
+  }
+
+  .type-guidance-heading {
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .type-guidance ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-soft);
+    font-size: 12px;
+    line-height: 1.45;
   }
 </style>

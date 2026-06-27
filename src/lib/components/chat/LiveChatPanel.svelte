@@ -130,15 +130,15 @@
     }
   }
 
-  async function voteOnActiveReport(targetId: string, vote: 'yes' | 'no') {
-    if (!targetId) {
+  async function voteOnActiveReport(reportId: string, vote: 'yes' | 'no') {
+    if (!reportId) {
       return;
     }
 
     reportPending = true;
 
     try {
-      await setReportVote(targetId, vote);
+      await setReportVote(reportId, vote);
       await invalidateAll();
     } finally {
       reportPending = false;
@@ -357,15 +357,15 @@
                 {#if message.showAuthor ?? true}
                   <a class="author-link" href={`/profile/${message.authorUsername}`}>{message.authorUsername}</a>
                 {/if}
-                {#if subjectId}
+                {#if subjectId && variant !== 'message'}
                   <div class="message-actions" aria-label="Message actions">
                     <ReportMenu
                       blockedMessage={viewerUsername === message.authorUsername ? "You can't report yourself" : ''}
-                      itemLabel={variant === 'message' ? 'message' : 'comment'}
+                      itemLabel="comment"
                       pending={reportPending}
                       report={message.report ?? null}
                       on:compose={() => openReportComposer(message)}
-                      on:vote={(event) => voteOnActiveReport(message.report?.targetId ?? '', event.detail.vote)}
+                      on:vote={(event) => voteOnActiveReport(message.report?.id ?? '', event.detail.vote)}
                     />
                   </div>
                 {/if}

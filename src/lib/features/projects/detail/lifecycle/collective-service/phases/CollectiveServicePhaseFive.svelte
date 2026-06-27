@@ -109,6 +109,7 @@
     scheduledAt: string;
     endsAt: string;
   };
+  export let serviceRequestFeedback = '';
   export let showComposer = false;
   export let showRequestComposer = false;
   export let highlightedActivityId: string | null = null;
@@ -1049,6 +1050,10 @@
               ></textarea>
             {/if}
 
+            {#if serviceRequestFeedback}
+              <div class="feedback-card" role="status">{serviceRequestFeedback}</div>
+            {/if}
+
             <div class="composer-actions">
               <button class="secondary-button" type="button" on:click={handleCloseRequestComposer}>Cancel</button>
               <button class="primary-button" type="button" on:click={handleSubmitServiceRequest}>{requestFormCopy.submitLabel}</button>
@@ -1305,11 +1310,17 @@
 
   .composer-card,
   .empty-card,
-  .mechanics-card {
+  .mechanics-card,
+  .feedback-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
+  }
+
+  .feedback-card {
+    color: var(--text-main);
+    background: color-mix(in srgb, var(--brand-soft) 28%, var(--panel-strong));
   }
 
   .number-grid {

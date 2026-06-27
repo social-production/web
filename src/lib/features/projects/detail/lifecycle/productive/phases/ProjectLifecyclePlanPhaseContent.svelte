@@ -1,5 +1,6 @@
 <script lang="ts">
   import CollapsiblePlanCard from '$lib/components/cards/project-detail/CollapsiblePlanCard.svelte';
+  import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import {
     isCollectiveServiceProject,
@@ -20,6 +21,7 @@
     projectSubtype?: ProjectSubtype;
     repositoryUrl?: string;
     demandConsiderationNote: string;
+    valueConsiderationNotes?: Record<string, string>;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;
     requestMode?: 'calendar' | 'direct' | 'both';
@@ -56,6 +58,7 @@
     : data.lifecycle.phaseThree.winningPlanId;
   $: subtypeOptions = projectSubtypeOptions(data.projectMode);
   $: selectedSubtype = form.projectSubtype ?? data.lifecycle.currentSubtype ?? 'standard';
+  $: prominentValues = data.lifecycle.phaseOne.values.filter((value) => value.importanceScore >= 5);
 
   function emptyCopy() {
     if (isPhaseTwo) {
@@ -77,12 +80,39 @@
     return 'Explain whether this plan meets the current demand signal. If it does not, explain the gap and why.';
   }
 
+  function valueNote(valueId: string) {
+    return form.valueConsiderationNotes?.[valueId] ?? '';
+  }
+
+  function updateValueNote(valueId: string, note: string) {
+    form = {
+      ...form,
+      valueConsiderationNotes: {
+        ...(form.valueConsiderationNotes ?? {}),
+        [valueId]: note
+      }
+    };
+  }
+
   function statusLabel(planId: string) {
-    if (planId !== winningPlanId) {
+    const plan = plans.find((entry) => entry.id === planId);
+    if (!plan) {
       return null;
     }
 
-    return data.lifecycle.currentPhaseId === phaseId ? 'Leading above threshold' : 'Selected';
+    if (data.lifecycle.currentPhaseId !== phaseId) {
+      return planId === winningPlanId ? 'Selected' : null;
+    }
+
+    if (plan.leaderStatus === 'leading') {
+      return 'Leading above threshold';
+    }
+
+    if (plan.leaderStatus === 'tied') {
+      return 'Tied above threshold';
+    }
+
+    return null;
   }
 
   function toggleComposer() {
@@ -129,6 +159,7 @@
 
     {#if showComposer}
       <div class="composer-card">
+        <DirectUsePolicyNotice variant="plan" context="project" />
         <div class="step-header-row">
           <strong>{editingPlanId ? 'Editing plan' : 'New plan'}</strong>
         </div>
@@ -163,8 +194,34 @@
           <strong>Current demand signal</strong>
           <span>{data.signalCount} demand signals are active right now.</span>
           <span>State whether this plan actually meets that demand and, if not, why it still falls short.</span>
+          <textarea bind:value={form.demandConsiderationNote} rows="3" placeholder={demandPlaceholder()}></textarea>
+          {#if prominentValues.length > 0}
+            <div class="value-proposal-list">
+              <span class="value-proposal-heading">Value proposals rated 5/10 or higher</span>
+              <ul>
+                {#each prominentValues as value}
+                  <li>
+                    <strong>{value.label}</strong>
+                    <span>{value.importanceScore.toFixed(1).replace(/\.0$/, '')}/10 · {value.importanceLabel}</span>
+                  </li>
+                {/each}
+              </ul>
+            </div>
+            <div class="value-note-stack">
+              {#each prominentValues as value}
+                <label class="value-note-field">
+                  <span class="value-note-label">How does this plan address “{value.label}”? (optional)</span>
+                  <textarea
+                    rows="2"
+                    value={valueNote(value.id)}
+                    on:input={(event) => updateValueNote(value.id, (event.currentTarget as HTMLTextAreaElement).value)}
+                    placeholder="Explain how this plan meets or falls short on this value."
+                  ></textarea>
+                </label>
+              {/each}
+            </div>
+          {/if}
         </div>
-        <textarea bind:value={form.demandConsiderationNote} rows="3" placeholder={demandPlaceholder()}></textarea>
         <div class="step-stack">
           {#each form.planPhases as phase, index}
             <div class="step-card">
@@ -385,6 +442,49 @@
   .demand-context-card span,
   .field-inline-label,
   strong {
+    color: var(--text-main);
+  }
+
+  .value-proposal-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .value-proposal-heading {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .value-proposal-list ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
+  }
+
+  .value-proposal-list li {
+    display: grid;
+    gap: 2px;
+  }
+
+  .value-proposal-list li span {
+    color: var(--text-soft);
+    font-size: 12px;
+  }
+
+  .value-note-stack {
+    display: grid;
+    gap: 10px;
+  }
+
+  .value-note-field {
+    display: grid;
+    gap: 6px;
+  }
+
+  .value-note-label {
+    font-size: 12px;
+    font-weight: 600;
     color: var(--text-main);
   }
 

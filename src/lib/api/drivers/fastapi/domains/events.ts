@@ -97,7 +97,10 @@ export async function fetchAddEventPlan(eventSlug: string, input: EventPlanInput
       demand_consideration_note: input.demandConsiderationNote,
       location_label: input.locationLabel,
       schedule_payload: input.schedule ?? {},
-      plan_payload: { planPhases: input.planPhases },
+      plan_payload: {
+        planPhases: input.planPhases,
+        valueConsiderationNotes: input.valueConsiderationNotes ?? {},
+      },
     });
     return true;
   } catch {

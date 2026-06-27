@@ -1,5 +1,6 @@
 <script lang="ts">
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
+  import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import type {
     ProjectActivityRoleInput,
@@ -282,6 +283,7 @@
 
   {#if data.lifecycle.phaseFive.viewerCanCreateActivities && showPersonalActivityComposer}
     <div bind:this={activityComposerElement} class="composer-card">
+      <DirectUsePolicyNotice variant="request" context="service" />
       <div class="request-header-row">
         <div>
           <h3>Add availability</h3>
@@ -307,6 +309,7 @@
 
   {#if data.lifecycle.requestSystem?.viewerCanSubmitRequests && showPersonalServiceRequestComposer}
     <div bind:this={serviceRequestComposerElement} class="composer-card">
+      <DirectUsePolicyNotice variant="request" context="service" />
       <div class="request-header-row">
         <div>
           <h3>Request service</h3>

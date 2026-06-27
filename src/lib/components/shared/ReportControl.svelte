@@ -56,7 +56,7 @@
     pending = true;
 
     try {
-      await setReportVote(report.targetId, vote);
+      await setReportVote(report.id, vote);
       await invalidateAll();
     } finally {
       pending = false;

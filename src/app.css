@@ -27,6 +27,8 @@
   --tablet-thread-text: #a9cbff;
   --tablet-event-bg: #6d46a4;
   --tablet-event-text: #c9b4ff;
+  --tablet-help-request-bg: #c56a24;
+  --tablet-help-request-text: #f1bd84;
   --tablet-project-production-bg: #2f8a57;
   --tablet-project-production-text: #95e2aa;
   --tablet-project-service-bg: #c56a24;
@@ -82,6 +84,8 @@ body[data-theme='light'] {
   --tablet-thread-text: #225799;
   --tablet-event-bg: #7b50b2;
   --tablet-event-text: #6b43a8;
+  --tablet-help-request-bg: #d97736;
+  --tablet-help-request-text: #9d5410;
   --tablet-project-production-bg: #2f8a57;
   --tablet-project-production-text: #266740;
   --tablet-project-service-bg: #c56a24;

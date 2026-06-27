@@ -3,7 +3,20 @@ import { getStoredToken } from './auth';
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 function getBaseUrl(): string {
-  return import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+  const configured = import.meta.env.VITE_API_URL?.trim();
+  if (configured) {
+    return configured;
+  }
+
+  if (import.meta.env.VITE_USE_DEV_PROXY === 'true') {
+    if (typeof window !== 'undefined') {
+      return window.location.origin;
+    }
+
+    return 'http://127.0.0.1:8000';
+  }
+
+  return 'http://localhost:8000';
 }
 
 async function request<T>(method: HttpMethod, path: string, body?: unknown): Promise<T> {

@@ -160,6 +160,8 @@ export interface ProjectValueItem {
   activeImportanceVote: ProjectImportanceVoteValue | 0;
 }
 
+export type PlanLeaderStatus = 'leading' | 'tied' | null;
+
 export interface ProjectPlanVoteSummary {
   yesCount: number;
   noCount: number;
@@ -185,6 +187,7 @@ export interface ProjectProductionPlanInput {
   projectSubtype: ProjectSubtype;
   repositoryUrl?: string;
   demandConsiderationNote: string;
+  valueConsiderationNotes?: Record<string, string>;
   totalCostLabel: string;
   planPhases: ProjectPlanPhaseInput[];
   outputSummary?: string;
@@ -223,6 +226,7 @@ export interface ProjectDistributionPlanInput {
   title: string;
   description: string;
   demandConsiderationNote: string;
+  valueConsiderationNotes?: Record<string, string>;
   totalCostLabel: string;
   planPhases: ProjectPlanPhaseInput[];
   distributionSummary?: string;
@@ -237,6 +241,7 @@ export interface EventPlanInput {
   title: string;
   description: string;
   demandConsiderationNote: string;
+  valueConsiderationNotes?: Record<string, string>;
   locationLabel: string;
   schedule?: EventPlanScheduleInput;
   planPhases: EventPlanPhaseInput[];
@@ -259,6 +264,7 @@ export interface ProjectProductionPlan {
   repositoryUrl?: string | null;
   demandSignalSnapshot: number | null;
   demandConsiderationNote: string;
+  valueConsiderationNotes?: Record<string, string>;
   planPhases: ProjectPlanPhaseItem[];
   outputSummary: string;
   materialsSummary: string;
@@ -269,6 +275,7 @@ export interface ProjectProductionPlan {
   valueAssessments: ProjectPlanValueAssessment[];
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
+  leaderStatus?: PlanLeaderStatus;
   viewerCanEdit: boolean;
 }
 
@@ -301,6 +308,7 @@ export interface ProjectDistributionPlan {
   repositoryUrl?: string | null;
   demandSignalSnapshot: number | null;
   demandConsiderationNote: string;
+  valueConsiderationNotes?: Record<string, string>;
   totalCostLabel: string;
   planPhases: ProjectPlanPhaseItem[];
   distributionSummary: string;
@@ -312,6 +320,7 @@ export interface ProjectDistributionPlan {
   valueAssessments: ProjectPlanValueAssessment[];
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
+  leaderStatus?: PlanLeaderStatus;
 }
 
 export interface EventPlan {
@@ -322,12 +331,14 @@ export interface EventPlan {
   description: string;
   demandSignalSnapshot: number | null;
   demandConsiderationNote: string;
+  valueConsiderationNotes?: Record<string, string>;
   locationLabel: string;
   schedule: EventPlanSchedule;
   planPhases: EventPlanPhaseItem[];
   valueAssessments: ProjectPlanValueAssessment[];
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
+  leaderStatus?: PlanLeaderStatus;
 }
 
 export interface ProjectActivityInput {
@@ -1200,6 +1211,33 @@ export interface PostPageData {
   isRemovedByReport: boolean;
   discussionNote: string;
   discussion: DetailComment[];
+}
+
+export interface HelpRequestRoleData {
+  roleId: string;
+  title: string;
+  description: string;
+  slots: number;
+  filledCount: number;
+  isViewerAssigned: boolean;
+}
+
+export interface HelpRequestPageData {
+  id: string;
+  authorUsername: string;
+  title: string;
+  body: string;
+  locationLabel: string;
+  scheduleLabel: string;
+  neededAt: string;
+  roles: HelpRequestRoleData[];
+  voteCount: number;
+  activeVote: VoteDirection;
+  commentCount: number;
+  discussion: DetailComment[];
+  channelTags: TagRef[];
+  communityTags: TagRef[];
+  createdAt: string;
 }
 
 export interface EventPageData {

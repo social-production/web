@@ -1,13 +1,18 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+  import { goto, afterNavigate } from '$app/navigation';
   import { page } from '$app/stores';
   import brandIcon from '$lib/assets/brand/app-icon-no-background-full-white.png';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import AuthActionNotice from '$lib/components/shared/AuthActionNotice.svelte';
   import LeftRailPanel from '$lib/features/left-rail/LeftRailPanel.svelte';
   import RightRailPanel from '$lib/features/right-rail/RightRailPanel.svelte';
+  import { createLiveSearchScheduler } from '$lib/features/search/liveSearch';
+  import SearchSuggestionsList from '$lib/features/search/SearchSuggestionsList.svelte';
+  import { unreadCounts } from '$lib/stores/unreadCounts';
+  import { refreshUnreadCounts, syncUnreadCountsFromBootstrap } from '$lib/services/queries/inbox';
   import { onMount } from 'svelte';
   import type { BootstrapPayload } from '$lib/types/bootstrap';
+  import type { SearchResultItem } from '$lib/types/search';
 
   export let bootstrap: BootstrapPayload;
 
@@ -19,24 +24,51 @@
   let contentGridElement: HTMLDivElement | null = null;
   let topbarHeight = 53;
   let compactContentOffset = 0;
+  let showThemeHint = false;
+  let toolbarSuggestionsOpen = false;
+  let toolbarLiveResults: SearchResultItem[] = [];
+  let toolbarLiveLoading = false;
+
+  const toolbarLiveSearch = createLiveSearchScheduler();
+
+  afterNavigate(() => {
+    if (bootstrap.viewer) {
+      void refreshUnreadCounts();
+    }
+  });
+
+  $: displayUnreadCounts = $unreadCounts ?? bootstrap.unreadCounts;
 
   $: if ($page.url.pathname === '/search') {
     toolbarQuery = $page.url.searchParams.get('q') ?? '';
   }
 
   function updateLayoutMetrics() {
-    topbarHeight = Math.max(53, topbarElement?.getBoundingClientRect().height ?? 53);
-
-    if (!isCompact || !contentGridElement) {
-      compactContentOffset = 0;
-      return;
-    }
-
-    const contentTop = contentGridElement.getBoundingClientRect().top;
-    compactContentOffset = Math.max(0, topbarHeight - contentTop);
+    topbarHeight = isCompact ? 52 : 53;
+    compactContentOffset = 0;
   }
 
   onMount(() => {
+    syncUnreadCountsFromBootstrap(bootstrap.unreadCounts);
+    showThemeHint = localStorage.getItem('theme-hint-dismissed') !== 'true';
+
+    const refreshBadgeCounts = () => {
+      if (bootstrap.viewer) {
+        void refreshUnreadCounts();
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshBadgeCounts();
+      }
+    };
+
+    window.addEventListener('focus', refreshBadgeCounts);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    const badgePoll = window.setInterval(refreshBadgeCounts, 30_000);
+
     const media = window.matchMedia('(max-width: 1080px)');
     const syncLayout = () => {
       isCompact = media.matches;
@@ -55,10 +87,6 @@
       updateLayoutMetrics();
     });
 
-    if (topbarElement) {
-      resizeObserver.observe(topbarElement);
-    }
-
     if (contentGridElement) {
       resizeObserver.observe(contentGridElement);
     }
@@ -68,6 +96,9 @@
     window.addEventListener('resize', updateLayoutMetrics);
 
     return () => {
+      window.removeEventListener('focus', refreshBadgeCounts);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.clearInterval(badgePoll);
       resizeObserver.disconnect();
       media.removeEventListener('change', syncLayout);
       window.removeEventListener('resize', updateLayoutMetrics);
@@ -106,8 +137,43 @@
 
   async function submitToolbarSearch(event: SubmitEvent) {
     event.preventDefault();
+    toolbarSuggestionsOpen = false;
     const query = toolbarQuery.trim();
     await goto(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+  }
+
+  function handleToolbarInput() {
+    toolbarSuggestionsOpen = true;
+    toolbarLiveSearch.schedule(toolbarQuery, (results, loading) => {
+      toolbarLiveResults = results;
+      toolbarLiveLoading = loading;
+    });
+  }
+
+  function handleToolbarFocus() {
+    if (toolbarQuery.trim()) {
+      toolbarSuggestionsOpen = true;
+      toolbarLiveSearch.schedule(toolbarQuery, (results, loading) => {
+        toolbarLiveResults = results;
+        toolbarLiveLoading = loading;
+      });
+    }
+  }
+
+  function handleToolbarBlur() {
+    window.setTimeout(() => {
+      toolbarSuggestionsOpen = false;
+    }, 150);
+  }
+
+  async function openToolbarSuggestion(href: string) {
+    toolbarSuggestionsOpen = false;
+    await goto(href);
+  }
+
+  function dismissThemeHint() {
+    showThemeHint = false;
+    localStorage.setItem('theme-hint-dismissed', 'true');
   }
 
 </script>
@@ -151,13 +217,26 @@
 
     <div class="toolbar-center">
       <form class="toolbar-search" role="search" on:submit={submitToolbarSearch}>
-        <input
-          aria-label="Search"
-          bind:value={toolbarQuery}
-          class="toolbar-search-input"
-          placeholder="Search projects, threads, events, and channels"
-          type="search"
-        />
+        <div class="toolbar-search-wrap">
+          <input
+            aria-label="Search"
+            bind:value={toolbarQuery}
+            class="toolbar-search-input"
+            on:blur={handleToolbarBlur}
+            on:focus={handleToolbarFocus}
+            on:input={handleToolbarInput}
+            placeholder="Search projects, threads, events, and channels"
+            type="search"
+          />
+          {#if toolbarSuggestionsOpen && toolbarQuery.trim()}
+            <SearchSuggestionsList
+              loading={toolbarLiveLoading}
+              overlay
+              results={toolbarLiveResults}
+              onSelect={openToolbarSuggestion}
+            />
+          {/if}
+        </div>
       </form>
 
       <nav class="primary-nav" aria-label="Primary">
@@ -175,8 +254,8 @@
           href={bootstrap.viewer ? '/notifications' : '/onboarding'}
         >
           Notifications
-          {#if bootstrap.unreadCounts.notifications > 0}
-            <CountBadge count={bootstrap.unreadCounts.notifications} />
+          {#if displayUnreadCounts.notifications > 0}
+            <CountBadge count={displayUnreadCounts.notifications} />
           {/if}
         </a>
         <a
@@ -185,33 +264,45 @@
           href={bootstrap.viewer ? '/messages' : '/onboarding'}
         >
           Messages
-          {#if bootstrap.unreadCounts.messages > 0}
-            <CountBadge count={bootstrap.unreadCounts.messages} />
+          {#if displayUnreadCounts.messages > 0}
+            <CountBadge count={displayUnreadCounts.messages} />
           {/if}
         </a>
       </nav>
     </div>
 
     <nav class="utility-nav" aria-label="Utilities">
-      <a class:active-link={isActive('/about') || isActive('/roadmap')} class="utility-link" href="/about">About</a>
+      {#if !isCompact}
+        <a class:active-link={isActive('/about') || isActive('/roadmap')} class="utility-link" href="/about">About</a>
+      {/if}
       {#if bootstrap.viewer}
-        <a
-          class:active-link={isActive(`/profile/${bootstrap.viewer.username}`)}
-          class="utility-link"
-          href={`/profile/${bootstrap.viewer.username}`}
-        >
-          {bootstrap.viewer.username}
-        </a>
-        <a aria-label="Settings" class:active-link={isActive('/settings')} class="gear-button" href="/settings">
-          <svg aria-hidden="true" viewBox="0 0 24 24" class="gear-icon">
-            <path
-              d="M10.3 2h3.4l.5 2.4c.5.2 1 .4 1.5.6l2.1-1.2 2.4 2.4-1.2 2.1c.2.5.4 1 .6 1.5L22 10.3v3.4l-2.4.5c-.2.5-.4 1-.6 1.5l1.2 2.1-2.4 2.4-2.1-1.2c-.5.2-1 .4-1.5.6L13.7 22h-3.4l-.5-2.4c-.5-.2-1-.4-1.5-.6l-2.1 1.2-2.4-2.4 1.2-2.1c-.2-.5-.4-1-.6-1.5L2 13.7v-3.4l2.4-.5c.2-.5.4-1 .6-1.5L3.8 6.2l2.4-2.4 2.1 1.2c.5-.2 1-.4 1.5-.6L10.3 2Zm1.7 6.2A3.8 3.8 0 1 0 12 15.8 3.8 3.8 0 0 0 12 8.2Z"
-              fill="currentColor"
-            ></path>
-          </svg>
-        </a>
+        {#if !isCompact}
+          <a
+            class:active-link={isActive(`/profile/${bootstrap.viewer.username}`)}
+            class="utility-link"
+            href={`/profile/${bootstrap.viewer.username}`}
+          >
+            {bootstrap.viewer.username}
+          </a>
+        {/if}
+        <div class="settings-wrap">
+          <a aria-label="Settings" class:active-link={isActive('/settings')} class="gear-button" href="/settings">
+            <svg aria-hidden="true" viewBox="0 0 24 24" class="gear-icon">
+              <path
+                d="M10.3 2h3.4l.5 2.4c.5.2 1 .4 1.5.6l2.1-1.2 2.4 2.4-1.2 2.1c.2.5.4 1 .6 1.5L22 10.3v3.4l-2.4.5c-.2.5-.4 1-.6 1.5l1.2 2.1-2.4 2.4-2.1-1.2c-.5.2-1 .4-1.5.6L13.7 22h-3.4l-.5-2.4c-.5-.2-1-.4-1.5-.6l-2.1 1.2-2.4-2.4 1.2-2.1c-.2-.5-.4-1-.6-1.5L2 13.7v-3.4l2.4-.5c.2-.5.4-1 .6-1.5L3.8 6.2l2.4-2.4 2.1 1.2c.5-.2 1-.4 1.5-.6L10.3 2Zm1.7 6.2A3.8 3.8 0 1 0 12 15.8 3.8 3.8 0 0 0 12 8.2Z"
+                fill="currentColor"
+              ></path>
+            </svg>
+          </a>
+          {#if showThemeHint}
+            <div class="theme-hint" role="status">
+              <p>Dark mode lives in Settings.</p>
+              <button class="theme-hint-dismiss" type="button" on:click={dismissThemeHint}>Got it</button>
+            </div>
+          {/if}
+        </div>
       {:else}
-        <a class="utility-link" href="/onboarding">Signup/Login</a>
+        <a class="utility-link" href="/onboarding">Login</a>
       {/if}
     </nav>
   </header>
@@ -254,15 +345,18 @@
   .topbar {
     position: sticky;
     top: 0;
-    z-index: 40;
+    z-index: 60;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 8px 12px;
-    min-height: 52px;
+    gap: 8px;
+    height: var(--topbar-height, 53px);
+    min-height: var(--topbar-height, 53px);
+    max-height: var(--topbar-height, 53px);
     padding: 8px 12px;
     border-bottom: 1px solid var(--panel-border);
     background: var(--toolbar-background);
+    overflow: visible;
   }
 
   .brand,
@@ -341,8 +435,8 @@
   }
 
   .toolbar-center {
-    flex: 1 1 520px;
-    min-width: 280px;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .toolbar-search {
@@ -356,6 +450,12 @@
     transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
   }
 
+  .toolbar-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+  }
+
   .toolbar-search:hover,
   .toolbar-search:focus-within {
     border-color: var(--brand);
@@ -364,6 +464,7 @@
   }
 
   .toolbar-search-input {
+    width: 100%;
     border: none;
     background: transparent;
     color: var(--text-main);
@@ -439,6 +540,43 @@
     color: var(--brand-strong);
   }
 
+  .settings-wrap {
+    position: relative;
+  }
+
+  .theme-hint {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 50;
+    display: grid;
+    gap: 8px;
+    width: min(240px, calc(100vw - 24px));
+    padding: 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--text-main) 12%, transparent);
+  }
+
+  .theme-hint p {
+    margin: 0;
+    color: var(--text-main);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .theme-hint-dismiss {
+    justify-self: start;
+    padding: 6px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
   .rail-backdrop {
     position: fixed;
     inset: var(--topbar-height) 0 0;
@@ -500,27 +638,65 @@
   }
 
   @media (max-width: 1080px) {
+    .topbar {
+      padding: 6px 8px;
+      gap: 6px;
+    }
+
+    .brand > span:not(.brand-mark) {
+      display: none;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+    }
+
+    .brand-icon {
+      width: 24px;
+      height: 24px;
+    }
+
     .toolbar-center {
-      order: 4;
-      flex-basis: 100%;
-      flex-direction: column;
-      align-items: stretch;
+      flex: 1 1 auto;
+      min-width: 0;
+      gap: 6px;
     }
 
     .toolbar-search {
-      width: 100%;
-      flex-basis: auto;
+      flex: 1 1 0;
+      min-width: 72px;
+      max-width: none;
     }
 
-    .primary-nav,
+    .toolbar-search-input {
+      min-height: 32px;
+      padding: 0 8px;
+      font-size: 13px;
+    }
+
+    .toolbar-search-input::placeholder {
+      font-size: 12px;
+    }
+
+    .primary-nav {
+      flex: 0 1 auto;
+      min-width: 0;
+    }
+
+    .nav-link {
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+
     .utility-nav {
-      width: 100%;
       margin-left: 0;
+      flex-shrink: 0;
     }
 
     .content-grid {
       grid-template-columns: 1fr;
-      padding-top: var(--compact-content-offset);
+      padding-top: 0;
     }
 
     .main-content {

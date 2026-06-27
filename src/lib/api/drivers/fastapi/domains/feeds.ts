@@ -1,11 +1,22 @@
 import { apiClient } from '../client';
 import { registerEntityType } from '../typeRegistry';
-import type { PersonalFeedItem, PublicFeedItem, VoteDirection } from '$lib/types/feed';
+import type {
+  HelpRequestRoleInput,
+  PersonalFeedItem,
+  PublicFeedItem,
+  VoteDirection
+} from '$lib/types/feed';
 
 interface BackendTagRef {
   slug: string;
   label: string;
   kind: 'channel' | 'community';
+}
+
+interface BackendHelpRequestRole {
+  title: string;
+  description?: string;
+  slots: number;
 }
 
 interface BackendFeedItem {
@@ -17,6 +28,7 @@ interface BackendFeedItem {
   audience?: 'followers' | 'public' | null;
   author_id: string | null;
   author_username: string | null;
+  author_profile_image_url?: string | null;
   signal_count: number;
   vote_count: number;
   comment_count: number;
@@ -36,6 +48,10 @@ interface BackendFeedItem {
   active_vote?: number;
   channel_tags: BackendTagRef[];
   community_tags: BackendTagRef[];
+  feed_source?: 'following' | 'discovery';
+  roles?: BackendHelpRequestRole[];
+  signup_count?: number;
+  slots_needed?: number;
 }
 
 interface BackendFeedResponse {
@@ -46,20 +62,61 @@ interface BackendFeedResponse {
   items: BackendFeedItem[];
 }
 
+export interface PersonalFeedQuery {
+  scope?: 'following' | 'popular';
+  sort?: 'popular' | 'recent';
+}
+
+function mapHelpRequestRoles(roles: BackendHelpRequestRole[] | undefined): HelpRequestRoleInput[] {
+  return (roles ?? []).map((role) => ({
+    title: role.title,
+    description: role.description ?? '',
+    slots: role.slots
+  }));
+}
+
 function registerFeedEntity(item: BackendFeedItem): void {
   if (
     item.entity_type === 'project' ||
     item.entity_type === 'thread' ||
     item.entity_type === 'event' ||
-    item.entity_type === 'post'
+    item.entity_type === 'post' ||
+    item.entity_type === 'help_request'
   ) {
     registerEntityType(item.id, item.entity_type);
   }
 }
 
-function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
+function feedSource(item: BackendFeedItem): 'following' | 'discovery' | undefined {
+  return item.feed_source === 'discovery' ? 'discovery' : item.feed_source === 'following' ? 'following' : undefined;
+}
+
+export function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
   const channelTags = item.channel_tags ?? [];
   const communityTags = item.community_tags ?? [];
+
+  if (item.entity_type === 'help_request') {
+    return {
+      kind: 'help-request',
+      id: item.id,
+      href: `/help-requests/${item.id}`,
+      createdAt: item.created_at,
+      title: item.title,
+      body: item.body,
+      authorUsername: item.author_username ?? '',
+      locationLabel: item.location_label ?? '',
+      scheduleLabel: item.time_label ?? '',
+      roles: mapHelpRequestRoles(item.roles),
+      channelTags,
+      communityTags,
+      voteCount: item.vote_count,
+      activeVote: (item.active_vote ?? 0) as VoteDirection,
+      commentCount: item.comment_count,
+      lastActivityAt: item.last_activity_at,
+      signupCount: item.signup_count ?? 0,
+      slotsNeeded: item.slots_needed ?? 0
+    };
+  }
 
   if (item.entity_type === 'project' && item.slug) {
     return {
@@ -140,10 +197,35 @@ function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
 export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null {
   const author = {
     id: item.author_id ?? '',
-    username: item.author_username ?? ''
+    username: item.author_username ?? '',
+    profileImageUrl: item.author_profile_image_url ?? undefined
   };
   const channelTags = item.channel_tags ?? [];
   const communityTags = item.community_tags ?? [];
+  const source = feedSource(item);
+
+  if (item.entity_type === 'help_request') {
+    return {
+      kind: 'help-request',
+      id: item.id,
+      href: `/help-requests/${item.id}`,
+      author,
+      feedSource: source,
+      title: item.title,
+      body: item.body,
+      locationLabel: item.location_label ?? '',
+      scheduleLabel: item.time_label ?? '',
+      roles: mapHelpRequestRoles(item.roles),
+      channelTags,
+      communityTags,
+      voteCount: item.vote_count,
+      activeVote: (item.active_vote ?? 0) as VoteDirection,
+      commentCount: item.comment_count,
+      signupCount: item.signup_count ?? 0,
+      slotsNeeded: item.slots_needed ?? 0,
+      createdAt: item.created_at
+    };
+  }
 
   if (item.entity_type === 'post') {
     return {
@@ -151,7 +233,7 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
       id: item.id,
       href: `/posts/${item.id}`,
       author,
-      feedSource: 'following',
+      feedSource: source,
       voteTargetId: item.id,
       body: item.body,
       linkedSubjects: [],
@@ -183,7 +265,7 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
     subjectId: item.id,
     href: `/${item.entity_type}s/${item.slug}`,
     author,
-    feedSource: 'following',
+    feedSource: source,
     actionLabel: actionLabelMap[item.entity_type] ?? 'posted',
     subjectKind,
     subjectProjectMode: item.project_mode as never ?? undefined,
@@ -199,20 +281,29 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
   };
 }
 
-export async function fetchPublicFeed(): Promise<PublicFeedItem[]> {
-  const res = await apiClient.get<BackendFeedResponse>('/feeds/public');
-  return res.items.flatMap(item => {
-    const mapped = mapPublicItem(item);
+function mapFeedResponse(res: BackendFeedResponse, mapper: (item: BackendFeedItem) => PublicFeedItem | PersonalFeedItem | null) {
+  return res.items.flatMap((item) => {
+    const mapped = mapper(item);
     if (mapped) registerFeedEntity(item);
     return mapped ? [mapped] : [];
   });
 }
 
-export async function fetchPersonalFeed(): Promise<PersonalFeedItem[]> {
-  const res = await apiClient.get<BackendFeedResponse>('/feeds/personal');
-  return res.items.flatMap(item => {
-    const mapped = mapPersonalItem(item);
-    if (mapped) registerFeedEntity(item);
-    return mapped ? [mapped] : [];
-  });
+export async function fetchPublicFeed(): Promise<PublicFeedItem[]> {
+  const res = await apiClient.get<BackendFeedResponse>('/feeds/public');
+  return mapFeedResponse(res, mapPublicItem) as PublicFeedItem[];
+}
+
+export async function fetchHomeFeed(): Promise<PublicFeedItem[]> {
+  const res = await apiClient.get<BackendFeedResponse>('/feeds/home');
+  return mapFeedResponse(res, mapPublicItem) as PublicFeedItem[];
+}
+
+export async function fetchPersonalFeed(query: PersonalFeedQuery = {}): Promise<PersonalFeedItem[]> {
+  const params = new URLSearchParams();
+  if (query.scope) params.set('scope', query.scope);
+  if (query.sort) params.set('sort', query.sort);
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  const res = await apiClient.get<BackendFeedResponse>(`/feeds/personal${suffix}`);
+  return mapFeedResponse(res, mapPersonalItem) as PersonalFeedItem[];
 }

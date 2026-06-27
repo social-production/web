@@ -40,3 +40,15 @@ export function followUser(username: string) {
 export function unfollowUser(username: string) {
   return currentAdapter.unfollowUser(username);
 }
+
+export function acceptFollowRequest(username: string) {
+  return currentAdapter.acceptFollowRequest(username);
+}
+
+export function rejectFollowRequest(username: string) {
+  return currentAdapter.rejectFollowRequest(username);
+}
+
+export function getFollowRequests() {
+  return currentAdapter.getFollowRequests();
+}

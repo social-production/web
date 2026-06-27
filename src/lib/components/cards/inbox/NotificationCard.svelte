@@ -7,20 +7,55 @@
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let item: NotificationItem;
+  export let followRequestPending = '';
+  export let onAcceptFollowRequest: ((username: string) => void) | undefined = undefined;
+  export let onRejectFollowRequest: ((username: string) => void) | undefined = undefined;
 
   $: orderedTags = [...item.channelTags, ...item.communityTags];
+  $: isFollowRequest = item.kind === 'follow-request' && !!item.actorUsername;
+  $: isSocialFollowNotice =
+    item.kind === 'follow-request' || item.kind === 'follow-accepted' || item.kind === 'new-follower';
+  $: showFollowRequestActions = isFollowRequest && item.isUnread;
 
-  const dispatch = createEventDispatcher<{ read: void }>();
+  const dispatch = createEventDispatcher<{ read: void; activate: void }>();
+
+  function handleCardClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+
+    if (target.closest('a, button')) {
+      return;
+    }
+
+    dispatch('activate');
+  }
+
+  function handleCardKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    dispatch('activate');
+  }
 </script>
 
-<FeedSurface href={item.href} tone={item.surface === 'personal' ? 'personal' : 'public'}>
-  <div class:unread={item.isUnread} class="notification-card">
+<FeedSurface tone={item.surface === 'personal' ? 'personal' : 'public'}>
+  <div
+    class:unread={item.isUnread}
+    class="notification-card"
+    on:click={handleCardClick}
+    on:keydown={handleCardKeydown}
+    role="link"
+    tabindex="0"
+  >
     <div class="topline">
       <div class="kind-row">
         {#if item.isUnread}
           <span class="unread-dot"></span>
         {/if}
-        <SubjectTablet kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
+        {#if !isSocialFollowNotice}
+          <SubjectTablet kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
+        {/if}
         {#if item.actionLabel}
           <span class="action">- {item.actionLabel}</span>
         {/if}
@@ -35,6 +70,27 @@
 
     {#if item.body}
       <p class="body">{item.body}</p>
+    {/if}
+
+    {#if showFollowRequestActions && item.actorUsername}
+      <div class="follow-request-actions">
+        <button
+          class="accept-button"
+          disabled={followRequestPending === item.actorUsername}
+          type="button"
+          on:click={() => onAcceptFollowRequest?.(item.actorUsername!)}
+        >
+          Accept follower
+        </button>
+        <button
+          class="decline-button"
+          disabled={followRequestPending === item.actorUsername}
+          type="button"
+          on:click={() => onRejectFollowRequest?.(item.actorUsername!)}
+        >
+          Decline
+        </button>
+      </div>
     {/if}
 
     <div class="footer">
@@ -56,6 +112,10 @@
   .footer-meta {
     display: grid;
     gap: 12px;
+  }
+
+  .notification-card {
+    cursor: pointer;
   }
 
   .notification-card.unread {
@@ -137,6 +197,33 @@
     border-color: var(--brand);
     background: var(--brand-soft);
     color: var(--brand-strong);
+  }
+
+  .follow-request-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .accept-button,
+  .decline-button {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .accept-button {
+    border: 0;
+    background: var(--brand);
+    color: var(--page-bg);
+  }
+
+  .decline-button {
+    border: 1px solid var(--panel-border);
+    background: var(--panel-strong);
+    color: var(--text-soft);
   }
 
   .footer-meta {

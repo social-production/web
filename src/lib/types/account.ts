@@ -31,15 +31,21 @@ export interface SignUpInput {
   profileBio?: string;
 }
 
+export type FollowStatus = 'pending' | 'accepted' | null;
+
 export interface ProfilePageData {
   username: string;
   bio?: string;
+  profileImageUrl?: string;
   followersCount: number;
   followingCount: number;
   followers: ViewerSummary[];
   following: ViewerSummary[];
+  pendingFollowRequests: ViewerSummary[];
   canViewPersonalFeed: boolean;
+  canViewPublicProfileActivity: boolean;
   viewerIsFollowing: boolean;
+  viewerFollowStatus: FollowStatus;
   isOwnProfile: boolean;
   feed: PersonalFeedItem[];
 }
@@ -77,6 +83,7 @@ export interface SettingsPageData {
   personalFeedPreferences: PersonalFeedPreferences;
   hidePublicActivityFromPersonalFeeds: boolean;
   hidePersonalFeedFromNonFollowers: boolean;
+  hidePublicProfileActivityFromNonFollowers: boolean;
   requireFollowApproval: boolean;
 }
 
@@ -89,5 +96,6 @@ export interface SettingsUpdateInput {
   personalFeedPreferences?: PersonalFeedPreferences;
   hidePublicActivityFromPersonalFeeds?: boolean;
   hidePersonalFeedFromNonFollowers?: boolean;
+  hidePublicProfileActivityFromNonFollowers?: boolean;
   requireFollowApproval?: boolean;
 }

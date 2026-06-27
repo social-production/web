@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { EventPlan, ProjectDistributionPlan, ProjectProductionPlan } from '$lib/types/detail';
+  import { formatEventPlanSchedule, formatRelativeTime } from '$lib/utils/time';
 
   export let plan: ProjectProductionPlan | ProjectDistributionPlan | EventPlan;
   export let expanded = false;
@@ -15,6 +16,36 @@
 
   $: if (expanded) {
     open = true;
+  }
+
+  $: scheduleLabel = 'schedule' in plan ? formatEventPlanSchedule(plan.schedule) : '';
+  $: valueNotes = plan.valueConsiderationNotes ?? {};
+  $: valueLabelById = Object.fromEntries(
+    plan.valueAssessments.map((assessment) => [assessment.valueId, assessment.valueLabel])
+  );
+  $: authorValueCommentaryEntries = Object.entries(valueNotes)
+    .filter(([, note]) => note?.trim())
+    .map(([valueId, note]) => ({
+      valueId,
+      valueLabel: valueLabelById[valueId] ?? 'Shared value',
+      note: note.trim()
+    }));
+  $: authorValueCommentaryCount = authorValueCommentaryEntries.length;
+
+  function noteForValue(valueId: string) {
+    const direct = valueNotes[valueId]?.trim();
+    if (direct) {
+      return direct;
+    }
+
+    const normalizedId = valueId.toLowerCase();
+    for (const [key, note] of Object.entries(valueNotes)) {
+      if (key.toLowerCase() === normalizedId && note?.trim()) {
+        return note.trim();
+      }
+    }
+
+    return '';
   }
 
   function nextVote(activeVote: 'yes' | 'no' | null, vote: 'yes' | 'no') {
@@ -55,6 +86,15 @@
         {/if}
       </span>
       <span class="plan-description">{plan.description}</span>
+      {#if scheduleLabel}
+        <span class="plan-schedule-preview">{scheduleLabel}</span>
+      {/if}
+      {#if !open && authorValueCommentaryCount > 0}
+        <span class="author-notes-hint">
+          Includes author notes on {authorValueCommentaryCount}
+          {authorValueCommentaryCount === 1 ? 'value' : 'values'}
+        </span>
+      {/if}
       {#if !open}
         <span class="plan-footer-meta base-footer">
           <span>Overall approval {plan.overallApproval.approvalPercent}% yes · {plan.overallApproval.yesCount} yes / {plan.overallApproval.noCount} no</span>
@@ -62,7 +102,7 @@
             {#if canEdit}
               <button class="vote-chip" type="button" on:click={handleEdit}>Edit plan</button>
             {/if}
-            <span>{plan.authorUsername}</span>
+            <span>{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</span>
           </span>
         </span>
       {/if}
@@ -75,7 +115,7 @@
         <div class="event-plan-meta-stack">
           <div class="event-plan-meta-item">
             <strong>Timing</strong>
-            <span>{plan.schedule.label}</span>
+            <span>{scheduleLabel || plan.schedule.label}</span>
           </div>
           <div class="event-plan-meta-item">
             <strong>Location</strong>
@@ -85,23 +125,35 @@
       {/if}
 
       <div class="demand-context-card">
-        <strong>Demand at submission</strong>
+        <strong>Demand signal</strong>
         <span class="plan-description">
           {#if plan.demandSignalSnapshot === null}
-            Legacy plan. No demand snapshot was recorded when this plan was created.
+            Legacy plan. No demand snapshot was recorded when this plan was posted.
           {:else}
-            {plan.demandSignalSnapshot} demand signals were active when this plan was posted.
+            {plan.demandSignalSnapshot} demand signals were active when this plan was posted — current demand context for evaluation.
           {/if}
         </span>
-        {#if 'schedule' in plan}
+        {#if plan.demandConsiderationNote?.trim()}
           <div class="detail-copy">
-            <span class="detail-section-title">Response to demand signal</span>
+            <span class="detail-section-title">Plan author on demand signal</span>
             <p>{plan.demandConsiderationNote}</p>
           </div>
-        {:else}
-          <p>{plan.demandConsiderationNote}</p>
         {/if}
       </div>
+
+      {#if authorValueCommentaryEntries.length > 0}
+        <div class="author-values-card">
+          <strong>Plan author on shared values</strong>
+          <div class="author-value-stack">
+            {#each authorValueCommentaryEntries as entry (entry.valueId)}
+              <div class="author-value-item">
+                <span class="detail-section-title">Plan author on {entry.valueLabel}</span>
+                <p class="value-note-copy">{entry.note}</p>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
 
       {#each plan.planPhases as phase}
         <div class="step-card">
@@ -152,17 +204,52 @@
     </div>
 
     <div class="evaluation-divider">
-      <strong>Demand and value criteria</strong>
-      <span>The evaluation zone starts with whether the plan accounts for current demand, then moves through the shared values.</span>
+      <strong>Demand signal and value criteria</strong>
+      <span>Vote whether this plan meets the demand signal, then on each carried value.</span>
     </div>
 
     <div class="assessment-stack">
+      <div class="assessment-row">
+        <div class="assessment-copy">
+          <strong>Demand signal</strong>
+          <span class="assessment-subtitle">Does this plan meet the current demand signal?</span>
+          <span class="assessment-votes">{plan.overallApproval.yesCount} yes · {plan.overallApproval.noCount} no</span>
+          <span class="assessment-approval">{plan.overallApproval.approvalPercent}% yes</span>
+        </div>
+        <div class="assessment-actions">
+          <button
+            class:selected={plan.overallApproval.activeVote === 'yes'}
+            class="vote-chip"
+            disabled={!canVote}
+            type="button"
+            on:click={() => overallvote(plan.id, nextVote(plan.overallApproval.activeVote, 'yes'))}
+          >
+            Yes
+          </button>
+          <button
+            class:selected={plan.overallApproval.activeVote === 'no'}
+            class="vote-chip negative"
+            disabled={!canVote}
+            type="button"
+            on:click={() => overallvote(plan.id, nextVote(plan.overallApproval.activeVote, 'no'))}
+          >
+            No
+          </button>
+        </div>
+      </div>
+
       {#each plan.valueAssessments as assessment}
         <div class="assessment-row">
           <div class="assessment-copy">
             <strong>{assessment.valueLabel}</strong>
             <span class="assessment-votes">{assessment.yesCount} yes · {assessment.noCount} no</span>
             <span class="assessment-approval">{assessment.approvalPercent}% yes</span>
+            {#if noteForValue(assessment.valueId)}
+              <div class="detail-copy">
+                <span class="detail-section-title">Plan author on {assessment.valueLabel}</span>
+                <p class="value-note-copy">{noteForValue(assessment.valueId)}</p>
+              </div>
+            {/if}
           </div>
           <div class="assessment-actions">
             <button
@@ -188,36 +275,13 @@
       {/each}
     </div>
 
-    <div class="overall-actions-row">
-      <div class="binary-row overall-actions">
-        <button
-          class:selected={plan.overallApproval.activeVote === 'yes'}
-          class="vote-chip"
-          disabled={!canVote}
-          type="button"
-          on:click={() => overallvote(plan.id, nextVote(plan.overallApproval.activeVote, 'yes'))}
-        >
-          Approve
-        </button>
-        <button
-          class:selected={plan.overallApproval.activeVote === 'no'}
-          class="vote-chip negative"
-          disabled={!canVote}
-          type="button"
-          on:click={() => overallvote(plan.id, nextVote(plan.overallApproval.activeVote, 'no'))}
-        >
-          Reject
-        </button>
-      </div>
-    </div>
-
     <div class="plan-footer-meta base-footer expanded-footer">
       <span>Overall approval {plan.overallApproval.approvalPercent}% yes · {plan.overallApproval.yesCount} yes / {plan.overallApproval.noCount} no</span>
       <span class="author-row">
         {#if canEdit}
           <button class="vote-chip" type="button" on:click={handleEdit}>Edit plan</button>
         {/if}
-        <span>{plan.authorUsername}</span>
+        <span>{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</span>
       </span>
     </div>
   {/if}
@@ -263,9 +327,36 @@
     gap: 12px;
   }
 
-  .plan-description {
+  .plan-description,
+  .plan-schedule-preview,
+  .author-notes-hint {
     color: var(--text-soft);
     line-height: 1.45;
+  }
+
+  .author-notes-hint {
+    font-size: 12px;
+  }
+
+  .author-values-card,
+  .author-value-stack,
+  .author-value-item {
+    display: grid;
+    gap: 10px;
+  }
+
+  .author-values-card {
+    padding-top: 10px;
+    border-top: 1px solid var(--panel-border);
+  }
+
+  .author-values-card strong {
+    color: var(--text-main);
+    font-size: 14px;
+  }
+
+  .plan-schedule-preview {
+    font-size: 12px;
   }
 
   .event-plan-meta-item {
@@ -288,8 +379,7 @@
   }
 
   .plan-header,
-  .plan-footer-meta,
-  .binary-row {
+  .plan-footer-meta {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -314,9 +404,9 @@
 
   .evaluation-divider,
   .demand-context-card,
+  .author-values-card,
   .step-card,
-  .assessment-row,
-  .overall-actions-row {
+  .assessment-row {
     display: grid;
     gap: 8px;
     padding-top: 10px;
@@ -348,15 +438,21 @@
     flex-wrap: wrap;
   }
 
+  .assessment-subtitle,
   .assessment-votes,
-  .assessment-approval {
+  .assessment-approval,
+  .value-note-copy {
     color: var(--text-soft);
     font-size: 12px;
   }
 
-  .overall-actions {
-    justify-content: flex-end;
-    width: 100%;
+  .assessment-subtitle {
+    line-height: 1.45;
+  }
+
+  .value-note-copy {
+    margin: 0;
+    line-height: 1.45;
   }
 
   .expanded-footer {

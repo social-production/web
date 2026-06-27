@@ -32,7 +32,8 @@ import type {
   ProjectSoftwareRepositoryReplacementInput,
   ShareTargetResult,
   ProjectServiceRequestStatus,
-  ThreadPageData
+  ThreadPageData,
+  HelpRequestPageData
 } from '$lib/types/detail';
 import type { PlatformAssetsPageData } from '$lib/types/assets';
 import type {
@@ -46,6 +47,7 @@ import type {
   CreateChannelInput,
   CreateCommunityInput,
   CreateEventInput,
+  CreateHelpRequestInput,
   CreatePostInput,
   CreateProjectInput,
   CreateResult,
@@ -61,7 +63,8 @@ export interface AppAdapter {
   getBootstrap(): Promise<BootstrapPayload>;
   hydrateClientState?(): Promise<boolean>;
   getPublicFeed(): Promise<PublicFeedItem[]>;
-  getPersonalFeed(): Promise<PersonalFeedItem[]>;
+  getHomeFeed(): Promise<PublicFeedItem[]>;
+  getPersonalFeed(options?: { scope?: 'following' | 'popular'; sort?: 'popular' | 'recent' }): Promise<PersonalFeedItem[]>;
   getChannel(slug: string): Promise<ScopePageData | null>;
   getCommunity(slug: string): Promise<ScopePageData | null>;
   getPlatform(): Promise<ScopePageData | null>;
@@ -73,8 +76,11 @@ export interface AppAdapter {
   getSettings(): Promise<SettingsPageData | null>;
   updateSettings(input: SettingsUpdateInput): Promise<void>;
   getProfile(username: string): Promise<ProfilePageData | null>;
-  followUser(username: string): Promise<void>;
+  followUser(username: string): Promise<{ followStatus: string | null }>;
   unfollowUser(username: string): Promise<void>;
+  acceptFollowRequest(username: string): Promise<void>;
+  rejectFollowRequest(username: string): Promise<void>;
+  getFollowRequests(): Promise<ViewerSummary[]>;
   getNotifications(): Promise<NotificationsPageData | null>;
   getMessages(): Promise<MessagesPageData | null>;
   getConversationMessages(
@@ -92,12 +98,16 @@ export interface AppAdapter {
   createPost(input: CreatePostInput): Promise<CreateResult>;
   createChannel(input: CreateChannelInput): Promise<CreateResult>;
   createCommunity(input: CreateCommunityInput): Promise<CreateResult>;
+  createHelpRequest(input: CreateHelpRequestInput): Promise<CreateResult>;
   getTaggableScopes(
     query: string,
     kind?: 'channel' | 'community',
     limit?: number
   ): Promise<{ channels: ScopeDirectoryItem[]; communities: ScopeDirectoryItem[] }>;
   getPost(id: string): Promise<PostPageData | null>;
+  getHelpRequest(id: string): Promise<HelpRequestPageData | null>;
+  commitHelpRequestRole(helpRequestId: string, roleId: string): Promise<{ ok: boolean; error?: string }>;
+  uncommitHelpRequestRole(helpRequestId: string, roleId: string): Promise<{ ok: boolean; error?: string }>;
   getEvent(slug: string): Promise<EventPageData | null>;
   toggleEventMembership(eventSlug: string): Promise<void>;
   toggleProjectMembership(projectSlug: string): Promise<void>;
@@ -109,13 +119,21 @@ export interface AppAdapter {
     valueId: string,
     importance: ProjectImportanceVoteValue
   ): Promise<void>;
-  addProjectProductionPlan(projectSlug: string, input: ProjectProductionPlanInput): Promise<boolean>;
+  addProjectProductionPlan(
+    projectSlug: string,
+    input: ProjectProductionPlanInput,
+    projectMode?: string
+  ): Promise<{ ok: boolean; error?: string }>;
   updateProjectProductionPlan(
     projectSlug: string,
     planId: string,
     input: ProjectProductionPlanInput
-  ): Promise<boolean>;
-  addProjectDistributionPlan(projectSlug: string, input: ProjectDistributionPlanInput): Promise<boolean>;
+  ): Promise<{ ok: boolean; error?: string }>;
+  addProjectDistributionPlan(
+    projectSlug: string,
+    input: ProjectDistributionPlanInput,
+    projectMode?: string
+  ): Promise<{ ok: boolean; error?: string }>;
   addProjectPullRequest(projectSlug: string, input: ProjectSoftwarePullRequestInput): Promise<void>;
   requestProjectMergeCapabilityChange(
     projectSlug: string,

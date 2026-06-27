@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import { goto, invalidateAll } from '$app/navigation';
   import { tick } from 'svelte';
+  import { preserveScrollDuring } from '$lib/utils/time';
   import ProductiveLifecycleContent from './lifecycle/productive/ProductiveLifecycleContent.svelte';
   import CollectiveServiceLifecycleContent from './lifecycle/collective-service/CollectiveServiceLifecycleContent.svelte';
   import IndividualServiceLifecycleContent from './lifecycle/individual-service/IndividualServiceLifecycleContent.svelte';
@@ -94,6 +95,7 @@
     projectSubtype: ProjectSubtype;
     repositoryUrl: string;
     demandConsiderationNote: string;
+    valueConsiderationNotes: Record<string, string>;
     planPhases: DraftPlanPhase[];
     validationMessages: string[];
   };
@@ -102,6 +104,7 @@
     title: string;
     description: string;
     demandConsiderationNote: string;
+    valueConsiderationNotes: Record<string, string>;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled: boolean;
     requestMode: 'calendar' | 'direct' | 'both';
@@ -209,6 +212,7 @@
       projectSubtype: 'standard',
       repositoryUrl: '',
       demandConsiderationNote: '',
+      valueConsiderationNotes: {},
       planPhases: [createDraftPlanPhase()],
       validationMessages: []
     };
@@ -219,6 +223,7 @@
       title: '',
       description: '',
       demandConsiderationNote: '',
+      valueConsiderationNotes: {},
       planPhases: [createDraftPlanPhase()],
       requestSystemEnabled: false,
       requestMode: 'both',
@@ -283,7 +288,6 @@
   let serviceRequestComposerElement: HTMLElement | null = null;
   let activityStartInputElement: HTMLInputElement | null = null;
   let activityEndInputElement: HTMLInputElement | null = null;
-  let showHowItWorks = false;
   let lastHowItWorksPhaseId = activePhaseId;
   let visibleLifecyclePhases: ProjectLifecyclePhase[] = data.lifecycle.phases ?? [];
 
@@ -439,7 +443,6 @@
 
   $: if (lastHowItWorksPhaseId !== activePhaseId) {
     lastHowItWorksPhaseId = activePhaseId;
-    showHowItWorks = false;
   }
 
   $: {
@@ -569,11 +572,15 @@
     valueId: string,
     vote: ProjectApprovalVote | null
   ) {
-    return refreshAfter(() => setProjectPlanValueVote(data.slug, 'phase-2', planId, valueId, vote));
+    return preserveScrollDuring(() =>
+      refreshAfter(() => setProjectPlanValueVote(data.slug, 'phase-2', planId, valueId, vote))
+    );
   }
 
   function handlePhaseTwoPlanOverallVote(planId: string, vote: ProjectApprovalVote | null) {
-    return refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-2', planId, vote));
+    return preserveScrollDuring(() =>
+      refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-2', planId, vote))
+    );
   }
 
   function handlePhaseThreePlanValueVote(
@@ -581,11 +588,15 @@
     valueId: string,
     vote: ProjectApprovalVote | null
   ) {
-    return refreshAfter(() => setProjectPlanValueVote(data.slug, 'phase-3', planId, valueId, vote));
+    return preserveScrollDuring(() =>
+      refreshAfter(() => setProjectPlanValueVote(data.slug, 'phase-3', planId, valueId, vote))
+    );
   }
 
   function handlePhaseThreePlanOverallVote(planId: string, vote: ProjectApprovalVote | null) {
-    return refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-3', planId, vote));
+    return preserveScrollDuring(() =>
+      refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-3', planId, vote))
+    );
   }
 
   async function submitValue() {
@@ -626,20 +637,22 @@
       repositoryUrl:
         productionForm.projectSubtype === 'software' ? productionForm.repositoryUrl : undefined,
       demandConsiderationNote: productionForm.demandConsiderationNote,
+      valueConsiderationNotes: productionForm.valueConsiderationNotes,
       totalCostLabel: 'Cost moved to acquisition',
       planPhases
     };
     const created = editingProductionPlanId
       ? await updateProjectProductionPlan(data.slug, editingProductionPlanId, input)
-      : await addProjectProductionPlan(data.slug, input);
+      : await addProjectProductionPlan(data.slug, input, data.projectMode);
 
-    if (!created) {
+    if (!created.ok) {
       productionForm = {
         ...productionForm,
         validationMessages: [
-          editingProductionPlanId
-            ? 'This production plan could not be updated from the current state. Reload and try again.'
-            : 'This production plan could not be submitted from the current state. Reload and try again.'
+          created.error ??
+            (editingProductionPlanId
+              ? 'This production plan could not be updated from the current state.'
+              : 'This production plan could not be submitted from the current state.')
         ]
       };
       return;
@@ -672,21 +685,26 @@
         materialsLabel: materialListLabel(phase),
         costLabel: 'Cost moved to acquisition'
       }));
-    const created = await addProjectDistributionPlan(data.slug, {
-      title: distributionForm.title,
-      description: distributionForm.description,
-      demandConsiderationNote: distributionForm.demandConsiderationNote,
-      totalCostLabel: 'Cost moved to acquisition',
-      planPhases,
-      requestSystemEnabled: distributionForm.requestSystemEnabled,
-      requestMode: distributionForm.requestMode,
-      allowOffScheduleRequests: distributionForm.allowOffScheduleRequests
-    });
+    const created = await addProjectDistributionPlan(
+      data.slug,
+      {
+        title: distributionForm.title,
+        description: distributionForm.description,
+        demandConsiderationNote: distributionForm.demandConsiderationNote,
+        valueConsiderationNotes: distributionForm.valueConsiderationNotes,
+        totalCostLabel: 'Cost moved to acquisition',
+        planPhases,
+        requestSystemEnabled: distributionForm.requestSystemEnabled,
+        requestMode: distributionForm.requestMode,
+        allowOffScheduleRequests: distributionForm.allowOffScheduleRequests
+      },
+      data.projectMode
+    );
 
-    if (!created) {
+    if (!created.ok) {
       distributionForm = {
         ...distributionForm,
-        validationMessages: ['This distribution plan could not be submitted from the current state. Reload and try again.']
+        validationMessages: [created.error ?? 'This distribution plan could not be submitted from the current state.']
       };
       return;
     }
@@ -786,6 +804,8 @@
     showPhaseFiveComposer = false;
   }
 
+  let serviceRequestFeedback = '';
+
   async function submitServiceRequest() {
     const scheduledAtValue = serviceRequestForm.scheduledAt;
     const endsAtValue = serviceRequestForm.endsAt;
@@ -794,7 +814,10 @@
     const usesScheduledRequest =
       requiresSchedule || !!(scheduledAtValue && endsAtValue);
 
+    serviceRequestFeedback = '';
+
     if (!serviceRequestForm.title.trim() || !serviceRequestForm.body.trim()) {
+      serviceRequestFeedback = 'Add a title and message for your request.';
       return;
     }
 
@@ -804,28 +827,23 @@
         !endsAtValue ||
         new Date(endsAtValue).getTime() <= new Date(scheduledAtValue).getTime())
     ) {
+      serviceRequestFeedback = 'Choose a valid start and end time for your request.';
       return;
     }
 
-    let conversationId: string | undefined;
-
     await refreshAfter(async () => {
-      const result = await addProjectServiceRequest(data.slug, {
+      await addProjectServiceRequest(data.slug, {
         title: serviceRequestForm.title,
         body: serviceRequestForm.body,
         scheduledAt: scheduledAtValue ? new Date(scheduledAtValue).toISOString() : undefined,
         endsAt: endsAtValue ? new Date(endsAtValue).toISOString() : undefined
       });
-      conversationId = result.conversationId;
     });
     resetServiceRequestForm();
     showPersonalServiceRequestComposer = false;
     showCollectiveRequestComposer = false;
     selectedCollectiveRequestActivityId = null;
-
-    if (isPersonalServiceProject(data.projectMode) && conversationId) {
-      await goto(`/messages?conversation=${encodeURIComponent(conversationId)}`, { invalidateAll: true });
-    }
+    serviceRequestFeedback = 'Request sent. The project owner can review it from the overview.';
   }
 
   async function updateRequestStatus(requestId: string, status: ProjectServiceRequestStatus) {
@@ -910,6 +928,7 @@
       projectSubtype: plan.projectSubtype,
       repositoryUrl: plan.repositoryUrl ?? '',
       demandConsiderationNote: plan.demandConsiderationNote,
+      valueConsiderationNotes: plan.valueConsiderationNotes ?? {},
       planPhases: plan.planPhases.map((phase) => ({
         title: phase.title,
         details: phase.details,
@@ -959,8 +978,22 @@
     await refreshAfter(() => setProjectActivityCommitment(data.slug, activityId, roleLabel));
   }
 
+  function firstActivityOnDay(isoDay: string) {
+    return data.lifecycle.phaseFive.activities
+      .filter((activity) => activity.startAt.startsWith(isoDay))
+      .sort((left, right) => +new Date(left.startAt) - +new Date(right.startAt))[0];
+  }
+
   function setDefaultActivityTimes(isoDay?: string) {
     if (isoDay) {
+      const firstActivity = firstActivityOnDay(isoDay);
+
+      if (firstActivity) {
+        activityForm.scheduledAt = localDateTimeValue(new Date(firstActivity.startAt));
+        activityForm.endsAt = localDateTimeValue(new Date(firstActivity.endAt));
+        return;
+      }
+
       activityForm.scheduledAt = `${isoDay}T18:00`;
       activityForm.endsAt = `${isoDay}T19:00`;
       return;
@@ -999,6 +1032,14 @@
     }
 
     if (isoDay) {
+      const firstActivity = firstActivityOnDay(isoDay);
+
+      if (firstActivity) {
+        serviceRequestForm.scheduledAt = localDateTimeValue(new Date(firstActivity.startAt));
+        serviceRequestForm.endsAt = localDateTimeValue(new Date(firstActivity.endAt));
+        return;
+      }
+
       serviceRequestForm.scheduledAt = `${isoDay}T18:00`;
       serviceRequestForm.endsAt = `${isoDay}T19:00`;
       return;
@@ -1228,7 +1269,7 @@
   <ProjectLifecyclePhaseTabs tabs={phaseTabs} {activePhaseId} {selectPhase} />
 
   <section class="phase-panel">
-    <ProjectLifecycleMechanicsCard phase={activePhase} progressLabel={activePhaseProgressLabel} bind:showHowItWorks />
+    <ProjectLifecycleMechanicsCard phase={activePhase} progressLabel={activePhaseProgressLabel} />
 
     {#if isPersonalServiceProject(data.projectMode)}
       <IndividualServiceLifecycleContent
@@ -1269,6 +1310,7 @@
         distributionForm={distributionForm}
         activityForm={activityForm}
         serviceRequestForm={serviceRequestForm}
+        serviceRequestFeedback={serviceRequestFeedback}
         {highlightedActivityId}
         {highlightedRequestId}
         bind:selectedRequestActivityId={selectedCollectiveRequestActivityId}
