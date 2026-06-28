@@ -1,11 +1,18 @@
 <script lang="ts">
   export let tone: 'public' | 'personal' = 'public';
   export let href: string | null = null;
+
+  $: skipScrollOnNavigate = href?.includes('comment=') ?? false;
 </script>
 
 <article class:tone-public={tone === 'public'} class:tone-personal={tone === 'personal'} class:clickable={!!href} class="surface">
   {#if href}
-    <a aria-label="Open item" class="surface-link" href={href}></a>
+    <a
+      aria-label="Open item"
+      class="surface-link"
+      data-sveltekit-noscroll={skipScrollOnNavigate || undefined}
+      href={href}
+    ></a>
   {/if}
 
   <div class="content">
@@ -40,8 +47,10 @@
   .content :global(input),
   .content :global(textarea),
   .content :global(select),
-  .content :global(label) {
+  .content :global(label),
+  .content :global([role='link']) {
     pointer-events: auto;
+    cursor: pointer;
   }
 
   .tone-public {

@@ -246,4 +246,20 @@ export interface PersonalHelpRequestItem {
   createdAt: string;
 }
 
-export type PersonalFeedItem = PersonalPostItem | PersonalActivityItem | PersonalHelpRequestItem;
+export type PersonalFeedItem =
+  | PersonalPostItem
+  | PersonalActivityItem
+  | PersonalHelpRequestItem
+  | PersonalCommentActivityItem;
+
+export interface PersonalCommentActivityItem {
+  kind: 'comment-activity';
+  id: string;
+  href: string;
+  author: ViewerSummary;
+  feedSource?: 'following' | 'discovery';
+  subjectKind: SubjectKind;
+  subjectTitle: string;
+  commentExcerpt: string;
+  createdAt: string;
+}

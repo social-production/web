@@ -143,7 +143,7 @@
     }
 
     if (filter === 'activity') {
-      return item.kind === 'activity';
+      return item.kind === 'activity' || item.kind === 'comment-activity';
     }
 
     if (filter === 'posts') {

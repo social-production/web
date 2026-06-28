@@ -1,6 +1,7 @@
 import { apiClient } from '../client';
 import type { NotificationsPageData } from '$lib/types/inbox';
 import type { ViewerSummary } from '$lib/types/bootstrap';
+import type { SubjectKind } from '$lib/types/feed';
 
 interface BackendUser { id: string; username: string; bio: string | null; profile_image_url: string | null; }
 interface BackendNotification {
@@ -35,14 +36,15 @@ function mapKind(k: string): NotificationsPageData['items'][number]['kind'] {
   return 'project';
 }
 
-function mapSubjectKind(s: string) {
-  const map: Record<string, 'project' | 'thread' | 'event' | 'post' | 'help-request'> = {
+function mapSubjectKind(s: string): SubjectKind {
+  const map: Record<string, SubjectKind> = {
     project: 'project',
     thread: 'thread',
     event: 'event',
     post: 'post',
     user: 'post',
-    'help-request': 'help-request'
+    'help-request': 'help-request',
+    help_request: 'help-request'
   };
   return map[s] ?? 'project';
 }

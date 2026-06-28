@@ -20,12 +20,22 @@
       await invalidateAll();
     }
 
-    const href =
-      (item.kind === 'follow-request' || item.kind === 'new-follower') && item.actorUsername
-        ? `/profile/${item.actorUsername}`
-        : item.href;
+    const isFollowKind =
+      item.kind === 'follow-request' ||
+      item.kind === 'new-follower' ||
+      item.kind === 'follow-accepted';
 
-    await goto(href);
+    const profileHref = item.actorUsername ? `/profile/${item.actorUsername}` : null;
+    const href = isFollowKind && profileHref ? profileHref : item.href?.trim() ?? '';
+
+    if (!href || href === '#') {
+      if (profileHref) {
+        await goto(profileHref, { noScroll: true });
+      }
+      return;
+    }
+
+    await goto(href, { noScroll: href.includes('comment=') });
   }
 
   async function handleFollowRequest(username: string, action: 'accept' | 'reject', notificationId: string) {

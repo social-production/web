@@ -7,6 +7,7 @@
   import { addComment, setReportVote, submitReport } from '$lib/services/queries/details';
   import type { ContentReportSummary, DetailComment } from '$lib/types/detail';
   import { linkifyMessageBody } from '$lib/utils/linkifyMessageBody';
+  import { scrollCenteredInContainer } from '$lib/utils/comment-scroll';
   import { tick } from 'svelte';
 
   type ChatMessage = {
@@ -43,6 +44,7 @@
   let hasAutoScrolled = false;
   let lastHighlightedCommentId: string | null = null;
   let lastAutoScrollKey = '';
+  let registeredMessageVersion = 0;
   let reportTargetMessage: ChatMessage | null = null;
   let reportReason: ReportReason = 'spam';
   let reportDetails = '';
@@ -164,6 +166,18 @@
     chatLogElement.scrollTo({ top: nextScrollTop, behavior: 'smooth' });
   }
 
+  async function scrollToHighlightedMessage() {
+    if (!browser || !highlightedCommentId || hasAutoScrolled) {
+      return;
+    }
+
+    hasAutoScrolled = true;
+    await scrollCenteredInContainer(
+      () => chatLogElement,
+      () => messageElements.get(highlightedCommentId) ?? null
+    );
+  }
+
   async function clearHighlightedCommentTarget() {
     if (!browser || !highlightedCommentId) {
       return;
@@ -241,14 +255,9 @@
   }
 
   $: if (browser && highlightedCommentId && !hasAutoScrolled) {
-    const target = messageElements.get(highlightedCommentId);
-
-    if (target) {
-      hasAutoScrolled = true;
-      tick().then(() => {
-        centerMessageInChatLog(highlightedCommentId);
-      });
-    }
+    void visibleMessages.length;
+    void registeredMessageVersion;
+    void scrollToHighlightedMessage();
   }
 
   $: autoScrollKey = `${subjectId || title}:${visibleMessages.length}`;
@@ -300,6 +309,11 @@
 
   function registerMessageElement(node: HTMLElement, messageId: string) {
     messageElements.set(messageId, node);
+    registeredMessageVersion += 1;
+
+    if (browser && highlightedCommentId === messageId && !hasAutoScrolled) {
+      void scrollToHighlightedMessage();
+    }
 
     return {
       update(nextMessageId: string) {
@@ -310,9 +324,15 @@
         messageElements.delete(messageId);
         messageId = nextMessageId;
         messageElements.set(messageId, node);
+        registeredMessageVersion += 1;
+
+        if (browser && highlightedCommentId === messageId && !hasAutoScrolled) {
+          void scrollToHighlightedMessage();
+        }
       },
       destroy() {
         messageElements.delete(messageId);
+        registeredMessageVersion += 1;
       }
     };
   }
@@ -506,7 +526,7 @@
   }
 
   .chat-message.highlighted .message-copy {
-    box-shadow: inset 0 0 0 1px var(--brand);
+    box-shadow: inset -2px 0 0 var(--brand);
   }
 
   .chat-panel.message-variant .author-link {

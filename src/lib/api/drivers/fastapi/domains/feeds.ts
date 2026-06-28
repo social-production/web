@@ -4,6 +4,7 @@ import type {
   HelpRequestRoleInput,
   PersonalFeedItem,
   PublicFeedItem,
+  SubjectKind,
   VoteDirection
 } from '$lib/types/feed';
 
@@ -25,7 +26,7 @@ interface BackendFeedItem {
   slug: string | null;
   title: string;
   body: string;
-  audience?: 'followers' | 'public' | null;
+  audience?: 'followers' | 'public' | 'thread' | 'post' | 'project' | 'event' | 'help_request' | null;
   author_id: string | null;
   author_username: string | null;
   author_profile_image_url?: string | null;
@@ -89,6 +90,35 @@ function registerFeedEntity(item: BackendFeedItem): void {
 
 function feedSource(item: BackendFeedItem): 'following' | 'discovery' | undefined {
   return item.feed_source === 'discovery' ? 'discovery' : item.feed_source === 'following' ? 'following' : undefined;
+}
+
+function mapCommentSubjectKind(subjectType: string | null | undefined): SubjectKind {
+  if (subjectType === 'help_request') return 'help-request';
+  if (subjectType === 'thread' || subjectType === 'post' || subjectType === 'project' || subjectType === 'event') {
+    return subjectType;
+  }
+  return 'thread';
+}
+
+function buildCommentActivityHref(item: BackendFeedItem): string {
+  const subjectType = item.audience ?? item.project_mode ?? 'thread';
+  const subjectId = item.project_subtype ?? item.id;
+  const commentId = item.id;
+
+  switch (subjectType) {
+    case 'thread':
+      return item.slug ? `/threads/${item.slug}?comment=${commentId}` : '#';
+    case 'post':
+      return `/posts/${subjectId}?comment=${commentId}`;
+    case 'project':
+      return item.slug ? `/projects/${item.slug}?tab=chat&comment=${commentId}` : '#';
+    case 'event':
+      return item.slug ? `/events/${item.slug}?tab=chat&comment=${commentId}` : '#';
+    case 'help_request':
+      return `/help-requests/${subjectId}?tab=chat&comment=${commentId}`;
+    default:
+      return '#';
+  }
 }
 
 export function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
@@ -203,6 +233,20 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
   const channelTags = item.channel_tags ?? [];
   const communityTags = item.community_tags ?? [];
   const source = feedSource(item);
+
+  if (item.entity_type === 'comment_activity') {
+    return {
+      kind: 'comment-activity',
+      id: item.id,
+      href: buildCommentActivityHref(item),
+      author,
+      feedSource: source,
+      subjectKind: mapCommentSubjectKind(item.audience ?? item.project_mode),
+      subjectTitle: item.title,
+      commentExcerpt: item.body,
+      createdAt: item.created_at
+    };
+  }
 
   if (item.entity_type === 'help_request') {
     return {

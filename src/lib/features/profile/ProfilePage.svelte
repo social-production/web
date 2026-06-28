@@ -99,13 +99,17 @@
     }
 
     if (filter === 'public') {
-      return item.kind === 'activity' || item.kind === 'help-request' || (item.kind === 'post' && item.audience === 'public');
+      return item.kind === 'activity' || item.kind === 'comment-activity' || item.kind === 'help-request' || (item.kind === 'post' && item.audience === 'public');
     }
 
     return item.kind === 'post';
   }
 
   function score(item: PersonalFeedItem) {
+    if (item.kind === 'comment-activity') {
+      return 0;
+    }
+
     if (item.kind === 'help-request') {
       return item.voteCount + item.commentCount + (item.signupCount ?? 0);
     }

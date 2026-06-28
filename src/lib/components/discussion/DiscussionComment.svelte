@@ -9,7 +9,7 @@
   import { setVote } from '$lib/services/queries/feeds';
   import type { DetailComment } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
-  import { tick } from 'svelte';
+  import { scrollCommentIntoView } from '$lib/utils/comment-scroll';
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let comment: DetailComment;
@@ -25,20 +25,23 @@
   let revealHiddenBody = false;
   let cardElement: HTMLElement;
   let hasAutoScrolled = false;
+  let lastHighlightedCommentId: string | null = null;
 
   $: isHighlighted = highlightedCommentId === comment.id;
   $: viewerUsername = $page.data.bootstrap?.viewer?.username ?? null;
   $: supportsHiddenToggle =
     comment.report?.reason === 'serious-harm' || comment.report?.resolution === 'hidden';
   $: bodyIsHidden = supportsHiddenToggle && !revealHiddenBody;
+  $: if (highlightedCommentId !== lastHighlightedCommentId) {
+    lastHighlightedCommentId = highlightedCommentId;
+    hasAutoScrolled = false;
+  }
   $: if (!isHighlighted) {
     hasAutoScrolled = false;
   }
-  $: if (browser && isHighlighted && cardElement && !hasAutoScrolled) {
+  $: if (browser && isHighlighted && !hasAutoScrolled) {
     hasAutoScrolled = true;
-    tick().then(() => {
-      cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+    void scrollCommentIntoView(() => cardElement);
   }
 
   async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
@@ -184,7 +187,7 @@
 
   .comment-card.highlighted {
     background: color-mix(in srgb, var(--brand-soft) 30%, var(--panel));
-    box-shadow: inset 2px 0 0 var(--brand);
+    box-shadow: inset -2px 0 0 var(--brand);
   }
 
   .topline,
