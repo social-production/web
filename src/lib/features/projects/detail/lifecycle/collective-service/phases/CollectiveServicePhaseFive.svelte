@@ -152,6 +152,18 @@
     input: ProjectSoftwareRepositoryReplacementInput
   ) => void | Promise<void> = () => {};
   export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
+  export let votePullRequest: (
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
+  export let voteMergeCapabilityChange: (
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
+  export let voteRepositoryReplacement: (
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
   export let toggleHistoryCompletion: (
     historyId: string,
     role: ProjectServiceHistoryCompletionRole,
@@ -736,13 +748,25 @@
 </script>
 
 <section class="phase-surface">
-  <ProjectSoftwareGovernancePanel
-    governance={data.lifecycle.phaseFive.softwareGovernance}
-    createPullRequest={createPullRequest}
-    requestMergeCapabilityChange={requestMergeCapabilityChange}
-    requestRepositoryReplacement={requestRepositoryReplacement}
-    recordMerge={recordPullRequestMerge}
-  />
+  {#if data.lifecycle.currentSubtype === 'software'}
+    {#if data.lifecycle.phaseFive.softwareGovernance}
+      <ProjectSoftwareGovernancePanel
+        governance={data.lifecycle.phaseFive.softwareGovernance}
+        createPullRequest={createPullRequest}
+        requestMergeCapabilityChange={requestMergeCapabilityChange}
+        requestRepositoryReplacement={requestRepositoryReplacement}
+        recordMerge={recordPullRequestMerge}
+        {votePullRequest}
+        {voteMergeCapabilityChange}
+        {voteRepositoryReplacement}
+      />
+    {:else}
+      <div class="software-governance-placeholder">
+        <h3>Software governance</h3>
+        <p>Pull request tools appear here once a leading software plan is approved for this project.</p>
+      </div>
+    {/if}
+  {/if}
 
   {#if calendarActionTarget}
     <div bind:this={actionPickerElement} class="mechanics-card action-picker-card" style={actionPickerStyle}>
@@ -1299,7 +1323,7 @@
     position: fixed;
     z-index: 30;
     box-shadow: 0 18px 36px color-mix(in srgb, black 18%, transparent);
-    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - var(--topbar-height, 53px) - var(--shell-bottom-nav-offset, 0px) - 24px);
     overflow-y: auto;
   }
 

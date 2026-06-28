@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import { setVote } from '$lib/services/queries/feeds';
+  import { castFeedVote } from '$lib/services/queries/feeds';
   import type { PersonalActivityItem, VoteDirection } from '$lib/types/feed';
   import { formatRelativeTime } from '$lib/utils/time';
 
@@ -31,8 +30,7 @@
   $: commentHref = buildCommentHref(item.href, item.subjectKind);
 
   async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await setVote(item.subjectId, event.detail.vote);
-    await invalidateAll();
+    await castFeedVote(item.subjectId, event.detail.vote);
   }
 
   $: verbLabel = item.actionLabel || 'Created';
@@ -44,7 +42,7 @@
       <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
       <div class="identity-copy">
         <div class="name-line">
-          <a class="name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
+          <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
           <span class="action">- {verbLabel}</span>
           <SubjectTablet kind={item.subjectKind} projectMode={item.subjectProjectMode ?? 'productive'} />
         </div>
@@ -79,7 +77,12 @@
         <CountPill label={`${item.commentCount} comments`} />
       </a>
     </div>
-    <span>{formatRelativeTime(item.createdAt)}</span>
+    <div class="footer-meta">
+      <span>
+        <a class="inline-link" href={`/profile/${item.author.username}`}>{item.author.username}</a>
+        · {formatRelativeTime(item.createdAt)}
+      </span>
+    </div>
   </div>
 </FeedSurface>
 
@@ -185,5 +188,28 @@
     text-decoration: none;
     color: inherit;
     border-radius: var(--radius-sm);
+  }
+
+  .footer-meta {
+    text-align: right;
+  }
+
+  .inline-link {
+    color: var(--text-main);
+    font-weight: 700;
+  }
+
+  @media (max-width: 760px) {
+    .tag-stack {
+      margin-left: 0;
+    }
+
+    .header-name {
+      display: none;
+    }
+
+    .footer-meta {
+      text-align: left;
+    }
   }
 </style>

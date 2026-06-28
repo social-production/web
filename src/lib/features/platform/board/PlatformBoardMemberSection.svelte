@@ -13,32 +13,43 @@
     return mode === 'candidate' || !meetsConfidenceThreshold(member) ? 'warning' : 'healthy';
   }
 
-  function requirementSummary(member: ScopeMemberSummary) {
-    if (member.confidenceVotesRequired === undefined) {
-      return `${member.confidenceReviewCount ?? 0}`;
-    }
-
-    return `${member.confidenceReviewCount ?? 0} / ${member.confidenceVotesRequired}`;
+  function voteProgress(member: ScopeMemberSummary) {
+    const cast = member.confidenceReviewCount ?? member.confidenceVoteCount ?? 0;
+    const required = member.confidenceVotesRequired ?? 0;
+    return `${cast} of ${required} votes needed`;
   }
 
-  function requirementLabel(member: ScopeMemberSummary) {
-      return mode === 'candidate' ? 'counted votes to become moderator' : 'counted votes to keep standing';
+  function approvalLine(member: ScopeMemberSummary) {
+    const ratio = member.confidenceRatio !== undefined ? `${(member.confidenceRatio * 100).toFixed(0)}% approval` : null;
+    const activeUsers =
+      member.confidenceWeeklyActiveUserCount !== undefined
+        ? `${member.confidenceWeeklyActiveUserCount} active users this week`
+        : null;
+    return [ratio, activeUsers].filter(Boolean).join(' · ');
   }
 
-  function requirementNote(member: ScopeMemberSummary) {
-    const notes: string[] = [];
+  function helperLine(member: ScopeMemberSummary) {
+    const cast = member.confidenceReviewCount ?? member.confidenceVoteCount ?? 0;
+    const required = member.confidenceVotesRequired ?? 0;
+    const remaining = Math.max(0, required - cast);
 
-    if (member.confidenceWeeklyActiveUserCount !== undefined) {
-      notes.push(`${member.confidenceWeeklyActiveUserCount} weekly active users in scope`);
+    if (member.confidenceStandingState === 'grace') {
+      return 'Grace period — more votes needed before standing drops';
     }
 
-    const standingLabel = boardStatusLabel(member);
-
-    if (mode !== 'candidate' && standingLabel !== 'Standing confirmed') {
-      notes.push(standingLabel);
+    if (member.confidenceStandingState === 'qualifying') {
+      return remaining > 0 ? `Needs ${remaining} more vote${remaining === 1 ? '' : 's'} to become moderator` : 'Ready to become moderator';
     }
 
-    return notes.length > 0 ? notes.join(' · ') : null;
+    if (member.confidenceStandingState === 'active') {
+      return 'Standing confirmed';
+    }
+
+    if (mode === 'candidate') {
+      return remaining > 0 ? `Needs ${remaining} more vote${remaining === 1 ? '' : 's'} to qualify` : boardStatusLabel(member);
+    }
+
+    return boardStatusLabel(member);
   }
 
   function handleVote(member: ScopeMemberSummary, value: Exclude<VoteDirection, 0>) {
@@ -97,11 +108,9 @@
         </div>
 
         <div class="confidence-requirement">
-          <span class="requirement-value">{requirementSummary(member)}</span>
-          <span class="requirement-copy">{requirementLabel(member)}</span>
-          {#if requirementNote(member)}
-            <span class="requirement-note">{requirementNote(member)}</span>
-          {/if}
+          <span class="requirement-value">{voteProgress(member)}</span>
+          <span class="requirement-copy">{approvalLine(member)}</span>
+          <span class="requirement-note">{helperLine(member)}</span>
         </div>
       </div>
     {/each}
@@ -214,7 +223,7 @@
   }
 
   .confidence-requirement {
-    min-width: 170px;
+    min-width: 190px;
     justify-items: end;
     text-align: right;
   }

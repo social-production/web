@@ -6,10 +6,14 @@
   import AuthActionNotice from '$lib/components/shared/AuthActionNotice.svelte';
   import LeftRailPanel from '$lib/features/left-rail/LeftRailPanel.svelte';
   import RightRailPanel from '$lib/features/right-rail/RightRailPanel.svelte';
+  import MobileBottomNav from '$lib/app/shell/MobileBottomNav.svelte';
+  import MobileMoreSheet from '$lib/app/shell/MobileMoreSheet.svelte';
   import { createLiveSearchScheduler } from '$lib/features/search/liveSearch';
   import SearchSuggestionsList from '$lib/features/search/SearchSuggestionsList.svelte';
   import { unreadCounts } from '$lib/stores/unreadCounts';
   import { refreshUnreadCounts, syncUnreadCountsFromBootstrap } from '$lib/services/queries/inbox';
+  import { refreshBootstrap } from '$lib/services/queries/bootstrap';
+  import * as m from '$lib/paraglide/messages';
   import { onMount } from 'svelte';
   import type { BootstrapPayload } from '$lib/types/bootstrap';
   import type { SearchResultItem } from '$lib/types/search';
@@ -28,12 +32,19 @@
   let toolbarSuggestionsOpen = false;
   let toolbarLiveResults: SearchResultItem[] = [];
   let toolbarLiveLoading = false;
+  let searchExpanded = false;
+  let moreSheetOpen = false;
+  let searchInputElement: HTMLInputElement | null = null;
 
   const toolbarLiveSearch = createLiveSearchScheduler();
 
   afterNavigate(() => {
     if (bootstrap.viewer) {
       void refreshUnreadCounts();
+    }
+    if (isCompact) {
+      searchExpanded = false;
+      moreSheetOpen = false;
     }
   });
 
@@ -44,6 +55,11 @@
   }
 
   function updateLayoutMetrics() {
+    if (topbarElement) {
+      topbarHeight = topbarElement.getBoundingClientRect().height;
+      return;
+    }
+
     topbarHeight = isCompact ? 52 : 53;
     compactContentOffset = 0;
   }
@@ -55,6 +71,7 @@
     const refreshBadgeCounts = () => {
       if (bootstrap.viewer) {
         void refreshUnreadCounts();
+        void refreshBootstrap();
       }
     };
 
@@ -78,6 +95,8 @@
       } else {
         leftRailOpen = true;
         rightRailOpen = true;
+        searchExpanded = false;
+        moreSheetOpen = false;
       }
 
       requestAnimationFrame(updateLayoutMetrics);
@@ -87,6 +106,10 @@
       updateLayoutMetrics();
     });
 
+    if (topbarElement) {
+      resizeObserver.observe(topbarElement);
+    }
+
     if (contentGridElement) {
       resizeObserver.observe(contentGridElement);
     }
@@ -95,9 +118,18 @@
     media.addEventListener('change', syncLayout);
     window.addEventListener('resize', updateLayoutMetrics);
 
+    const handleDocumentKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && searchExpanded) {
+        searchExpanded = false;
+      }
+    };
+
+    document.addEventListener('keydown', handleDocumentKeydown);
+
     return () => {
       window.removeEventListener('focus', refreshBadgeCounts);
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      document.removeEventListener('keydown', handleDocumentKeydown);
       window.clearInterval(badgePoll);
       resizeObserver.disconnect();
       media.removeEventListener('change', syncLayout);
@@ -118,6 +150,7 @@
     leftRailOpen = !leftRailOpen;
     if (isCompact && leftRailOpen) {
       rightRailOpen = false;
+      moreSheetOpen = false;
     }
   }
 
@@ -125,6 +158,7 @@
     rightRailOpen = !rightRailOpen;
     if (isCompact && rightRailOpen) {
       leftRailOpen = false;
+      moreSheetOpen = false;
     }
   }
 
@@ -135,10 +169,45 @@
     }
   }
 
+  function openSearch() {
+    searchExpanded = true;
+    requestAnimationFrame(() => {
+      searchInputElement?.focus();
+      updateLayoutMetrics();
+    });
+  }
+
+  function closeSearch() {
+    searchExpanded = false;
+    toolbarSuggestionsOpen = false;
+    requestAnimationFrame(updateLayoutMetrics);
+  }
+
+  function toggleMoreSheet() {
+    moreSheetOpen = !moreSheetOpen;
+    if (moreSheetOpen) {
+      leftRailOpen = false;
+      rightRailOpen = false;
+    }
+  }
+
+  function openCreateFromMore() {
+    leftRailOpen = true;
+    rightRailOpen = false;
+  }
+
+  function openActivityFromMore() {
+    rightRailOpen = true;
+    leftRailOpen = false;
+  }
+
   async function submitToolbarSearch(event: SubmitEvent) {
     event.preventDefault();
     toolbarSuggestionsOpen = false;
     const query = toolbarQuery.trim();
+    if (isCompact) {
+      searchExpanded = false;
+    }
     await goto(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
   }
 
@@ -168,7 +237,18 @@
 
   async function openToolbarSuggestion(href: string) {
     toolbarSuggestionsOpen = false;
+    if (isCompact) {
+      searchExpanded = false;
+    }
     await goto(href);
+  }
+
+  $: if (topbarElement) {
+    queueMicrotask(updateLayoutMetrics);
+  }
+
+  $: if (searchExpanded !== undefined) {
+    queueMicrotask(updateLayoutMetrics);
   }
 
   function dismissThemeHint() {
@@ -180,45 +260,25 @@
 
 <div
   class="shell"
+  class:shell-compact={isCompact}
   style={`--left-width: ${leftRailOpen && !isCompact ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact ? '292px' : '0px'}; --topbar-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --main-frame-max-width: ${!isCompact && !leftRailOpen && !rightRailOpen ? '1280px' : !isCompact && (!leftRailOpen || !rightRailOpen) ? '1480px' : 'none'};`}
 >
-  <header bind:this={topbarElement} class="topbar">
-    <a class="brand" href="/">
-      <span class="brand-mark">
-        <img alt="" class="brand-icon" src={brandIcon} />
-      </span>
-      <span>
-        <strong>Social Production</strong>
-      </span>
-    </a>
-
-    <div class="panel-controls">
-      <button
-        aria-label="Toggle left rail"
-        aria-expanded={leftRailOpen}
-        class="panel-toggle"
-        data-active={leftRailOpen}
-        type="button"
-        on:click={toggleLeftRail}
-      >
-        <span aria-hidden="true" class="panel-toggle-icon">|&lt;</span>
-      </button>
-      <button
-        aria-label="Toggle right rail"
-        aria-expanded={rightRailOpen}
-        class="panel-toggle"
-        data-active={rightRailOpen}
-        type="button"
-        on:click={toggleRightRail}
-      >
-        <span aria-hidden="true" class="panel-toggle-icon">&gt;|</span>
-      </button>
-    </div>
-
-    <div class="toolbar-center">
-      <form class="toolbar-search" role="search" on:submit={submitToolbarSearch}>
+  <header
+    bind:this={topbarElement}
+    class="topbar"
+    class:search-expanded={isCompact && searchExpanded}
+    class:topbar-compact={isCompact}
+  >
+    {#if isCompact && searchExpanded}
+      <form class="toolbar-search toolbar-search-expanded" role="search" on:submit={submitToolbarSearch}>
+        <button aria-label="Close search" class="search-close-button" type="button" on:click={closeSearch}>
+          <svg aria-hidden="true" viewBox="0 0 24 24" class="search-icon">
+            <path d="M15.5 8.5 8.5 15.5M8.5 8.5l7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
         <div class="toolbar-search-wrap">
           <input
+            bind:this={searchInputElement}
             aria-label="Search"
             bind:value={toolbarQuery}
             class="toolbar-search-input"
@@ -238,73 +298,148 @@
           {/if}
         </div>
       </form>
+    {:else}
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <img alt="" class="brand-icon" src={brandIcon} />
+        </span>
+        <span>
+          <strong>Social Production</strong>
+        </span>
+      </a>
 
-      <nav class="primary-nav" aria-label="Primary">
-        <a class:active-link={isActive('/')} class="nav-link" href="/">Public</a>
-        <a
-          class:active-link={isActive('/personal')}
-          class="nav-link"
-          href={bootstrap.viewer ? '/personal' : '/onboarding'}
+      <div class="panel-controls">
+        <button
+          aria-label="Toggle left rail"
+          aria-expanded={leftRailOpen}
+          class="panel-toggle"
+          data-active={leftRailOpen}
+          type="button"
+          on:click={toggleLeftRail}
         >
-          Personal
-        </a>
-        <a
-          class:active-link={isActive('/notifications')}
-          class="nav-link"
-          href={bootstrap.viewer ? '/notifications' : '/onboarding'}
+          <span aria-hidden="true" class="panel-toggle-icon">|&lt;</span>
+        </button>
+        <button
+          aria-label="Toggle right rail"
+          aria-expanded={rightRailOpen}
+          class="panel-toggle"
+          data-active={rightRailOpen}
+          type="button"
+          on:click={toggleRightRail}
         >
-          Notifications
-          {#if displayUnreadCounts.notifications > 0}
-            <CountBadge count={displayUnreadCounts.notifications} />
-          {/if}
-        </a>
-        <a
-          class:active-link={isActive('/messages')}
-          class="nav-link"
-          href={bootstrap.viewer ? '/messages' : '/onboarding'}
-        >
-          Messages
-          {#if displayUnreadCounts.messages > 0}
-            <CountBadge count={displayUnreadCounts.messages} />
-          {/if}
-        </a>
-      </nav>
-    </div>
+          <span aria-hidden="true" class="panel-toggle-icon">&gt;|</span>
+        </button>
+      </div>
 
-    <nav class="utility-nav" aria-label="Utilities">
-      {#if !isCompact}
-        <a class:active-link={isActive('/about') || isActive('/roadmap')} class="utility-link" href="/about">About</a>
-      {/if}
-      {#if bootstrap.viewer}
-        {#if !isCompact}
-          <a
-            class:active-link={isActive(`/profile/${bootstrap.viewer.username}`)}
-            class="utility-link"
-            href={`/profile/${bootstrap.viewer.username}`}
-          >
-            {bootstrap.viewer.username}
-          </a>
-        {/if}
-        <div class="settings-wrap">
-          <a aria-label="Settings" class:active-link={isActive('/settings')} class="gear-button" href="/settings">
-            <svg aria-hidden="true" viewBox="0 0 24 24" class="gear-icon">
+      <div class="toolbar-center">
+        {#if isCompact}
+          <button aria-label="Open search" class="search-open-button" type="button" on:click={openSearch}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" class="search-icon">
               <path
-                d="M10.3 2h3.4l.5 2.4c.5.2 1 .4 1.5.6l2.1-1.2 2.4 2.4-1.2 2.1c.2.5.4 1 .6 1.5L22 10.3v3.4l-2.4.5c-.2.5-.4 1-.6 1.5l1.2 2.1-2.4 2.4-2.1-1.2c-.5.2-1 .4-1.5.6L13.7 22h-3.4l-.5-2.4c-.5-.2-1-.4-1.5-.6l-2.1 1.2-2.4-2.4 1.2-2.1c-.2-.5-.4-1-.6-1.5L2 13.7v-3.4l2.4-.5c.2-.5.4-1 .6-1.5L3.8 6.2l2.4-2.4 2.1 1.2c.5-.2 1-.4 1.5-.6L10.3 2Zm1.7 6.2A3.8 3.8 0 1 0 12 15.8 3.8 3.8 0 0 0 12 8.2Z"
-                fill="currentColor"
-              ></path>
+                d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Zm6.8 2.2-4.2-4.2"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="2"
+              />
             </svg>
-          </a>
-          {#if showThemeHint}
-            <div class="theme-hint" role="status">
-              <p>Dark mode lives in Settings.</p>
-              <button class="theme-hint-dismiss" type="button" on:click={dismissThemeHint}>Got it</button>
+          </button>
+        {:else}
+          <form class="toolbar-search" role="search" on:submit={submitToolbarSearch}>
+            <div class="toolbar-search-wrap">
+              <input
+                aria-label="Search"
+                bind:value={toolbarQuery}
+                class="toolbar-search-input"
+                on:blur={handleToolbarBlur}
+                on:focus={handleToolbarFocus}
+                on:input={handleToolbarInput}
+                placeholder="Search projects, threads, events, and channels"
+                type="search"
+              />
+              {#if toolbarSuggestionsOpen && toolbarQuery.trim()}
+                <SearchSuggestionsList
+                  loading={toolbarLiveLoading}
+                  overlay
+                  results={toolbarLiveResults}
+                  onSelect={openToolbarSuggestion}
+                />
+              {/if}
+            </div>
+          </form>
+        {/if}
+
+        {#if !isCompact}
+          <nav class="primary-nav" aria-label="Primary">
+            <a class:active-link={isActive('/')} class="nav-link" href="/">{m.shell_nav_public()}</a>
+            <a
+              class:active-link={isActive('/personal')}
+              class="nav-link"
+              href={bootstrap.viewer ? '/personal' : '/onboarding'}
+            >
+              {m.shell_nav_personal()}
+            </a>
+            <a
+              class:active-link={isActive('/notifications')}
+              class="nav-link"
+              href={bootstrap.viewer ? '/notifications' : '/onboarding'}
+            >
+              {m.shell_nav_notifications()}
+              {#if displayUnreadCounts.notifications > 0}
+                <CountBadge count={displayUnreadCounts.notifications} />
+              {/if}
+            </a>
+            <a
+              class:active-link={isActive('/messages')}
+              class="nav-link"
+              href={bootstrap.viewer ? '/messages' : '/onboarding'}
+            >
+              {m.shell_nav_messages()}
+              {#if displayUnreadCounts.messages > 0}
+                <CountBadge count={displayUnreadCounts.messages} />
+              {/if}
+            </a>
+          </nav>
+        {/if}
+      </div>
+
+      <nav class="utility-nav" aria-label="Utilities">
+        {#if !isCompact}
+          <a class:active-link={isActive('/about') || isActive('/roadmap')} class="utility-link" href="/about">{m.shell_nav_about()}</a>
+        {/if}
+        {#if bootstrap.viewer}
+          {#if !isCompact}
+            <a
+              class:active-link={isActive(`/profile/${bootstrap.viewer.username}`)}
+              class="utility-link"
+              href={`/profile/${bootstrap.viewer.username}`}
+            >
+              {bootstrap.viewer.username}
+            </a>
+          {/if}
+          {#if !isCompact}
+            <div class="settings-wrap">
+              <a aria-label="Settings" class:active-link={isActive('/settings')} class="gear-button" href="/settings">
+                <svg aria-hidden="true" viewBox="0 0 24 24" class="gear-icon">
+                  <path
+                    d="M10.3 2h3.4l.5 2.4c.5.2 1 .4 1.5.6l2.1-1.2 2.4 2.4-1.2 2.1c.2.5.4 1 .6 1.5L22 10.3v3.4l-2.4.5c-.2.5-.4 1-.6 1.5l1.2 2.1-2.4 2.4-2.1-1.2c-.5.2-1 .4-1.5.6L13.7 22h-3.4l-.5-2.4c-.5-.2-1-.4-1.5-.6l-2.1 1.2-2.4-2.4 1.2-2.1c-.2-.5-.4-1-.6-1.5L2 13.7v-3.4l2.4-.5c.2-.5.4-1 .6-1.5L3.8 6.2l2.4-2.4 2.1 1.2c.5-.2 1-.4 1.5-.6L10.3 2Zm1.7 6.2A3.8 3.8 0 1 0 12 15.8 3.8 3.8 0 0 0 12 8.2Z"
+                    fill="currentColor"
+                  ></path>
+                </svg>
+              </a>
+              {#if showThemeHint}
+                <div class="theme-hint" role="status">
+                  <p>{m.shell_theme_hint()}</p>
+                  <button class="theme-hint-dismiss" type="button" on:click={dismissThemeHint}>{m.shell_theme_hint_dismiss()}</button>
+                </div>
+              {/if}
             </div>
           {/if}
-        </div>
-      {:else}
-        <a class="utility-link" href="/onboarding">Login</a>
-      {/if}
-    </nav>
+        {:else if !isCompact}
+          <a class="utility-link" href="/onboarding">{m.shell_nav_login()}</a>
+        {/if}
+      </nav>
+    {/if}
   </header>
 
   {#if isCompact && (leftRailOpen || rightRailOpen)}
@@ -321,16 +456,40 @@
       />
     </aside>
 
-    <main class="main-content">
+    <main class="main-content" class:main-content-compact={isCompact}>
       <div class="main-frame">
         <slot />
       </div>
     </main>
 
     <aside class="rail right-rail" data-open={rightRailOpen}>
-      <RightRailPanel compact={isCompact} items={bootstrap.activityRail} on:close={closeCompactPanels} />
+      <RightRailPanel
+        compact={isCompact}
+        items={bootstrap.activityRail}
+        viewerId={bootstrap.viewer?.id ?? null}
+        on:close={closeCompactPanels}
+      />
     </aside>
   </div>
+
+  {#if isCompact}
+    <MobileBottomNav
+      viewerLoggedIn={Boolean(bootstrap.viewer)}
+      notificationCount={displayUnreadCounts.notifications}
+      messageCount={displayUnreadCounts.messages}
+      moreActive={moreSheetOpen}
+      {isActive}
+      onMore={toggleMoreSheet}
+    />
+    <MobileMoreSheet
+      {bootstrap}
+      open={moreSheetOpen}
+      {isActive}
+      on:close={() => (moreSheetOpen = false)}
+      on:openCreate={openCreateFromMore}
+      on:openActivity={openActivityFromMore}
+    />
+  {/if}
 </div>
 
 <AuthActionNotice />
@@ -338,8 +497,10 @@
 <style>
   .shell {
     min-height: 100vh;
+    min-height: 100dvh;
     background: var(--page-background);
     color: var(--text-main);
+    overscroll-behavior: none;
   }
 
   .topbar {
@@ -353,10 +514,17 @@
     height: var(--topbar-height, 53px);
     min-height: var(--topbar-height, 53px);
     max-height: var(--topbar-height, 53px);
-    padding: 8px 12px;
+    padding: calc(8px + var(--shell-safe-top)) 12px 8px;
     border-bottom: 1px solid var(--panel-border);
     background: var(--toolbar-background);
     overflow: visible;
+  }
+
+  .topbar.search-expanded {
+    height: auto;
+    min-height: var(--shell-touch-min);
+    max-height: none;
+    align-items: stretch;
   }
 
   .brand,
@@ -402,7 +570,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 34px;
+    min-width: var(--shell-touch-min);
+    min-height: var(--shell-touch-min);
     padding: 0 10px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -414,7 +583,7 @@
   }
 
   .panel-toggle {
-    width: 36px;
+    width: var(--shell-touch-min);
     padding: 0;
   }
 
@@ -476,6 +645,42 @@
     border: none;
   }
 
+  .toolbar-search-expanded {
+    flex: 1 1 auto;
+    width: 100%;
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    min-height: var(--shell-touch-min);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    padding: 4px 8px 4px 4px;
+  }
+
+  .search-open-button,
+  .search-close-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--shell-touch-min);
+    height: var(--shell-touch-min);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--text-main);
+    flex-shrink: 0;
+  }
+
+  .search-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .topbar-compact .toolbar-center {
+    margin-left: auto;
+  }
+
   .primary-nav {
     flex: 1 1 260px;
     min-width: 0;
@@ -511,8 +716,8 @@
 
   .utility-nav {
     margin-left: auto;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-shrink: 0;
+    overflow: visible;
   }
 
   .gear-button {
@@ -579,9 +784,9 @@
 
   .rail-backdrop {
     position: fixed;
-    inset: var(--topbar-height) 0 0;
+    inset: var(--topbar-height) 0 var(--shell-bottom-nav-offset, 0px) 0;
     z-index: 45;
-    background: rgba(7, 8, 10, 0.66);
+    background: var(--shell-scrim);
     border: none;
     padding: 0;
   }
@@ -623,6 +828,10 @@
     background: var(--page-background);
   }
 
+  .main-content-compact {
+    padding: 12px 12px calc(12px + var(--shell-bottom-nav-offset));
+  }
+
   .main-frame {
     width: 100%;
     max-width: var(--main-frame-max-width);
@@ -639,8 +848,14 @@
 
   @media (max-width: 1080px) {
     .topbar {
-      padding: 6px 8px;
+      padding: calc(6px + var(--shell-safe-top)) 8px 6px;
       gap: 6px;
+    }
+
+    .topbar-compact:not(.search-expanded) {
+      height: auto;
+      min-height: calc(var(--shell-touch-min) + 12px + var(--shell-safe-top));
+      max-height: none;
     }
 
     .brand > span:not(.brand-mark) {
@@ -658,35 +873,9 @@
     }
 
     .toolbar-center {
-      flex: 1 1 auto;
+      flex: 0 0 auto;
       min-width: 0;
       gap: 6px;
-    }
-
-    .toolbar-search {
-      flex: 1 1 0;
-      min-width: 72px;
-      max-width: none;
-    }
-
-    .toolbar-search-input {
-      min-height: 32px;
-      padding: 0 8px;
-      font-size: 13px;
-    }
-
-    .toolbar-search-input::placeholder {
-      font-size: 12px;
-    }
-
-    .primary-nav {
-      flex: 0 1 auto;
-      min-width: 0;
-    }
-
-    .nav-link {
-      padding: 6px 8px;
-      font-size: 12px;
     }
 
     .utility-nav {
@@ -697,16 +886,13 @@
     .content-grid {
       grid-template-columns: 1fr;
       padding-top: 0;
-    }
-
-    .main-content {
-      padding: 12px;
+      min-height: calc(100dvh - var(--topbar-height) - var(--shell-bottom-nav-offset));
     }
 
     .rail {
       position: fixed;
       top: var(--topbar-height);
-      bottom: 0;
+      bottom: var(--shell-bottom-nav-offset);
       z-index: 50;
       width: min(86vw, 320px);
       padding: 12px;
@@ -744,8 +930,16 @@
       pointer-events: none;
     }
 
-    .main-content {
-      padding: 0;
+    .main-content-compact {
+      padding: 8px 8px calc(8px + var(--shell-bottom-nav-offset));
+      min-width: 0;
+      overflow-x: clip;
+    }
+
+    .main-content-compact .main-frame {
+      min-width: 0;
+      overflow-x: clip;
+      padding-bottom: 4px;
     }
   }
 </style>

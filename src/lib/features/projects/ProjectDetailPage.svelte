@@ -2,7 +2,7 @@
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import ProjectChatTab from '$lib/features/projects/detail/ProjectChatTab.svelte';
   import ProjectHistoryTab from '$lib/features/projects/detail/ProjectHistoryTab.svelte';
   import ProjectLifecyclePanel from '$lib/features/projects/detail/ProjectLifecyclePanel.svelte';
@@ -24,6 +24,21 @@
   let autoExpandVoteCards = false;
   let autoExpandVoteKind: string | null = null;
   let autoExpandVoteTarget: string | null = null;
+  let isCompact = false;
+
+  onMount(() => {
+    const media = window.matchMedia('(max-width: 1080px)');
+    const syncCompact = () => {
+      isCompact = media.matches;
+    };
+
+    syncCompact();
+    media.addEventListener('change', syncCompact);
+
+    return () => {
+      media.removeEventListener('change', syncCompact);
+    };
+  });
 
   async function focusVoteTarget(voteKind: string | null, voteTarget: string | null) {
     await tick();
@@ -148,9 +163,11 @@
   }
 </script>
 
-<section class="page">
-  <section class="hero-card">
-    <ContextualBackButton fallbackHref="/" />
+<section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
+  <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
+    {#if !(activeTab === 'chat' && isCompact)}
+      <ContextualBackButton fallbackHref="/" />
+    {/if}
     <div class="top-tab-row" role="tablist" aria-label="Project detail tabs">
       <button
         class:active-tab={activeTab === 'overview'}
@@ -198,7 +215,7 @@
         <ProjectLifecyclePanel {data} {autoExpandVoteCards} {autoExpandVoteKind} {autoExpandVoteTarget} />
       </div>
     {:else if activeTab === 'chat'}
-      <ProjectChatTab {data} {highlightedCommentId} />
+      <ProjectChatTab {data} {highlightedCommentId} fullscreen={isCompact} />
     {:else}
       <ProjectHistoryTab {data} highlightedDecisionId={highlightedDecisionId} />
     {/if}
@@ -254,5 +271,62 @@
     border-color: var(--brand);
     background: var(--brand-soft);
     color: var(--brand-strong);
+  }
+
+  @media (max-width: 760px) {
+    .page {
+      min-width: 0;
+      overflow-x: clip;
+    }
+
+    .page-chat {
+      gap: 0;
+      height: calc(100dvh - var(--topbar-height) - var(--shell-bottom-nav-offset));
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .hero-card {
+      min-width: 0;
+      overflow-x: clip;
+      padding-top: 16px;
+      margin-top: 12px;
+    }
+
+    .hero-card.chat-tab-active {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      margin-top: 0;
+      padding: 8px 0 0;
+      border: none;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    .chat-tab-active .top-tab-row {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      margin: 0 8px 8px;
+      background: var(--panel);
+    }
+
+    .top-tab-row {
+      position: static;
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      transform: none;
+      box-shadow: none;
+      margin-bottom: 12px;
+    }
+
+    .top-tab {
+      min-width: 0;
+      padding: 8px 6px;
+      font-size: 12px;
+    }
   }
 </style>

@@ -19,6 +19,7 @@
       on:click={() => selectPhase(tab.phase)}
     >
       <span class="phase-tab-title">{tab.title}</span>
+      <span aria-hidden="true" class="phase-tab-abbrev">{tab.phase.shortLabel}</span>
       <small class:current-label={tab.phase.progressState === 'current'}>{tab.progressLabel}</small>
     </button>
   {/each}
@@ -89,17 +90,39 @@
 
   @media (max-width: 760px) {
     .phase-tab-row {
-      gap: 8px;
+      gap: 6px;
+      padding: 12px;
     }
 
     .phase-tab {
-      min-height: 52px;
-      padding: 8px 6px;
+      min-height: 56px;
+      padding: 6px 4px;
+      justify-items: center;
+      text-align: center;
     }
 
-    .phase-tab-title,
+    .phase-tab-title {
+      display: none;
+    }
+
+    .phase-tab-abbrev {
+      display: block;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text-main);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
     .phase-tab small {
       display: none;
     }
+  }
+
+  .phase-tab-abbrev {
+    display: none;
   }
 </style>

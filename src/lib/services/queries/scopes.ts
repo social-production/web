@@ -21,6 +21,14 @@ export function redeemScopeInvite(kind: ScopeKind, slug: string, inviteValue: st
   return currentAdapter.redeemScopeInvite(kind, slug, inviteValue);
 }
 
+export function createScopeInvite(kind: 'channel' | 'community', slug: string) {
+  return currentAdapter.createScopeInvite(kind, slug);
+}
+
+export function inviteUserToCommunity(slug: string, username: string) {
+  return currentAdapter.inviteUserToCommunity(slug, username);
+}
+
 export function volunteerForBoard() {
   return currentAdapter.volunteerForBoard();
 }

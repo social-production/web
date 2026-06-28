@@ -4,6 +4,8 @@
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import type { NotificationItem } from '$lib/types/inbox';
+  import { localizedNotificationBody } from '$lib/i18n/notifications';
+  import * as m from '$lib/paraglide/messages';
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let item: NotificationItem;
@@ -16,6 +18,7 @@
   $: isSocialFollowNotice =
     item.kind === 'follow-request' || item.kind === 'follow-accepted' || item.kind === 'new-follower';
   $: showFollowRequestActions = isFollowRequest && item.isUnread;
+  $: displayBody = localizedNotificationBody(item);
 
   const dispatch = createEventDispatcher<{ read: void; activate: void }>();
 
@@ -68,8 +71,8 @@
       <p class="title-text">{item.title}</p>
     {/if}
 
-    {#if item.body}
-      <p class="body">{item.body}</p>
+    {#if displayBody}
+      <p class="body">{displayBody}</p>
     {/if}
 
     {#if showFollowRequestActions && item.actorUsername}
@@ -80,7 +83,7 @@
           type="button"
           on:click={() => onAcceptFollowRequest?.(item.actorUsername!)}
         >
-          Accept follower
+          {m.notification_accept_follower()}
         </button>
         <button
           class="decline-button"
@@ -88,14 +91,14 @@
           type="button"
           on:click={() => onRejectFollowRequest?.(item.actorUsername!)}
         >
-          Decline
+          {m.notification_decline_follower()}
         </button>
       </div>
     {/if}
 
     <div class="footer">
       {#if item.isUnread}
-        <button class="mark-read" type="button" on:click={() => dispatch('read')}>Mark read</button>
+        <button class="mark-read" type="button" on:click={() => dispatch('read')}>{m.notification_mark_read()}</button>
       {/if}
       <div class="footer-meta">
         {#if item.actorUsername}

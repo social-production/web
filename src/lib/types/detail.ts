@@ -399,6 +399,7 @@ export interface ProjectSoftwareMergeCapabilityChangeRequest {
   voteSummary: ProjectPlanVoteSummary | null;
   passesApprovalThreshold: boolean;
   canStillPass: boolean;
+  viewerCanVote: boolean;
 }
 
 export interface ProjectSoftwareRepositoryReplacementInput {
@@ -420,6 +421,7 @@ export interface ProjectSoftwareRepositoryReplacementRequest {
   voteSummary: ProjectPlanVoteSummary | null;
   passesApprovalThreshold: boolean;
   canStillPass: boolean;
+  viewerCanVote: boolean;
 }
 
 export interface ProjectSoftwareBlockedPullRequest {
@@ -465,11 +467,14 @@ export interface ProjectSoftwarePullRequest {
   passesApprovalThreshold: boolean;
   canStillPass: boolean;
   viewerCanRecordMerge: boolean;
+  viewerCanVote: boolean;
 }
 
 export interface ProjectSoftwareGovernanceData {
   repositoryUrl: string;
   licenseLabel: string;
+  isPlatformTagged: boolean;
+  mergeCapabilityManagedByPlatform: boolean;
   mergeCapabilityMembers: ProjectSoftwareMergeCapabilityMember[];
   availableMergeCapabilityCandidates: DetailMember[];
   mergeCapabilityChangeRequests: ProjectSoftwareMergeCapabilityChangeRequest[];

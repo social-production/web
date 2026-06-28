@@ -323,8 +323,13 @@
 
   @media (max-width: 760px) {
     .controls-row {
-      grid-template-columns: repeat(1, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       width: 100%;
+    }
+
+    .controls-row select {
+      height: 32px;
+      font-size: 11px;
     }
   }
 </style>

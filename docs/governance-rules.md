@@ -42,9 +42,9 @@
 Channels and communities are **discovery and tagging mechanisms only**. They are not governing bodies and hold no authority over projects or events.
 
 **Tagging rules:**
-- Every project and public event must be tagged to at least one channel
-- Communities may be additionally tagged but cannot be the only tag
-- A project tagged only to a community is not valid
+- Every project and public event must be tagged to at least one channel or community
+- Communities may be the sole tag for public events
+- A project tagged only to a community is not valid (projects still require a channel)
 - Private events are the only exception — they may exist within private communities or directly between users with no channel tag required
 - Projects and events may be tagged to any number of channels and communities
 

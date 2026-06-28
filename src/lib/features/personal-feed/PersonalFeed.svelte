@@ -32,6 +32,7 @@
   let feedItemsLoading = false;
   let feedItemsRequestId = 0;
   let lastLoadedQuery = '';
+  let lastSyncedItems = items;
 
   let activeScope: PersonalScope = defaultPreferences.scope;
   let activeFilter: PersonalFilter = defaultPreferences.filter;
@@ -198,6 +199,18 @@
     return itemTimestamp(right) - itemTimestamp(left);
   }
 
+  $: if (items !== lastSyncedItems && !feedItemsLoading) {
+    lastSyncedItems = items;
+    const query = `${activeScope}:${activeSort}`;
+    if (query === 'popular:popular') {
+      feedItems = items;
+      lastLoadedQuery = query;
+    } else {
+      lastLoadedQuery = '';
+      void loadFeedItems();
+    }
+  }
+
   $: viewerId = $page.data.bootstrap?.viewer?.id ?? '';
   $: if (viewerId !== lastHydratedViewerId) {
     lastHydratedViewerId = viewerId;
@@ -323,8 +336,13 @@
 
   @media (max-width: 760px) {
     .controls-row {
-      grid-template-columns: repeat(1, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       width: 100%;
+    }
+
+    .controls-row select {
+      height: 32px;
+      font-size: 11px;
     }
   }
 </style>

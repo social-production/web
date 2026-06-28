@@ -2,6 +2,7 @@
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import { goto, invalidateAll } from '$app/navigation';
+  import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import { tick } from 'svelte';
   import { preserveScrollDuring } from '$lib/utils/time';
   import ProductiveLifecycleContent from './lifecycle/productive/ProductiveLifecycleContent.svelte';
@@ -14,6 +15,7 @@
     isCollectiveServiceProject,
     isPersonalServiceProject
   } from '$lib/features/projects/projectMode';
+  import { resolveProjectPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
   import {
     addProjectActivity,
     addProjectDistributionPlan,
@@ -35,6 +37,7 @@
     setProjectPhaseChangeVote,
     setProjectPlanOverallVote,
     setProjectPlanValueVote,
+    setProjectPullRequestVote,
     setProjectRepositoryReplacementVote,
     setProjectServiceRequestSettingsChangeVote,
     setProjectServiceRequestStatus,
@@ -332,7 +335,12 @@
   }
 
   function phaseChangeVoteGroup(requestId: string): 'return' | 'advance' | 'close' | null {
-    return data.lifecycle.phaseChangeRequests.find((request) => request.id === requestId)?.kind ?? null;
+    const request = data.lifecycle.phaseChangeRequests.find((item) => item.id === requestId);
+    if (!request) {
+      return null;
+    }
+
+    return resolveProjectPhaseChangeVoteKind(request, data.projectMode);
   }
 
   function scrollVoteCardIntoView(voteKind: string, voteTarget: string) {
@@ -548,7 +556,7 @@
 
   async function refreshAfter(action: () => Promise<void>) {
     await action();
-    await invalidateAll();
+    await Promise.all([invalidateAll(), refreshBootstrap()]);
   }
 
   function handlePhaseChangeRequest(
@@ -564,7 +572,9 @@
   }
 
   function handleProjectValueVote(valueId: string, voteValue: ProjectImportanceVoteValue) {
-    return refreshAfter(() => setProjectValueImportance(data.slug, valueId, voteValue));
+    return preserveScrollDuring(() =>
+      refreshAfter(() => setProjectValueImportance(data.slug, valueId, voteValue))
+    );
   }
 
   function handlePhaseTwoPlanValueVote(
@@ -904,6 +914,18 @@
 
   async function recordSoftwarePullRequestMerge(requestId: string, mergeId: string) {
     await refreshAfter(() => recordProjectPullRequestMerge(data.slug, requestId, mergeId));
+  }
+
+  async function voteSoftwarePullRequest(requestId: string, vote: ProjectApprovalVote | null) {
+    await refreshAfter(() => setProjectPullRequestVote(data.slug, requestId, vote));
+  }
+
+  async function voteSoftwareMergeCapabilityChange(requestId: string, vote: ProjectApprovalVote | null) {
+    await refreshAfter(() => setProjectMergeCapabilityChangeVote(data.slug, requestId, vote));
+  }
+
+  async function voteSoftwareRepositoryReplacement(requestId: string, vote: ProjectApprovalVote | null) {
+    await refreshAfter(() => setProjectRepositoryReplacementVote(data.slug, requestId, vote));
   }
 
   function addProductionPlanPhase() {
@@ -1352,6 +1374,9 @@
         requestMergeCapabilityChange={submitSoftwareMergeCapabilityChange}
         requestRepositoryReplacement={submitSoftwareRepositoryReplacement}
         recordPullRequestMerge={recordSoftwarePullRequestMerge}
+        votePullRequest={voteSoftwarePullRequest}
+        voteMergeCapabilityChange={voteSoftwareMergeCapabilityChange}
+        voteRepositoryReplacement={voteSoftwareRepositoryReplacement}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
       />
     {:else}
@@ -1396,6 +1421,9 @@
         requestMergeCapabilityChange={submitSoftwareMergeCapabilityChange}
         requestRepositoryReplacement={submitSoftwareRepositoryReplacement}
         recordPullRequestMerge={recordSoftwarePullRequestMerge}
+        votePullRequest={voteSoftwarePullRequest}
+        voteMergeCapabilityChange={voteSoftwareMergeCapabilityChange}
+        voteRepositoryReplacement={voteSoftwareRepositoryReplacement}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
       />
     {/if}

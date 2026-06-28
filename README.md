@@ -118,6 +118,14 @@ http://192.168.1.50:5173
 
 Phones and tablets work too, as long as they are on the same network.
 
+**Refresh and reopen on mobile:** The Vite dev server can behave differently from a production build when you close and reopen a tab. If refresh feels flaky during LAN testing, verify with a production preview on the same network:
+
+```bash
+npm run build && npm run preview -- --host 0.0.0.0
+```
+
+Then share the preview URL (same port rules as above) instead of the dev server link.
+
 ### Stop LAN mode
 
 | Action | Command |

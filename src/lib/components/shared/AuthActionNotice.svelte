@@ -13,8 +13,8 @@
   .auth-action-notice {
     position: fixed;
     left: 50%;
-    bottom: 20px;
-    z-index: 60;
+    bottom: calc(20px + var(--shell-bottom-nav-offset, 0px));
+    z-index: 80;
     display: flex;
     gap: 12px;
     align-items: center;

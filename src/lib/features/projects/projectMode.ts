@@ -100,6 +100,10 @@ export function isPersonalServiceProject(mode: ProjectMode) {
   return mode === 'personal-service';
 }
 
+export function skipsDistributionPhase(mode: ProjectMode, subtype: ProjectSubtype | null | undefined) {
+  return isCollectiveServiceProject(mode) || subtype === 'software';
+}
+
 export function supportsProjectDemandSignals(mode: ProjectMode) {
   return mode !== 'personal-service';
 }

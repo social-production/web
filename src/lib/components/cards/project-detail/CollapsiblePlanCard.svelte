@@ -52,6 +52,11 @@
     return activeVote === vote ? null : vote;
   }
 
+  $: allValueVotesCast =
+    plan.valueAssessments.length === 0 ||
+    plan.valueAssessments.every((assessment) => assessment.activeVote === 'yes' || assessment.activeVote === 'no');
+  $: canCastOverallVote = canVote && allValueVotesCast;
+
   function handleEdit(event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
@@ -204,40 +209,11 @@
     </div>
 
     <div class="evaluation-divider">
-      <strong>Demand signal and value criteria</strong>
-      <span>Vote whether this plan meets the demand signal, then on each carried value.</span>
+      <strong>Plan approval and value criteria</strong>
+      <span>Vote on each carried value, then approve the plan in principle.</span>
     </div>
 
     <div class="assessment-stack">
-      <div class="assessment-row">
-        <div class="assessment-copy">
-          <strong>Demand signal</strong>
-          <span class="assessment-subtitle">Does this plan meet the current demand signal?</span>
-          <span class="assessment-votes">{plan.overallApproval.yesCount} yes · {plan.overallApproval.noCount} no</span>
-          <span class="assessment-approval">{plan.overallApproval.approvalPercent}% yes</span>
-        </div>
-        <div class="assessment-actions">
-          <button
-            class:selected={plan.overallApproval.activeVote === 'yes'}
-            class="vote-chip"
-            disabled={!canVote}
-            type="button"
-            on:click={() => overallvote(plan.id, nextVote(plan.overallApproval.activeVote, 'yes'))}
-          >
-            Yes
-          </button>
-          <button
-            class:selected={plan.overallApproval.activeVote === 'no'}
-            class="vote-chip negative"
-            disabled={!canVote}
-            type="button"
-            on:click={() => overallvote(plan.id, nextVote(plan.overallApproval.activeVote, 'no'))}
-          >
-            No
-          </button>
-        </div>
-      </div>
-
       {#each plan.valueAssessments as assessment}
         <div class="assessment-row">
           <div class="assessment-copy">
@@ -273,10 +249,41 @@
           </div>
         </div>
       {/each}
+
+      <div class="assessment-row">
+        <div class="assessment-copy">
+          <strong>Plan approval</strong>
+          <span class="assessment-subtitle">Does this plan meet the project's needs?</span>
+          {#if !allValueVotesCast && canVote}
+            <span class="assessment-subtitle">Vote on each value criterion above first.</span>
+          {/if}
+          <span class="assessment-votes">{plan.overallApproval.yesCount} yes · {plan.overallApproval.noCount} no</span>
+          <span class="assessment-approval">{plan.overallApproval.approvalPercent}% yes</span>
+        </div>
+        <div class="assessment-actions">
+          <button
+            class:selected={plan.overallApproval.activeVote === 'yes'}
+            class="vote-chip"
+            disabled={!canCastOverallVote}
+            type="button"
+            on:click={() => overallvote(plan.id, nextVote(plan.overallApproval.activeVote, 'yes'))}
+          >
+            Yes
+          </button>
+          <button
+            class:selected={plan.overallApproval.activeVote === 'no'}
+            class="vote-chip negative"
+            disabled={!canCastOverallVote}
+            type="button"
+            on:click={() => overallvote(plan.id, nextVote(plan.overallApproval.activeVote, 'no'))}
+          >
+            No
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="plan-footer-meta base-footer expanded-footer">
-      <span>Overall approval {plan.overallApproval.approvalPercent}% yes · {plan.overallApproval.yesCount} yes / {plan.overallApproval.noCount} no</span>
       <span class="author-row">
         {#if canEdit}
           <button class="vote-chip" type="button" on:click={handleEdit}>Edit plan</button>

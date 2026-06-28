@@ -2,6 +2,7 @@
   import { isCollectiveServiceProject, isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import type {
+    ProjectApprovalVote,
     ProjectPageData,
     ProjectSoftwareMergeCapabilityChangeInput,
     ProjectSoftwarePullRequestInput,
@@ -17,6 +18,16 @@
     input: ProjectSoftwareRepositoryReplacementInput
   ) => void | Promise<void> = () => {};
   export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
+  export let votePullRequest: (requestId: string, vote: ProjectApprovalVote | null) => void | Promise<void> =
+    () => {};
+  export let voteMergeCapabilityChange: (
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
+  export let voteRepositoryReplacement: (
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
 
   function completionCopy() {
     if (data.linksFrame.conversionLineage) {
@@ -43,6 +54,9 @@
       requestMergeCapabilityChange={requestMergeCapabilityChange}
       requestRepositoryReplacement={requestRepositoryReplacement}
       recordMerge={recordPullRequestMerge}
+      {votePullRequest}
+      {voteMergeCapabilityChange}
+      {voteRepositoryReplacement}
     />
   {/if}
 

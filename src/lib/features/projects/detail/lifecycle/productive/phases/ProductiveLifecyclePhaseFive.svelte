@@ -48,6 +48,18 @@
     input: ProjectSoftwareRepositoryReplacementInput
   ) => void | Promise<void> = () => {};
   export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
+  export let votePullRequest: (
+    requestId: string,
+    vote: import('$lib/types/detail').ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
+  export let voteMergeCapabilityChange: (
+    requestId: string,
+    vote: import('$lib/types/detail').ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
+  export let voteRepositoryReplacement: (
+    requestId: string,
+    vote: import('$lib/types/detail').ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
   export let toggleHistoryCompletion: (
     historyId: string,
     role: ProjectServiceHistoryCompletionRole,
@@ -155,13 +167,25 @@
 </script>
 
 <section class="phase-surface">
-  <ProjectSoftwareGovernancePanel
-    governance={data.lifecycle.phaseFive.softwareGovernance}
-    createPullRequest={createPullRequest}
-    requestMergeCapabilityChange={requestMergeCapabilityChange}
-    requestRepositoryReplacement={requestRepositoryReplacement}
-    recordMerge={recordPullRequestMerge}
-  />
+  {#if data.lifecycle.currentSubtype === 'software'}
+    {#if data.lifecycle.phaseFive.softwareGovernance}
+      <ProjectSoftwareGovernancePanel
+        governance={data.lifecycle.phaseFive.softwareGovernance}
+        createPullRequest={createPullRequest}
+        requestMergeCapabilityChange={requestMergeCapabilityChange}
+        requestRepositoryReplacement={requestRepositoryReplacement}
+        recordMerge={recordPullRequestMerge}
+        {votePullRequest}
+        {voteMergeCapabilityChange}
+        {voteRepositoryReplacement}
+      />
+    {:else}
+      <div class="software-governance-placeholder">
+        <h3>Software governance</h3>
+        <p>Pull request tools appear here once a leading software plan is approved for this project.</p>
+      </div>
+    {/if}
+  {/if}
 
   <ProjectActivityCalendarCard
     activities={calendarActivities}
@@ -399,6 +423,25 @@
     margin-bottom: 6px;
     font-size: 12px;
     font-weight: 700;
+  }
+
+  .software-governance-placeholder {
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+  }
+
+  .software-governance-placeholder h3,
+  .software-governance-placeholder p {
+    margin: 0;
+  }
+
+  .software-governance-placeholder p {
+    color: var(--text-soft);
+    line-height: 1.45;
   }
 
   @media (max-width: 760px) {

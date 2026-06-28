@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import LinkedPostBody from '$lib/components/shared/LinkedPostBody.svelte';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import { setVote } from '$lib/services/queries/feeds';
+  import { castFeedVote } from '$lib/services/queries/feeds';
   import type { PersonalPostItem, VoteDirection } from '$lib/types/feed';
   import { formatRelativeTime } from '$lib/utils/time';
 
@@ -22,8 +21,7 @@
   $: commentHref = buildCommentHref(item.href);
 
   async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await setVote(item.voteTargetId, event.detail.vote);
-    await invalidateAll();
+    await castFeedVote(item.voteTargetId, event.detail.vote);
   }
 </script>
 
@@ -33,7 +31,7 @@
       <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
       <div class="identity-copy">
         <div class="name-line">
-          <a class="name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
+          <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
           <SubjectTablet kind="post" />
         </div>
       </div>
@@ -49,7 +47,12 @@
         <CountPill label={`${item.commentCount} comments`} />
       </a>
     </div>
-    <span>{formatRelativeTime(item.createdAt)}</span>
+    <div class="footer-meta">
+      <span>
+        <a class="inline-link" href={`/profile/${item.author.username}`}>{item.author.username}</a>
+        · {formatRelativeTime(item.createdAt)}
+      </span>
+    </div>
   </div>
 </FeedSurface>
 
@@ -107,5 +110,24 @@
     text-decoration: none;
     color: inherit;
     border-radius: var(--radius-sm);
+  }
+
+  .footer-meta {
+    text-align: right;
+  }
+
+  .inline-link {
+    color: var(--text-main);
+    font-weight: 700;
+  }
+
+  @media (max-width: 760px) {
+    .header-name {
+      display: none;
+    }
+
+    .footer-meta {
+      text-align: left;
+    }
   }
 </style>

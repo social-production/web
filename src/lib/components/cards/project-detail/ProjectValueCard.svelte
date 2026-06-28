@@ -7,7 +7,14 @@
   export let options: Array<{ value: ProjectImportanceVoteValue; label: string }> = [];
   export let vote: (valueId: string, voteValue: ProjectImportanceVoteValue) => void = () => {};
 
-  $: scoreLabel = value.voteCount === 0 ? 'No rating' : `${value.importanceScore.toFixed(1).replace(/\.0$/, '')}/10`;
+  $: hasUserVote = value.activeImportanceVote > 0;
+  $: averageLabel =
+    value.voteCount === 0
+      ? 'No community rating yet'
+      : `Community average: ${value.importanceScore.toFixed(1).replace(/\.0$/, '')}/10`;
+  $: userVoteLabel = hasUserVote
+    ? `Your vote: ${value.activeImportanceVote}/10`
+    : 'Vote to rate this value';
   $: voteLabel = `${value.voteCount} vote${value.voteCount === 1 ? '' : 's'}`;
 </script>
 
@@ -15,6 +22,7 @@
   <strong class="value-title">{value.label}</strong>
 
   <DiscreteScale
+    averageValue={hasUserVote ? value.importanceScore : 0}
     disabled={!canVote}
     leftLabel="Unnecessary"
     onSelect={(selectedValue) => vote(value.id, selectedValue as ProjectImportanceVoteValue)}
@@ -24,8 +32,8 @@
   />
 
   <div class="value-footer">
-    <span>{scoreLabel} · {voteLabel}</span>
-    <span>{value.authorUsername}</span>
+    <span>{userVoteLabel}{#if hasUserVote && value.voteCount > 0} · {averageLabel}{/if}</span>
+    <span>{voteLabel} · {value.authorUsername}</span>
   </div>
 </article>
 

@@ -6,10 +6,14 @@
 
   export let options: ScaleOption[] = [];
   export let selectedValue = 0;
+  export let averageValue = 0;
   export let disabled = false;
   export let leftLabel = '';
   export let rightLabel = '';
   export let onSelect: (value: number) => void = () => {};
+
+  $: hasUserVote = selectedValue > 0;
+  $: roundedAverage = averageValue > 0 ? Math.round(averageValue) : 0;
 </script>
 
 <div class="scale">
@@ -17,8 +21,9 @@
     {#each options as option}
       <button
         aria-label={option.label}
-        class:filled={selectedValue >= option.value}
-        class:selected={selectedValue === option.value}
+        class:average={hasUserVote && roundedAverage === option.value && selectedValue !== option.value}
+        class:filled={hasUserVote && roundedAverage >= option.value && roundedAverage !== selectedValue}
+        class:selected={hasUserVote && selectedValue === option.value}
         class="notch"
         disabled={disabled}
         title={option.label}
@@ -54,10 +59,18 @@
     background: var(--panel);
   }
 
-  .notch:hover:not(:disabled),
+  .notch:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--brand) 34%, var(--panel-border));
+  }
+
   .notch.filled {
     border-color: color-mix(in srgb, var(--brand) 34%, var(--panel-border));
     background: color-mix(in srgb, var(--brand-soft) 74%, var(--panel));
+  }
+
+  .notch.average {
+    border-color: color-mix(in srgb, var(--text-soft) 55%, var(--panel-border));
+    background: color-mix(in srgb, var(--text-soft) 18%, var(--panel));
   }
 
   .notch.selected {

@@ -70,7 +70,8 @@
   $: personalInviteOnly =
     selectedChannelIds.length === 0 && selectedCommunityIds.length === 0 && invitedUsernames.length > 0;
   $: isPrivate = !!privateCommunity || personalInviteOnly;
-  $: publicEventNeedsChannelTag = !isPrivate && selectedChannelIds.length === 0;
+  $: publicEventNeedsTag =
+    !isPrivate && selectedChannelIds.length === 0 && selectedCommunityIds.length === 0;
   $: normalizedChannelQuery = channelQuery.trim().toLowerCase();
   $: normalizedCommunityQuery = communityQuery.trim().toLowerCase();
   $: normalizedPeopleQuery = peopleQuery.trim().toLowerCase();
@@ -148,7 +149,7 @@
   $: canSubmit =
     title.trim().length > 0 &&
     description.trim().length > 0 &&
-    !publicEventNeedsChannelTag;
+    !publicEventNeedsTag;
 
   async function handleCreate() {
     isSubmitting = true;

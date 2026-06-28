@@ -235,6 +235,7 @@
     margin-top: 10px;
     font-size: 24px;
     letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
   }
 
   strong {
@@ -247,6 +248,7 @@
     max-width: 78ch;
     color: var(--text-soft);
     line-height: 1.55;
+    overflow-wrap: anywhere;
   }
 
   .meta-block {

@@ -1,3 +1,4 @@
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig, loadEnv } from 'vite';
 
@@ -19,6 +20,7 @@ const backendProxyPaths = [
   '/scopes',
   '/platform',
   '/board',
+  '/feedback',
   '/healthz',
   '/readyz'
 ];
@@ -39,7 +41,13 @@ export default defineConfig(({ mode }) => {
   const lanHmrHost = env.VITE_LAN_HMR_HOST?.trim();
 
   return {
-    plugins: [sveltekit()],
+    plugins: [
+      paraglideVitePlugin({
+        project: './project.inlang',
+        outdir: './src/lib/paraglide'
+      }),
+      sveltekit()
+    ],
     server: {
       host: true,
       allowedHosts: true,

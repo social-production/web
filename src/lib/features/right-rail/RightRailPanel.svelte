@@ -13,20 +13,22 @@
 
   export let compact = false;
   export let items: RightRailActivityItem[] = [];
+  export let viewerId: string | null = null;
 
   const dispatch = createEventDispatcher<{ close: void }>();
-  const dismissedStorageKey = 'dismissed-rail-ids';
 
   let pendingSubjectId = '';
   let dismissedRailIds = new Set<string>();
 
-  function readDismissedRailIds() {
+  $: dismissedStorageKey = viewerId ? `dismissed-rail-ids-${viewerId}` : 'dismissed-rail-ids';
+
+  function readDismissedRailIds(storageKey: string) {
     if (!browser) {
       return new Set<string>();
     }
 
     try {
-      const stored = localStorage.getItem(dismissedStorageKey);
+      const stored = localStorage.getItem(storageKey);
 
       if (!stored) {
         return new Set<string>();
@@ -44,26 +46,31 @@
     }
   }
 
-  function persistDismissedRailIds() {
+  function persistDismissedRailIds(storageKey: string) {
     if (!browser) {
       return;
     }
 
-    localStorage.setItem(dismissedStorageKey, JSON.stringify([...dismissedRailIds]));
+    localStorage.setItem(storageKey, JSON.stringify([...dismissedRailIds]));
   }
 
   function dismissRailItem(itemId: string, event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
     dismissedRailIds = new Set([...dismissedRailIds, itemId]);
-    persistDismissedRailIds();
+    persistDismissedRailIds(dismissedStorageKey);
   }
 
-  if (browser) {
-    dismissedRailIds = readDismissedRailIds();
+  $: if (browser) {
+    dismissedRailIds = readDismissedRailIds(dismissedStorageKey);
   }
 
-  $: visibleItems = items.filter((item) => item.viewerIsAuthor || !dismissedRailIds.has(item.id));
+  $: visibleItems = items.filter(
+    (item) =>
+      item.kind === 'vote' ||
+      item.viewerIsAuthor ||
+      !dismissedRailIds.has(item.id)
+  );
   $: activityItems = visibleItems.filter(
     (item) =>
       item.kind !== 'request' &&
@@ -202,12 +209,6 @@
   }
 </script>
 
-{#if compact}
-  <div class="compact-rail-header">
-    <h2>Activity, Events & Requests</h2>
-    <button class="close-rail" type="button" on:click={requestClose}>Close</button>
-  </div>
-{/if}
 
 <section class="rail-panel">
   <section class="rail-section">
@@ -353,14 +354,6 @@
       {:else}
         {#each voteItems as item}
           <article class="snapshot-row activity-row vote-row">
-            <button
-              aria-label="Dismiss vote card"
-              class="dismiss-card"
-              type="button"
-              on:click={(event) => dismissRailItem(item.id, event)}
-            >
-              ×
-            </button>
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
                 <SubjectTablet

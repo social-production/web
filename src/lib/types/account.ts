@@ -51,6 +51,7 @@ export interface ProfilePageData {
 }
 
 export type AppearanceThemeMode = 'dark' | 'light';
+export type PreferredLanguage = 'en' | 'nl';
 export type DefaultFeedMode = 'public' | 'personal';
 export type FeedSortPreference = 'popular' | 'recent';
 export type FeedWindowPreference = '12h' | '1d' | '7d' | '1m' | '1y' | 'all';
@@ -85,6 +86,7 @@ export interface SettingsPageData {
   hidePersonalFeedFromNonFollowers: boolean;
   hidePublicProfileActivityFromNonFollowers: boolean;
   requireFollowApproval: boolean;
+  preferredLanguage: PreferredLanguage;
 }
 
 export interface SettingsUpdateInput {
@@ -98,4 +100,5 @@ export interface SettingsUpdateInput {
   hidePersonalFeedFromNonFollowers?: boolean;
   hidePublicProfileActivityFromNonFollowers?: boolean;
   requireFollowApproval?: boolean;
+  preferredLanguage?: PreferredLanguage;
 }

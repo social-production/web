@@ -1,5 +1,7 @@
 <script lang="ts">
+  import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import type {
+    ProjectApprovalVote,
     ProjectSoftwareGovernanceData,
     ProjectSoftwareMergeCapabilityChangeInput,
     ProjectSoftwarePullRequestInput,
@@ -17,9 +19,16 @@
     input: ProjectSoftwareRepositoryReplacementInput
   ) => void | Promise<void> = () => {};
   export let recordMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
+  export let votePullRequest: (requestId: string, vote: ProjectApprovalVote | null) => void | Promise<void> =
+    () => {};
+  export let voteMergeCapabilityChange: (requestId: string, vote: ProjectApprovalVote | null) => void | Promise<void> =
+    () => {};
+  export let voteRepositoryReplacement: (requestId: string, vote: ProjectApprovalVote | null) => void | Promise<void> =
+    () => {};
 
   let showComposer = false;
   let showRepositoryReplacementComposer = false;
+  let showMergeCapabilityComposer = false;
   let showActiveVotes = false;
   let form: ProjectSoftwarePullRequestInput = {
     title: '',
@@ -32,8 +41,11 @@
     reason: '',
     relatedPullRequestId: ''
   };
+  let mergeCapabilityForm: ProjectSoftwareMergeCapabilityChangeInput = {
+    targetUserId: '',
+    action: 'grant'
+  };
   let mergeIdsByRequestId: Record<string, string> = {};
-  $: void requestMergeCapabilityChange;
 
   function toggleRepositoryReplacementComposer() {
     showRepositoryReplacementComposer = !showRepositoryReplacementComposer;
@@ -43,6 +55,17 @@
         repositoryUrl: '',
         reason: '',
         relatedPullRequestId: governance?.replaceablePullRequests[0]?.id ?? ''
+      };
+    }
+  }
+
+  function toggleMergeCapabilityComposer() {
+    showMergeCapabilityComposer = !showMergeCapabilityComposer;
+
+    if (showMergeCapabilityComposer) {
+      mergeCapabilityForm = {
+        targetUserId: governance?.availableMergeCapabilityCandidates[0]?.id ?? '',
+        action: 'grant'
       };
     }
   }
@@ -93,6 +116,23 @@
       repositoryUrl: '',
       reason: '',
       relatedPullRequestId: ''
+    };
+  }
+
+  async function submitMergeCapabilityChange() {
+    if (!mergeCapabilityForm.targetUserId.trim()) {
+      return;
+    }
+
+    await requestMergeCapabilityChange({
+      targetUserId: mergeCapabilityForm.targetUserId.trim(),
+      action: mergeCapabilityForm.action
+    });
+
+    showMergeCapabilityComposer = false;
+    mergeCapabilityForm = {
+      targetUserId: governance?.availableMergeCapabilityCandidates[0]?.id ?? '',
+      action: 'grant'
     };
   }
 
@@ -172,6 +212,11 @@
             {showRepositoryReplacementComposer ? 'Hide repository form' : 'Propose repository replacement'}
           </button>
         {/if}
+        {#if governance.viewerCanRequestMergeCapabilityChanges}
+          <button class="secondary-button" type="button" on:click={toggleMergeCapabilityComposer}>
+            {showMergeCapabilityComposer ? 'Hide merge-capability form' : 'Request merge-capability change'}
+          </button>
+        {/if}
       </div>
     </div>
 
@@ -181,7 +226,14 @@
         <a class="repo-link" href={normalizeExternalUrl(governance.repositoryUrl)} rel="noreferrer" target="_blank">{governance.repositoryUrl}</a>
       </p>
       <p>License: {normalizedLicenseLabel(governance.licenseLabel)}</p>
-      <p>Merge Capability: {mergeCapabilitySummary}</p>
+      <p>Merge capability: {mergeCapabilitySummary}</p>
+      <p class="github-note">
+        {#if governance.mergeCapabilityManagedByPlatform}
+          Merge holders are synced from active platform moderators.
+        {:else}
+          These users must have merge access on the GitHub repo manually.
+        {/if}
+      </p>
     </div>
 
     {#if governance.repositoryHistory.length > 0}
@@ -190,8 +242,18 @@
         <div class="history-list">
           {#each governance.repositoryHistory as entry}
             <div class="history-item">
-              <strong>{entry.repositoryUrl}</strong>
-              <small>Replaced {entry.previousRepositoryUrl} after {entry.relatedPullRequestId}</small>
+              <strong>
+                <a class="repo-link" href={normalizeExternalUrl(entry.repositoryUrl)} rel="noreferrer" target="_blank">
+                  {entry.repositoryUrl}
+                </a>
+              </strong>
+              <small>
+                Replaced
+                <a class="repo-link" href={normalizeExternalUrl(entry.previousRepositoryUrl)} rel="noreferrer" target="_blank">
+                  {entry.previousRepositoryUrl}
+                </a>
+                after {entry.relatedPullRequestId}
+              </small>
               <small>{entry.reason}</small>
               <small>Recorded by {entry.replacedByUsername} {formatRelativeTime(entry.replacedAt)}</small>
             </div>
@@ -225,6 +287,33 @@
           <button class="secondary-button" type="button" on:click={toggleRepositoryReplacementComposer}>Cancel</button>
           <button class="primary-button" type="button" on:click={submitRepositoryReplacement}>
             Submit replacement vote
+          </button>
+        </div>
+      </div>
+    {/if}
+
+    {#if governance.viewerCanRequestMergeCapabilityChanges && showMergeCapabilityComposer}
+      <div class="composer-card">
+        <label>
+          <span class="field-label">Member</span>
+          <select bind:value={mergeCapabilityForm.targetUserId}>
+            <option value="" disabled>Select project member</option>
+            {#each governance.availableMergeCapabilityCandidates as candidate}
+              <option value={candidate.id}>{candidate.username}</option>
+            {/each}
+          </select>
+        </label>
+        <label>
+          <span class="field-label">Action</span>
+          <select bind:value={mergeCapabilityForm.action}>
+            <option value="grant">Grant merge capability</option>
+            <option value="revoke">Revoke merge capability</option>
+          </select>
+        </label>
+        <div class="composer-actions">
+          <button class="secondary-button" type="button" on:click={toggleMergeCapabilityComposer}>Cancel</button>
+          <button class="primary-button" type="button" on:click={submitMergeCapabilityChange}>
+            Submit merge-capability vote
           </button>
         </div>
       </div>
@@ -313,7 +402,14 @@
               <div class="vote-card">
                 <strong>{formatProjectVoteSummary(request.voteSummary)}</strong>
                 <small>{formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}</small>
-                <small>Vote from the History tab.</small>
+                <VoteCardFooter
+                  authorUsername={request.authorUsername}
+                  createdAt={request.createdAt}
+                  activeVote={request.voteSummary.activeVote}
+                  canVote={request.viewerCanVote && request.canStillPass && !request.passesApprovalThreshold}
+                  showMeta={false}
+                  onVote={(vote) => voteMergeCapabilityChange(request.id, vote)}
+                />
               </div>
             {/if}
           </article>
@@ -340,6 +436,12 @@
                 </a>
               </div>
               <div class="detail-card">
+                <span>Proposed repository</span>
+                <a href={normalizeExternalUrl(request.repositoryUrl)} rel="noreferrer" target="_blank">
+                  {request.repositoryUrl}
+                </a>
+              </div>
+              <div class="detail-card">
                 <span>Blocked pull request</span>
                 <strong>{request.relatedPullRequestId}</strong>
               </div>
@@ -355,7 +457,14 @@
               <div class="vote-card">
                 <strong>{formatProjectVoteSummary(request.voteSummary)}</strong>
                 <small>{formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}</small>
-                <small>Vote from the History tab.</small>
+                <VoteCardFooter
+                  authorUsername={request.authorUsername}
+                  createdAt={request.createdAt}
+                  activeVote={request.voteSummary.activeVote}
+                  canVote={request.viewerCanVote && request.canStillPass && !request.passesApprovalThreshold}
+                  showMeta={false}
+                  onVote={(vote) => voteRepositoryReplacement(request.id, vote)}
+                />
               </div>
             {/if}
           </article>
@@ -396,17 +505,14 @@
                 <div class="vote-card">
                   <strong>{formatProjectVoteSummary(request.voteSummary)}</strong>
                   <small>{formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}</small>
-                  <small>
-                    {#if request.stage === 'approval'}
-                      Vote from the History tab.
-                    {:else if request.stage === 'confirmation'}
-                      Merge recorded. Members now confirm it from the History tab.
-                    {:else if request.stage === 'awaiting-merge'}
-                      Approved. Waiting for merge ID submission.
-                    {:else}
-                      Vote record.
-                    {/if}
-                  </small>
+                  <VoteCardFooter
+                    authorUsername={request.authorUsername}
+                    createdAt={request.createdAt}
+                    activeVote={request.voteSummary.activeVote}
+                    canVote={request.viewerCanVote && request.canStillPass && !request.passesApprovalThreshold}
+                    showMeta={false}
+                    onVote={(vote) => votePullRequest(request.id, vote)}
+                  />
                 </div>
               </div>
             {/if}
@@ -490,6 +596,12 @@
 
   .metadata-lines p {
     margin: 0;
+  }
+
+  .github-note {
+    color: var(--text-soft);
+    font-size: 12px;
+    line-height: 1.4;
   }
 
   .history-list,

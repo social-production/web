@@ -1,3 +1,5 @@
+import { invalidateAll } from '$app/navigation';
+import { refreshBootstrap } from '$lib/services/queries/bootstrap';
 import { get } from 'svelte/store';
 import { page } from '$app/stores';
 import { currentAdapter } from '$lib/services/adapters';
@@ -24,4 +26,14 @@ export function setVote(targetId: string, vote: VoteDirection) {
   }
 
   return currentAdapter.setVote(targetId, vote);
+}
+
+export async function castFeedVote(targetId: string, vote: VoteDirection): Promise<void> {
+  try {
+    await setVote(targetId, vote);
+    await Promise.all([invalidateAll(), refreshBootstrap()]);
+  } catch (err) {
+    console.error('Feed vote failed', err);
+    throw err;
+  }
 }

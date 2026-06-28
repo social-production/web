@@ -81,6 +81,12 @@ export interface AppAdapter {
   acceptFollowRequest(username: string): Promise<void>;
   rejectFollowRequest(username: string): Promise<void>;
   getFollowRequests(): Promise<ViewerSummary[]>;
+  submitFeedback(input: {
+    category: 'bug' | 'idea';
+    title: string;
+    description: string;
+    pageUrl?: string;
+  }): Promise<{ issueNumber: number; issueUrl: string }>;
   getNotifications(): Promise<NotificationsPageData | null>;
   getMessages(): Promise<MessagesPageData | null>;
   getConversationMessages(
@@ -261,7 +267,19 @@ export interface AppAdapter {
     reason: string
   ): Promise<void>;
   toggleScopeMembership(kind: ScopeKind, slug: string): Promise<void>;
-  redeemScopeInvite(kind: ScopeKind, slug: string, inviteValue: string): Promise<boolean>;
+  redeemScopeInvite(
+    kind: ScopeKind,
+    slug: string,
+    inviteValue: string
+  ): Promise<import('$lib/api/drivers/fastapi/domains/scopes').ScopeInviteRedeemResult>;
+  createScopeInvite(
+    kind: 'channel' | 'community',
+    slug: string
+  ): Promise<import('$lib/api/drivers/fastapi/domains/scopes').ScopeInviteCreateResult>;
+  inviteUserToCommunity(
+    slug: string,
+    username: string
+  ): Promise<import('$lib/api/drivers/fastapi/domains/scopes').CommunityDirectInviteResult>;
   volunteerForBoard(): Promise<boolean>;
   removeVolunteer(): Promise<boolean>;
   castModeratorVote(targetUserId: string, vote: string): Promise<boolean>;

@@ -1,3 +1,4 @@
+import { error as kitError } from '@sveltejs/kit';
 import { getStoredToken } from './auth';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -82,4 +83,33 @@ export function extractErrorMessage(err: unknown, fallback: string): string {
     return first.msg ?? fallback;
   }
   return fallback;
+}
+
+export function isApiClientError(err: unknown): err is { status: number; body: unknown } {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'status' in err &&
+    typeof (err as { status: unknown }).status === 'number'
+  );
+}
+
+export function isNetworkLoadError(err: unknown): boolean {
+  if (isApiClientError(err)) {
+    return err.status >= 500;
+  }
+
+  if (err instanceof TypeError) {
+    return /fetch|network|failed/i.test(String(err));
+  }
+
+  return false;
+}
+
+export function toLoadError(err: unknown, fallbackMessage: string): never {
+  if (isApiClientError(err)) {
+    throw kitError(err.status, extractErrorMessage(err, fallbackMessage));
+  }
+
+  throw kitError(503, fallbackMessage);
 }

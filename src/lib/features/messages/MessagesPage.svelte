@@ -238,9 +238,32 @@
     contactSearchKey = lookupKey;
 
     if (!normalized) {
-      contactSuggestions = showAddMembers
-        ? (activeConversation?.participants.filter((participant) => participant.id !== data.viewer.id) ?? [])
-        : [];
+      if (showAddMembers) {
+        contactSuggestions =
+          activeConversation?.participants.filter((participant) => participant.id !== data.viewer.id) ?? [];
+        return;
+      }
+
+      if (showComposer) {
+        const requestId = ++contactSearchRequestId;
+
+        try {
+          const results = await getMessageContacts('', 8);
+
+          if (requestId !== contactSearchRequestId) {
+            return;
+          }
+
+          contactSuggestions = results;
+        } catch {
+          if (requestId === contactSearchRequestId) {
+            contactSuggestions = [];
+          }
+        }
+      } else {
+        contactSuggestions = [];
+      }
+
       return;
     }
 
@@ -599,7 +622,14 @@
       activeListTab = 'messages';
       showComposer = true;
       composerError = '';
+      contactSearchKey = '';
+      void updateContactSuggestions('');
       return;
+    }
+
+    if (!showComposer) {
+      contactSearchKey = '';
+      void updateContactSuggestions('');
     }
 
     toggleComposer();
@@ -1417,7 +1447,7 @@
     border: none;
     border-bottom: 1px solid var(--panel-border);
     border-radius: 0;
-    background: var(--panel);
+    background: transparent;
     color: var(--text-main);
     text-align: left;
   }
@@ -1430,8 +1460,9 @@
   }
 
   .conversation-row.unread {
-    background: var(--panel-strong);
-    border-color: var(--panel-border);
+    background: transparent;
+    border-left: 3px solid var(--brand);
+    padding-left: 9px;
   }
 
   .conversation-row.unread .conversation-topline strong {
@@ -1449,7 +1480,7 @@
   }
 
   .conversation-row.unread:hover {
-    background: color-mix(in srgb, var(--brand-soft) 35%, var(--panel-strong));
+    background: color-mix(in srgb, var(--brand-soft) 18%, transparent);
   }
 
   .conversation-topline {
@@ -1575,6 +1606,40 @@
 
     .inline-field {
       display: grid;
+    }
+  }
+
+  @media (max-width: 1080px) {
+    .page.conversation-page {
+      margin: 0 -12px;
+      width: calc(100% + 24px);
+    }
+
+    .page.conversation-page .messages-shell {
+      border-left: none;
+      border-right: none;
+    }
+
+    .page.conversation-page .messages-shell.conversation-view {
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: var(--topbar-height);
+      bottom: var(--shell-bottom-nav-offset);
+      width: 100%;
+      height: auto;
+      min-height: 0;
+      z-index: 15;
+    }
+
+    .messages-shell.list-view.composer-open .new-conversation-card {
+      position: fixed;
+      inset: var(--topbar-height) 0 var(--shell-bottom-nav-offset) 0;
+      z-index: 20;
+      overflow-y: auto;
+      border: none;
+      padding: 12px 12px calc(12px + var(--shell-safe-bottom));
+      background: var(--panel);
     }
   }
 

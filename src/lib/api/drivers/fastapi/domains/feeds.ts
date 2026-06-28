@@ -76,7 +76,7 @@ function mapHelpRequestRoles(roles: BackendHelpRequestRole[] | undefined): HelpR
   }));
 }
 
-function registerFeedEntity(item: BackendFeedItem): void {
+export function registerFeedEntity(item: BackendFeedItem): void {
   if (
     item.entity_type === 'project' ||
     item.entity_type === 'thread' ||

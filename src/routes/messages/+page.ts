@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { getMessages } from '$lib/services/queries/inbox';
 import type { PageLoad } from './$types';
 
@@ -8,7 +8,7 @@ export const load = (async ({ url, depends }) => {
   const messages = await getMessages();
 
   if (!messages) {
-    throw error(404, 'Messages not available');
+    throw redirect(307, '/onboarding');
   }
 
   return {

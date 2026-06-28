@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
 
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
   --page-background: #181a1b;
   --panel: #1e1f22;
   --panel-strong: #2d3035;
@@ -55,8 +55,23 @@
   --radius-lg: 8px;
   --radius-md: 6px;
   --radius-sm: 4px;
+  --shell-safe-top: env(safe-area-inset-top, 0px);
+  --shell-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --shell-safe-left: env(safe-area-inset-left, 0px);
+  --shell-safe-right: env(safe-area-inset-right, 0px);
+  --shell-touch-min: 44px;
+  --shell-bottom-nav-base: 56px;
+  --shell-bottom-nav-height: calc(var(--shell-bottom-nav-base) + var(--shell-safe-bottom));
+  --shell-bottom-nav-offset: 0px;
+  --shell-scrim: color-mix(in srgb, var(--text-main) 42%, transparent);
 }
 
+html[data-theme='dark'],
+body[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+html[data-theme='light'],
 body[data-theme='light'] {
   color-scheme: light;
   --page-background: #f4f1e8;
@@ -114,14 +129,25 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  overflow-x: clip;
   background: var(--page-background);
   color: var(--text-main);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 14px;
   line-height: 1.45;
+  -webkit-tap-highlight-color: color-mix(in srgb, var(--brand) 24%, transparent);
+}
+
+.shell-compact {
+  --shell-bottom-nav-offset: var(--shell-bottom-nav-height);
 }
 
 a {
@@ -171,6 +197,14 @@ select:focus {
 
 textarea {
   resize: vertical;
+}
+
+@media (max-width: 1080px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 button {

@@ -1,9 +1,11 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { invalidateAll } from '$app/navigation';
+  import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import { page } from '$app/stores';
   import { tick } from 'svelte';
   import { preserveScrollDuring, scrollComposerIntoView } from '$lib/utils/time';
+  import { resolveEventPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
   import EventLifecycleMechanicsCard from './components/EventLifecycleMechanicsCard.svelte';
   import EventLifecyclePhaseTabs from './components/EventLifecyclePhaseTabs.svelte';
   import EventPhaseChangeSection from './components/EventPhaseChangeSection.svelte';
@@ -142,7 +144,12 @@
   }
 
   function phaseChangeVoteGroup(requestId: string): 'return' | 'advance' | 'close' | null {
-    return data.lifecycle.phaseChangeRequests.find((request) => request.id === requestId)?.kind ?? null;
+    const request = data.lifecycle.phaseChangeRequests.find((item) => item.id === requestId);
+    if (!request) {
+      return null;
+    }
+
+    return resolveEventPhaseChangeVoteKind(request);
   }
 
   function scrollVoteCardIntoView(voteKind: string, voteTarget: string) {
@@ -372,8 +379,10 @@
   }
 
   async function voteOnValue(valueId: string, vote: ProjectImportanceVoteValue) {
-    await setEventValueImportance(data.slug, valueId, vote);
-    await invalidateAll();
+    await preserveScrollDuring(async () => {
+      await setEventValueImportance(data.slug, valueId, vote);
+      await invalidateAll();
+    });
   }
 
   function addPlanPhase() {
@@ -519,7 +528,7 @@
     try {
       await requestEventPhaseChange(data.slug, targetPhaseId, reason);
       phaseChangeReason = '';
-      await invalidateAll();
+      await Promise.all([invalidateAll(), refreshBootstrap()]);
     } catch {
       // Phase change failed — demand threshold may not be met
     }
@@ -527,7 +536,7 @@
 
   async function voteOnPhaseChange(requestId: string, vote: ProjectApprovalVote | null) {
     await setEventPhaseChangeVote(data.slug, requestId, vote);
-    await invalidateAll();
+    await Promise.all([invalidateAll(), refreshBootstrap()]);
   }
 </script>
 

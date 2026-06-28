@@ -12,7 +12,7 @@
     {:else if personalInviteOnly}
       Private personal events stay invite-only when they are only tied to directly added people.
     {:else}
-      Public events need at least one channel tag. Public communities can be added too, but they cannot be the only tag.
+      Public events need at least one channel or community tag.
     {/if}
   </p>
 </CreatePanel>

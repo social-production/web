@@ -6,6 +6,7 @@
   import { eventPlanScheduledDayIsos } from '../eventLifecycleShared';
   import type { EventActivityForm } from '../eventLifecycleShared';
   import { eventScheduleDayBounds } from '$lib/utils/eventSchedule';
+  import { formatEventPlanSchedule } from '$lib/utils/time';
 
   export let data: EventPageData;
   export let selectedPlan: EventPlan | null = null;
@@ -41,6 +42,7 @@
   }
 
   $: plannedDayIsos = eventPlanScheduledDayIsos(selectedPlan);
+  $: planTimingLabel = selectedPlan ? formatEventPlanSchedule(selectedPlan.schedule) : '';
   $: composerDayIso = selectedDayIso || plannedDayIsos[0] || selectedPlan?.schedule.startDate || '';
   $: activityWindowBounds = eventScheduleDayBounds(selectedPlan?.schedule ?? null, composerDayIso);
 </script>
@@ -51,8 +53,10 @@
       <strong>Accepted event plan</strong>
       <p>{selectedPlan.description}</p>
       <p class="plan-timing-note">
-        Plan timing: {selectedPlan.schedule.label}. Click a marked day to schedule activity from this plan.
+        <strong>Plan timing:</strong>
+        {planTimingLabel || selectedPlan.schedule.label}
       </p>
+      <p class="plan-timing-note subtle">Click a marked day to schedule activity from this plan.</p>
       <p class="plan-timing-note">Plan location: {selectedPlan.locationLabel}</p>
     </div>
   {/if}
@@ -206,6 +210,10 @@
   .plan-timing-note {
     font-size: 12px;
     line-height: 1.5;
+  }
+
+  .plan-timing-note.subtle {
+    color: var(--text-soft);
   }
 
   input,

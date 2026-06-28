@@ -8,8 +8,17 @@
   export let data: LayoutData;
 
   $: if (browser) {
-    document.body.dataset.theme = data.settings?.appearanceThemeMode ?? 'light';
+    const theme = data.settings?.appearanceThemeMode ?? 'light';
+    document.documentElement.dataset.theme = theme;
+    document.body.dataset.theme = theme;
     document.body.dataset.shellMode = detectShellMode();
+    document.documentElement.lang = data.locale;
+
+    try {
+      localStorage.setItem('sp_theme', theme);
+    } catch {
+      // ignore storage failures
+    }
   }
 </script>
 

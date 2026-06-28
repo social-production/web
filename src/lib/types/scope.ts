@@ -2,7 +2,7 @@ import type { PublicFeedItem, VoteDirection } from '$lib/types/feed';
 
 export type ScopeKind = 'channel' | 'community' | 'platform';
 
-export type ConfidenceStandingState = 'active' | 'grace' | 'below-threshold';
+export type ConfidenceStandingState = 'active' | 'grace' | 'below-threshold' | 'qualifying';
 
 export interface ScopeMemberSummary {
   id: string;

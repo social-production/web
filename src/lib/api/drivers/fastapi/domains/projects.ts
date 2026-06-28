@@ -450,11 +450,14 @@ export async function fetchRequestProjectPhaseChange(
   projectSlug: string,
   targetPhaseId: ProjectLifecyclePhaseId,
   reason: string,
-  _options?: ProjectPhaseChangeRequestOptions
+  options?: ProjectPhaseChangeRequestOptions
 ): Promise<void> {
   await apiClient.post(`/projects/${projectSlug}/phase-requests`, {
     target_phase_id: targetPhaseId,
     reason,
+    close_outcome: options?.closeOutcome ?? null,
+    conversion_target_mode: options?.conversionTarget?.projectMode ?? null,
+    conversion_target_subtype: options?.conversionTarget?.projectSubtype ?? null
   });
 }
 

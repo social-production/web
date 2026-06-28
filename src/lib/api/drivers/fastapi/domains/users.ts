@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import { mapPersonalItem } from './feeds';
+import { mapPersonalItem, registerFeedEntity } from './feeds';
 import type { ProfilePageData, SettingsPageData, SettingsUpdateInput } from '$lib/types/account';
 import type { ViewerSummary } from '$lib/types/bootstrap';
 
@@ -26,6 +26,7 @@ interface BackendSettings {
   hide_personal_feed_from_non_followers: boolean;
   hide_public_profile_activity_from_non_followers: boolean;
   require_follow_approval: boolean;
+  preferred_language: string;
 }
 
 interface BackendFollowItem extends BackendUser {
@@ -84,12 +85,21 @@ function mapSettings(user: BackendUser, s: BackendSettings): SettingsPageData {
     hidePersonalFeedFromNonFollowers: s.hide_personal_feed_from_non_followers,
     hidePublicProfileActivityFromNonFollowers: s.hide_public_profile_activity_from_non_followers,
     requireFollowApproval: s.require_follow_approval,
+    preferredLanguage: (s.preferred_language === 'nl' ? 'nl' : 'en') as SettingsPageData['preferredLanguage'],
   };
 }
 
-export async function fetchSettings(): Promise<SettingsPageData> {
-  const res = await apiClient.get<{ user: BackendUser; settings: BackendSettings }>('/users/me');
-  return mapSettings(res.user, res.settings);
+export async function fetchSettings(): Promise<SettingsPageData | null> {
+  try {
+    const res = await apiClient.get<{ user: BackendUser; settings: BackendSettings }>('/users/me');
+    return mapSettings(res.user, res.settings);
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) {
+      return null;
+    }
+
+    throw err;
+  }
 }
 
 export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<void> {
@@ -118,6 +128,8 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
     body.hide_public_profile_activity_from_non_followers = input.hidePublicProfileActivityFromNonFollowers;
   if (input.requireFollowApproval !== undefined)
     body.require_follow_approval = input.requireFollowApproval;
+  if (input.preferredLanguage !== undefined)
+    body.preferred_language = input.preferredLanguage;
   await apiClient.patch('/users/me/settings', body);
 }
 
@@ -146,7 +158,11 @@ export async function fetchProfile(username: string): Promise<ProfilePageData | 
       viewerIsFollowing: profileRes.viewer_is_following,
       viewerFollowStatus: (profileRes.viewer_follow_status as ProfilePageData['viewerFollowStatus']) ?? null,
       isOwnProfile: profileRes.is_own_profile,
-      feed: feedRes.items.flatMap(item => { const m = mapPersonalItem(item); return m ? [m] : []; }),
+      feed: feedRes.items.flatMap((item) => {
+        registerFeedEntity(item);
+        const m = mapPersonalItem(item);
+        return m ? [m] : [];
+      }),
     };
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;

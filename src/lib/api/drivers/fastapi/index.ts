@@ -32,6 +32,8 @@ import {
   fetchPlatform,
   fetchToggleScopeMembership,
   fetchRedeemScopeInvite,
+  fetchCreateScopeInvite,
+  fetchInviteUserToCommunity,
   fetchCastModeratorVote,
   fetchRemoveVolunteer,
   fetchVolunteerForBoard,
@@ -41,6 +43,7 @@ import {
 } from './domains/scopes';
 import { fetchSearch } from './domains/search';
 import { fetchNotifications, fetchMarkNotificationRead, fetchMarkAllNotificationsRead } from './domains/notifications';
+import { fetchSubmitFeedback } from './domains/feedback';
 import {
   fetchMessages,
   fetchConversationMessages,
@@ -195,6 +198,12 @@ export function createFastApiDriver(): AppAdapter {
 
     async redeemScopeInvite(kind, slug, inviteValue) {
       return fetchRedeemScopeInvite(kind, slug, inviteValue);
+    },
+    async createScopeInvite(kind, slug) {
+      return fetchCreateScopeInvite(kind, slug);
+    },
+    async inviteUserToCommunity(slug, username) {
+      return fetchInviteUserToCommunity(slug, username);
     },
     async volunteerForBoard() {
       return fetchVolunteerForBoard();
@@ -386,6 +395,10 @@ export function createFastApiDriver(): AppAdapter {
 
     async getFollowRequests() {
       return fetchFollowRequests();
+    },
+
+    async submitFeedback(input) {
+      return fetchSubmitFeedback(input);
     },
 
     async signIn(input) {

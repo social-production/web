@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { browser } from '$app/environment';
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import PublicFeedCard from '$lib/components/cards/public-feed/PublicFeedCard.svelte';
+  import CommunityInvitePanel from '$lib/features/communities/CommunityInvitePanel.svelte';
   import PlatformBoardPanel from '$lib/features/platform/board/PlatformBoardPanel.svelte';
   import { setVote } from '$lib/services/queries/feeds';
   import { redeemScopeInvite, toggleScopeMembership, castModeratorVote } from '$lib/services/queries/scopes';
+  import { parseInviteToken } from '$lib/utils/invite-token';
   import type { PublicFeedItem, VoteDirection } from '$lib/types/feed';
   import type { ScopeMemberSummary, ScopePageData } from '$lib/types/scope';
 
@@ -26,6 +27,7 @@
   let inviteFeedback = '';
   let inviteFeedbackTone: 'soft' | 'warning' = 'soft';
   let lastInviteParam = '';
+  let autoRedeemAttempted = false;
 
   $: showRolePanel = pageData.kind === 'platform';
   $: if (!showRolePanel && showBoardPanel) {
@@ -37,10 +39,6 @@
     .filter((item) => matchesWindow(item, activeWindow, referenceTime))
     .slice()
     .sort((left, right) => compareItems(left, right, activeSort));
-  $: shareInviteLink =
-    pageData.membership.inviteLink && browser && pageData.membership.inviteLink.startsWith('/')
-      ? `${window.location.origin}${pageData.membership.inviteLink}`
-      : pageData.membership.inviteLink ?? '';
   $: inviteButtonActive =
     pageData.membership.joinPolicy === 'invite_only'
       ? showInvitePanel
@@ -53,6 +51,15 @@
       inviteFeedback = '';
       inviteFeedbackTone = 'soft';
       showInvitePanel = true;
+
+      if (!autoRedeemAttempted) {
+        autoRedeemAttempted = true;
+        void handleInviteRedeem();
+      }
+    }
+
+    if (!inviteParam) {
+      autoRedeemAttempted = false;
     }
 
     lastInviteParam = inviteParam;
@@ -112,20 +119,24 @@
   }
 
   function meetsConfidenceThreshold(member: ScopeMemberSummary) {
-    return member.confidenceStandingState === 'active' || member.confidenceStandingState === 'grace';
+    return (
+      member.confidenceStandingState === 'active' ||
+      member.confidenceStandingState === 'grace' ||
+      member.confidenceStandingState === 'qualifying'
+    );
   }
 
   function boardStatusLabel(member: ScopeMemberSummary) {
-    if (!member.confidenceStandingState) {
-      return 'Moderator';
-    }
-
     if (member.confidenceStandingState === 'active') {
       return 'Standing confirmed';
     }
 
     if (member.confidenceStandingState === 'grace') {
       return 'Grace period';
+    }
+
+    if (member.confidenceStandingState === 'qualifying') {
+      return 'Qualifying';
     }
 
     return 'Needs more standing votes';
@@ -168,7 +179,8 @@
   }
 
   async function handleInviteRedeem() {
-    if (!inviteDraft.trim()) {
+    const token = parseInviteToken(inviteDraft);
+    if (!token) {
       return;
     }
 
@@ -177,10 +189,16 @@
     inviteFeedbackTone = 'soft';
 
     try {
-      const joined = await redeemScopeInvite(pageData.kind, pageData.slug, inviteDraft);
+      const result = await redeemScopeInvite(pageData.kind, pageData.slug, token);
 
-      if (!joined) {
-        inviteFeedback = 'That invite link does not unlock this closed community.';
+      if (!result.ok) {
+        inviteFeedback = 'That invite link or code is invalid or expired.';
+        inviteFeedbackTone = 'warning';
+        return;
+      }
+
+      if (pageData.kind === 'community' && result.slug && result.slug !== pageData.slug) {
+        inviteFeedback = 'That invite is for a different community.';
         inviteFeedbackTone = 'warning';
         return;
       }
@@ -191,22 +209,6 @@
     } finally {
       invitePending = false;
     }
-  }
-
-  async function copyInviteLink() {
-    if (!shareInviteLink) {
-      return;
-    }
-
-    if (!browser || !navigator.clipboard) {
-      inviteFeedback = 'Copy the invite link manually from the field below.';
-      inviteFeedbackTone = 'soft';
-      return;
-    }
-
-    await navigator.clipboard.writeText(shareInviteLink);
-    inviteFeedback = 'Invite link copied.';
-    inviteFeedbackTone = 'soft';
   }
 </script>
 
@@ -277,45 +279,15 @@
     {/if}
 
     {#if pageData.membership.joinPolicy === 'invite_only' && showInvitePanel}
-      <section class="invite-card">
-        {#if pageData.membership.viewerIsMember && shareInviteLink}
-          <div class="invite-copy">
-            <h2>Invite link</h2>
-            <p>Share this link when you want to bring someone into this closed community.</p>
-          </div>
-
-          <div class="invite-actions">
-            <input aria-label={`${pageData.title} invite link`} readonly type="text" value={shareInviteLink} />
-            <button class="tab-chip" type="button" on:click={copyInviteLink}>Copy link</button>
-          </div>
-        {:else}
-          <div class="invite-copy">
-            <h2>Use invite link</h2>
-            <p>Paste a closed-community invite link or invite code to join and unlock the feed.</p>
-          </div>
-
-          <div class="invite-actions">
-            <input
-              aria-label={`${pageData.title} invite link input`}
-              bind:value={inviteDraft}
-              placeholder="Paste invite link or invite code"
-              type="text"
-            />
-            <button
-              class="tab-chip"
-              disabled={!inviteDraft.trim() || invitePending}
-              type="button"
-              on:click={handleInviteRedeem}
-            >
-              Join with invite
-            </button>
-          </div>
-        {/if}
-
-        {#if inviteFeedback}
-          <p class:warning={inviteFeedbackTone === 'warning'} class="invite-feedback">{inviteFeedback}</p>
-        {/if}
-      </section>
+      <CommunityInvitePanel
+        active={showInvitePanel}
+        bind:inviteDraft
+        bind:inviteFeedback
+        bind:inviteFeedbackTone
+        bind:invitePending
+        {pageData}
+        onRedeem={handleInviteRedeem}
+      />
     {/if}
   </section>
 
@@ -393,8 +365,7 @@
 
   .header-card,
   .toolbar-card,
-  .info-card,
-  .invite-card {
+  .info-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -461,25 +432,17 @@
     padding: 0 12px;
   }
 
-  .header-copy,
-  .invite-copy {
+  .header-copy {
     display: grid;
     gap: 6px;
   }
 
-  .header-copy h1,
-  .invite-copy h2 {
+  .header-copy h1 {
     font-size: 22px;
     letter-spacing: -0.02em;
   }
 
-  .invite-copy h2 {
-    font-size: 16px;
-  }
-
   .header-copy p,
-  .invite-copy p,
-  .invite-feedback,
   .member-count,
   .note,
   .info-card p {
@@ -504,26 +467,9 @@
     background: var(--brand-soft);
   }
 
-  .invite-actions {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-  }
-
-  .invite-actions input {
-    flex: 1 1 280px;
-  }
-
-  .warning {
-    color: var(--accent-warm-strong);
-  }
-
   @media (max-width: 760px) {
     .toolbar-card,
-    .header-topline,
-    .invite-actions {
+    .header-topline {
       align-items: stretch;
       flex-direction: column;
     }
@@ -538,8 +484,13 @@
     }
 
     .controls-row {
-      grid-template-columns: repeat(1, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       width: 100%;
+    }
+
+    .controls-row select {
+      height: 32px;
+      font-size: 11px;
     }
   }
 </style>

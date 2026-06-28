@@ -6,6 +6,7 @@
     formatProjectVoteRequirement,
     formatProjectVoteSummary
   } from '$lib/utils/projectVotes';
+  import { resolveEventPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
   import type {
     EventLifecyclePhaseChangeRequest,
     EventLifecyclePhaseId,
@@ -47,7 +48,7 @@
   $: returnRequests = data.lifecycle.phaseChangeRequests.filter((request) => request.kind === 'return');
   $: nextVoteKind = (data.lifecycle.nextPhaseId === 'closed' ? 'close' : 'advance') as 'advance' | 'close';
   $: nextActionRequests = data.lifecycle.phaseChangeRequests.filter(
-    (request) => request.kind === nextVoteKind
+    (request) => resolveEventPhaseChangeVoteKind(request) === nextVoteKind
   );
   $: showReturnActions = data.lifecycle.revertablePhaseIds.length > 0 || returnRequests.length > 0;
   $: showNextActions = !!data.lifecycle.nextPhaseId || nextActionRequests.length > 0;
@@ -556,7 +557,7 @@
 
   @media (max-width: 760px) {
     .change-action-row {
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: 1fr 1fr;
     }
   }
 </style>

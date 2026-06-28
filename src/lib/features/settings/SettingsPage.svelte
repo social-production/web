@@ -12,11 +12,14 @@
   } from '$lib/services/queries/account';
   import type {
     AppearanceThemeMode,
-    DefaultFeedMode,
+    PreferredLanguage,
     SettingsPageData,
     SettingsUpdateInput
   } from '$lib/types/account';
   import type { ViewerSummary } from '$lib/types/bootstrap';
+  import { applyLocale } from '$lib/i18n/locale';
+  import { I18N_ENABLED, LANGUAGE_OPTIONS } from '$lib/i18n/config';
+  import * as m from '$lib/paraglide/messages';
 
   export let data: SettingsPageData;
 
@@ -27,14 +30,18 @@
   let pendingFollowRequests: ViewerSummary[] = [];
   let followRequestPending = '';
   let profileImageError = '';
+  let profilePreviewUrl = '';
 
   $: if (pendingKey !== 'bio' && data.profileBio !== lastLoadedBio) {
     bioDraft = data.profileBio;
     lastLoadedBio = data.profileBio;
   }
 
+  $: displayedProfileImageUrl = profilePreviewUrl || data.profileImageUrl;
+
   $: if (pendingKey !== 'profile-image' && data.profileImageUrl !== lastLoadedProfileImage) {
     lastLoadedProfileImage = data.profileImageUrl;
+    profilePreviewUrl = '';
   }
 
   async function applySettings(key: string, patch: SettingsUpdateInput) {
@@ -49,6 +56,7 @@
       await invalidateAll();
     } catch (err) {
       if (key === 'profile-image') {
+        profilePreviewUrl = '';
         profileImageError = extractErrorMessage(err, 'Could not update profile photo.');
       }
 
@@ -63,11 +71,21 @@
   }
 
   function toggleTheme() {
-    return setTheme(data.appearanceThemeMode === 'dark' ? 'light' : 'dark');
+    return setTheme(data.appearanceThemeMode === 'dark' ? 'light' : 'dark').catch(() => undefined);
   }
 
-  function setDefaultFeed(feed: DefaultFeedMode) {
-    return applySettings('default-feed', { defaultFeed: feed });
+  function setLanguage(language: PreferredLanguage) {
+    if (!I18N_ENABLED) {
+      return;
+    }
+
+    applyLocale(language);
+    return applySettings('language', { preferredLanguage: language });
+  }
+
+  function handleLanguageChange(event: Event) {
+    const value = (event.currentTarget as HTMLSelectElement).value as PreferredLanguage;
+    void setLanguage(value);
   }
 
   function saveBio() {
@@ -92,6 +110,12 @@
 
     profileImageError = '';
 
+    if (/heic|heif/i.test(file.type) || /\.heic$|\.heif$/i.test(file.name)) {
+      profileImageError = 'Use JPEG, PNG, or WebP photos. iPhone HEIC files are not supported yet.';
+      input.value = '';
+      return;
+    }
+
     if (file.size > 5 * 1024 * 1024) {
       profileImageError = 'Choose an image under 5 MB.';
       input.value = '';
@@ -100,9 +124,17 @@
 
     try {
       const dataUrl = await compressImageToDataUrl(file);
+
+      if (dataUrl.length > 500_000) {
+        profileImageError = 'Image is still too large after compression. Try a smaller photo.';
+        return;
+      }
+
+      profilePreviewUrl = dataUrl;
       await applySettings('profile-image', { profileImageUrl: dataUrl });
-    } catch {
-      // profileImageError set in applySettings when applicable
+    } catch (err) {
+      profilePreviewUrl = '';
+      profileImageError = extractErrorMessage(err, 'Could not process that image.');
     } finally {
       input.value = '';
     }
@@ -204,86 +236,77 @@
 
 <section class="settings-page">
   <header class="page-header">
-    <h1>Settings</h1>
-    <p>Profile, appearance, feeds, and privacy.</p>
+    <h1>{m.settings_title()}</h1>
+    <p>{m.settings_intro()}</p>
   </header>
 
   <section class="settings-section">
-    <h2>Profile</h2>
+    <h2>{m.settings_profile_heading()}</h2>
     <div class="card">
       <div class="profile-row">
-        <AvatarBadge size="md" username={data.profileUsername} imageUrl={data.profileImageUrl || null} />
+        <AvatarBadge size="md" username={data.profileUsername} imageUrl={displayedProfileImageUrl || null} />
         <div>
           <strong>{data.profileUsername}</strong>
-          <p>{data.profileBio || 'No bio yet.'}</p>
+          <p>{data.profileBio || m.settings_profile_no_bio()}</p>
         </div>
       </div>
 
       <label class="field">
-        <span class="label">Profile photo</span>
-        <input accept="image/*" type="file" on:change={handleProfileImageFileChange} />
+        <span class="label">{m.settings_profile_photo_label()}</span>
+        <input accept="image/jpeg,image/png,image/webp" type="file" on:change={handleProfileImageFileChange} />
       </label>
       {#if profileImageError}
         <p class="profile-image-error">{profileImageError}</p>
       {/if}
 
       <label class="field">
-        <span class="label">Bio</span>
-        <textarea bind:value={bioDraft} rows="3" placeholder="Tell people what you work on."></textarea>
+        <span class="label">{m.settings_bio_label()}</span>
+        <textarea bind:value={bioDraft} rows="3" placeholder={m.settings_bio_placeholder()}></textarea>
       </label>
 
       <div class="actions">
         <button class="button-secondary" disabled={pendingKey === 'profile-image'} type="button" on:click={clearProfileImage}>
-          Remove photo
+          {m.settings_remove_photo()}
         </button>
-        <button class="button-primary" disabled={pendingKey === 'bio'} type="button" on:click={saveBio}>Save bio</button>
+        <button class="button-primary" disabled={pendingKey === 'bio'} type="button" on:click={saveBio}>{m.settings_save_bio()}</button>
         <button class="button-secondary" disabled={pendingKey === 'sign-out'} type="button" on:click={handleSignOut}>
-          {pendingKey === 'sign-out' ? 'Signing out…' : 'Sign out'}
+          {pendingKey === 'sign-out' ? m.settings_signing_out() : m.settings_sign_out()}
         </button>
       </div>
     </div>
   </section>
 
   <section class="settings-section">
-    <h2>Appearance</h2>
+    <h2>{m.settings_appearance_heading()}</h2>
+    <div class="card setting-item">
+      <div>
+        <strong>{m.settings_language_label()}</strong>
+        <p class="language-note">{m.settings_language_coming_soon()}</p>
+      </div>
+      <label class="language-field">
+        <span class="sr-only">{m.settings_language_label()}</span>
+        <select
+          class="language-select"
+          disabled={!I18N_ENABLED || pendingKey === 'language'}
+          value={I18N_ENABLED ? data.preferredLanguage : 'en'}
+          on:change={handleLanguageChange}
+        >
+          {#each I18N_ENABLED ? LANGUAGE_OPTIONS : LANGUAGE_OPTIONS.filter((option) => option.enabled) as option}
+            <option disabled={!option.enabled} value={option.value}>
+              {option.label}
+            </option>
+          {/each}
+        </select>
+      </label>
+    </div>
     <div class="card setting-item">
       <div>
         <strong>Theme</strong>
-        <p>{data.appearanceThemeMode === 'dark' ? 'Dark mode' : 'Light mode'}</p>
+        <p>{data.appearanceThemeMode === 'dark' ? m.settings_theme_dark() : m.settings_theme_light()}</p>
       </div>
       <button class="button-secondary" disabled={pendingKey === 'theme'} type="button" on:click={toggleTheme}>
-        Switch to {data.appearanceThemeMode === 'dark' ? 'light' : 'dark'}
+        Switch to {data.appearanceThemeMode === 'dark' ? m.settings_theme_light() : m.settings_theme_dark()}
       </button>
-    </div>
-  </section>
-
-  <section class="settings-section">
-    <h2>Feeds</h2>
-    <div class="card setting-item">
-      <div>
-        <strong>Default feed on sign-in</strong>
-        <p>Which feed opens first when you visit the app.</p>
-      </div>
-      <div class="segmented">
-        <button
-          class:active={data.defaultFeed === 'public'}
-          class="segment"
-          disabled={pendingKey === 'default-feed'}
-          type="button"
-          on:click={() => setDefaultFeed('public')}
-        >
-          Public
-        </button>
-        <button
-          class:active={data.defaultFeed === 'personal'}
-          class="segment"
-          disabled={pendingKey === 'default-feed'}
-          type="button"
-          on:click={() => setDefaultFeed('personal')}
-        >
-          Personal
-        </button>
-      </div>
     </div>
   </section>
 
@@ -324,7 +347,7 @@
   {/if}
 
   <section class="settings-section">
-    <h2>Privacy</h2>
+    <h2>{m.settings_privacy_heading()}</h2>
     <div class="card stack">
       <div class="setting-item">
         <div>
@@ -480,6 +503,42 @@
     max-width: 46ch;
   }
 
+  .language-note {
+    margin-top: 6px;
+  }
+
+  .language-field {
+    flex-shrink: 0;
+  }
+
+  .language-select {
+    min-width: 180px;
+    padding: 8px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--text-main);
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .language-select:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .follow-request-row {
     display: flex;
     justify-content: space-between;
@@ -492,27 +551,6 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
-  }
-
-  .segmented {
-    display: inline-flex;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-  }
-
-  .segment {
-    padding: 8px 12px;
-    border: 0;
-    background: transparent;
-    color: var(--text-soft);
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .segment.active {
-    background: var(--brand-soft);
-    color: var(--brand-strong);
   }
 
   .button-primary,

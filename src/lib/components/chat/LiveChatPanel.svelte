@@ -282,21 +282,26 @@
       return;
     }
 
-    if (onSubmitMessage) {
-      await onSubmitMessage(body);
-    } else if (subjectId) {
-      await addComment(subjectId, body);
-    } else {
-      return;
-    }
+    try {
+      if (onSubmitMessage) {
+        await onSubmitMessage(body);
+      } else if (subjectId) {
+        await addComment(subjectId, body);
+        await invalidateAll();
+      } else {
+        return;
+      }
 
-    draftMessage = '';
-    await invalidateAll();
+      draftMessage = '';
 
-    if (highlightedCommentId) {
-      await clearHighlightedCommentTarget();
-      await tick();
+      if (highlightedCommentId) {
+        await clearHighlightedCommentTarget();
+        await tick();
+      }
+
       scrollChatLogToBottom();
+    } catch {
+      // Parent submit handlers restore draft/state when needed.
     }
   }
 
@@ -684,6 +689,26 @@
     .chat-panel.fit-viewport {
       height: var(--chat-panel-height, calc(100dvh - 24px));
       min-height: var(--chat-panel-height, 320px);
+    }
+  }
+
+  @media (max-width: 760px) {
+    .chat-message {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 4px;
+    }
+
+    .message-time {
+      justify-self: end;
+      width: auto;
+      min-width: 0;
+      font-size: 10px;
+      padding-bottom: 2px;
+      margin-top: 0;
+    }
+
+    .message-copy {
+      max-width: min(calc(100% - 3rem), 52rem);
     }
   }
 </style>

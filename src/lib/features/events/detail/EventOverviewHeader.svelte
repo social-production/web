@@ -223,6 +223,7 @@
     font-size: 24px;
     letter-spacing: -0.02em;
     color: var(--text-main);
+    overflow-wrap: anywhere;
   }
 
   strong {
@@ -235,6 +236,7 @@
     max-width: 78ch;
     color: var(--text-soft);
     line-height: 1.55;
+    overflow-wrap: anywhere;
   }
 
   .demand-button {

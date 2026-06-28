@@ -1,5 +1,6 @@
 import { apiClient, extractErrorMessage } from '../client';
 import { mapPublicItem } from './feeds';
+import { parseInviteToken } from '$lib/utils/invite-token';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
 import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
 import type { CreateChannelInput, CreateCommunityInput, CreateResult, PublicFeedItem } from '$lib/types/feed';
@@ -43,12 +44,14 @@ interface BackendBoardPerson {
   user_id: string;
   username: string;
   standing_state: string;
+  membership_state?: string;
   yes_count: number;
   no_count: number;
   vote_count: number;
   approval_ratio: number;
   weekly_active_users?: number;
   required_quorum?: number;
+  grace_ends_at?: string | null;
   active_vote: string | null;
 }
 
@@ -150,28 +153,31 @@ export async function fetchCommunity(slug: string): Promise<ScopePageData | null
       community: BackendCommunity;
       member_count: number;
       viewer_is_member: boolean;
-      invite_link?: string | null;
     }>(`/scopes/communities/${slug}`);
 
     if (res.viewer_is_member) membershipCache.add(cacheKey('community', slug));
     else membershipCache.delete(cacheKey('community', slug));
+
+    const isPrivate = res.community.join_policy === 'closed';
 
     return {
       kind: 'community',
       slug: res.community.slug,
       title: res.community.name,
       description: res.community.description,
-      badges: [],
+      badges: isPrivate ? ['Private'] : [],
       emptyFeedText: 'No activity in this community yet.',
       membership: {
         memberCount: res.member_count,
         viewerIsMember: res.viewer_is_member,
-        viewerCanToggleMembership: true,
-        joinPolicy: res.community.join_policy === 'closed' ? 'invite_only' : 'open',
-        viewerCanSeeFeed: true,
-        inviteLink: res.invite_link ?? undefined
+        viewerCanToggleMembership: !isPrivate,
+        joinPolicy: isPrivate ? 'invite_only' : 'open',
+        viewerCanSeeFeed: !isPrivate || res.viewer_is_member,
+        hiddenFeedCopy: isPrivate && !res.viewer_is_member
+          ? 'This feed is only visible to members. Use an invite link or code to join.'
+          : undefined
       },
-      feed: await fetchScopeFeed('community', res.community.slug),
+      feed: !isPrivate || res.viewer_is_member ? await fetchScopeFeed('community', res.community.slug) : [],
       stats: { projects: 0, threads: 0, events: 0, members: res.member_count }
     };
   } catch (err) {
@@ -263,17 +269,59 @@ export async function fetchToggleScopeMembership(kind: ScopeKind, slug: string):
   }
 }
 
+export interface ScopeInviteRedeemResult {
+  ok: boolean;
+  joined: boolean;
+  slug?: string;
+}
+
+export interface ScopeInviteCreateResult {
+  token: string;
+  redeemUrl: string;
+}
+
+export interface CommunityDirectInviteResult {
+  ok: boolean;
+  username: string;
+  alreadyMember: boolean;
+}
+
 export async function fetchRedeemScopeInvite(
   _kind: ScopeKind,
   _slug: string,
   inviteValue: string
-): Promise<boolean> {
+): Promise<ScopeInviteRedeemResult> {
   try {
-    await apiClient.post('/scopes/invites/redeem', { token: inviteValue });
-    return true;
+    const res = await apiClient.post<{ joined: boolean; slug: string }>('/scopes/invites/redeem', {
+      token: parseInviteToken(inviteValue)
+    });
+    return { ok: true, joined: res.joined, slug: res.slug };
   } catch {
-    return false;
+    return { ok: false, joined: false };
   }
+}
+
+export async function fetchCreateScopeInvite(
+  kind: 'channel' | 'community',
+  slug: string
+): Promise<ScopeInviteCreateResult> {
+  const res = await apiClient.post<{ token: string; redeem_url: string }>(`/scopes/${kind}/${slug}/invites`);
+  return { token: res.token, redeemUrl: res.redeem_url };
+}
+
+export async function fetchInviteUserToCommunity(
+  slug: string,
+  username: string
+): Promise<CommunityDirectInviteResult> {
+  const res = await apiClient.post<{ ok: boolean; username: string; already_member: boolean }>(
+    `/scopes/communities/${slug}/invite-user`,
+    { username: username.trim() }
+  );
+  return {
+    ok: res.ok,
+    username: res.username,
+    alreadyMember: res.already_member
+  };
 }
 
 export async function fetchVolunteerForBoard(): Promise<boolean> {

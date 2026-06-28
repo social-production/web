@@ -8,14 +8,16 @@
     "dev:lan": "vite dev --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "paraglide": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide",
+    "check": "npm run paraglide && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "smoke": "npm run check && npm run build"
   },
   "devDependencies": {
-    "@types/node": "^22.15.3",
+    "@inlang/paraglide-js": "^2.20.2",
     "@sveltejs/adapter-auto": "^3.2.0",
     "@sveltejs/kit": "^2.5.7",
     "@sveltejs/vite-plugin-svelte": "^4.0.0-next.6",
+    "@types/node": "^22.15.3",
     "svelte": "^5.0.0",
     "svelte-check": "^3.8.4",
     "typescript": "^5.4.5",

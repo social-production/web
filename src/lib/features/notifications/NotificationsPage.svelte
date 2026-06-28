@@ -4,6 +4,7 @@
   import { acceptFollowRequest, rejectFollowRequest } from '$lib/services/queries/account';
   import { markAllNotificationsRead, markNotificationRead } from '$lib/services/queries/inbox';
   import type { NotificationItem, NotificationsPageData } from '$lib/types/inbox';
+  import * as m from '$lib/paraglide/messages';
 
   export let data: NotificationsPageData;
 
@@ -64,11 +65,11 @@
   <section class="hero-card">
     <div class="hero-topline">
       <div>
-        <h1>Notifications</h1>
-        <p>Project activity and event invites come from shared adapter state instead of page-local placeholders.</p>
+        <h1>{m.notifications_page_title()}</h1>
+        <p>{m.notifications_page_intro()}</p>
       </div>
 
-      <button class="secondary-button" type="button" on:click={readAll}>Mark all read</button>
+      <button class="secondary-button" type="button" on:click={readAll}>{m.notifications_mark_all_read()}</button>
     </div>
   </section>
 

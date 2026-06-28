@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { isAssetsSurfaceEnabled } from '$lib/config/features/phaseScope';
   import type { BootstrapPayload } from '$lib/types/bootstrap';
+  import * as m from '$lib/paraglide/messages';
 
   export let bootstrap: BootstrapPayload;
   export let compact = false;
@@ -37,12 +38,6 @@
   );
 </script>
 
-{#if compact}
-  <div class="compact-rail-header">
-    <h2>Left Rail</h2>
-    <button class="close-rail" type="button" on:click={closePanels}>Close</button>
-  </div>
-{/if}
 
 <section class="rail-panel">
   <h2>Create</h2>
@@ -113,6 +108,12 @@
     {/each}
   </div>
 </section>
+
+<nav class="rail-utility">
+  <a class:active-link={isActive('/feedback')} class="rail-link utility-link" href="/feedback" on:click={closePanels}>
+    {m.feedback_title()}
+  </a>
+</nav>
 
 <style>
   .compact-rail-header {
@@ -219,5 +220,14 @@
   .feature-pill.open {
     background: var(--brand-soft);
     color: var(--brand-strong);
+  }
+
+  .rail-utility {
+    padding: 4px 0 12px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .utility-link {
+    color: var(--text-soft);
   }
 </style>

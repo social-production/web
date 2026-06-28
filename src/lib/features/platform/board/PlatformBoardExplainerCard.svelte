@@ -5,8 +5,7 @@
       Moderators execute platform outcomes only after users approve them. They do not gate creation or decide platform direction on their own.
     </li>
     <li>Moderator standing follows the weekly active platform vote context rather than raw member counts, so required standing votes rise and fall with real participation.</li>
-    <li>Roles that keep the approval ratio but temporarily fall short on required standing votes stay visible in a grace period before they drop below threshold.</li>
-    <li>Standing counts clear votes from users who have been inactive for 100 or more consecutive days, so old approval cannot hold a seat open indefinitely.</li>
+    <li>Roles that keep approval but temporarily fall short on required votes enter a one-week grace period before removal.</li>
   </ul>
 </div>
 

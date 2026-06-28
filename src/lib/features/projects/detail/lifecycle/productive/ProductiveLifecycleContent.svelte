@@ -106,6 +106,18 @@
     input: import('$lib/types/detail').ProjectSoftwareRepositoryReplacementInput
   ) => void | Promise<void> = () => {};
   export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
+  export let votePullRequest: (
+    requestId: string,
+    vote: import('$lib/types/detail').ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
+  export let voteMergeCapabilityChange: (
+    requestId: string,
+    vote: import('$lib/types/detail').ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
+  export let voteRepositoryReplacement: (
+    requestId: string,
+    vote: import('$lib/types/detail').ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
   export let toggleHistoryCompletion: (
     historyId: string,
     role: ProjectServiceHistoryCompletionRole,
@@ -167,6 +179,9 @@
     {requestMergeCapabilityChange}
     {requestRepositoryReplacement}
     recordPullRequestMerge={recordPullRequestMerge}
+    {votePullRequest}
+    {voteMergeCapabilityChange}
+    {voteRepositoryReplacement}
     {toggleHistoryCompletion}
   />
 {:else if activePhaseId === 'phase-7' || activePhaseId === 'phase-6' || activePhaseId === 'phase-4'}
@@ -176,5 +191,8 @@
     {requestMergeCapabilityChange}
     {requestRepositoryReplacement}
     recordPullRequestMerge={recordPullRequestMerge}
+    {votePullRequest}
+    {voteMergeCapabilityChange}
+    {voteRepositoryReplacement}
   />
 {/if}

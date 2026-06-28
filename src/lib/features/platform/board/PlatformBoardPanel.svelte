@@ -14,14 +14,15 @@
 
   let volunteering = false;
   let volunteerMessage = '';
-  let showRemoveConfirm = false;
+  let showWithdrawConfirm = false;
+  let showStepDownConfirm = false;
 
   async function handleVolunteer() {
     volunteering = true;
     volunteerMessage = '';
     const ok = await volunteerForBoard();
     if (ok) {
-      volunteerMessage = 'Your moderator volunteer request has been submitted.';
+      volunteerMessage = 'You are now seeking a moderator role.';
       await invalidateAll();
     } else {
       volunteerMessage = 'Could not submit volunteer request. You may already be a candidate.';
@@ -29,22 +30,49 @@
     volunteering = false;
   }
 
-  async function handleRemoveVolunteer() {
-    if (!showRemoveConfirm) {
-      showRemoveConfirm = true;
+  async function handleWithdrawCandidacy() {
+    if (!showWithdrawConfirm) {
+      showWithdrawConfirm = true;
+      showStepDownConfirm = false;
       return;
     }
+
     volunteering = true;
-    showRemoveConfirm = false;
+    showWithdrawConfirm = false;
     volunteerMessage = '';
     const ok = await removeVolunteer();
     if (ok) {
-      volunteerMessage = 'Your volunteer has been removed.';
+      volunteerMessage = 'Your candidacy has been withdrawn.';
       await invalidateAll();
     } else {
-      volunteerMessage = 'Could not remove volunteer status.';
+      volunteerMessage = 'Could not withdraw candidacy.';
     }
     volunteering = false;
+  }
+
+  async function handleStepDown() {
+    if (!showStepDownConfirm) {
+      showStepDownConfirm = true;
+      showWithdrawConfirm = false;
+      return;
+    }
+
+    volunteering = true;
+    showStepDownConfirm = false;
+    volunteerMessage = '';
+    const ok = await removeVolunteer();
+    if (ok) {
+      volunteerMessage = 'You have stepped down as moderator.';
+      await invalidateAll();
+    } else {
+      volunteerMessage = 'Could not step down.';
+    }
+    volunteering = false;
+  }
+
+  function cancelConfirm() {
+    showWithdrawConfirm = false;
+    showStepDownConfirm = false;
   }
 
   $: canVolunteer = pageData.moderatorCandidacyOptions?.canVolunteer ?? false;
@@ -83,13 +111,25 @@
     {/if}
   </div>
 
-  {#if viewerState === 'candidate'}
+  {#if viewerState === 'member'}
     <div class="volunteer-row">
-      <button class="secondary-button" type="button" disabled={volunteering} on:click={handleRemoveVolunteer}>
-        {volunteering ? 'Removing...' : (showRemoveConfirm ? 'Confirm removal?' : 'Remove volunteer')}
+      <button class="secondary-button" type="button" disabled={volunteering} on:click={handleStepDown}>
+        {volunteering ? 'Working…' : showStepDownConfirm ? 'Confirm step down' : 'Step down as moderator'}
       </button>
-      {#if showRemoveConfirm && !volunteering}
-        <button class="text-button" type="button" on:click={() => (showRemoveConfirm = false)}>Cancel</button>
+      {#if showStepDownConfirm && !volunteering}
+        <button class="text-button" type="button" on:click={cancelConfirm}>Cancel</button>
+      {/if}
+      {#if volunteerMessage}
+        <p class="volunteer-feedback">{volunteerMessage}</p>
+      {/if}
+    </div>
+  {:else if viewerState === 'candidate'}
+    <div class="volunteer-row">
+      <button class="secondary-button" type="button" disabled={volunteering} on:click={handleWithdrawCandidacy}>
+        {volunteering ? 'Working…' : showWithdrawConfirm ? 'Confirm withdraw' : 'Withdraw candidacy'}
+      </button>
+      {#if showWithdrawConfirm && !volunteering}
+        <button class="text-button" type="button" on:click={cancelConfirm}>Cancel</button>
       {/if}
       {#if volunteerMessage}
         <p class="volunteer-feedback">{volunteerMessage}</p>
@@ -98,7 +138,7 @@
   {:else if canVolunteer}
     <div class="volunteer-row">
       <button class="primary-button" type="button" disabled={volunteering} on:click={handleVolunteer}>
-        {volunteering ? 'Submitting...' : 'Volunteer as moderator'}
+        {volunteering ? 'Submitting…' : 'Volunteer as moderator'}
       </button>
       {#if volunteerMessage}
         <p class="volunteer-feedback">{volunteerMessage}</p>
@@ -145,13 +185,46 @@
   .empty-row strong {
     color: var(--text-main);
   }
+
   .volunteer-row {
-    padding: 12px 0;
-    text-align: center;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 12px 0 0;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .text-button {
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .primary-button {
+    border: 0;
+    background: var(--brand);
+    color: var(--page-bg);
+  }
+
+  .secondary-button {
+    border: 1px solid var(--panel-border);
+    background: var(--panel-strong);
+    color: var(--text-main);
+  }
+
+  .text-button {
+    border: 0;
+    background: transparent;
+    color: var(--text-soft);
   }
 
   .volunteer-feedback {
-    margin-top: 8px;
+    width: 100%;
+    margin: 0;
     color: var(--text-soft);
     font-size: 12px;
-  }</style>
+  }
+</style>

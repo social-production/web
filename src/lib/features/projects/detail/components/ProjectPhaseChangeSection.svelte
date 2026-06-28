@@ -7,12 +7,14 @@
     isCollectiveServiceProject,
     isPersonalServiceProject,
     projectSubjectLabel,
-    projectSubtypeLabel
+    projectSubtypeLabel,
+    skipsDistributionPhase
   } from '$lib/features/projects/projectMode';
   import {
     formatProjectVoteRequirement,
     formatProjectVoteSummary
   } from '$lib/utils/projectVotes';
+  import { resolveProjectPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
   import type {
     ProjectApprovalVote,
     ProjectLifecyclePhaseChangeRequest,
@@ -61,14 +63,17 @@
   $: returnRequests = data.lifecycle.phaseChangeRequests.filter((request) => request.kind === 'return');
   $: nextVoteKind = (isClosingTransition() ? 'close' : 'advance') as 'close' | 'advance';
   $: nextActionRequests = data.lifecycle.phaseChangeRequests.filter(
-    (request) => request.kind === nextVoteKind
+    (request) => resolveProjectPhaseChangeVoteKind(request, data.projectMode) === nextVoteKind
   );
   $: canDirectReturn = personalDirectPhaseChange && data.lifecycle.viewerCanRevertPhase;
   $: signalGatePasses = data.lifecycle.currentPhaseId !== 'phase-1' || (data.lifecycle.phaseOne?.signalSummary?.advancementUnlocked ?? false);
+  $: skipsDistribution = skipsDistributionPhase(data.projectMode, data.projectSubtype);
   $: planGateMessage =
     data.lifecycle.currentPhaseId === 'phase-2' && !data.lifecycle.phaseTwo.winningPlanId
       ? 'This project needs an approved production or operations plan before it can advance.'
-      : data.lifecycle.currentPhaseId === 'phase-3' && !data.lifecycle.phaseThree.winningPlanId
+      : data.lifecycle.currentPhaseId === 'phase-3' &&
+          !skipsDistribution &&
+          !data.lifecycle.phaseThree.winningPlanId
         ? 'This project needs an approved distribution or access plan before it can advance.'
         : '';
   $: phaseGatePasses = signalGatePasses && !planGateMessage;
@@ -685,11 +690,11 @@
 
   @media (max-width: 760px) {
     .change-action-row {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
     }
 
     .action-group-right {
-      justify-content: flex-start;
+      justify-content: flex-end;
     }
   }
 </style>
