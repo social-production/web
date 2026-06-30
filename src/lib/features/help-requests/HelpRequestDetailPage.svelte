@@ -2,18 +2,55 @@
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { onMount } from 'svelte';
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import ContextualBackButton from '$lib/components/shared/ContextualBackButton.svelte';
   import HelpRequestOverviewHeader from '$lib/features/help-requests/detail/HelpRequestOverviewHeader.svelte';
   import HelpRequestRolesSection from '$lib/features/help-requests/detail/HelpRequestRolesSection.svelte';
-  import type { HelpRequestPageData } from '$lib/types/detail';
+  import { addComment } from '$lib/services/queries/details';
+  import { registerEntityType } from '$lib/api/drivers/fastapi/typeRegistry';
+  import type { DetailComment, HelpRequestPageData } from '$lib/types/detail';
+  import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
+  import {
+    ChatSendError,
+    createOptimisticComment,
+    mergeDiscussion,
+    pruneOptimisticComments,
+    syncIncomingDiscussion
+  } from '$lib/utils/discussionState';
 
   export let data: HelpRequestPageData;
 
   let highlightedCommentId: string | null = null;
   let lastRouteSignature = '';
   let activeTab: 'overview' | 'chat' = 'overview';
+  let isCompact = false;
+  let serverDiscussion: DetailComment[] = data.discussion ?? [];
+  let optimisticComments: DetailComment[] = [];
+  let lastPropDiscussion = data.discussion;
+
+  $: if (data.discussion !== lastPropDiscussion) {
+    lastPropDiscussion = data.discussion;
+    serverDiscussion = syncIncomingDiscussion(serverDiscussion, data.discussion);
+    optimisticComments = pruneOptimisticComments(serverDiscussion, optimisticComments);
+  }
+
+  $: discussion = mergeDiscussion(serverDiscussion, optimisticComments);
+
+  onMount(() => {
+    const media = window.matchMedia('(max-width: 1080px)');
+    const syncCompact = () => {
+      isCompact = media.matches;
+    };
+
+    syncCompact();
+    media.addEventListener('change', syncCompact);
+
+    return () => {
+      media.removeEventListener('change', syncCompact);
+    };
+  });
 
   function readCommentTarget(url: URL) {
     if (url.hash.startsWith('#comment-')) {
@@ -55,11 +92,36 @@
       activeTab = highlightedCommentId ? 'chat' : requestedTab === 'chat' ? 'chat' : 'overview';
     }
   }
+
+  async function submitHelpRequestMessage(body: string) {
+    registerEntityType(data.id, 'help_request');
+
+    const viewerUsername = $page.data.bootstrap?.viewer?.username ?? 'you';
+    const optimistic = createOptimisticComment(viewerUsername, body);
+    optimisticComments = [...optimisticComments, optimistic];
+
+    try {
+      await addComment(data.id, body, undefined, 'help_request');
+    } catch {
+      optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
+      throw new ChatSendError();
+    }
+
+    try {
+      const refreshed = await refreshSubjectDiscussion('help_request', data.id);
+      serverDiscussion = refreshed;
+      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+    } catch {
+      // Comment was saved; keep optimistic row until the next refresh succeeds.
+    }
+  }
 </script>
 
-<section class="page">
-  <section class="hero-card">
-    <ContextualBackButton fallbackHref="/" />
+<section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
+  <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
+    {#if !(activeTab === 'chat' && isCompact)}
+      <ContextualBackButton fallbackHref="/" />
+    {/if}
     <div class="top-tab-row" role="tablist" aria-label="Help request detail tabs">
       <button
         class:active-tab={activeTab === 'overview'}
@@ -85,14 +147,17 @@
       <HelpRequestOverviewHeader {data} />
       <HelpRequestRolesSection {data} />
     {:else}
-      <section class="chat-shell">
+      <section class="chat-shell" class:chat-shell-compact={activeTab === 'chat' && isCompact}>
         <LinkedChatReadMarker subjectType="help_request" subjectId={data.id} />
         <LiveChatPanel
-          comments={data.discussion}
+          comments={discussion}
+          embedded={activeTab === 'chat' && isCompact}
           emptyCopy="No help request chat yet."
-          fitViewport={true}
+          fitViewport={activeTab === 'chat' && isCompact}
           highlightedCommentId={highlightedCommentId}
+          onSubmitMessage={submitHelpRequestMessage}
           placeholder="Write a message..."
+          showHeader={!(activeTab === 'chat' && isCompact)}
           subjectId={data.id}
           submitLabel="Send message"
           title="Help request chat"
@@ -141,6 +206,21 @@
     margin-top: 16px;
   }
 
+  .chat-shell-compact {
+    margin: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .chat-shell-compact :global(.chat-panel) {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 100%;
+  }
+
   .top-tab {
     min-width: 108px;
     padding: 9px 14px;
@@ -157,5 +237,70 @@
     border-color: var(--brand);
     background: var(--brand-soft);
     color: var(--brand-strong);
+  }
+
+  @media (max-width: 1080px) {
+    .page {
+      min-width: 0;
+      overflow-x: clip;
+    }
+
+    .page-chat {
+      grid-template-rows: minmax(0, 1fr);
+      gap: 0;
+      height: calc(100dvh - var(--topbar-height) - var(--shell-bottom-nav-offset));
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .hero-card {
+      min-width: 0;
+      overflow-x: clip;
+      padding-top: 16px;
+      margin-top: 12px;
+    }
+
+    .hero-card.chat-tab-active {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      margin-top: 0;
+      padding: 8px 0 0;
+      border: none;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    .chat-tab-active .top-tab-row {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      margin: 0 8px 8px;
+      background: var(--panel);
+      flex-shrink: 0;
+    }
+
+    .chat-tab-active > :global(.chat-shell) {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .top-tab-row {
+      position: static;
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      transform: none;
+      box-shadow: none;
+      margin-bottom: 12px;
+    }
+
+    .top-tab {
+      min-width: 0;
+      padding: 8px 6px;
+      font-size: 12px;
+    }
   }
 </style>

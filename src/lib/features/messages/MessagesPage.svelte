@@ -1,13 +1,23 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto, invalidate, invalidateAll } from '$app/navigation';
+  import { onMount } from 'svelte';
+  import { get } from 'svelte/store';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
+  import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
+  import { unreadCounts } from '$lib/stores/unreadCounts';
   import { addComment } from '$lib/services/queries/details';
   import { fetchComments } from '$lib/api/drivers/fastapi/domains/content';
   import { registerEntityType, registerCommentIds } from '$lib/api/drivers/fastapi/typeRegistry';
+  import {
+    ChatSendError,
+    createOptimisticComment,
+    mergeDiscussion,
+    pruneOptimisticComments
+  } from '$lib/utils/discussionState';
   import {
     addGroupConversationMember,
     createGroupConversation,
@@ -53,12 +63,22 @@
   let messagesShellElement: HTMLElement | null = null;
   let linkedChatComments: DetailComment[] = [];
   let linkedChatCommentsLoading = false;
+  let linkedChatOptimisticComments: DetailComment[] = [];
+  let linkedChatDiscussion: DetailComment[] = [];
   let conversationMessagesById: Record<string, DirectMessage[]> = {};
   let messagesLoadingById: Record<string, boolean> = {};
   let contactSuggestions: ViewerSummary[] = [];
   let contactSearchKey = '';
   let contactSearchRequestId = 0;
 
+  const THREAD_POLL_MS = 8_000;
+  const INBOX_REFRESH_MS = 30_000;
+
+  let lastKnownUnreadMessages = 0;
+  let threadPollTimer: number | null = null;
+  let inboxRefreshTimer: number | null = null;
+
+  $: linkedChatDiscussion = mergeDiscussion(linkedChatComments, linkedChatOptimisticComments);
   $: activeConversation =
     data.conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
   $: activeLinkedChat = data.linkedChats.find((chat) => chat.id === activeLinkedChatId) ?? null;
@@ -66,6 +86,9 @@
     (chat) => chat.kind === 'project' || chat.kind === 'event'
   );
   $: helpRequestLinkedChats = data.linkedChats.filter((chat) => chat.kind === 'help_request');
+  $: directGroupUnreadTotal = data.conversations.reduce((sum, conversation) => sum + conversation.unreadCount, 0);
+  $: projectEventUnreadTotal = projectEventLinkedChats.reduce((sum, chat) => sum + chat.unreadCount, 0);
+  $: helpRequestUnreadTotal = helpRequestLinkedChats.reduce((sum, chat) => sum + chat.unreadCount, 0);
   $: activeConversationMessagesLoading =
     activeConversationId ? (messagesLoadingById[activeConversationId] ?? false) : false;
   $: activeConversationMessages = activeConversationId
@@ -284,17 +307,101 @@
     }
   }
 
-  async function loadConversationMessages(conversationId: string) {
+  function tabAriaLabel(label: string, unreadTotal: number) {
+    return unreadTotal > 0 ? `${label}, ${unreadTotal} unread` : label;
+  }
+
+  async function refreshMessagesInbox() {
+    if (!browser || document.visibilityState !== 'visible') {
+      return;
+    }
+
+    await invalidate('inbox:messages');
+  }
+
+  async function refreshActiveThread() {
+    if (!browser || document.visibilityState !== 'visible') {
+      return;
+    }
+
+    if (activeConversationId && activeConversation) {
+      await loadConversationMessages(activeConversationId, { silent: true });
+      return;
+    }
+
+    if (activeLinkedChatId && activeLinkedChat) {
+      await loadLinkedChatComments(activeLinkedChat, { silent: true });
+    }
+  }
+
+  function handleVisibilityOrFocus() {
+    if (document.visibilityState !== 'visible') {
+      return;
+    }
+
+    void refreshActiveThread();
+    void refreshMessagesInbox();
+  }
+
+  onMount(() => {
+    lastKnownUnreadMessages = get(unreadCounts)?.messages ?? 0;
+
+    threadPollTimer = window.setInterval(() => {
+      void refreshActiveThread();
+    }, THREAD_POLL_MS);
+
+    inboxRefreshTimer = window.setInterval(() => {
+      void refreshMessagesInbox();
+    }, INBOX_REFRESH_MS);
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    const unsubscribeUnreadCounts = unreadCounts.subscribe((counts) => {
+      if (!counts) {
+        return;
+      }
+
+      if (counts.messages === lastKnownUnreadMessages) {
+        return;
+      }
+
+      lastKnownUnreadMessages = counts.messages;
+      void refreshMessagesInbox();
+      void refreshActiveThread();
+    });
+
+    return () => {
+      if (threadPollTimer !== null) {
+        window.clearInterval(threadPollTimer);
+      }
+
+      if (inboxRefreshTimer !== null) {
+        window.clearInterval(inboxRefreshTimer);
+      }
+
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      unsubscribeUnreadCounts();
+    };
+  });
+
+  async function loadConversationMessages(
+    conversationId: string,
+    options: { silent?: boolean } = {}
+  ) {
     const conversation = data.conversations.find((item) => item.id === conversationId);
 
     if (!conversation) {
       return false;
     }
 
-    messagesLoadingById = {
-      ...messagesLoadingById,
-      [conversationId]: true
-    };
+    if (!options.silent) {
+      messagesLoadingById = {
+        ...messagesLoadingById,
+        [conversationId]: true
+      };
+    }
 
     try {
       const messages = await getConversationMessages(
@@ -308,16 +415,14 @@
       };
       return true;
     } catch {
-      conversationMessagesById = {
-        ...conversationMessagesById,
-        [conversationId]: []
-      };
       return false;
     } finally {
-      messagesLoadingById = {
-        ...messagesLoadingById,
-        [conversationId]: false
-      };
+      if (!options.silent) {
+        messagesLoadingById = {
+          ...messagesLoadingById,
+          [conversationId]: false
+        };
+      }
     }
   }
 
@@ -443,8 +548,8 @@
 
     if (unreadCount > 0) {
       await markConversationRead(conversationId, unreadCount);
-      await invalidateAll();
-      await loadConversationMessages(conversationId);
+      await refreshMessagesInbox();
+      await loadConversationMessages(conversationId, { silent: true });
     }
 
     await focusConversationShell();
@@ -487,8 +592,41 @@
     void tryOpenDeepLinkConversation();
   }
 
+  async function loadLinkedChatComments(
+    chat: MessageLinkedChat,
+    options: { silent?: boolean } = {}
+  ) {
+    registerEntityType(chat.subjectId, linkedChatEntityType(chat.kind));
+
+    if (!options.silent) {
+      linkedChatCommentsLoading = true;
+    }
+
+    try {
+      linkedChatComments = (
+        await fetchComments(chat.kind, chat.subjectId)
+      ).map(mapLinkedChatComment);
+      linkedChatOptimisticComments = pruneOptimisticComments(
+        linkedChatComments,
+        linkedChatOptimisticComments
+      );
+      return true;
+    } catch {
+      return false;
+    } finally {
+      if (!options.silent) {
+        linkedChatCommentsLoading = false;
+      }
+    }
+  }
+
   async function openLinkedChat(chatId: string) {
-    activeLinkedChatId = chatId;
+    const chat = data.linkedChats.find((item) => item.id === chatId);
+
+    if (!chat) {
+      return false;
+    }
+
     activeConversationId = null;
     showComposer = false;
     composerError = '';
@@ -496,24 +634,25 @@
     showDirectOptions = false;
     groupSettingsFeedback = '';
     directOptionsFeedback = '';
+    linkedChatComments = [];
+    linkedChatOptimisticComments = [];
 
-    const chat = data.linkedChats.find(c => c.id === chatId);
-    if (chat) {
-      registerEntityType(chat.id, linkedChatEntityType(chat.kind));
-      linkedChatComments = [];
-      linkedChatCommentsLoading = true;
-      try {
-        linkedChatComments = (await fetchComments(chat.kind, chat.subjectId)).map(mapLinkedChatComment);
-      } finally {
-        linkedChatCommentsLoading = false;
-      }
+    const loaded = await loadLinkedChatComments(chat);
 
-      if (chat.unreadCount > 0) {
-        await markLinkedChatRead(chat.kind, chat.subjectId, chat.unreadCount);
-      }
+    if (!loaded) {
+      return false;
+    }
+
+    activeLinkedChatId = chatId;
+
+    if (chat.unreadCount > 0) {
+      await markLinkedChatRead(chat.kind, chat.subjectId, chat.unreadCount);
+      await refreshMessagesInbox();
+      await loadLinkedChatComments(chat, { silent: true });
     }
 
     await focusConversationShell();
+    return true;
   }
 
   async function submitConversationMessage(body: string) {
@@ -521,21 +660,51 @@
       return;
     }
 
+    const conversationId = activeConversation.id;
+    const optimisticId = `pending-${Date.now()}`;
+    const optimisticMessage: DirectMessage = {
+      id: optimisticId,
+      body,
+      createdAt: new Date().toISOString(),
+      isOwn: true,
+      sender: {
+        id: data.viewer.id,
+        username: data.viewer.username,
+        profileImageUrl: data.viewer.profileImageUrl
+      },
+      report: null
+    };
+
+    conversationMessagesById = {
+      ...conversationMessagesById,
+      [conversationId]: [...(conversationMessagesById[conversationId] ?? []), optimisticMessage]
+    };
+
     composerError = '';
     try {
-      await sendMessage(activeConversation.id, body);
-      await loadConversationMessages(activeConversation.id);
-      await invalidateAll();
+      await sendMessage(conversationId, body);
+      await loadConversationMessages(conversationId, { silent: true });
+      void refreshMessagesInbox();
     } catch (err) {
+      conversationMessagesById = {
+        ...conversationMessagesById,
+        [conversationId]: (conversationMessagesById[conversationId] ?? []).filter(
+          (message) => message.id !== optimisticId
+        )
+      };
+
       const detail = (err as { body?: { detail?: unknown } }).body?.detail;
       if (typeof detail === 'string') {
         composerError = detail;
       } else if (Array.isArray(detail) && detail.length > 0) {
         const first = detail[0] as { msg?: string };
         composerError = first.msg ?? 'Could not send message';
+      } else if (err instanceof Error && err.message.trim()) {
+        composerError = err.message;
       } else {
         composerError = 'Could not send message';
       }
+      throw new ChatSendError();
     }
   }
 
@@ -544,12 +713,35 @@
       return;
     }
 
-    await addComment(activeLinkedChat.subjectId, body);
-    await invalidateAll();
-    if (activeLinkedChat) {
-      linkedChatComments = (await fetchComments(activeLinkedChat.kind, activeLinkedChat.subjectId)).map(
-        mapLinkedChatComment
+    const optimistic = createOptimisticComment(data.viewer.username, body);
+    linkedChatOptimisticComments = [...linkedChatOptimisticComments, optimistic];
+
+    registerEntityType(activeLinkedChat.subjectId, linkedChatEntityType(activeLinkedChat.kind));
+
+    try {
+      await addComment(
+        activeLinkedChat.subjectId,
+        body,
+        undefined,
+        linkedChatEntityType(activeLinkedChat.kind)
       );
+    } catch {
+      linkedChatOptimisticComments = linkedChatOptimisticComments.filter(
+        (comment) => comment.id !== optimistic.id
+      );
+      throw new ChatSendError();
+    }
+
+    try {
+      linkedChatComments = (
+        await fetchComments(activeLinkedChat.kind, activeLinkedChat.subjectId)
+      ).map(mapLinkedChatComment);
+      linkedChatOptimisticComments = pruneOptimisticComments(
+        linkedChatComments,
+        linkedChatOptimisticComments
+      );
+    } catch {
+      // Comment was saved; keep optimistic row until the next refresh succeeds.
     }
   }
 
@@ -973,45 +1165,62 @@
         />
       {:else if activeLinkedChat}
         <LiveChatPanel
-          comments={linkedChatComments}
+          comments={linkedChatDiscussion}
           embedded={true}
-          emptyCopy={linkedChatEmptyCopy(activeLinkedChat)}
+          emptyCopy={
+            linkedChatCommentsLoading
+              ? 'Loading messages...'
+              : linkedChatEmptyCopy(activeLinkedChat)
+          }
           onSubmitMessage={submitLinkedChatMessage}
           placeholder={linkedChatPlaceholder(activeLinkedChat)}
           showHeader={false}
           subjectId={activeLinkedChat.subjectId}
           submitLabel="Send"
+          variant="message"
         />
       {/if}
     {:else}
       <div class="surface-tabs" role="tablist" aria-label="Messages tabs">
         <div class="surface-tab-list">
           <button
+            aria-label={tabAriaLabel('Direct and Group', directGroupUnreadTotal)}
             class:active={activeListTab === 'messages'}
             class="surface-tab"
             role="tab"
             type="button"
             on:click={() => selectListTab('messages')}
           >
-            Direct & Group
+            <span class="surface-tab-label">Direct & Group</span>
+            {#if directGroupUnreadTotal > 0}
+              <CountBadge count={directGroupUnreadTotal} />
+            {/if}
           </button>
           <button
+            aria-label={tabAriaLabel('Project and Event Chats', projectEventUnreadTotal)}
             class:active={activeListTab === 'linked-chats'}
             class="surface-tab"
             role="tab"
             type="button"
             on:click={() => selectListTab('linked-chats')}
           >
-            Project & Event Chats
+            <span class="surface-tab-label">Project & Event Chats</span>
+            {#if projectEventUnreadTotal > 0}
+              <CountBadge count={projectEventUnreadTotal} />
+            {/if}
           </button>
           <button
+            aria-label={tabAriaLabel('Help Request Chats', helpRequestUnreadTotal)}
             class:active={activeListTab === 'help-request-chats'}
             class="surface-tab"
             role="tab"
             type="button"
             on:click={() => selectListTab('help-request-chats')}
           >
-            Help Request Chats
+            <span class="surface-tab-label">Help Request Chats</span>
+            {#if helpRequestUnreadTotal > 0}
+              <CountBadge count={helpRequestUnreadTotal} />
+            {/if}
           </button>
         </div>
 
@@ -1259,6 +1468,11 @@
     min-height: var(--messages-shell-height, calc(100dvh - 32px));
   }
 
+  .messages-shell.conversation-view > :global(.chat-panel) {
+    min-height: 0;
+    height: 100%;
+  }
+
   .messages-shell.conversation-view.with-chat-options {
     grid-template-rows: auto auto minmax(0, 1fr);
   }
@@ -1314,14 +1528,26 @@
   }
 
   .surface-tab {
-    min-width: 140px;
-    padding: 9px 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+    padding: 8px 10px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
     color: var(--text-soft);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
+  }
+
+  .surface-tab-label {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .surface-tab.active {
@@ -1590,17 +1816,56 @@
 
   @media (max-width: 900px) {
     .chat-header {
-      grid-template-columns: 1fr;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
     }
 
-    .chat-identity {
-      justify-self: stretch;
-      text-align: left;
+    .chat-identity,
+    .linked-chat-identity {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .linked-chat-identity {
+      grid-template-columns: unset;
+    }
+
+    .linked-chat-identity > div {
+      min-width: 0;
+    }
+
+    .chat-identity :global(.identity-trigger > div) {
+      min-width: 0;
+    }
+
+    .linked-chat-identity h2,
+    .chat-identity h2 {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .open-source-link {
+      width: auto;
+      flex-shrink: 0;
+      padding: 6px 10px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .back-button {
+      width: auto;
+      flex-shrink: 0;
+      padding: 6px 10px;
+      font-size: 11px;
     }
 
     .conversation-row,
-    .inline-field,
-    .linked-chat-identity {
+    .inline-field {
       grid-template-columns: 1fr;
     }
 

@@ -1,26 +1,36 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import { addComment } from '$lib/services/queries/details';
+  import { registerEntityType } from '$lib/api/drivers/fastapi/typeRegistry';
   import type { DetailComment, ProjectPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
+  import {
+    ChatSendError,
+    createOptimisticComment,
+    mergeDiscussion,
+    pruneOptimisticComments,
+    syncIncomingDiscussion
+  } from '$lib/utils/discussionState';
 
   export let data: ProjectPageData;
   export let highlightedCommentId: string | null = null;
   export let fullscreen = false;
 
   let isCompact = false;
-  let discussion: DetailComment[] = data.discussion ?? [];
-  let discussionSyncKey = '';
+  let serverDiscussion: DetailComment[] = data.discussion ?? [];
+  let optimisticComments: DetailComment[] = [];
+  let lastPropDiscussion = data.discussion;
 
-  $: nextDiscussionKey = `${data.id}:${data.discussion?.length ?? 0}:${data.discussion?.[0]?.id ?? ''}`;
-  $: if (nextDiscussionKey !== discussionSyncKey) {
-    discussionSyncKey = nextDiscussionKey;
-    discussion = data.discussion ?? [];
+  $: if (data.discussion !== lastPropDiscussion) {
+    lastPropDiscussion = data.discussion;
+    serverDiscussion = syncIncomingDiscussion(serverDiscussion, data.discussion);
+    optimisticComments = pruneOptimisticComments(serverDiscussion, optimisticComments);
   }
+
+  $: discussion = mergeDiscussion(serverDiscussion, optimisticComments);
 
   onMount(() => {
     const media = window.matchMedia('(max-width: 1080px)');
@@ -37,28 +47,25 @@
   });
 
   async function submitProjectMessage(body: string) {
-    const viewerUsername = $page.data.bootstrap?.viewer?.username ?? 'you';
-    const optimisticId = `pending-${Date.now()}`;
-    const optimisticComment: DetailComment = {
-      id: optimisticId,
-      authorUsername: viewerUsername,
-      body,
-      createdAt: new Date().toISOString(),
-      voteCount: 0,
-      activeVote: 0,
-      report: null,
-      replies: []
-    };
+    registerEntityType(data.id, 'project');
 
-    discussion = [...discussion, optimisticComment];
+    const viewerUsername = $page.data.bootstrap?.viewer?.username ?? 'you';
+    const optimistic = createOptimisticComment(viewerUsername, body);
+    optimisticComments = [...optimisticComments, optimistic];
 
     try {
-      await addComment(data.id, body);
-      discussion = await refreshSubjectDiscussion('project', data.id);
-      void invalidateAll();
+      await addComment(data.id, body, undefined, 'project');
     } catch {
-      discussion = discussion.filter((comment) => comment.id !== optimisticId);
-      throw new Error('Could not send this message. Try again.');
+      optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
+      throw new ChatSendError();
+    }
+
+    try {
+      const refreshed = await refreshSubjectDiscussion('project', data.id);
+      serverDiscussion = refreshed;
+      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+    } catch {
+      // Comment was saved; keep optimistic row until the next refresh succeeds.
     }
   }
 </script>
@@ -69,7 +76,7 @@
     comments={discussion}
     embedded={isCompact || fullscreen}
     emptyCopy="No project chat yet."
-    fitViewport={!isCompact || fullscreen}
+    fitViewport={isCompact || fullscreen}
     {highlightedCommentId}
     onSubmitMessage={submitProjectMessage}
     placeholder="Message the project..."
@@ -84,32 +91,22 @@
 <style>
   .chat-shell {
     margin-top: 16px;
-    min-height: 0;
   }
 
   .chat-shell-compact,
   .chat-shell-fullscreen {
     margin: 0;
-    flex: 1 1 auto;
     min-height: 0;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
   .chat-shell-compact :global(.chat-panel),
   .chat-shell-fullscreen :global(.chat-panel) {
     flex: 1 1 auto;
     min-height: 0;
-  }
-
-  .chat-shell-compact :global(.chat-panel.embedded),
-  .chat-shell-fullscreen :global(.chat-panel.embedded) {
-    height: 100%;
-    min-height: 0;
-  }
-
-  .chat-shell-fullscreen :global(.chat-panel.fit-viewport) {
-    height: 100%;
-    min-height: 0;
+    max-height: 100%;
   }
 </style>

@@ -264,13 +264,14 @@
     color: var(--brand-strong);
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 1080px) {
     .page {
       min-width: 0;
       overflow-x: clip;
     }
 
     .page-chat {
+      grid-template-rows: minmax(0, 1fr);
       gap: 0;
       height: calc(100dvh - var(--topbar-height) - var(--shell-bottom-nav-offset));
       min-height: 0;
@@ -302,6 +303,13 @@
       z-index: 2;
       margin: 0 8px 8px;
       background: var(--panel);
+      flex-shrink: 0;
+    }
+
+    .chat-tab-active > :global(.chat-shell) {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
     }
 
     .top-tab-row {

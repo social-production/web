@@ -284,7 +284,12 @@ export interface AppAdapter {
   removeVolunteer(): Promise<boolean>;
   castModeratorVote(targetUserId: string, vote: string): Promise<boolean>;
   setVote(targetId: string, vote: VoteDirection): Promise<void>;
-  addComment(subjectId: string, body: string, parentId?: string): Promise<void>;
+  addComment(
+    subjectId: string,
+    body: string,
+    parentId?: string,
+    subjectType?: 'thread' | 'post' | 'event' | 'project' | 'help_request'
+  ): Promise<void>;
   submitReport(subjectId: string, targetId: string, reason: string, details: string): Promise<void>;
   setReportVote(targetId: string, vote: ContentReportVote): Promise<void>;
   addProjectUpdate(projectSlug: string, title: string, body: string): Promise<void>;

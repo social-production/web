@@ -164,8 +164,8 @@ export function createFastApiDriver(): AppAdapter {
       return fetchSetVote(targetId, vote);
     },
 
-    async addComment(subjectId, body, parentId) {
-      return fetchAddComment(subjectId, body, parentId);
+    async addComment(subjectId, body, parentId, subjectType) {
+      return fetchAddComment(subjectId, body, parentId, subjectType);
     },
 
     async submitReport(subjectId, targetId, reason, details) {

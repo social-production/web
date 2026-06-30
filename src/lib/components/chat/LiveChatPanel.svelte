@@ -7,6 +7,7 @@
   import { addComment, setReportVote, submitReport } from '$lib/services/queries/details';
   import type { ContentReportSummary, DetailComment } from '$lib/types/detail';
   import { linkifyMessageBody } from '$lib/utils/linkifyMessageBody';
+  import { ChatSendError } from '$lib/utils/discussionState';
   import { scrollCenteredInContainer } from '$lib/utils/comment-scroll';
   import { tick } from 'svelte';
 
@@ -43,13 +44,15 @@
   let messageElements = new Map<string, HTMLElement>();
   let hasAutoScrolled = false;
   let lastHighlightedCommentId: string | null = null;
-  let lastAutoScrollKey = '';
   let registeredMessageVersion = 0;
   let reportTargetMessage: ChatMessage | null = null;
   let reportReason: ReportReason = 'spam';
   let reportDetails = '';
   let reportPending = false;
   let revealedMessageIds = new Set<string>();
+  let submitPending = false;
+  let lastScrollSubjectKey = '';
+  let lastAutoScrollKey = '';
 
   function formatMessageTime(value: string) {
     const date = new Date(value);
@@ -211,12 +214,6 @@
     const topOffset = Math.max(panelElement.getBoundingClientRect().top, visibleTopOffset());
     const nextHeight = Math.max(viewportHeight - topOffset, 320);
     panelElement.style.setProperty('--chat-panel-height', `${Math.floor(nextHeight)}px`);
-
-    if (!highlightedCommentId) {
-      requestAnimationFrame(() => {
-        scrollChatLogToBottom();
-      });
-    }
   }
 
   function flattenComments(items: DetailComment[]): ChatMessage[] {
@@ -245,6 +242,23 @@
       : flattenedComments;
   $: viewerUsername = $page.data.bootstrap?.viewer?.username ?? null;
 
+  $: scrollSubjectKey = `${subjectId || title}`;
+  $: autoScrollKey = highlightedCommentId
+    ? ''
+    : `${scrollSubjectKey}:${visibleMessages.length}`;
+
+  $: if (browser && autoScrollKey && autoScrollKey !== lastAutoScrollKey) {
+    lastAutoScrollKey = autoScrollKey;
+    tick().then(() => {
+      scrollChatLogToBottom();
+    });
+  }
+
+  $: if (scrollSubjectKey !== lastScrollSubjectKey) {
+    lastScrollSubjectKey = scrollSubjectKey;
+    lastAutoScrollKey = '';
+  }
+
   $: if (highlightedCommentId !== lastHighlightedCommentId) {
     lastHighlightedCommentId = highlightedCommentId;
     hasAutoScrolled = false;
@@ -260,15 +274,6 @@
     void scrollToHighlightedMessage();
   }
 
-  $: autoScrollKey = `${subjectId || title}:${visibleMessages.length}`;
-
-  $: if (browser && !highlightedCommentId && autoScrollKey !== lastAutoScrollKey) {
-    lastAutoScrollKey = autoScrollKey;
-    tick().then(() => {
-      scrollChatLogToBottom();
-    });
-  }
-
   $: if (browser && panelElement && fitViewport && !embedded) {
     tick().then(() => {
       syncPanelHeight();
@@ -278,9 +283,12 @@
   async function submitMessage() {
     const body = draftMessage.trim();
 
-    if (!body) {
+    if (!body || submitPending) {
       return;
     }
+
+    draftMessage = '';
+    submitPending = true;
 
     try {
       if (onSubmitMessage) {
@@ -289,19 +297,23 @@
         await addComment(subjectId, body);
         await invalidateAll();
       } else {
+        draftMessage = body;
         return;
       }
-
-      draftMessage = '';
 
       if (highlightedCommentId) {
         await clearHighlightedCommentTarget();
         await tick();
       }
 
+      await tick();
       scrollChatLogToBottom();
-    } catch {
-      // Parent submit handlers restore draft/state when needed.
+    } catch (err) {
+      if (err instanceof ChatSendError) {
+        draftMessage = body;
+      }
+    } finally {
+      submitPending = false;
     }
   }
 
@@ -369,7 +381,7 @@
       {#if visibleMessages.length === 0}
         <div class="empty-state">{emptyCopy}</div>
       {:else}
-        {#each visibleMessages as message}
+        {#each visibleMessages as message (message.id)}
           <article
             id={`comment-${message.id}`}
             class:highlighted={highlightedCommentId === message.id}
@@ -440,7 +452,9 @@
         placeholder={placeholder}
         rows="3"
       ></textarea>
-      <button class="primary-button" type="button" on:click={submitMessage}>{submitLabel}</button>
+      <button class="primary-button" disabled={submitPending} type="button" on:click={submitMessage}
+        >{submitLabel}</button
+      >
     </div>
   </div>
 </section>
@@ -466,13 +480,21 @@
   .chat-panel.embedded {
     height: 100%;
     min-height: 0;
+    max-height: 100%;
     border: none;
     border-radius: 0;
   }
 
-  .chat-panel.fit-viewport {
+  .chat-panel.embedded.fit-viewport {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+  }
+
+  .chat-panel.fit-viewport:not(.embedded) {
     height: var(--chat-panel-height, calc(100dvh - 32px));
     min-height: var(--chat-panel-height, 320px);
+    max-height: var(--chat-panel-height, calc(100dvh - 32px));
   }
 
   .chat-panel.headerless {
@@ -495,10 +517,10 @@
   }
 
   .chat-log-stack {
-    min-height: 100%;
     display: grid;
     gap: 4px;
     align-content: end;
+    min-height: 100%;
   }
 
   .chat-message {
@@ -682,13 +704,14 @@
   }
 
   @media (max-width: 780px) {
-    .chat-panel {
+    .chat-panel:not(.embedded) {
       height: min(720px, max(420px, calc(100dvh - 168px)));
     }
 
-    .chat-panel.fit-viewport {
+    .chat-panel.fit-viewport:not(.embedded) {
       height: var(--chat-panel-height, calc(100dvh - 24px));
       min-height: var(--chat-panel-height, 320px);
+      max-height: var(--chat-panel-height, calc(100dvh - 24px));
     }
   }
 

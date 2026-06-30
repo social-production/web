@@ -135,9 +135,16 @@ export async function fetchSetVote(targetId: string, vote: VoteDirection): Promi
   });
 }
 
-export async function fetchAddComment(subjectId: string, body: string, parentId?: string): Promise<void> {
+export type CommentSubjectType = 'thread' | 'post' | 'event' | 'project' | 'help_request';
+
+export async function fetchAddComment(
+  subjectId: string,
+  body: string,
+  parentId?: string,
+  subjectType?: CommentSubjectType
+): Promise<void> {
   await apiClient.post('/governance/comments', {
-    subject_type: resolveEntityType(subjectId),
+    subject_type: subjectType ?? resolveEntityType(subjectId),
     subject_id: subjectId,
     body,
     parent_id: parentId ?? null

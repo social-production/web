@@ -450,7 +450,6 @@
     <aside class="rail left-rail" data-open={leftRailOpen}>
       <LeftRailPanel
         {bootstrap}
-        compact={isCompact}
         {isActive}
         closePanels={closeCompactPanels}
       />
@@ -464,7 +463,6 @@
 
     <aside class="rail right-rail" data-open={rightRailOpen}>
       <RightRailPanel
-        compact={isCompact}
         items={bootstrap.activityRail}
         viewerId={bootstrap.viewer?.id ?? null}
         on:close={closeCompactPanels}

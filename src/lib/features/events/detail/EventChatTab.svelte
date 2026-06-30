@@ -1,48 +1,55 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import { addComment } from '$lib/services/queries/details';
+  import { registerEntityType } from '$lib/api/drivers/fastapi/typeRegistry';
   import type { DetailComment, EventPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
+  import {
+    ChatSendError,
+    createOptimisticComment,
+    mergeDiscussion,
+    pruneOptimisticComments,
+    syncIncomingDiscussion
+  } from '$lib/utils/discussionState';
 
   export let data: EventPageData;
   export let highlightedCommentId: string | null = null;
   export let fullscreen = false;
 
-  let discussion: DetailComment[] = data.discussion ?? [];
-  let discussionSyncKey = '';
+  let serverDiscussion: DetailComment[] = data.discussion ?? [];
+  let optimisticComments: DetailComment[] = [];
+  let lastPropDiscussion = data.discussion;
 
-  $: nextDiscussionKey = `${data.id}:${data.discussion?.length ?? 0}:${data.discussion?.[0]?.id ?? ''}`;
-  $: if (nextDiscussionKey !== discussionSyncKey) {
-    discussionSyncKey = nextDiscussionKey;
-    discussion = data.discussion ?? [];
+  $: if (data.discussion !== lastPropDiscussion) {
+    lastPropDiscussion = data.discussion;
+    serverDiscussion = syncIncomingDiscussion(serverDiscussion, data.discussion);
+    optimisticComments = pruneOptimisticComments(serverDiscussion, optimisticComments);
   }
 
-  async function submitEventMessage(body: string) {
-    const viewerUsername = $page.data.bootstrap?.viewer?.username ?? 'you';
-    const optimisticId = `pending-${Date.now()}`;
-    const optimisticComment: DetailComment = {
-      id: optimisticId,
-      authorUsername: viewerUsername,
-      body,
-      createdAt: new Date().toISOString(),
-      voteCount: 0,
-      activeVote: 0,
-      report: null,
-      replies: []
-    };
+  $: discussion = mergeDiscussion(serverDiscussion, optimisticComments);
 
-    discussion = [...discussion, optimisticComment];
+  async function submitEventMessage(body: string) {
+    registerEntityType(data.id, 'event');
+
+    const viewerUsername = $page.data.bootstrap?.viewer?.username ?? 'you';
+    const optimistic = createOptimisticComment(viewerUsername, body);
+    optimisticComments = [...optimisticComments, optimistic];
 
     try {
-      await addComment(data.id, body);
-      discussion = await refreshSubjectDiscussion('event', data.id);
-      void invalidateAll();
+      await addComment(data.id, body, undefined, 'event');
     } catch {
-      discussion = discussion.filter((comment) => comment.id !== optimisticId);
-      throw new Error('Could not send this message. Try again.');
+      optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
+      throw new ChatSendError();
+    }
+
+    try {
+      const refreshed = await refreshSubjectDiscussion('event', data.id);
+      serverDiscussion = refreshed;
+      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+    } catch {
+      // Comment was saved; keep optimistic row until the next refresh succeeds.
     }
   }
 </script>
@@ -53,7 +60,7 @@
     comments={discussion}
     embedded={fullscreen}
     emptyCopy="No event chat yet."
-    fitViewport={true}
+    fitViewport={fullscreen}
     {highlightedCommentId}
     onSubmitMessage={submitEventMessage}
     placeholder="Message members..."
@@ -68,20 +75,20 @@
 <style>
   .chat-shell {
     margin-top: 16px;
-    min-height: 0;
   }
 
   .chat-shell-fullscreen {
     margin: 0;
-    flex: 1 1 auto;
     min-height: 0;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
   .chat-shell-fullscreen :global(.chat-panel) {
     flex: 1 1 auto;
     min-height: 0;
-    height: 100%;
+    max-height: 100%;
   }
 </style>

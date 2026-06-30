@@ -1,8 +1,10 @@
 import { fetchComments, mapComment } from '$lib/api/drivers/fastapi/domains/content';
 import type { DetailComment } from '$lib/types/detail';
 
+export type DiscussionSubjectType = 'project' | 'event' | 'help_request';
+
 export async function refreshSubjectDiscussion(
-  subjectType: 'project' | 'event',
+  subjectType: DiscussionSubjectType,
   subjectId: string
 ): Promise<DetailComment[]> {
   const items = await fetchComments(subjectType, subjectId);

@@ -5,7 +5,6 @@
   import * as m from '$lib/paraglide/messages';
 
   export let bootstrap: BootstrapPayload;
-  export let compact = false;
   export let isActive: (href: string) => boolean;
   export let closePanels: () => void;
 
@@ -116,36 +115,6 @@
 </nav>
 
 <style>
-  .compact-rail-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--panel-border);
-  }
-
-  .close-rail {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 34px;
-    padding: 0 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-soft);
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .close-rail:hover {
-    border-color: var(--brand);
-    color: var(--brand-strong);
-    background: var(--brand-soft);
-  }
-
   .rail-panel {
     padding: 0 0 12px;
     border-bottom: 1px solid var(--panel-border);

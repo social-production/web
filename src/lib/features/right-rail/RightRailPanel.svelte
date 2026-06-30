@@ -11,7 +11,6 @@
   import type { RightRailActivityItem } from '$lib/types/bootstrap';
   import { formatScheduleLabel } from '$lib/utils/time';
 
-  export let compact = false;
   export let items: RightRailActivityItem[] = [];
   export let viewerId: string | null = null;
 
@@ -381,24 +380,6 @@
 </section>
 
 <style>
-  .compact-rail-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-
-  .close-rail {
-    padding: 8px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
   .rail-panel {
     display: grid;
     gap: 16px;
