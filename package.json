@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite dev",
     "dev:lan": "vite dev --host 0.0.0.0",
-    "build": "vite build",
+    "build": "npm run paraglide && vite build",
+    "start": "vite preview --host 0.0.0.0 --port ${PORT:-3000}",
     "preview": "vite preview",
     "paraglide": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide",
     "check": "npm run paraglide && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
