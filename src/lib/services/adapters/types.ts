@@ -61,6 +61,7 @@ import type { ScopeKind, ScopePageData } from '$lib/types/scope';
 
 export interface AppAdapter {
   getBootstrap(): Promise<BootstrapPayload>;
+  getBootstrapSummary(): Promise<Pick<BootstrapPayload, 'unreadCounts'>>;
   hydrateClientState?(): Promise<boolean>;
   getPublicFeed(): Promise<PublicFeedItem[]>;
   getHomeFeed(): Promise<PublicFeedItem[]>;

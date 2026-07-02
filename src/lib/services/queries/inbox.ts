@@ -14,9 +14,9 @@ export function syncUnreadCountsFromBootstrap(counts: UnreadCounts) {
 }
 
 export async function refreshUnreadCounts() {
-  const bootstrap = await currentAdapter.getBootstrap();
-  syncUnreadCountsFromBootstrap(bootstrap.unreadCounts);
-  return bootstrap.unreadCounts;
+  const summary = await currentAdapter.getBootstrapSummary();
+  syncUnreadCountsFromBootstrap(summary.unreadCounts);
+  return summary.unreadCounts;
 }
 
 function decrementUnreadMessages(clearedCount = 1) {

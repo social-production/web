@@ -23,7 +23,7 @@
 </script>
 
 <svelte:head>
-  <title>Social Production Web</title>
+  <title>Social Production</title>
   <meta
     name="description"
     content="Phase 1 Social Production frontend with a development adapter and the first Public and Personal routes."

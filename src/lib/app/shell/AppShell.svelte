@@ -12,7 +12,6 @@
   import SearchSuggestionsList from '$lib/features/search/SearchSuggestionsList.svelte';
   import { unreadCounts } from '$lib/stores/unreadCounts';
   import { refreshUnreadCounts, syncUnreadCountsFromBootstrap } from '$lib/services/queries/inbox';
-  import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import * as m from '$lib/paraglide/messages';
   import { onMount } from 'svelte';
   import type { BootstrapPayload } from '$lib/types/bootstrap';
@@ -71,7 +70,6 @@
     const refreshBadgeCounts = () => {
       if (bootstrap.viewer) {
         void refreshUnreadCounts();
-        void refreshBootstrap();
       }
     };
 
