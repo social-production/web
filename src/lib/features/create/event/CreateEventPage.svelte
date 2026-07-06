@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import EventCard from '$lib/components/cards/public-feed/EventCard.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
@@ -13,6 +12,11 @@
   import { createEvent } from '$lib/services/queries/create';
   import type { ScopeDirectoryItem, ViewerSummary } from '$lib/types/bootstrap';
   import type { PublicEventItem, TagKind, TagRef } from '$lib/types/feed';
+  import {
+    applyScopePrefillToSelections,
+    readScopePrefillFromSearchParams
+  } from '$lib/utils/createScopePrefill';
+  import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 
   type AudienceScopeItem = ScopeDirectoryItem & {
     visibility?: 'public' | 'private';
@@ -34,6 +38,27 @@
   let selectedCommunityOptionsCache: AudienceScopeItem[] = [];
   let taggableLookupKey = '';
   let taggableRequestId = 0;
+  let appliedScopePrefillKey = '';
+
+  $: scopePrefillKey = `${$page.url.searchParams.get('channel') ?? ''}:${$page.url.searchParams.get('community') ?? ''}`;
+  $: if (scopePrefillKey && scopePrefillKey !== appliedScopePrefillKey) {
+    appliedScopePrefillKey = scopePrefillKey;
+    const prefill = readScopePrefillFromSearchParams($page.url.searchParams);
+    const applied = applyScopePrefillToSelections(
+      prefill,
+      $page.data.bootstrap?.directory?.channels ?? [],
+      $page.data.bootstrap?.directory?.communities ?? [],
+      selectedChannelIds,
+      selectedCommunityIds
+    );
+    selectedChannelIds = applied.selectedChannelIds;
+    selectedCommunityIds = applied.selectedCommunityIds;
+    selectedChannelOptions = mergeScopeOptions(selectedChannelOptions, applied.selectedChannelOptions);
+    selectedCommunityOptionsCache = mergeScopeOptions(
+      selectedCommunityOptionsCache,
+      applied.selectedCommunityOptions
+    );
+  }
 
   function selectedScopeTags(
     selectedSlugs: string[],
@@ -170,8 +195,7 @@
         return;
       }
 
-      await invalidateAll();
-      await goto(`/events/${result.slug}`);
+      await navigateAfterCreate(`/events/${result.slug}`);
     } finally {
       isSubmitting = false;
     }

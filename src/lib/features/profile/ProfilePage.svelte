@@ -178,6 +178,9 @@
       </div>
 
       <div class="profile-actions">
+        {#if !data.isOwnProfile && $page.data.bootstrap?.viewer}
+          <a class="message-button" href={`/messages?to=${encodeURIComponent(data.username)}`}>Message</a>
+        {/if}
         {#if !data.isOwnProfile}
           <button
             class="follow-button"
@@ -466,7 +469,8 @@
   }
 
   .toolbar-button,
-  .follow-button {
+  .follow-button,
+  .message-button {
     padding: 7px 10px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -474,6 +478,11 @@
     color: var(--text-soft);
     font-size: 12px;
     font-weight: 700;
+  }
+
+  .message-button {
+    background: var(--panel-strong);
+    color: var(--brand-strong);
   }
 
   .toolbar-button.active {

@@ -204,7 +204,28 @@
       margin-left: 0;
     }
 
+    .header-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
     .header-name {
+      max-width: 9rem;
+      font-size: 15px;
+    }
+
+    .title {
+      font-size: 17px;
+    }
+
+    .footer {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .footer-meta .inline-link {
       display: none;
     }
 

@@ -63,7 +63,8 @@
     <div class="footer-meta">
       <span>
         <a class="inline-link" href={`/profile/${item.authorUsername}`}>{item.authorUsername}</a>
-        · {item.memberCount} {participantLabel} · <span class="activity-stamp">{describeUpdateTime(item.createdAt, item.latestUpdateAt)}</span>
+        · {item.memberCount} {participantLabel}
+        · <span class="activity-stamp">{describeUpdateTime(item.createdAt, item.latestUpdateAt)}</span>
       </span>
     </div>
   </div>

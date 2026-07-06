@@ -39,6 +39,7 @@
 
   export let data: MessagesPageData;
   export let openConversationId: string | null = null;
+  export let composeToUsername: string | null = null;
 
   let activeConversationId: string | null = null;
   let activeLinkedChatId: string | null = null;
@@ -592,6 +593,23 @@
     void tryOpenDeepLinkConversation();
   }
 
+  let handledComposeToUsername: string | null = null;
+
+  $: if (
+    browser &&
+    composeToUsername &&
+    composeToUsername !== handledComposeToUsername &&
+    !activeConversation &&
+    !activeLinkedChat
+  ) {
+    handledComposeToUsername = composeToUsername;
+    activeListTab = 'messages';
+    composerMode = 'direct';
+    recipientDraft = composeToUsername;
+    showComposer = true;
+    composerError = '';
+  }
+
   async function loadLinkedChatComments(
     chat: MessageLinkedChat,
     options: { silent?: boolean } = {}
@@ -972,10 +990,12 @@
 
 <section class:conversation-page={!!activeConversation || !!activeLinkedChat} class="page">
   {#if !activeConversation && !activeLinkedChat}
-    <PageHeader
-      title="Messages"
-      description="Direct messages, group chats, and the same project or event chat rooms you already use elsewhere."
-    />
+    <div class="desktop-only-header">
+      <PageHeader
+        title="Messages"
+        description="Direct messages, group chats, and the same project or event chat rooms you already use elsewhere."
+      />
+    </div>
   {/if}
 
   <section
@@ -1909,6 +1929,24 @@
   }
 
   @media (max-width: 760px) {
+    .desktop-only-header {
+      display: none;
+    }
+
+    .page:not(.conversation-page) .messages-shell.list-view {
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: var(--topbar-height);
+      bottom: var(--shell-bottom-nav-offset);
+      width: 100%;
+      height: auto;
+      min-height: 0;
+      z-index: 12;
+      border-left: none;
+      border-right: none;
+    }
+
     .messages-shell {
       height: var(--messages-shell-height, min(640px, calc(100dvh - 24px)));
       min-height: var(--messages-shell-height, min(420px, calc(100dvh - 24px)));

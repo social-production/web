@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import ThreadCard from '$lib/components/cards/public-feed/ThreadCard.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
@@ -11,6 +10,11 @@
   import { createThread } from '$lib/services/queries/create';
   import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
   import type { PublicThreadItem, TagRef } from '$lib/types/feed';
+  import {
+    applyScopePrefillToSelections,
+    readScopePrefillFromSearchParams
+  } from '$lib/utils/createScopePrefill';
+  import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 
   const platformTagSlug = 'platform';
 
@@ -30,6 +34,28 @@
   let selectedCommunityOptionsCache: ScopeDirectoryItem[] = [];
   let taggableLookupKey = '';
   let taggableRequestId = 0;
+  let appliedScopePrefillKey = '';
+
+  $: scopePrefillKey = `${$page.url.searchParams.get('channel') ?? ''}:${$page.url.searchParams.get('community') ?? ''}`;
+  $: if (scopePrefillKey && scopePrefillKey !== appliedScopePrefillKey) {
+    appliedScopePrefillKey = scopePrefillKey;
+    const prefill = readScopePrefillFromSearchParams($page.url.searchParams);
+    const applied = applyScopePrefillToSelections(
+      prefill,
+      $page.data.bootstrap?.directory?.channels ?? [],
+      $page.data.bootstrap?.directory?.communities ?? [],
+      selectedChannelIds,
+      selectedCommunityIds
+    );
+    primaryTagType = applied.primaryTagType;
+    selectedChannelIds = applied.selectedChannelIds;
+    selectedCommunityIds = applied.selectedCommunityIds;
+    selectedChannelOptions = mergeScopeOptions(selectedChannelOptions, applied.selectedChannelOptions);
+    selectedCommunityOptionsCache = mergeScopeOptions(
+      selectedCommunityOptionsCache,
+      applied.selectedCommunityOptions
+    );
+  }
 
   function selectedScopeTags(
     selectedSlugs: string[],
@@ -259,8 +285,7 @@
         return;
       }
 
-      await invalidateAll();
-      await goto(`/threads/${result.slug}`);
+      await navigateAfterCreate(`/threads/${result.slug}`);
     } finally {
       isSubmitting = false;
     }

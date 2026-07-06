@@ -7,7 +7,7 @@ import type {
   ProjectApprovalVote,
   ProjectImportanceVoteValue
 } from '$lib/types/detail';
-import { suggestedEventActivityWindow } from '$lib/utils/eventSchedule';
+import { eventPlanScheduleStartIso, suggestedEventActivityWindow } from '$lib/utils/eventSchedule';
 
 export type DraftPlanPhase = {
   title: string;
@@ -92,30 +92,37 @@ export function createEventPlanForm(): EventPlanForm {
 }
 
 export function eventPlanScheduleFromForm(form: EventPlanForm): EventPlanScheduleInput {
+  let schedule: EventPlanScheduleInput;
+
   if (form.scheduleMode === 'date') {
-    return {
+    schedule = {
       mode: 'date',
       startDate: form.scheduledDate || null,
       startTimeLabel: form.startTimeLabel || null,
       finishTimeLabel: form.finishTimeLabel || null
     };
-  }
-
-  if (form.scheduleMode === 'range') {
-    return {
+  } else if (form.scheduleMode === 'range') {
+    schedule = {
       mode: 'range',
       startDate: form.rangeStartDate || null,
       endDate: form.rangeEndDate || null,
       startTimeLabel: form.startTimeLabel || null,
       finishTimeLabel: form.finishTimeLabel || null
     };
+  } else {
+    schedule = {
+      mode: 'any-day',
+      startTimeLabel: form.startTimeLabel || null,
+      finishTimeLabel: form.finishTimeLabel || null
+    };
   }
 
-  return {
-    mode: 'any-day',
-    startTimeLabel: form.startTimeLabel || null,
-    finishTimeLabel: form.finishTimeLabel || null
-  };
+  const startAtUtc = eventPlanScheduleStartIso({
+    startDate: schedule.startDate ?? null,
+    startTimeLabel: schedule.startTimeLabel ?? null
+  });
+
+  return startAtUtc ? { ...schedule, startAtUtc } : schedule;
 }
 
 export function createEventActivityForm(

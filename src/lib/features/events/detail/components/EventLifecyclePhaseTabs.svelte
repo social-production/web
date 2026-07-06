@@ -12,14 +12,16 @@
     <button
       class:active={activePhaseId === tab.phase.id}
       class:current-phase={tab.phase.progressState === 'current'}
+      class:complete-phase={tab.phase.progressState === 'complete'}
       class:future-phase={tab.isFuture && tab.phase.progressState !== 'locked'}
       class:locked-phase={tab.phase.progressState === 'locked'}
       class="phase-tab"
       type="button"
+      aria-label={`${tab.title} · ${tab.progressLabel}`}
       on:click={() => selectPhase(tab.phase)}
     >
+      <span aria-hidden="true" class="phase-tab-swatch"></span>
       <span class="phase-tab-title">{tab.title}</span>
-      <span aria-hidden="true" class="phase-tab-abbrev">{tab.phase.shortLabel}</span>
       <small class:current-label={tab.phase.progressState === 'current'}>{tab.progressLabel}</small>
     </button>
   {/each}
@@ -52,6 +54,10 @@
     font-weight: 700;
   }
 
+  .phase-tab-swatch {
+    display: none;
+  }
+
   .phase-tab.future-phase {
     border-color: color-mix(in srgb, var(--accent-warm) 35%, var(--panel-border));
     color: var(--accent-warm-strong);
@@ -76,9 +82,6 @@
 
   .phase-tab-title {
     color: var(--text-main);
-  }
-
-  .phase-tab-title {
     font-size: 13px;
     font-weight: 700;
   }
@@ -90,39 +93,60 @@
 
   @media (max-width: 760px) {
     .phase-tab-row {
-      gap: 6px;
+      gap: 8px;
       padding: 12px;
     }
 
     .phase-tab {
-      min-height: 56px;
-      padding: 6px 4px;
+      min-height: auto;
+      min-width: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      box-shadow: none;
       justify-items: center;
-      text-align: center;
     }
 
-    .phase-tab-title {
-      display: none;
+    .phase-tab.active {
+      box-shadow: none;
     }
 
-    .phase-tab-abbrev {
-      display: block;
-      width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      color: var(--text-main);
-      font-size: 11px;
-      font-weight: 800;
-      line-height: 1.2;
-    }
-
+    .phase-tab-title,
     .phase-tab small {
       display: none;
     }
-  }
 
-  .phase-tab-abbrev {
-    display: none;
+    .phase-tab-swatch {
+      display: block;
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      border: 1px solid color-mix(in srgb, var(--panel-border) 80%, transparent);
+      background: #9aa3ad;
+    }
+
+    .phase-tab.current-phase .phase-tab-swatch {
+      background: #2f9e44;
+      border-color: color-mix(in srgb, #2f9e44 70%, var(--panel-border));
+    }
+
+    .phase-tab.complete-phase .phase-tab-swatch {
+      background: #228be6;
+      border-color: color-mix(in srgb, #228be6 70%, var(--panel-border));
+    }
+
+    .phase-tab.future-phase .phase-tab-swatch {
+      background: #adb5bd;
+      border-color: color-mix(in srgb, #adb5bd 70%, var(--panel-border));
+    }
+
+    .phase-tab.locked-phase .phase-tab-swatch {
+      background: color-mix(in srgb, var(--tablet-community-bg) 55%, var(--panel-strong));
+      border-color: color-mix(in srgb, var(--tablet-community-bg) 60%, var(--panel-border));
+    }
+
+    .phase-tab.active .phase-tab-swatch {
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 45%, transparent);
+    }
   }
 </style>

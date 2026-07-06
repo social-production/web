@@ -5,7 +5,6 @@
   import DetailUpdateCard from '$lib/components/cards/details/DetailUpdateCard.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import {
     requestEventEdit,
@@ -25,8 +24,7 @@
   export let data: EventPageData;
   export let highlightedUpdateId: string | null = null;
   export let showMembersPanel = false;
-  export let autoExpandVoteCards = false;
-  export let autoExpandVoteKind: string | null = null;
+  export let votesRenderedInHub = false;
 
   const dispatch = createEventDispatcher<{ togglemembers: void }>();
 
@@ -37,6 +35,8 @@
   let showUpdateVotes = false;
   let showEditComposer = false;
   let showEditVotes = false;
+  let updateVotesManuallyCollapsed = false;
+  let editVotesManuallyCollapsed = false;
   let updatePending = false;
   let editPending = false;
   let updateMessage = '';
@@ -45,9 +45,25 @@
   let editVotesElement: HTMLElement | null = null;
   let editComposerElement: HTMLElement | null = null;
 
-  $: if (autoExpandVoteCards) {
-    if (!autoExpandVoteKind || autoExpandVoteKind === 'update') showUpdateVotes = true;
-    if (!autoExpandVoteKind || autoExpandVoteKind === 'edit') showEditVotes = true;
+  function scrollToVoteHub() {
+    document.getElementById('pending-votes-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  $: pendingUpdateVotes = data.updateRequests.filter((request) => !request.voteSummary.activeVote);
+  $: pendingEditVotes = data.editRequests.filter((request) => !request.voteSummary.activeVote);
+  $: canProposeUpdate = data.viewerCanRequestUpdate && data.updateRequests.length === 0;
+  $: canProposeEdit = data.viewerCanRequestEdit && data.editRequests.length === 0;
+
+  $: if (!votesRenderedInHub && data.viewerCanVoteOnUpdateRequests && !updateVotesManuallyCollapsed && pendingUpdateVotes.length > 0) {
+    showUpdateVotes = true;
+  }
+
+  $: if (!votesRenderedInHub && data.viewerCanVoteOnEditRequests && !editVotesManuallyCollapsed && pendingEditVotes.length > 0) {
+    showEditVotes = true;
+  }
+
+  function openVoteChipLabel(count: number) {
+    return `Vote now (${count})`;
   }
 
   function scrollElementIntoView(element: HTMLElement | null) {
@@ -126,15 +142,20 @@
     }
   }
 
-  async function toggleUpdateVotes() {
+  function toggleUpdateVotes() {
+    if (votesRenderedInHub) {
+      scrollToVoteHub();
+      return;
+    }
+
     showUpdateVotes = !showUpdateVotes;
+    updateVotesManuallyCollapsed = !showUpdateVotes;
 
     if (showUpdateVotes) {
       showUpdateComposer = false;
       showEditComposer = false;
       showEditVotes = false;
-      await tick();
-      scrollElementIntoView(updateVotesElement);
+      void tick().then(() => scrollElementIntoView(updateVotesElement));
     }
   }
 
@@ -153,15 +174,20 @@
     }
   }
 
-  async function toggleEditVotes() {
+  function toggleEditVotes() {
+    if (votesRenderedInHub) {
+      scrollToVoteHub();
+      return;
+    }
+
     showEditVotes = !showEditVotes;
+    editVotesManuallyCollapsed = !showEditVotes;
 
     if (showEditVotes) {
       showUpdateComposer = false;
       showUpdateVotes = false;
       showEditComposer = false;
-      await tick();
-      scrollElementIntoView(editVotesElement);
+      void tick().then(() => scrollElementIntoView(editVotesElement));
     }
   }
 
@@ -183,16 +209,15 @@
     <h2>Updates</h2>
     {#if data.updateRequests.length > 0}
       <button class="vote-chip notice-chip" type="button" on:click={toggleUpdateVotes}>
-        Vote Active
-        <CountBadge count={data.updateRequests.length} />
+        {openVoteChipLabel(data.updateRequests.length)}
       </button>
     {/if}
-    {#if data.viewerCanRequestUpdate}
+    {#if canProposeUpdate}
       <RoundPlusButton active={showUpdateComposer} ariaLabel="Add update" action={toggleComposer} />
     {/if}
   </div>
 
-  {#if data.viewerCanRequestUpdate && showUpdateComposer}
+  {#if canProposeUpdate && showUpdateComposer}
     <div class="composer-card">
       {#if updateMessage}
         <div class="warning-card" role="alert">{updateMessage}</div>
@@ -212,7 +237,7 @@
     </div>
   {/if}
 
-  {#if showUpdateVotes && data.updateRequests.length > 0}
+  {#if !votesRenderedInHub && showUpdateVotes && data.updateRequests.length > 0}
     <div bind:this={updateVotesElement} class="surface-stack">
       {#each data.updateRequests as request (request.id)}
         <article id={`vote-card-update-${request.id}`} class="surface-card vote-request-card">
@@ -255,7 +280,7 @@
     {/if}
   </div>
 
-  {#if data.viewerCanRequestEdit && showEditComposer}
+  {#if canProposeEdit && showEditComposer}
     <div bind:this={editComposerElement} class="composer-card">
       {#if editMessage}
         <div class="warning-card" role="alert">{editMessage}</div>
@@ -294,7 +319,7 @@
     >
       {memberButtonLabel}
     </button>
-    {#if data.viewerCanRequestEdit}
+    {#if canProposeEdit}
       <button
         aria-expanded={showEditComposer}
         class:active-toggle={showEditComposer}
@@ -302,13 +327,12 @@
         type="button"
         on:click={toggleEditComposer}
       >
-        Edit details
+        Propose edit
       </button>
     {/if}
     {#if data.editRequests.length > 0}
       <button class="vote-chip notice-chip" type="button" on:click={toggleEditVotes}>
-        Vote Active
-        <CountBadge count={data.editRequests.length} />
+        {openVoteChipLabel(data.editRequests.length)}
       </button>
     {/if}
     <span class="footer-author-row">
@@ -317,7 +341,7 @@
     </span>
   </div>
 
-  {#if showEditVotes && data.editRequests.length > 0}
+  {#if !votesRenderedInHub && showEditVotes && data.editRequests.length > 0}
     <div bind:this={editVotesElement} class="surface-stack">
       {#each data.editRequests as request (request.id)}
         <article id={`vote-card-edit-${request.id}`} class="surface-card vote-request-card">

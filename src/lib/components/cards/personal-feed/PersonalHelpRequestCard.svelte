@@ -8,11 +8,12 @@
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { castFeedVote } from '$lib/services/queries/feeds';
   import type { PersonalHelpRequestItem, VoteDirection } from '$lib/types/feed';
-  import { formatRelativeTime } from '$lib/utils/time';
+  import { describeActivityTime, formatLocalDateTime, formatRelativeTime } from '$lib/utils/time';
 
   export let item: PersonalHelpRequestItem;
 
   $: orderedTags = [...item.channelTags, ...item.communityTags];
+  $: whenLabel = formatLocalDateTime(item.neededAt);
   $: roleCount = item.roles.length;
   $: signupSummary =
     item.signupCount != null && item.slotsNeeded != null && item.slotsNeeded > 0
@@ -51,8 +52,8 @@
 
   <a class="title" href={item.href}>{item.title}</a>
   <p class="body">{item.body}</p>
-  {#if item.scheduleLabel || item.locationLabel}
-    <p class="location">{[item.scheduleLabel, item.locationLabel].filter(Boolean).join(' · ')}</p>
+  {#if whenLabel || item.locationLabel}
+    <p class="location">{[whenLabel, item.locationLabel].filter(Boolean).join(' · ')}</p>
   {/if}
   {#if signupSummary}
     <p class="signup-summary">{signupSummary}</p>
@@ -172,7 +173,24 @@
       margin-left: 0;
     }
 
+    .header-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
     .header-name {
+      max-width: 9rem;
+      font-size: 15px;
+    }
+
+    .footer {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .footer-meta .inline-link {
       display: none;
     }
 

@@ -5,4 +5,8 @@
   export let data: PageData;
 </script>
 
-<MessagesPage data={data.messages} openConversationId={data.openConversationId} />
+<MessagesPage
+  data={data.messages}
+  openConversationId={data.openConversationId}
+  composeToUsername={data.composeToUsername}
+/>

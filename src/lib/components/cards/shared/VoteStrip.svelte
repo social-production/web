@@ -91,4 +91,16 @@
   .active-down {
     color: #ef4444;
   }
+
+  @media (max-width: 760px) {
+    .vote-button {
+      font-size: 13px;
+      width: 28px;
+      height: 28px;
+    }
+
+    .vote-count {
+      font-size: 14px;
+    }
+  }
 </style>

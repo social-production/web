@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ProjectActivityItem, ProjectActivityRole } from '$lib/types/detail';
+  import { formatLocalDateTimeRange } from '$lib/utils/time';
 
   export let activity: ProjectActivityItem;
   export let expanded = false;
@@ -9,31 +10,8 @@
   export let badgeClass: 'complete' | 'upcoming' | 'current' | 'locked' | null = null;
   export let changecommitment: (activityId: string, roleLabel: string | null) => void = () => {};
 
-  function sameCalendarDay(left: Date, right: Date) {
-    return (
-      left.getFullYear() === right.getFullYear() &&
-      left.getMonth() === right.getMonth() &&
-      left.getDate() === right.getDate()
-    );
-  }
-
-  function formatDayDate(value: Date) {
-    return value.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-  }
-
-  function formatTime(value: Date) {
-    return value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-
   function timeLabel() {
-    const start = new Date(activity.startAt);
-    const end = new Date(activity.endAt);
-
-    if (sameCalendarDay(start, end)) {
-      return `${formatDayDate(start)}, ${formatTime(start)} - ${formatTime(end)}`;
-    }
-
-    return `${formatDayDate(start)}, ${formatTime(start)} - ${formatDayDate(end)}, ${formatTime(end)}`;
+    return formatLocalDateTimeRange(activity.startAt, activity.endAt);
   }
 
   function roleHasOpenCapacity(role: ProjectActivityRole) {

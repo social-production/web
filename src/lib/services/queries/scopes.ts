@@ -13,8 +13,8 @@ export function getPlatform() {
   return currentAdapter.getPlatform();
 }
 
-export function toggleScopeMembership(kind: ScopeKind, slug: string) {
-  return currentAdapter.toggleScopeMembership(kind, slug);
+export function toggleScopeMembership(kind: ScopeKind, slug: string, viewerIsMember: boolean) {
+  return currentAdapter.toggleScopeMembership(kind, slug, viewerIsMember);
 }
 
 export function redeemScopeInvite(kind: ScopeKind, slug: string, inviteValue: string) {

@@ -71,12 +71,21 @@
     display: flex;
     gap: 0.6rem;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    min-width: 0;
   }
 
   .identity-copy {
     display: grid;
     gap: 6px;
+    min-width: 0;
+  }
+
+  .header-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 12rem;
   }
 
   .name,
@@ -123,6 +132,17 @@
 
   @media (max-width: 760px) {
     .header-name {
+      max-width: 9rem;
+      font-size: 15px;
+    }
+
+    .footer {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .footer-meta .inline-link {
       display: none;
     }
 

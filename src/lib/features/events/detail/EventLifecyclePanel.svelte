@@ -9,6 +9,7 @@
   import EventLifecycleMechanicsCard from './components/EventLifecycleMechanicsCard.svelte';
   import EventLifecyclePhaseTabs from './components/EventLifecyclePhaseTabs.svelte';
   import EventPhaseChangeSection from './components/EventPhaseChangeSection.svelte';
+  import { scrollToPendingVote } from '$lib/utils/pendingVotes';
   import EventLifecycleContent from './lifecycle/EventLifecycleContent.svelte';
   import {
     createEventActivityForm,
@@ -28,7 +29,8 @@
     eventActivityFitsSchedule,
     eventScheduleBounds,
     eventScheduleIsValid,
-    eventScheduleStartsInFuture
+    eventScheduleStartsInFuture,
+    localDateTimeInputToIso
   } from '$lib/utils/eventSchedule';
   import {
     addEventActivity,
@@ -50,6 +52,8 @@
   } from '$lib/types/detail';
 
   export let data: EventPageData;
+  export let votesRenderedInHub = false;
+
   export let autoExpandVoteCards = false;
   export let autoExpandVoteKind: string | null = null;
   export let autoExpandVoteTarget: string | null = null;
@@ -149,15 +153,16 @@
       return null;
     }
 
-    return resolveEventPhaseChangeVoteKind(request);
+    return resolveEventPhaseChangeVoteKind(
+      request,
+      data.lifecycle.currentPhaseId,
+      data.lifecycle.phases
+    );
   }
 
   function scrollVoteCardIntoView(voteKind: string, voteTarget: string) {
     if (!browser) return;
-    document.getElementById(`vote-card-${voteKind}-${voteTarget}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    });
+    scrollToPendingVote(voteKind, voteTarget);
   }
 
   async function focusVoteCard(voteKind: string, voteTarget: string) {
@@ -505,7 +510,11 @@
       return;
     }
 
-    await addEventActivity(data.slug, activityForm);
+    await addEventActivity(data.slug, {
+      ...activityForm,
+      scheduledAt: localDateTimeInputToIso(activityForm.scheduledAt),
+      endsAt: localDateTimeInputToIso(activityForm.endsAt)
+    });
     resetActivityForm();
     showActivityComposer = false;
     await invalidateAll();
@@ -592,6 +601,7 @@
       {requestPhaseChange}
       {voteOnPhaseChange}
       autoExpandVoteGroup={targetedPhaseChangeGroup}
+      {votesRenderedInHub}
     />
   </section>
 </section>

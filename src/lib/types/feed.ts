@@ -170,6 +170,7 @@ export interface PublicHelpRequestItem {
   authorUsername: string;
   locationLabel: string;
   scheduleLabel: string;
+  neededAt?: string;
   roles: HelpRequestRoleInput[];
   channelTags: TagRef[];
   communityTags: TagRef[];
@@ -235,6 +236,7 @@ export interface PersonalHelpRequestItem {
   body: string;
   locationLabel: string;
   scheduleLabel: string;
+  neededAt?: string;
   roles: HelpRequestRoleInput[];
   channelTags: TagRef[];
   communityTags: TagRef[];
@@ -261,5 +263,9 @@ export interface PersonalCommentActivityItem {
   subjectKind: SubjectKind;
   subjectTitle: string;
   commentExcerpt: string;
+  voteTargetId: string;
+  voteCount: number;
+  activeVote: VoteDirection;
+  commentCount: number;
   createdAt: string;
 }

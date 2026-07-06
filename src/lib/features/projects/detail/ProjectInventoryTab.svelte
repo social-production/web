@@ -357,7 +357,7 @@
 
   .request-card {
     width: min(560px, calc(100vw - 40px));
-    background: white;
+    background: var(--panel-soft);
     box-shadow: 0 18px 40px color-mix(in srgb, var(--text-main) 14%, transparent);
   }
 

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import PreviewTile from '$lib/features/create/shared/PreviewTile.svelte';
   import { createChannel } from '$lib/services/queries/create';
+  import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 
   let name = '';
   let description = '';
@@ -27,8 +27,7 @@
         return;
       }
 
-      await invalidateAll();
-      await goto(`/channels/${result.slug}`);
+      await navigateAfterCreate(`/channels/${result.slug}`);
     } finally {
       isSubmitting = false;
     }

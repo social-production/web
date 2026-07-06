@@ -46,6 +46,32 @@ export function parseLocalDateTimeValue(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/** Convert a datetime-local input value to UTC ISO for API submission. */
+export function localDateTimeInputToIso(value: string): string {
+  const parsed = parseLocalDateTimeValue(value);
+  if (!parsed) {
+    throw new Error('Invalid datetime-local value');
+  }
+  return parsed.toISOString();
+}
+
+/** UTC ISO for the plan schedule start, when date + start time are known. */
+export function eventPlanScheduleStartIso(
+  schedule: Pick<EventPlanScheduleInput, 'startDate' | 'startTimeLabel'>
+): string | null {
+  const localValue = buildLocalDateTimeValue(schedule.startDate, schedule.startTimeLabel);
+
+  if (!localValue) {
+    return null;
+  }
+
+  try {
+    return localDateTimeInputToIso(localValue);
+  } catch {
+    return null;
+  }
+}
+
 export function formatLocalDateTimeValue(date: Date) {
   const year = `${date.getFullYear()}`;
   const month = `${date.getMonth() + 1}`.padStart(2, '0');

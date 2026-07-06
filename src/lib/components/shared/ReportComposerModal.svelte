@@ -106,7 +106,7 @@
     padding: 18px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-md);
-    background: white;
+    background: var(--panel-soft);
     box-shadow: 0 18px 40px color-mix(in srgb, var(--text-main) 14%, transparent);
   }
 
@@ -131,7 +131,7 @@
     padding: 10px 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: white;
+    background: var(--panel-soft);
     color: var(--text-main);
   }
 

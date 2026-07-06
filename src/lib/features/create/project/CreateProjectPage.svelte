@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import ProjectCard from '$lib/components/cards/public-feed/ProjectCard.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
@@ -19,6 +18,11 @@
   } from '$lib/features/projects/projectMode';
   import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
   import type { ProjectMode, PublicProjectItem, TagRef } from '$lib/types/feed';
+  import {
+    applyScopePrefillToSelections,
+    readScopePrefillFromSearchParams
+  } from '$lib/utils/createScopePrefill';
+  import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 
   const platformTagSlug = 'platform';
   const defaultProductiveLocation = 'Not specified';
@@ -41,6 +45,27 @@
   let selectedCommunityOptionsCache: ScopeDirectoryItem[] = [];
   let taggableLookupKey = '';
   let taggableRequestId = 0;
+  let appliedScopePrefillKey = '';
+
+  $: scopePrefillKey = `${$page.url.searchParams.get('channel') ?? ''}:${$page.url.searchParams.get('community') ?? ''}`;
+  $: if (scopePrefillKey && scopePrefillKey !== appliedScopePrefillKey) {
+    appliedScopePrefillKey = scopePrefillKey;
+    const prefill = readScopePrefillFromSearchParams($page.url.searchParams);
+    const applied = applyScopePrefillToSelections(
+      prefill,
+      $page.data.bootstrap?.directory?.channels ?? [],
+      $page.data.bootstrap?.directory?.communities ?? [],
+      selectedChannelIds,
+      selectedCommunityIds
+    );
+    selectedChannelIds = applied.selectedChannelIds;
+    selectedCommunityIds = applied.selectedCommunityIds;
+    selectedChannelOptions = mergeScopeOptions(selectedChannelOptions, applied.selectedChannelOptions);
+    selectedCommunityOptionsCache = mergeScopeOptions(
+      selectedCommunityOptionsCache,
+      applied.selectedCommunityOptions
+    );
+  }
 
   function selectedScopeTags(
     selectedSlugs: string[],
@@ -262,8 +287,7 @@
         return;
       }
 
-      await invalidateAll();
-      await goto(`/projects/${result.slug}`);
+      await navigateAfterCreate(`/projects/${result.slug}`);
     } finally {
       isSubmitting = false;
     }

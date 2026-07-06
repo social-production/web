@@ -136,6 +136,7 @@ export function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
       authorUsername: item.author_username ?? '',
       locationLabel: item.location_label ?? '',
       scheduleLabel: item.time_label ?? '',
+      neededAt: item.scheduled_at ?? undefined,
       roles: mapHelpRequestRoles(item.roles),
       channelTags,
       communityTags,
@@ -235,6 +236,7 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
   const source = feedSource(item);
 
   if (item.entity_type === 'comment_activity') {
+    registerEntityType(item.id, 'comment');
     return {
       kind: 'comment-activity',
       id: item.id,
@@ -244,6 +246,10 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
       subjectKind: mapCommentSubjectKind(item.audience ?? item.project_mode),
       subjectTitle: item.title,
       commentExcerpt: item.body,
+      voteTargetId: item.id,
+      voteCount: item.vote_count,
+      activeVote: (item.active_vote ?? 0) as VoteDirection,
+      commentCount: item.comment_count,
       createdAt: item.created_at
     };
   }
@@ -259,6 +265,7 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
       body: item.body,
       locationLabel: item.location_label ?? '',
       scheduleLabel: item.time_label ?? '',
+      neededAt: item.scheduled_at ?? undefined,
       roles: mapHelpRequestRoles(item.roles),
       channelTags,
       communityTags,

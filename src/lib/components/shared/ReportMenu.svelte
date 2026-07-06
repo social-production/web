@@ -194,7 +194,7 @@
     gap: 10px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: white;
+    background: var(--panel-soft);
     box-shadow: 0 14px 30px color-mix(in srgb, var(--text-main) 10%, transparent);
   }
 

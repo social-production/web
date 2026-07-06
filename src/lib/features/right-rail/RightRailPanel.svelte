@@ -5,10 +5,19 @@
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
   import {
     setEventActivityCommitment,
+    setEventEditVote,
+    setEventPhaseChangeVote,
+    setEventPlanOverallVote,
+    setEventUpdateVote,
     setProjectActivityCommitment,
+    setProjectEditVote,
+    setProjectPhaseChangeVote,
+    setProjectPlanOverallVote,
+    setProjectUpdateVote,
     toggleEventMembership
   } from '$lib/services/queries/details';
   import type { RightRailActivityItem } from '$lib/types/bootstrap';
+  import { scrollToPendingVote } from '$lib/utils/pendingVotes';
   import { formatScheduleLabel } from '$lib/utils/time';
 
   export let items: RightRailActivityItem[] = [];
@@ -17,6 +26,7 @@
   const dispatch = createEventDispatcher<{ close: void }>();
 
   let pendingSubjectId = '';
+  let pendingVoteId = '';
   let dismissedRailIds = new Set<string>();
 
   $: dismissedStorageKey = viewerId ? `dismissed-rail-ids-${viewerId}` : 'dismissed-rail-ids';
@@ -154,6 +164,90 @@
   async function handleOpenItem(item: RightRailActivityItem) {
     requestClose();
     await goto(item.href);
+  }
+
+  function slugFromVoteItem(item: RightRailActivityItem) {
+    if (item.projectSlug) {
+      return { entityKind: 'project' as const, slug: item.projectSlug };
+    }
+
+    if (item.eventSlug) {
+      return { entityKind: 'event' as const, slug: item.eventSlug };
+    }
+
+    const match = item.href.match(/^\/(projects|events)\/([^/?]+)/);
+
+    if (!match) {
+      return null;
+    }
+
+    return {
+      entityKind: match[1] === 'events' ? ('event' as const) : ('project' as const),
+      slug: match[2]
+    };
+  }
+
+  async function handleRailVote(item: RightRailActivityItem, vote: 'yes' | 'no', event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!item.voteKindLabel || !item.voteTargetId) {
+      return;
+    }
+
+    const slugInfo = slugFromVoteItem(item);
+
+    if (!slugInfo) {
+      return;
+    }
+
+    pendingVoteId = item.id;
+
+    try {
+      const { entityKind, slug } = slugInfo;
+      const targetId = item.voteTargetId;
+
+      if (entityKind === 'project') {
+        switch (item.voteKindLabel) {
+          case 'phase_change':
+            await setProjectPhaseChangeVote(slug, targetId, vote);
+            break;
+          case 'update':
+            await setProjectUpdateVote(slug, targetId, vote);
+            break;
+          case 'edit':
+            await setProjectEditVote(slug, targetId, vote);
+            break;
+          case 'plan':
+            if (entityKind === 'project') {
+              await handleOpenItem(item);
+              return;
+            }
+            await setEventPlanOverallVote(slug, targetId, vote);
+            break;
+        }
+      } else {
+        switch (item.voteKindLabel) {
+          case 'phase_change':
+            await setEventPhaseChangeVote(slug, targetId, vote);
+            break;
+          case 'update':
+            await setEventUpdateVote(slug, targetId, vote);
+            break;
+          case 'edit':
+            await setEventEditVote(slug, targetId, vote);
+            break;
+          case 'plan':
+            await setEventPlanOverallVote(slug, targetId, vote);
+            break;
+        }
+      }
+
+      await invalidateAll();
+      scrollToPendingVote(item.voteKindLabel, item.voteTargetId);
+    } finally {
+      pendingVoteId = '';
+    }
   }
 
   async function handleRailParticipation(item: RightRailActivityItem) {
@@ -343,7 +437,7 @@
 
   <section class="rail-section rail-section-votes">
     <h2>Active Votes</h2>
-    <p class="section-subtitle">Open project and event decisions where your vote is still needed.</p>
+    <p class="section-subtitle">Decisions waiting for your Approve or Reject.</p>
     <div class:snapshot-scroll={voteItems.length > 5} class="snapshot-stack">
       {#if voteItems.length === 0}
         <div class="snapshot-row">
@@ -372,6 +466,24 @@
                 <span class="card-detail">{itemDetail(item)}</span>
               {/if}
             </button>
+            <div class="vote-row-actions">
+              <button
+                class="vote-action-button reject-button"
+                disabled={pendingVoteId === item.id}
+                type="button"
+                on:click={(event) => handleRailVote(item, 'no', event)}
+              >
+                Reject
+              </button>
+              <button
+                class="vote-action-button approve-button"
+                disabled={pendingVoteId === item.id}
+                type="button"
+                on:click={(event) => handleRailVote(item, 'yes', event)}
+              >
+                Approve
+              </button>
+            </div>
           </article>
         {/each}
       {/if}
@@ -538,5 +650,35 @@
   .request-row .card-kicker,
   .vote-row .card-kicker {
     color: var(--accent-warm-strong);
+  }
+
+  .vote-row {
+    display: grid;
+    gap: 10px;
+  }
+
+  .vote-row-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 0 12px 12px;
+  }
+
+  .vote-action-button {
+    padding: 7px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .vote-action-button.approve-button {
+    background: var(--brand);
+    color: var(--page-bg);
+  }
+
+  .vote-action-button.reject-button {
+    border: 1px solid var(--panel-border);
+    background: var(--panel-strong);
+    color: var(--text-main);
   }
 </style>

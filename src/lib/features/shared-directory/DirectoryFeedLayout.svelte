@@ -4,9 +4,11 @@
   import PublicFeedCard from '$lib/components/cards/public-feed/PublicFeedCard.svelte';
   import CommunityInvitePanel from '$lib/features/communities/CommunityInvitePanel.svelte';
   import PlatformBoardPanel from '$lib/features/platform/board/PlatformBoardPanel.svelte';
+  import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import { setVote } from '$lib/services/queries/feeds';
   import { redeemScopeInvite, toggleScopeMembership, castModeratorVote } from '$lib/services/queries/scopes';
   import { parseInviteToken } from '$lib/utils/invite-token';
+  import { buildScopedCreateHref } from '$lib/utils/createScopePrefill';
   import type { PublicFeedItem, VoteDirection } from '$lib/types/feed';
   import type { ScopeMemberSummary, ScopePageData } from '$lib/types/scope';
 
@@ -28,6 +30,7 @@
   let inviteFeedbackTone: 'soft' | 'warning' = 'soft';
   let lastInviteParam = '';
   let autoRedeemAttempted = false;
+  let showCreateMenu = false;
 
   $: showRolePanel = pageData.kind === 'platform';
   $: if (!showRolePanel && showBoardPanel) {
@@ -158,11 +161,12 @@
     membershipPending = true;
 
     try {
-      await toggleScopeMembership(pageData.kind, pageData.slug);
+      await toggleScopeMembership(pageData.kind, pageData.slug, pageData.membership.viewerIsMember);
     } catch (err) {
       console.error('Failed to toggle membership:', err);
     } finally {
       membershipPending = false;
+      await refreshBootstrap();
       await invalidateAll();
     }
   }
@@ -176,6 +180,10 @@
     }
 
     await handleMembershipToggle();
+  }
+
+  function toggleCreateMenu() {
+    showCreateMenu = !showCreateMenu;
   }
 
   async function handleInviteRedeem() {
@@ -254,6 +262,28 @@
         >
           +
         </button>
+        {#if pageData.membership.viewerIsMember || pageData.kind === 'platform'}
+          <div class="create-menu-shell">
+            <button
+              aria-expanded={showCreateMenu}
+              aria-label={`Create content in ${pageData.title}`}
+              class:active={showCreateMenu}
+              class="create-button"
+              type="button"
+              on:click={toggleCreateMenu}
+            >
+              Create
+            </button>
+            {#if showCreateMenu}
+              <div class="create-menu">
+                <a href={buildScopedCreateHref('/create/thread', pageData.kind, pageData.slug)}>Thread</a>
+                <a href={buildScopedCreateHref('/create/project', pageData.kind, pageData.slug)}>Project</a>
+                <a href={buildScopedCreateHref('/create/event', pageData.kind, pageData.slug)}>Event</a>
+                <a href={buildScopedCreateHref('/create/help-request', pageData.kind, pageData.slug)}>Help request</a>
+              </div>
+            {/if}
+          </div>
+        {/if}
       </div>
     </div>
 
@@ -465,6 +495,51 @@
   .membership-button:hover:not(:disabled) {
     border-color: var(--brand);
     background: var(--brand-soft);
+  }
+
+  .create-menu-shell {
+    position: relative;
+  }
+
+  .create-button {
+    padding: 7px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--panel-border);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .create-button.active,
+  .create-button:hover {
+    border-color: var(--brand);
+  }
+
+  .create-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 4;
+    display: grid;
+    min-width: 160px;
+    padding: 6px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--text-main) 12%, transparent);
+  }
+
+  .create-menu a {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .create-menu a:hover {
+    background: var(--panel-soft);
   }
 
   @media (max-width: 760px) {

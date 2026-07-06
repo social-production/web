@@ -152,7 +152,7 @@
     {/if}
   {/if}
 
-  <div class="surface-stack">
+  <div id="participation-plans" class="surface-stack">
     {#if plans.length === 0}
       <div class="empty-card">{emptyCopy()}</div>
     {:else}

@@ -77,6 +77,101 @@ export function describeUpdateTime(createdAt: string, lastUpdateAt?: string | nu
   )}`;
 }
 
+export function formatLocalTimezoneAbbreviation(date: Date): string {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const abbreviationLocale = timeZone.startsWith('Australia/') ? 'en-AU' : undefined;
+
+  const abbreviation =
+    new Intl.DateTimeFormat(abbreviationLocale, {
+      timeZone,
+      timeZoneName: 'short'
+    })
+      .formatToParts(date)
+      .find((part) => part.type === 'timeZoneName')?.value ?? '';
+
+  if (/^GMT[+-]/i.test(abbreviation)) {
+    return '';
+  }
+
+  return abbreviation;
+}
+
+export function formatLocalDateTime(value: string | null | undefined): string {
+  const trimmed = value?.trim() ?? '';
+
+  if (!trimmed) {
+    return '';
+  }
+
+  const date = new Date(trimmed);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const formatted = date.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+
+  const timezone = formatLocalTimezoneAbbreviation(date);
+
+  return timezone ? `${formatted} ${timezone}` : formatted;
+}
+
+export function formatLocalDateTimeRange(startValue: string | null | undefined, endValue: string | null | undefined): string {
+  const start = startValue?.trim() ?? '';
+  const end = endValue?.trim() ?? '';
+
+  if (!start) {
+    return '';
+  }
+
+  const startDate = new Date(start);
+  const endDate = end ? new Date(end) : null;
+
+  if (Number.isNaN(startDate.getTime())) {
+    return '';
+  }
+
+  if (!endDate || Number.isNaN(endDate.getTime())) {
+    return formatLocalDateTime(start);
+  }
+
+  const sameDay =
+    startDate.getFullYear() === endDate.getFullYear() &&
+    startDate.getMonth() === endDate.getMonth() &&
+    startDate.getDate() === endDate.getDate();
+
+  if (sameDay) {
+    const datePart = startDate.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    const startTime = startDate.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+    const endTime = endDate.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+    const timezone = formatLocalTimezoneAbbreviation(endDate);
+
+    return timezone
+      ? `${datePart}, ${startTime} – ${endTime} ${timezone}`
+      : `${datePart}, ${startTime} – ${endTime}`;
+  }
+
+  return `${formatLocalDateTime(start)} – ${formatLocalDateTime(end)}`;
+}
+
 export function formatCalendarTime(value: string): string {
   const date = new Date(value);
 

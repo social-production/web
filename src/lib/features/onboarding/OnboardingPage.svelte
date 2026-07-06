@@ -9,7 +9,6 @@
   let mode: 'login' | 'signup' = 'login';
   let username = '';
   let password = '';
-  let profileBio = '';
   let statusMessage = '';
   let isSubmitting = false;
 
@@ -25,8 +24,7 @@
           ? await signIn({ username, password })
           : await signUp({
               username,
-              password,
-              profileBio
+              password
             });
 
       if (!result.ok) {
@@ -78,13 +76,6 @@
         <span class="field-label">Password</span>
         <input bind:value={password} type="password" placeholder="••••••••" />
       </label>
-
-      {#if mode === 'signup'}
-        <label>
-          <span class="field-label">Bio</span>
-          <textarea bind:value={profileBio} rows="4" placeholder="Optional. What kind of work do you do?"></textarea>
-        </label>
-      {/if}
 
       <div class="button-row">
         <button class="button-primary" disabled={isSubmitting} type="submit">

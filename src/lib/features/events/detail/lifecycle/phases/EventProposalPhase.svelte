@@ -53,7 +53,7 @@
     {/if}
   {/if}
 
-  <div class="surface-stack compact-stack">
+    <div id="participation-values" class="surface-stack compact-stack">
     {#if data.lifecycle.phaseOne.values.length === 0}
       <div class="empty-card">No proposal values yet.</div>
     {:else}

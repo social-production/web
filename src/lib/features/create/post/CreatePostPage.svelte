@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import PersonalPostCard from '$lib/components/cards/personal-feed/PersonalPostCard.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
@@ -7,6 +7,7 @@
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import { createPost } from '$lib/services/queries/create';
   import type { PersonalPostItem } from '$lib/types/feed';
+  import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 
   let body = '';
   let statusMessage = '';
@@ -53,8 +54,7 @@
         return;
       }
 
-      await invalidateAll();
-      await goto(`/posts/${result.id}`);
+      await navigateAfterCreate(`/posts/${result.id}`);
     } finally {
       isSubmitting = false;
     }

@@ -207,7 +207,7 @@
     {/if}
   {/if}
 
-  <div class="surface-stack plan-stack" class:scrollable-stack={data.lifecycle.phaseTwo.plans.length > 4}>
+  <div id="participation-plans" class="surface-stack plan-stack" class:scrollable-stack={data.lifecycle.phaseTwo.plans.length > 4}>
     {#if data.lifecycle.phaseTwo.plans.length === 0}
       <div class="empty-card">No event plans submitted yet.</div>
     {:else}

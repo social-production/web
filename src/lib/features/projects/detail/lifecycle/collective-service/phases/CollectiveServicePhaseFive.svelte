@@ -6,7 +6,6 @@
   import ProjectActivityHistorySection from '$lib/features/projects/detail/components/ProjectActivityHistorySection.svelte';
   import ProjectActivityViewTabs from '$lib/features/projects/detail/components/ProjectActivityViewTabs.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
-  import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
   import {
@@ -860,8 +859,7 @@
           <div class="section-actions">
             {#if requestSettingsVoteCount > 0}
               <button class="vote-chip notice-chip" type="button" on:click={toggleRequestSettingsVotePanel}>
-                Vote Active
-                <CountBadge count={requestSettingsVoteCount} />
+                Vote now ({requestSettingsVoteCount})
               </button>
             {/if}
             {#if data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}

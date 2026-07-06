@@ -13,14 +13,20 @@
   } from '$lib/services/queries/details';
   import type { EventPageData } from '$lib/types/detail';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
+  import { formatLocalDateTime } from '$lib/utils/time';
   import { requireViewer } from '$lib/utils/requireViewer';
+  import { buildSharePrefill } from '$lib/utils/sharePrefill';
 
   export let data: EventPageData;
 
   $: combinedTags = [...data.channelTags, ...data.communityTags];
   $: signalSummary = data.lifecycle.phaseOne.signalSummary;
   $: membershipButtonLabel = `${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`;
-  $: timeLabel = isImplementedScheduleLabel(data.timeLabel) ? data.timeLabel.trim() : '';
+  $: timeLabel = data.scheduledAt
+    ? formatLocalDateTime(data.scheduledAt)
+    : isImplementedScheduleLabel(data.timeLabel)
+      ? data.timeLabel.trim()
+      : '';
   $: locationLabel = isImplementedScheduleLabel(data.locationLabel) ? data.locationLabel.trim() : '';
   $: showScheduledMeta = !!timeLabel || !!locationLabel;
   $: proposalMetaCopy = data.isPrivate
@@ -60,9 +66,8 @@
   }
 
   async function handleCreatePostFromEvent() {
-    const mention = `[${data.title}]`;
     const params = new URLSearchParams({
-      prefill: `Sharing context from ${mention}`
+      prefill: buildSharePrefill(data.title, `/events/${data.slug}`)
     });
     await goto(`/create/post?${params.toString()}`);
   }
@@ -94,25 +99,27 @@
     {#if signalSummary}
       <li class="meta-item demand-item">
         <strong>Signals</strong>
-        <div class="signal-stack">
+        <div id="participation-signals" class="signal-stack">
           <div class="meta-button-row">
             <button
               aria-pressed={data.lifecycle.phaseOne.viewerHasDemandSignal}
               class:active-demand={data.lifecycle.phaseOne.viewerHasDemandSignal}
               class="demand-button"
+              title="Signal interest — this is not a lifecycle vote"
               type="button"
               on:click={() => handleSignalSet('demand')}
             >
-              Demand {signalSummary.demandCount}
+              Support {signalSummary.demandCount}
             </button>
             <button
               aria-pressed={data.lifecycle.phaseOne.viewerHasOppositionSignal}
               class:active-opposition={data.lifecycle.phaseOne.viewerHasOppositionSignal}
               class="demand-button opposition-button"
+              title="Signal opposition — this is not a lifecycle vote"
               type="button"
               on:click={() => handleSignalSet('opposition')}
             >
-              Opposition {signalSummary.oppositionCount}
+              Oppose {signalSummary.oppositionCount}
             </button>
           </div>
           <span>
@@ -155,6 +162,7 @@
       <div class="meta-button-row">
         {#if data.viewerCanToggleMembership}
           <button
+            id="participation-join"
             aria-pressed={data.viewerIsMember}
             class:active-demand={data.viewerIsMember}
             class="demand-button"
@@ -285,6 +293,11 @@
   .signal-stack {
     display: grid;
     gap: 8px;
+  }
+
+  #participation-join,
+  #participation-signals {
+    scroll-margin-top: 120px;
   }
 
   .meta-button-row {

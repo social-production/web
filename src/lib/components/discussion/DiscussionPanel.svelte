@@ -8,8 +8,23 @@
   export let data: Pick<PostPageData | ThreadPageData, 'id' | 'discussion'>;
   export let highlightedCommentId: string | null = null;
 
+  type CommentSort = 'oldest' | 'newest' | 'top';
+
   let draftComment = '';
   let showComposer = false;
+  let sortMode: CommentSort = 'oldest';
+
+  $: sortedDiscussion = [...data.discussion].sort((left, right) => {
+    if (sortMode === 'top') {
+      return right.voteCount - left.voteCount || right.createdAt.localeCompare(left.createdAt);
+    }
+
+    if (sortMode === 'newest') {
+      return right.createdAt.localeCompare(left.createdAt);
+    }
+
+    return left.createdAt.localeCompare(right.createdAt);
+  });
 
   async function submitComment() {
     if (!draftComment.trim()) {
@@ -28,6 +43,17 @@
 </script>
 
 <section class="discussion-shell" id="comments">
+  <div class="discussion-toolbar">
+    <label class="sort-control">
+      <span>Sort comments</span>
+      <select bind:value={sortMode} aria-label="Sort comments">
+        <option value="oldest">Oldest first</option>
+        <option value="newest">Newest first</option>
+        <option value="top">Top voted</option>
+      </select>
+    </label>
+  </div>
+
   <div class="composer-toggle-anchor">
     <RoundPlusButton active={showComposer} ariaLabel="Add comment" action={toggleComposer} />
   </div>
@@ -50,7 +76,7 @@
         <p>No comments yet.</p>
       </div>
     {:else}
-      {#each data.discussion as comment}
+      {#each sortedDiscussion as comment}
         <DiscussionComment {comment} subjectId={data.id} {highlightedCommentId} />
       {/each}
     {/if}
@@ -79,10 +105,34 @@
 
   .composer-toggle-anchor {
     position: absolute;
-    top: 0;
+    top: 34px;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 2;
+  }
+
+  .discussion-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+  }
+
+  .sort-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .sort-control select {
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--text-main);
   }
 
   .composer-card,
@@ -103,7 +153,7 @@
     padding: 10px 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: white;
+    background: var(--panel-soft);
     color: var(--text-main);
     resize: vertical;
   }

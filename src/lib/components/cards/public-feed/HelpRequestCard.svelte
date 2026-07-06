@@ -7,11 +7,12 @@
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { setVote } from '$lib/services/queries/feeds';
   import type { PublicHelpRequestItem, VoteDirection } from '$lib/types/feed';
-  import { describeActivityTime } from '$lib/utils/time';
+  import { describeActivityTime, formatLocalDateTime } from '$lib/utils/time';
 
   export let item: PublicHelpRequestItem;
 
   $: orderedTags = [...item.channelTags, ...item.communityTags];
+  $: whenLabel = formatLocalDateTime(item.neededAt);
   $: signupSummary =
     item.signupCount != null && item.slotsNeeded != null && item.slotsNeeded > 0
       ? `${item.signupCount} signed up · ${item.slotsNeeded} needed`
@@ -38,8 +39,8 @@
 
   <a class="title" href={item.href}>{item.title}</a>
   <p class="body">{item.body}</p>
-  {#if item.scheduleLabel || item.locationLabel}
-    <p class="location">{[item.scheduleLabel, item.locationLabel].filter(Boolean).join(' · ')}</p>
+  {#if whenLabel || item.locationLabel}
+    <p class="location">{[whenLabel, item.locationLabel].filter(Boolean).join(' · ')}</p>
   {/if}
   {#if signupSummary}
     <p class="signup-summary">{signupSummary}</p>

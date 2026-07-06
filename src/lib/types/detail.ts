@@ -140,6 +140,8 @@ export interface EventPlanScheduleInput {
   endDate?: string | null;
   startTimeLabel?: string | null;
   finishTimeLabel?: string | null;
+  /** UTC ISO derived from submitter-local start date/time. */
+  startAtUtc?: string | null;
 }
 
 export interface EventPlanSchedule extends EventPlanScheduleInput {

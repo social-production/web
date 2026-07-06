@@ -112,8 +112,29 @@
   }
 
   @media (max-width: 760px) {
+    .header-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
     .tag-stack {
       margin-left: 0;
+      width: 100%;
+    }
+
+    .title {
+      font-size: 17px;
+    }
+
+    .body {
+      font-size: 15px;
+    }
+
+    .footer {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
     }
 
     .footer-meta {

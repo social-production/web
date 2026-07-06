@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount, tick } from 'svelte';
   import EventChatTab from '$lib/features/events/detail/EventChatTab.svelte';
@@ -10,7 +10,21 @@
   import EventOverviewHeader from '$lib/features/events/detail/EventOverviewHeader.svelte';
   import EventUpdatesSection from '$lib/features/events/detail/EventUpdatesSection.svelte';
   import ContextualBackButton from '$lib/components/shared/ContextualBackButton.svelte';
-  import type { EventPageData } from '$lib/types/detail';
+  import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
+  import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
+  import {
+    setEventEditVote,
+    setEventPhaseChangeVote,
+    setEventPlanOverallVote,
+    setEventPlanValueVote,
+    setEventUpdateVote
+  } from '$lib/services/queries/details';
+  import type { EventPageData, ProjectApprovalVote } from '$lib/types/detail';
+  import {
+    buildEventParticipationSteps,
+    resolveCurrentParticipationStep
+  } from '$lib/utils/participationSteps';
+  import { collectEventPendingVotes, scrollToPendingVote, type PendingVoteItem } from '$lib/utils/pendingVotes';
 
   export let data: EventPageData;
 
@@ -41,19 +55,16 @@
 
   async function focusVoteTarget(voteKind: string | null, voteTarget: string | null) {
     await tick();
-    if (typeof document === 'undefined') return;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const targetCard = voteKind && voteTarget
-          ? document.getElementById(`vote-card-${voteKind}-${voteTarget}`)
-          : null;
-        const fallbackCard = document.querySelector('.vote-request-card');
-        const card = targetCard ?? fallbackCard;
-        if (card) {
-          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      });
-    });
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    if (voteKind && voteTarget) {
+      scrollToPendingVote(voteKind, voteTarget);
+      return;
+    }
+
+    document.getElementById('pending-votes-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function readCommentTarget(url: URL) {
@@ -91,8 +102,19 @@
 
     if (tab === 'overview') {
       nextUrl.searchParams.delete('tab');
+      nextUrl.searchParams.delete('comment');
+      nextUrl.searchParams.delete('update');
+      nextUrl.searchParams.delete('decision');
+      nextUrl.hash = '';
     } else {
       nextUrl.searchParams.set('tab', tab);
+      if (tab === 'history') {
+        nextUrl.searchParams.delete('comment');
+        nextUrl.hash = '';
+      } else if (tab === 'chat') {
+        nextUrl.searchParams.delete('update');
+        nextUrl.searchParams.delete('decision');
+      }
     }
 
     void goto(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`, {
@@ -152,6 +174,33 @@
     autoExpandVoteTarget = autoExpandVoteCards ? ($page.url.searchParams.get('voteTarget') || null) : null;
     if (autoExpandVoteCards) void focusVoteTarget(autoExpandVoteKind, autoExpandVoteTarget);
   }
+
+  $: pendingVotes = collectEventPendingVotes(data);
+  $: participationSteps = buildEventParticipationSteps(data, pendingVotes);
+  $: currentParticipationStep = resolveCurrentParticipationStep(participationSteps);
+
+  async function handlePendingVote(item: PendingVoteItem, vote: ProjectApprovalVote) {
+    switch (item.voteKind) {
+      case 'phase_change':
+        await setEventPhaseChangeVote(data.slug, item.id, vote);
+        break;
+      case 'update':
+        await setEventUpdateVote(data.slug, item.id, vote);
+        break;
+      case 'edit':
+        await setEventEditVote(data.slug, item.id, vote);
+        break;
+      case 'plan':
+        if (item.planValueId) {
+          await setEventPlanValueVote(data.slug, item.id, item.planValueId, vote);
+        } else {
+          await setEventPlanOverallVote(data.slug, item.id, vote);
+        }
+        break;
+    }
+
+    await invalidateAll();
+  }
 </script>
 
 <section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
@@ -191,19 +240,26 @@
 
     {#if activeTab === 'overview'}
       <EventOverviewHeader {data} />
+      <ParticipationSteps steps={participationSteps} currentStepId={currentParticipationStep} />
+      <PendingVotesPanel items={pendingVotes} onVote={handlePendingVote} />
       <EventUpdatesSection
         {data}
         {highlightedUpdateId}
         {showMembersPanel}
-        {autoExpandVoteCards}
-        {autoExpandVoteKind}
+        votesRenderedInHub={pendingVotes.length > 0}
         on:togglemembers={handleMembersPanelOpen}
       />
       {#if showMembersPanel}
         <EventMembersPanel {data} panelId="event-members-panel" />
       {/if}
       <div id="governance">
-        <EventLifecyclePanel {data} {autoExpandVoteCards} {autoExpandVoteKind} {autoExpandVoteTarget} />
+        <EventLifecyclePanel
+          {data}
+          {autoExpandVoteCards}
+          {autoExpandVoteKind}
+          {autoExpandVoteTarget}
+          votesRenderedInHub={pendingVotes.length > 0}
+        />
       </div>
     {:else if activeTab === 'chat'}
       <EventChatTab {data} highlightedCommentId={highlightedCommentId} fullscreen={isCompact} />

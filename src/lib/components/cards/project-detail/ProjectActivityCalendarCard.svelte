@@ -666,8 +666,8 @@
 
   @media (max-width: 760px) {
     .calendar-grid {
-      grid-template-columns: repeat(7, minmax(72px, 1fr));
-      min-width: 560px;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      min-width: 0;
     }
   }
 </style>

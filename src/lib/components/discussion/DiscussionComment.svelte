@@ -217,6 +217,7 @@
 
   .body {
     margin: 0;
+    white-space: pre-wrap;
   }
 
   .reply-stack {
@@ -231,7 +232,7 @@
     padding: 10px 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: white;
+    background: var(--panel-soft);
     color: var(--text-main);
     resize: vertical;
   }

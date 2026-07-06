@@ -113,8 +113,7 @@ export async function fetchSetEventPlanOverallVote(
   planId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
-  await apiClient.post(`/events/${eventSlug}/plans/${planId}/vote`, { vote });
+  await apiClient.post(`/events/${eventSlug}/plans/${planId}/vote`, { vote: vote ?? 'neutral' });
 }
 
 export async function fetchSetEventPlanValueVote(
@@ -123,10 +122,9 @@ export async function fetchSetEventPlanValueVote(
   valueId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
   await apiClient.post(`/events/${eventSlug}/plans/${planId}/value-votes`, {
     value_id: valueId,
-    vote,
+    vote: vote ?? 'neutral'
   });
 }
 

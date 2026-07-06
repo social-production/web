@@ -222,7 +222,7 @@
       {/if}
     {/if}
 
-    <div class="surface-stack compact-stack">
+    <div id="participation-values" class="surface-stack compact-stack participation-scroll-target">
       {#if data.lifecycle.phaseOne.values.length === 0}
         <div class="empty-card">No values added yet.</div>
       {:else}
@@ -311,8 +311,9 @@
     grid-template-columns: 1fr;
   }
 
-  [id^='activity-card-'] {
-    scroll-margin-top: 92px;
+  [id^='activity-card-'],
+  .participation-scroll-target {
+    scroll-margin-top: 120px;
   }
 
   .request-header-row {

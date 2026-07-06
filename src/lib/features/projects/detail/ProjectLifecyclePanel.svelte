@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import { goto, invalidateAll } from '$app/navigation';
   import { refreshBootstrap } from '$lib/services/queries/bootstrap';
+  import { localDateTimeInputToIso } from '$lib/utils/eventSchedule';
   import { tick } from 'svelte';
   import { preserveScrollDuring } from '$lib/utils/time';
   import ProductiveLifecycleContent from './lifecycle/productive/ProductiveLifecycleContent.svelte';
@@ -11,6 +12,7 @@
   import ProjectLifecycleMechanicsCard from './components/ProjectLifecycleMechanicsCard.svelte';
   import ProjectLifecyclePhaseTabs from './components/ProjectLifecyclePhaseTabs.svelte';
   import ProjectPhaseChangeSection from './components/ProjectPhaseChangeSection.svelte';
+  import { scrollToPendingVote } from '$lib/utils/pendingVotes';
   import {
     isCollectiveServiceProject,
     isPersonalServiceProject
@@ -82,6 +84,8 @@
   );
 
   export let data: ProjectPageData;
+  export let votesRenderedInHub = false;
+
   export let autoExpandVoteCards = false;
   export let autoExpandVoteKind: string | null = null;
   export let autoExpandVoteTarget: string | null = null;
@@ -340,15 +344,17 @@
       return null;
     }
 
-    return resolveProjectPhaseChangeVoteKind(request, data.projectMode);
+    return resolveProjectPhaseChangeVoteKind(
+      request,
+      data.projectMode,
+      data.lifecycle.currentPhaseId,
+      data.lifecycle.phases
+    );
   }
 
   function scrollVoteCardIntoView(voteKind: string, voteTarget: string) {
     if (!browser) return;
-    document.getElementById(`vote-card-${voteKind}-${voteTarget}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    });
+    scrollToPendingVote(voteKind, voteTarget);
   }
 
   async function focusVoteCard(voteKind: string, voteTarget: string) {
@@ -668,7 +674,7 @@
       return;
     }
 
-    await invalidateAll();
+    await Promise.all([invalidateAll(), refreshBootstrap()]);
     productionForm = resetProductionForm();
     editingProductionPlanId = null;
     showPhaseTwoComposer = false;
@@ -719,7 +725,7 @@
       return;
     }
 
-    await invalidateAll();
+    await Promise.all([invalidateAll(), refreshBootstrap()]);
     distributionForm = resetDistributionForm();
     showPhaseThreeComposer = false;
   }
@@ -739,8 +745,8 @@
       await refreshAfter(() =>
         addProjectActivity(data.slug, {
           title: 'Available',
-          scheduledAt: new Date(scheduledAtValue).toISOString(),
-          endsAt: new Date(endsAtValue).toISOString(),
+          scheduledAt: localDateTimeInputToIso(scheduledAtValue),
+          endsAt: localDateTimeInputToIso(endsAtValue),
           locationLabel: data.locationLabel,
           roleRequirements: [{ label: 'Service lead', requiredCount: 1 }],
           linkedPlanPhaseId: null,
@@ -793,8 +799,8 @@
     await refreshAfter(() =>
       addProjectActivity(data.slug, {
         title: activityForm.title,
-        scheduledAt: new Date(scheduledAtValue).toISOString(),
-        endsAt: new Date(endsAtValue).toISOString(),
+        scheduledAt: localDateTimeInputToIso(scheduledAtValue),
+        endsAt: localDateTimeInputToIso(endsAtValue),
         locationLabel: activityForm.locationLabel,
         roleRequirements,
         linkedPlanPhaseId: activityForm.linkedPlanPhaseId || null,
@@ -845,8 +851,8 @@
       await addProjectServiceRequest(data.slug, {
         title: serviceRequestForm.title,
         body: serviceRequestForm.body,
-        scheduledAt: scheduledAtValue ? new Date(scheduledAtValue).toISOString() : undefined,
-        endsAt: endsAtValue ? new Date(endsAtValue).toISOString() : undefined
+        scheduledAt: scheduledAtValue ? localDateTimeInputToIso(scheduledAtValue) : undefined,
+        endsAt: endsAtValue ? localDateTimeInputToIso(endsAtValue) : undefined
       });
     });
     resetServiceRequestForm();
@@ -1436,6 +1442,7 @@
       requestPhaseChange={handlePhaseChangeRequest}
       voteOnPhaseChange={handlePhaseChangeVote}
       autoExpandVoteGroup={targetedPhaseChangeGroup}
+      {votesRenderedInHub}
     />
   </section>
 </section>

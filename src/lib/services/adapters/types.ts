@@ -267,7 +267,7 @@ export interface AppAdapter {
     targetPhaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>,
     reason: string
   ): Promise<void>;
-  toggleScopeMembership(kind: ScopeKind, slug: string): Promise<void>;
+  toggleScopeMembership(kind: ScopeKind, slug: string, viewerIsMember: boolean): Promise<void>;
   redeemScopeInvite(
     kind: ScopeKind,
     slug: string,

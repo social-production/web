@@ -1,12 +1,14 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import {
     formatProjectVoteRequirement,
     formatProjectVoteSummary
   } from '$lib/utils/projectVotes';
-  import { resolveEventPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
+  import {
+    phaseChangeDecisionTitle,
+    resolveEventPhaseChangeVoteKind
+  } from '$lib/utils/phaseChangeVotes';
   import type {
     EventLifecyclePhaseChangeRequest,
     EventLifecyclePhaseId,
@@ -35,20 +37,62 @@
   let revertMessage = '';
   let revertTargetPhaseId: EventLifecyclePhaseId = 'event-plan';
   let expandedVoteGroup: 'return' | 'advance' | 'close' | null = null;
+  let voteGroupManuallyCollapsed = false;
   let nextPhaseComposerElement: HTMLDivElement | null = null;
   let revertComposerElement: HTMLDivElement | null = null;
+
+  export let votesRenderedInHub = false;
 
   export let autoExpandVoteGroup: 'return' | 'advance' | 'close' | null = null;
 
   $: if (autoExpandVoteGroup && autoExpandVoteGroup !== expandedVoteGroup) {
     expandedVoteGroup = autoExpandVoteGroup;
+    voteGroupManuallyCollapsed = false;
+  }
+
+  $: hasOpenPhaseChangeVotes = data.lifecycle.phaseChangeRequests.length > 0;
+  $: pendingReturnVotes = returnRequests.filter((request) => !request.voteSummary.activeVote);
+  $: pendingNextVotes = nextActionRequests.filter((request) => !request.voteSummary.activeVote);
+  $: canProposeReturn =
+    !hasOpenPhaseChangeVotes &&
+    data.lifecycle.viewerCanRequestPhaseChanges &&
+    data.lifecycle.revertablePhaseIds.length > 0;
+  $: canProposeAdvance =
+    !hasOpenPhaseChangeVotes &&
+    data.lifecycle.viewerCanRequestPhaseChanges &&
+    !!data.lifecycle.nextPhaseId;
+
+  $: if (
+    !votesRenderedInHub &&
+    currentPhaseVisible &&
+    data.lifecycle.viewerCanVoteOnPhaseChanges &&
+    !voteGroupManuallyCollapsed &&
+    !autoExpandVoteGroup
+  ) {
+    if (pendingReturnVotes.length > 0) {
+      expandedVoteGroup = 'return';
+    } else if (pendingNextVotes.length > 0) {
+      expandedVoteGroup = nextVoteKind;
+    }
   }
 
   $: currentPhaseVisible = activePhaseId === data.lifecycle.currentPhaseId;
-  $: returnRequests = data.lifecycle.phaseChangeRequests.filter((request) => request.kind === 'return');
+  $: returnRequests = data.lifecycle.phaseChangeRequests.filter(
+    (request) =>
+      resolveEventPhaseChangeVoteKind(
+        request,
+        data.lifecycle.currentPhaseId,
+        data.lifecycle.phases
+      ) === 'return'
+  );
   $: nextVoteKind = (data.lifecycle.nextPhaseId === 'closed' ? 'close' : 'advance') as 'advance' | 'close';
   $: nextActionRequests = data.lifecycle.phaseChangeRequests.filter(
-    (request) => resolveEventPhaseChangeVoteKind(request) === nextVoteKind
+    (request) =>
+      resolveEventPhaseChangeVoteKind(
+        request,
+        data.lifecycle.currentPhaseId,
+        data.lifecycle.phases
+      ) === nextVoteKind
   );
   $: showReturnActions = data.lifecycle.revertablePhaseIds.length > 0 || returnRequests.length > 0;
   $: showNextActions = !!data.lifecycle.nextPhaseId || nextActionRequests.length > 0;
@@ -63,15 +107,23 @@
     expandedVoteGroup = null;
   }
 
-  function requestKindLabel(request: EventLifecyclePhaseChangeRequest) {
-    switch (request.kind) {
-      case 'close':
-        return 'Close decision';
-      case 'return':
-        return 'Return decision';
-      default:
-        return 'Advance decision';
-    }
+  function requestKindLabel(_request: EventLifecyclePhaseChangeRequest) {
+    return 'Phase decision';
+  }
+
+  function requestDecisionTitle(request: EventLifecyclePhaseChangeRequest) {
+    return phaseChangeDecisionTitle(
+      resolveEventPhaseChangeVoteKind(
+        request,
+        data.lifecycle.currentPhaseId,
+        data.lifecycle.phases
+      ),
+      request.targetPhaseLabel
+    );
+  }
+
+  function phaseShortLabel(phaseId: EventLifecyclePhaseId) {
+    return data.lifecycle.phases.find((phase) => phase.id === phaseId)?.title ?? phaseId;
   }
 
   function nextPhaseActionLabel() {
@@ -79,7 +131,25 @@
       return null;
     }
 
-    return data.lifecycle.nextPhaseId === 'closed' ? 'Close' : 'Advance';
+    if (data.lifecycle.nextPhaseId === 'closed') {
+      return 'Propose close';
+    }
+
+    return data.lifecycle.nextPhaseLabel
+      ? `Propose Advance to ${data.lifecycle.nextPhaseLabel}`
+      : 'Propose Advance';
+  }
+
+  function revertActionLabel() {
+    return 'Propose return';
+  }
+
+  function revertComposerTitle() {
+    return phaseChangeDecisionTitle('return', phaseShortLabel(revertTargetPhaseId));
+  }
+
+  function openVoteChipLabel(count: number) {
+    return `Vote now (${count})`;
   }
 
   function nextPhasePlaceholder() {
@@ -133,12 +203,21 @@
     });
   }
 
+  $: if (hasOpenPhaseChangeVotes) {
+    closeRevertComposer();
+    closeNextPhaseComposer();
+  }
+
   async function toggleNextPhaseComposer() {
     const willOpen = !showNextPhaseComposer;
 
     if (!willOpen) {
       closeNextPhaseComposer();
       expandedVoteGroup = null;
+      return;
+    }
+
+    if (hasOpenPhaseChangeVotes) {
       return;
     }
 
@@ -165,6 +244,10 @@
       return;
     }
 
+    if (hasOpenPhaseChangeVotes) {
+      return;
+    }
+
     showRevertComposer = true;
     revertMessage = '';
     closeNextPhaseComposer();
@@ -179,8 +262,23 @@
     }
   }
 
+  function scrollToVoteHub() {
+    document.getElementById('pending-votes-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function toggleVoteGroup(kind: 'return' | 'advance' | 'close') {
-    expandedVoteGroup = expandedVoteGroup === kind ? null : kind;
+    if (votesRenderedInHub) {
+      scrollToVoteHub();
+      return;
+    }
+
+    if (expandedVoteGroup === kind) {
+      expandedVoteGroup = null;
+      voteGroupManuallyCollapsed = true;
+    } else {
+      expandedVoteGroup = kind;
+      voteGroupManuallyCollapsed = false;
+    }
     closeNextPhaseComposer();
     closeRevertComposer();
   }
@@ -229,20 +327,19 @@
     {#if showReturnActions || showNextActions}
       <div class="change-action-row">
         <div class="action-group action-group-left">
-          {#if data.lifecycle.viewerCanRequestPhaseChanges && data.lifecycle.revertablePhaseIds.length > 0}
+          {#if canProposeReturn}
             <button
               class:active-toggle={showRevertComposer}
               class="secondary-button action-button"
               type="button"
               on:click={toggleRevertComposer}
             >
-              Return
+              {revertActionLabel()}
             </button>
           {/if}
           {#if returnRequests.length > 0}
             <button class="vote-chip notice-chip" type="button" on:click={() => toggleVoteGroup('return')}>
-              Vote Active
-              <CountBadge count={returnRequests.length} />
+              {openVoteChipLabel(returnRequests.length)}
             </button>
           {/if}
         </div>
@@ -250,11 +347,10 @@
         <div class="action-group action-group-right">
           {#if nextActionRequests.length > 0}
             <button class="vote-chip notice-chip" type="button" on:click={() => toggleVoteGroup(nextVoteKind)}>
-              Vote Active
-              <CountBadge count={nextActionRequests.length} />
+              {openVoteChipLabel(nextActionRequests.length)}
             </button>
           {/if}
-          {#if data.lifecycle.viewerCanRequestPhaseChanges && data.lifecycle.nextPhaseId}
+          {#if canProposeAdvance && data.lifecycle.nextPhaseId}
             <button
               class:active-toggle={showNextPhaseComposer}
               class="secondary-button action-button"
@@ -268,9 +364,9 @@
       </div>
     {/if}
 
-    {#if showRevertComposer && data.lifecycle.revertablePhaseIds.length > 0}
+    {#if showRevertComposer && canProposeReturn}
       <div bind:this={revertComposerElement} class="change-action-panel">
-          <h3>Return</h3>
+          <h3>{revertComposerTitle()}</h3>
           {#if revertMessage}
             <div class="inline-alert" role="alert">{revertMessage}</div>
           {/if}
@@ -289,7 +385,7 @@
           <div class="composer-actions">
             <button class="secondary-button" type="button" on:click={closeRevertComposer}>Cancel</button>
             <button class="primary-button" type="button" on:click={submitRevertRequest}>
-              Return
+              {revertActionLabel()}
             </button>
           </div>
       </div>
@@ -327,14 +423,14 @@
       </div>
     {/if}
 
-    {#if expandedVoteGroup === 'return' && returnRequests.length > 0}
+    {#if !votesRenderedInHub && expandedVoteGroup === 'return' && returnRequests.length > 0}
       <div class="surface-stack">
         {#each returnRequests as request (request.id)}
           <article id={`vote-card-phase_change-${request.id}`} class="surface-card vote-request-card">
             <div class="vote-card-top">
               <div class="vote-card-copy">
                 <span class="vote-kicker">{requestKindLabel(request)}</span>
-                <strong>{request.targetPhaseLabel}</strong>
+                <strong>{requestDecisionTitle(request)}</strong>
               </div>
               <span class="vote-requirement">
                 {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}
@@ -359,14 +455,14 @@
       </div>
     {/if}
 
-    {#if expandedVoteGroup === nextVoteKind && nextActionRequests.length > 0}
+    {#if !votesRenderedInHub && expandedVoteGroup === nextVoteKind && nextActionRequests.length > 0}
       <div class="surface-stack">
         {#each nextActionRequests as request (request.id)}
           <article id={`vote-card-phase_change-${request.id}`} class="surface-card vote-request-card">
             <div class="vote-card-top">
               <div class="vote-card-copy">
                 <span class="vote-kicker">{requestKindLabel(request)}</span>
-                <strong>{request.targetPhaseLabel}</strong>
+                <strong>{requestDecisionTitle(request)}</strong>
               </div>
               <span class="vote-requirement">
                 {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}

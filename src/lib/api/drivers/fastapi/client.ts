@@ -1,5 +1,5 @@
 import { error as kitError } from '@sveltejs/kit';
-import { getStoredToken } from './auth';
+import { clearToken, getStoredToken } from './auth';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -44,6 +44,10 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown): Pro
   const response = await fetch(`${getBaseUrl()}${path}`, options);
 
   if (!response.ok) {
+    if (response.status === 401 && isBrowser) {
+      clearToken();
+    }
+
     throw {
       status: response.status,
       body: await response.json().catch(() => null)

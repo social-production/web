@@ -12,6 +12,21 @@ function cacheKey(kind: ScopeKind, slug: string) {
   return `${kind}:${slug}`;
 }
 
+function setScopeMembershipCache(kind: ScopeKind, slug: string, isMember: boolean) {
+  const keys = new Set([cacheKey(kind, slug)]);
+  if (slug === 'platform' || slug === 'stewardship') {
+    keys.add(cacheKey('channel', slug));
+    keys.add(cacheKey('platform', slug));
+  } else if (kind === 'platform') {
+    keys.add(cacheKey('channel', slug));
+  }
+
+  for (const key of keys) {
+    if (isMember) membershipCache.add(key);
+    else membershipCache.delete(key);
+  }
+}
+
 function slugify(name: string): string {
   return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
@@ -121,8 +136,8 @@ export async function fetchChannel(slug: string): Promise<ScopePageData | null> 
       viewer_is_member: boolean;
     }>(`/scopes/channels/${slug}`);
 
-    if (res.viewer_is_member) membershipCache.add(cacheKey('channel', slug));
-    else membershipCache.delete(cacheKey('channel', slug));
+    if (res.viewer_is_member) setScopeMembershipCache('channel', slug, true);
+    else setScopeMembershipCache('channel', slug, false);
 
     return {
       kind: 'channel',
@@ -210,11 +225,9 @@ export async function fetchPlatform(): Promise<ScopePageData | null> {
       viewerIsMember = channelRes.viewer_is_member;
 
       if (viewerIsMember) {
-        membershipCache.add(cacheKey('channel', channelSlug));
-        membershipCache.add(cacheKey('platform', channelSlug));
+        setScopeMembershipCache('platform', channelSlug, true);
       } else {
-        membershipCache.delete(cacheKey('channel', channelSlug));
-        membershipCache.delete(cacheKey('platform', channelSlug));
+        setScopeMembershipCache('platform', channelSlug, false);
       }
     }
 
@@ -246,25 +259,22 @@ export async function fetchPlatform(): Promise<ScopePageData | null> {
   }
 }
 
-export async function fetchToggleScopeMembership(kind: ScopeKind, slug: string): Promise<void> {
-  const key = cacheKey(kind, slug);
-  const isMember = membershipCache.has(key);
+export async function fetchToggleScopeMembership(
+  kind: ScopeKind,
+  slug: string,
+  viewerIsMember: boolean,
+): Promise<void> {
   const kindPlural = (kind === 'channel' || kind === 'platform') ? 'channels' : 'communities';
 
   try {
-    if (isMember) {
+    if (viewerIsMember) {
       await apiClient.delete(`/scopes/${kindPlural}/${slug}/leave`);
-      membershipCache.delete(key);
-      // Also clear the channel-keyed cache when leaving via platform kind
-      if (kind === 'platform') membershipCache.delete(cacheKey('channel', slug));
+      setScopeMembershipCache(kind, slug, false);
     } else {
       await apiClient.post(`/scopes/${kindPlural}/${slug}/join`);
-      membershipCache.add(key);
-      // Also set the channel-keyed cache when joining via platform kind
-      if (kind === 'platform') membershipCache.add(cacheKey('channel', slug));
+      setScopeMembershipCache(kind, slug, true);
     }
   } catch (err) {
-    // On failure, don't update cache — let the server be source of truth
     throw err;
   }
 }

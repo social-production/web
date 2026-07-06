@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import HelpRequestCard from '$lib/components/cards/public-feed/HelpRequestCard.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
@@ -12,6 +11,11 @@
   import { createHelpRequest } from '$lib/services/queries/create';
   import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
   import type { PublicHelpRequestItem, TagRef } from '$lib/types/feed';
+  import {
+    applyScopePrefillToSelections,
+    readScopePrefillFromSearchParams
+  } from '$lib/utils/createScopePrefill';
+  import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 
   type RoleDraft = {
     roleLabel: string;
@@ -40,6 +44,28 @@
   let selectedCommunityOptionsCache: ScopeDirectoryItem[] = [];
   let taggableLookupKey = '';
   let taggableRequestId = 0;
+  let appliedScopePrefillKey = '';
+
+  $: scopePrefillKey = `${$page.url.searchParams.get('channel') ?? ''}:${$page.url.searchParams.get('community') ?? ''}`;
+  $: if (scopePrefillKey && scopePrefillKey !== appliedScopePrefillKey) {
+    appliedScopePrefillKey = scopePrefillKey;
+    const prefill = readScopePrefillFromSearchParams($page.url.searchParams);
+    const applied = applyScopePrefillToSelections(
+      prefill,
+      $page.data.bootstrap?.directory?.channels ?? [],
+      $page.data.bootstrap?.directory?.communities ?? [],
+      selectedChannelIds,
+      selectedCommunityIds
+    );
+    primaryTagType = applied.primaryTagType;
+    selectedChannelIds = applied.selectedChannelIds;
+    selectedCommunityIds = applied.selectedCommunityIds;
+    selectedChannelOptions = mergeScopeOptions(selectedChannelOptions, applied.selectedChannelOptions);
+    selectedCommunityOptionsCache = mergeScopeOptions(
+      selectedCommunityOptionsCache,
+      applied.selectedCommunityOptions
+    );
+  }
 
   function defaultNeededAt() {
     const next = new Date();
@@ -335,8 +361,7 @@
         return;
       }
 
-      await invalidateAll();
-      await goto(`/help-requests/${result.id}`);
+      await navigateAfterCreate(`/help-requests/${result.id}`);
     } finally {
       isSubmitting = false;
     }
@@ -535,7 +560,7 @@
     padding: 10px 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: var(--panel-bg);
+    background: var(--panel-soft);
     color: var(--text-main);
   }
 
@@ -557,7 +582,7 @@
     padding: 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-md);
-    background: var(--panel-bg-soft);
+    background: var(--panel-strong);
   }
 
   .ghost-button {

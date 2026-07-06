@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import PreviewTile from '$lib/features/create/shared/PreviewTile.svelte';
   import { createCommunity } from '$lib/services/queries/create';
+  import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 
   let name = '';
   let openness: 'open' | 'invite_only' = 'open';
@@ -30,8 +30,7 @@
         return;
       }
 
-      await invalidateAll();
-      await goto(`/communities/${result.slug}`);
+      await navigateAfterCreate(`/communities/${result.slug}`);
     } finally {
       isSubmitting = false;
     }

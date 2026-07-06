@@ -2,6 +2,7 @@ export { createFastApiClient } from './client';
 
 import type { AppAdapter } from '$lib/services/adapters/types';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
+import { clearToken } from './auth';
 import { fetchBootstrap, fetchBootstrapSummary, fetchOnboarding } from './domains/bootstrap';
 import { fetchSignIn, fetchSignOut, fetchSignUp } from './domains/auth';
 import {
@@ -117,6 +118,9 @@ export function createFastApiDriver(): AppAdapter {
         return await fetchBootstrap();
       } catch (error) {
         const status = (error as { status?: number }).status;
+        if (status === 401) {
+          clearToken();
+        }
         if (status === 401 || status === 404) {
           return bootstrapFallback;
         }
@@ -128,6 +132,9 @@ export function createFastApiDriver(): AppAdapter {
         return await fetchBootstrapSummary();
       } catch (error) {
         const status = (error as { status?: number }).status;
+        if (status === 401) {
+          clearToken();
+        }
         if (status === 401 || status === 404) {
           return { unreadCounts: bootstrapFallback.unreadCounts };
         }
@@ -203,8 +210,8 @@ export function createFastApiDriver(): AppAdapter {
       return null;
     },
 
-    async toggleScopeMembership(kind, slug) {
-      return fetchToggleScopeMembership(kind, slug);
+    async toggleScopeMembership(kind, slug, viewerIsMember) {
+      return fetchToggleScopeMembership(kind, slug, viewerIsMember);
     },
 
     async redeemScopeInvite(kind, slug, inviteValue) {

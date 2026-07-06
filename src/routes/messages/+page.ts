@@ -13,6 +13,7 @@ export const load = (async ({ url, depends }) => {
 
   return {
     messages,
-    openConversationId: url.searchParams.get('conversation')
+    openConversationId: url.searchParams.get('conversation'),
+    composeToUsername: url.searchParams.get('to')
   };
 }) satisfies PageLoad;

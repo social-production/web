@@ -9,12 +9,16 @@
   import { setVote } from '$lib/services/queries/feeds';
   import type { PublicEventItem, VoteDirection } from '$lib/types/feed';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
-  import { describeUpdateTime } from '$lib/utils/time';
+  import { describeUpdateTime, formatLocalDateTime } from '$lib/utils/time';
 
   export let item: PublicEventItem;
 
   $: orderedTags = [...item.channelTags, ...item.communityTags];
-  $: scheduleTime = isImplementedScheduleLabel(item.timeLabel) ? item.timeLabel.trim() : '';
+  $: scheduleTime = item.scheduledAt
+    ? formatLocalDateTime(item.scheduledAt)
+    : isImplementedScheduleLabel(item.timeLabel)
+      ? item.timeLabel.trim()
+      : '';
   $: scheduleLocation = isImplementedScheduleLabel(item.locationLabel) ? item.locationLabel.trim() : '';
 
   async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
@@ -45,8 +49,6 @@
   {/if}
   {#if scheduleTime || scheduleLocation}
     <p class="location">{[scheduleTime, scheduleLocation].filter(Boolean).join(' · ')}</p>
-  {:else}
-    <p class="location">Proposal schedule and location are set when an event plan is approved.</p>
   {/if}
 
   <div class="footer">

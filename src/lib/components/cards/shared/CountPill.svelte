@@ -24,4 +24,11 @@
     background: color-mix(in srgb, var(--brand-soft) 78%, var(--panel-strong));
     color: var(--brand-strong);
   }
+
+  @media (max-width: 760px) {
+    .pill {
+      font-size: 13px;
+      padding: 8px 11px;
+    }
+  }
 </style>

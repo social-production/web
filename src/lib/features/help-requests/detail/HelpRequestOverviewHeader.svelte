@@ -7,14 +7,14 @@
   import { setVote } from '$lib/services/queries/feeds';
   import type { HelpRequestPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
-  import { formatRelativeTime } from '$lib/utils/time';
+  import { formatLocalDateTime, formatRelativeTime } from '$lib/utils/time';
 
   export let data: HelpRequestPageData;
 
   $: combinedTags = [...data.channelTags, ...data.communityTags];
   $: signedUp = data.roles.reduce((total, role) => total + role.filledCount, 0);
   $: needed = data.roles.reduce((total, role) => total + role.slots, 0);
-  $: whenLabel = data.scheduleLabel || new Date(data.neededAt).toLocaleString();
+  $: whenLabel = formatLocalDateTime(data.neededAt);
 
   async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
     await setVote(data.id, event.detail.vote);

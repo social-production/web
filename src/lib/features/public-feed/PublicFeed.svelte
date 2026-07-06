@@ -329,7 +329,7 @@
 
     .controls-row select {
       height: 32px;
-      font-size: 11px;
+      font-size: 13px;
     }
   }
 </style>

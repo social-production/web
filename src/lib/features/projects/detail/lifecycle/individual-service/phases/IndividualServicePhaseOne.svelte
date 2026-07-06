@@ -6,7 +6,6 @@
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import ProjectActivityHistorySection from '$lib/features/projects/detail/components/ProjectActivityHistorySection.svelte';
   import ProjectActivityViewTabs from '$lib/features/projects/detail/components/ProjectActivityViewTabs.svelte';
-  import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import {
     formatProjectVoteRequirement,
@@ -411,8 +410,7 @@
           <div class="section-actions">
             {#if requestSettingsVoteCount > 0}
               <button class="vote-chip notice-chip" type="button" on:click={toggleRequestSettingsVotePanel}>
-                Vote Active
-                <CountBadge count={requestSettingsVoteCount} />
+                Vote now ({requestSettingsVoteCount})
               </button>
             {/if}
             {#if data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}

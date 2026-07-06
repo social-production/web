@@ -25,14 +25,24 @@ const KIND_MAP: Record<string, NotificationsPageData['items'][number]['kind']> =
   'follow-request': 'follow-request',
   'follow-accepted': 'follow-accepted',
   'new-follower': 'new-follower',
-  'hr-role-signup': 'help-request'
+  'hr-role-signup': 'help-request',
+  'community-invite': 'message',
+  'pr-approved': 'project',
+  'evt-plan-lead': 'event',
+  'prj-plan-lead': 'project',
+  'prj-share': 'project',
+  'evt-share': 'event',
+  'evt-phase-vote': 'event',
+  'prj-phase-vote': 'project',
+  'evt-phase-done': 'event',
+  'prj-phase-done': 'project'
 };
 
 function mapKind(k: string): NotificationsPageData['items'][number]['kind'] {
   if (KIND_MAP[k]) return KIND_MAP[k];
   if (k.startsWith('evt-')) return 'event';
   if (k.startsWith('hr-')) return 'help-request';
-  if (k.startsWith('pr-') || k.startsWith('project-')) return 'project';
+  if (k.startsWith('prj-') || k.startsWith('pr-') || k.startsWith('project-')) return 'project';
   return 'project';
 }
 
@@ -43,6 +53,10 @@ function mapSubjectKind(s: string): SubjectKind {
     event: 'event',
     post: 'post',
     user: 'post',
+    community: 'thread',
+    'phase-change': 'project',
+    'pull-request': 'project',
+    'event-plan': 'event',
     'help-request': 'help-request',
     help_request: 'help-request'
   };
@@ -61,9 +75,10 @@ export async function fetchNotifications(): Promise<NotificationsPageData | null
       bio: meRes.user.bio ?? undefined,
       profileImageUrl: meRes.user.profile_image_url ?? undefined
     };
+    const items = notifRes.items ?? [];
     return {
       viewer,
-      items: notifRes.items.map(n => ({
+      items: items.map(n => ({
         id: n.id,
         kind: mapKind(n.kind),
         surface: (n.surface as 'public' | 'personal') ?? 'public',
