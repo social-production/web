@@ -8,6 +8,8 @@
   import RightRailPanel from '$lib/features/right-rail/RightRailPanel.svelte';
   import MobileBottomNav from '$lib/app/shell/MobileBottomNav.svelte';
   import MobileMoreSheet from '$lib/app/shell/MobileMoreSheet.svelte';
+  import CreateFab from '$lib/app/shell/CreateFab.svelte';
+  import GroupsIcon from '$lib/components/shared/GroupsIcon.svelte';
   import { createLiveSearchScheduler } from '$lib/features/search/liveSearch';
   import SearchSuggestionsList from '$lib/features/search/SearchSuggestionsList.svelte';
   import { unreadCounts } from '$lib/stores/unreadCounts';
@@ -16,6 +18,14 @@
   import { onMount } from 'svelte';
   import type { BootstrapPayload } from '$lib/types/bootstrap';
   import type { SearchResultItem } from '$lib/types/search';
+  import { countActionableRailItems } from '$lib/utils/activityRailCounts';
+  import {
+    dismissedRailRevision,
+    dismissedRailStorageKey,
+    readDismissedRailIds,
+    readSeenRailIds,
+    seenRailStorageKey
+  } from '$lib/utils/dismissedRailItems';
 
   export let bootstrap: BootstrapPayload;
 
@@ -33,6 +43,7 @@
   let toolbarLiveLoading = false;
   let searchExpanded = false;
   let moreSheetOpen = false;
+  let createFabOpen = false;
   let searchInputElement: HTMLInputElement | null = null;
 
   const toolbarLiveSearch = createLiveSearchScheduler();
@@ -48,6 +59,15 @@
   });
 
   $: displayUnreadCounts = $unreadCounts ?? bootstrap.unreadCounts;
+  $: dismissedStorageKey = dismissedRailStorageKey(bootstrap.viewer?.id ?? null);
+  $: seenStorageKey = seenRailStorageKey(bootstrap.viewer?.id ?? null);
+  $: dismissedRailIds = readDismissedRailIds(dismissedStorageKey, $dismissedRailRevision);
+  $: seenRailIds = readSeenRailIds(seenStorageKey, $dismissedRailRevision);
+  $: rightRailActionCount = countActionableRailItems(bootstrap.activityRail, dismissedRailIds, seenRailIds);
+  $: showCreateFab =
+    Boolean(bootstrap.viewer) &&
+    !$page.url.pathname.startsWith('/create/') &&
+    $page.url.pathname !== '/onboarding';
 
   $: if ($page.url.pathname === '/search') {
     toolbarQuery = $page.url.searchParams.get('q') ?? '';
@@ -149,6 +169,7 @@
     if (isCompact && leftRailOpen) {
       rightRailOpen = false;
       moreSheetOpen = false;
+      createFabOpen = false;
     }
   }
 
@@ -157,6 +178,7 @@
     if (isCompact && rightRailOpen) {
       leftRailOpen = false;
       moreSheetOpen = false;
+      createFabOpen = false;
     }
   }
 
@@ -186,17 +208,14 @@
     if (moreSheetOpen) {
       leftRailOpen = false;
       rightRailOpen = false;
+      createFabOpen = false;
     }
-  }
-
-  function openCreateFromMore() {
-    leftRailOpen = true;
-    rightRailOpen = false;
   }
 
   function openActivityFromMore() {
     rightRailOpen = true;
     leftRailOpen = false;
+    createFabOpen = false;
   }
 
   async function submitToolbarSearch(event: SubmitEvent) {
@@ -308,24 +327,35 @@
 
       <div class="panel-controls">
         <button
-          aria-label="Toggle left rail"
+          aria-label="Open networks"
           aria-expanded={leftRailOpen}
           class="panel-toggle"
           data-active={leftRailOpen}
           type="button"
           on:click={toggleLeftRail}
         >
-          <span aria-hidden="true" class="panel-toggle-icon">|&lt;</span>
+          <GroupsIcon className="panel-toggle-icon groups-icon" />
         </button>
         <button
-          aria-label="Toggle right rail"
+          aria-label="Open schedule and votes"
           aria-expanded={rightRailOpen}
-          class="panel-toggle"
+          class="panel-toggle panel-toggle-right"
+          class:panel-toggle-actionable={rightRailActionCount > 0}
           data-active={rightRailOpen}
           type="button"
           on:click={toggleRightRail}
         >
-          <span aria-hidden="true" class="panel-toggle-icon">&gt;|</span>
+          <svg aria-hidden="true" viewBox="0 0 24 24" class="panel-toggle-icon">
+            <rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <path d="M4 9h16M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" />
+            <circle cx="17.5" cy="17.5" r="4.5" fill="var(--panel)" stroke="currentColor" stroke-width="1.6" />
+            <path d="M15.8 17.5 16.9 18.6 19.3 16.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          </svg>
+          {#if rightRailActionCount > 0}
+            <span class="panel-toggle-badge">
+              <CountBadge count={rightRailActionCount} />
+            </span>
+          {/if}
         </button>
       </div>
 
@@ -482,9 +512,12 @@
       open={moreSheetOpen}
       {isActive}
       on:close={() => (moreSheetOpen = false)}
-      on:openCreate={openCreateFromMore}
       on:openActivity={openActivityFromMore}
     />
+  {/if}
+
+  {#if showCreateFab}
+    <CreateFab bind:open={createFabOpen} viewerLoggedIn={Boolean(bootstrap.viewer)} />
   {/if}
 </div>
 
@@ -563,29 +596,43 @@
   }
 
   .panel-toggle {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-width: var(--shell-touch-min);
     min-height: var(--shell-touch-min);
-    padding: 0 10px;
+    padding: 0;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-soft);
-    font-size: 13px;
-    font-weight: 700;
     transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
   }
 
-  .panel-toggle {
-    width: var(--shell-touch-min);
-    padding: 0;
+  .panel-toggle-icon,
+  .panel-toggle :global(.panel-toggle-icon) {
+    width: 20px;
+    height: 20px;
   }
 
-  .panel-toggle-icon {
-    letter-spacing: -0.04em;
-    font-weight: 800;
+  .panel-toggle-actionable:not([data-active='true']) {
+    border-color: color-mix(in srgb, var(--brand) 55%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 45%, transparent);
+    color: var(--brand-strong);
+  }
+
+  .panel-toggle-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    pointer-events: none;
+  }
+
+  .panel-toggle-badge :global(.count-badge) {
+    min-width: 16px;
+    padding: 1px 5px;
+    font-size: 10px;
   }
 
   .panel-toggle:hover {

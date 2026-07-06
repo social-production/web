@@ -9,7 +9,6 @@
   import ProjectMembersPanel from '$lib/features/projects/detail/ProjectMembersPanel.svelte';
   import ProjectOverviewHeader from '$lib/features/projects/detail/ProjectOverviewHeader.svelte';
   import ProjectUpdatesSection from '$lib/features/projects/detail/ProjectUpdatesSection.svelte';
-  import ContextualBackButton from '$lib/components/shared/ContextualBackButton.svelte';
   import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
   import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
@@ -39,6 +38,7 @@
   let autoExpandVoteKind: string | null = null;
   let autoExpandVoteTarget: string | null = null;
   let isCompact = false;
+  let signalRemovalNudge = false;
 
   onMount(() => {
     const media = window.matchMedia('(max-width: 1080px)');
@@ -185,8 +185,22 @@
   }
 
   $: pendingVotes = collectProjectPendingVotes(data);
-  $: participationSteps = buildProjectParticipationSteps(data, pendingVotes);
+  $: participationSteps = buildProjectParticipationSteps(data, pendingVotes, { signalRemovalNudge });
   $: currentParticipationStep = resolveCurrentParticipationStep(participationSteps);
+  $: if (
+    data.lifecycle.phaseOne.viewerHasDemandSignal ||
+    data.lifecycle.phaseOne.viewerHasOppositionSignal
+  ) {
+    signalRemovalNudge = false;
+  }
+
+  function handleSignalRemoved() {
+    signalRemovalNudge = true;
+  }
+
+  function handleParticipationDismiss() {
+    signalRemovalNudge = false;
+  }
 
   async function handlePendingVote(item: PendingVoteItem, vote: ProjectApprovalVote) {
     switch (item.voteKind) {
@@ -214,9 +228,6 @@
 
 <section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
   <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
-    {#if !(activeTab === 'chat' && isCompact)}
-      <ContextualBackButton fallbackHref="/" />
-    {/if}
     <div class="top-tab-row" role="tablist" aria-label="Project detail tabs">
       <button
         class:active-tab={activeTab === 'overview'}
@@ -248,8 +259,13 @@
     </div>
 
     {#if activeTab === 'overview'}
-      <ProjectOverviewHeader {data} />
-      <ParticipationSteps steps={participationSteps} currentStepId={currentParticipationStep} />
+      <ParticipationSteps
+        steps={participationSteps}
+        currentStepId={currentParticipationStep}
+        placement="lead"
+        on:dismiss={handleParticipationDismiss}
+      />
+      <ProjectOverviewHeader {data} onSignalRemoved={handleSignalRemoved} />
       <PendingVotesPanel
         items={pendingVotes}
         onVote={handlePendingVote}

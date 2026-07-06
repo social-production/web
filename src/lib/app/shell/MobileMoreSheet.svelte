@@ -9,7 +9,6 @@
 
   const dispatch = createEventDispatcher<{
     close: void;
-    openCreate: void;
     openActivity: void;
   }>();
 
@@ -18,11 +17,6 @@
   }
 
   function handleNavigate() {
-    close();
-  }
-
-  function handleOpenCreate() {
-    dispatch('openCreate');
     close();
   }
 
@@ -86,11 +80,8 @@
     <div class="sheet-divider"></div>
 
     <div class="sheet-actions">
-      <button class="sheet-action" type="button" on:click={handleOpenCreate}>
-        Create
-      </button>
       <button class="sheet-action" type="button" on:click={handleOpenActivity}>
-        Activity
+        Schedule &amp; votes
       </button>
     </div>
   </div>

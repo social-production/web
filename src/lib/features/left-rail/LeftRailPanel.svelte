@@ -8,22 +8,11 @@
   export let isActive: (href: string) => boolean;
   export let closePanels: () => void;
 
-  const createLinks = [
-    { href: '/create/post', label: 'Post' },
-    { href: '/create/help-request', label: 'Help request' },
-    { href: '/create/thread', label: 'Thread' },
-    { href: '/create/project', label: 'Project' },
-    { href: '/create/event', label: 'Event' },
-    { href: '/create/community', label: 'Community' },
-    { href: '/create/channel', label: 'Channel' }
-  ];
-
   const railDescriptions = {
-    create: 'Start a new production, service, or discussion surface.',
     collective: 'Shared governance and common platform work.',
     assets: 'Land stewardship, storage services, and collective funds under platform governance.',
     channels: 'Topic-based discovery across projects, threads, and events.',
-    communities: 'Social coordination spaces around shared work.'
+    communities: 'Coordination spaces around shared activity.'
   };
 
   $: collectiveLink = bootstrap.directory.platform ?? {
@@ -37,23 +26,9 @@
   );
 </script>
 
-
-<section class="rail-panel">
-  <h2>Create</h2>
-  <p class="section-subtitle">{railDescriptions.create}</p>
-  <div class="stack-links">
-    {#each createLinks as link}
-      <a
-        class:active-link={isActive(link.href)}
-        class="rail-link create-link"
-        href={bootstrap.viewer ? link.href : '/onboarding'}
-        on:click={closePanels}
-      >
-        <span class="create-plus">+</span>
-        {link.label}
-      </a>
-    {/each}
-  </div>
+<section class="rail-panel rail-intro">
+  <h2>Networks</h2>
+  <p class="section-subtitle">Channels, communities, and collective surfaces to discover and coordinate shared activity.</p>
 </section>
 
 <section class="rail-panel">
@@ -120,6 +95,10 @@
     border-bottom: 1px solid var(--panel-border);
   }
 
+  .rail-intro {
+    padding-top: 2px;
+  }
+
   .rail-panel h2 {
     font-size: 14px;
     color: var(--text-main);
@@ -154,28 +133,10 @@
     transition: background-color 0.18s ease, color 0.18s ease;
   }
 
-  .create-link {
-    justify-content: flex-start;
-  }
-
   .rail-link:hover,
   .rail-link.active-link {
     background: var(--brand-soft);
     color: var(--brand-strong);
-  }
-
-  .create-plus {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 999px;
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-    font-size: 13px;
-    font-weight: 800;
-    line-height: 1;
   }
 
   .feature-pill {

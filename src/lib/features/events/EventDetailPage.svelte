@@ -9,7 +9,6 @@
   import EventMembersPanel from '$lib/features/events/detail/EventMembersPanel.svelte';
   import EventOverviewHeader from '$lib/features/events/detail/EventOverviewHeader.svelte';
   import EventUpdatesSection from '$lib/features/events/detail/EventUpdatesSection.svelte';
-  import ContextualBackButton from '$lib/components/shared/ContextualBackButton.svelte';
   import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
   import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
   import {
@@ -38,6 +37,7 @@
   let autoExpandVoteKind: string | null = null;
   let autoExpandVoteTarget: string | null = null;
   let isCompact = false;
+  let signalRemovalNudge = false;
 
   onMount(() => {
     const media = window.matchMedia('(max-width: 1080px)');
@@ -176,8 +176,22 @@
   }
 
   $: pendingVotes = collectEventPendingVotes(data);
-  $: participationSteps = buildEventParticipationSteps(data, pendingVotes);
+  $: participationSteps = buildEventParticipationSteps(data, pendingVotes, { signalRemovalNudge });
   $: currentParticipationStep = resolveCurrentParticipationStep(participationSteps);
+  $: if (
+    data.lifecycle.phaseOne.viewerHasDemandSignal ||
+    data.lifecycle.phaseOne.viewerHasOppositionSignal
+  ) {
+    signalRemovalNudge = false;
+  }
+
+  function handleSignalRemoved() {
+    signalRemovalNudge = true;
+  }
+
+  function handleParticipationDismiss() {
+    signalRemovalNudge = false;
+  }
 
   async function handlePendingVote(item: PendingVoteItem, vote: ProjectApprovalVote) {
     switch (item.voteKind) {
@@ -205,9 +219,6 @@
 
 <section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
   <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
-    {#if !(activeTab === 'chat' && isCompact)}
-      <ContextualBackButton fallbackHref="/" />
-    {/if}
     <div class="top-tab-row" role="tablist" aria-label="Event detail tabs">
       <button
         class:active-tab={activeTab === 'overview'}
@@ -239,8 +250,13 @@
     </div>
 
     {#if activeTab === 'overview'}
-      <EventOverviewHeader {data} />
-      <ParticipationSteps steps={participationSteps} currentStepId={currentParticipationStep} />
+      <ParticipationSteps
+        steps={participationSteps}
+        currentStepId={currentParticipationStep}
+        placement="lead"
+        on:dismiss={handleParticipationDismiss}
+      />
+      <EventOverviewHeader {data} onSignalRemoved={handleSignalRemoved} />
       <PendingVotesPanel items={pendingVotes} onVote={handlePendingVote} />
       <EventUpdatesSection
         {data}

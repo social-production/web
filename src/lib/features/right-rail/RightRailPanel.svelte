@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { browser } from '$app/environment';
   import { createEventDispatcher } from 'svelte';
   import { goto, invalidateAll } from '$app/navigation';
   import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
@@ -17,6 +16,17 @@
     toggleEventMembership
   } from '$lib/services/queries/details';
   import type { RightRailActivityItem } from '$lib/types/bootstrap';
+  import {
+    dismissRailItemId,
+    dismissedRailRevision,
+    dismissedRailStorageKey,
+    markRailItemSeen,
+    readDismissedRailIds,
+    readSeenRailIds,
+    restoreAllRailItems,
+    restoreRailItemId,
+    seenRailStorageKey
+  } from '$lib/utils/dismissedRailItems';
   import { scrollToPendingVote } from '$lib/utils/pendingVotes';
   import { formatScheduleLabel } from '$lib/utils/time';
 
@@ -27,59 +37,30 @@
 
   let pendingSubjectId = '';
   let pendingVoteId = '';
-  let dismissedRailIds = new Set<string>();
+  let showClearedItems = false;
 
-  $: dismissedStorageKey = viewerId ? `dismissed-rail-ids-${viewerId}` : 'dismissed-rail-ids';
-
-  function readDismissedRailIds(storageKey: string) {
-    if (!browser) {
-      return new Set<string>();
-    }
-
-    try {
-      const stored = localStorage.getItem(storageKey);
-
-      if (!stored) {
-        return new Set<string>();
-      }
-
-      const parsed = JSON.parse(stored);
-
-      if (!Array.isArray(parsed)) {
-        return new Set<string>();
-      }
-
-      return new Set<string>(parsed.filter((value): value is string => typeof value === 'string'));
-    } catch {
-      return new Set<string>();
-    }
-  }
-
-  function persistDismissedRailIds(storageKey: string) {
-    if (!browser) {
-      return;
-    }
-
-    localStorage.setItem(storageKey, JSON.stringify([...dismissedRailIds]));
-  }
+  $: dismissedStorageKey = dismissedRailStorageKey(viewerId);
+  $: seenStorageKey = seenRailStorageKey(viewerId);
+  $: dismissedRailIds = readDismissedRailIds(dismissedStorageKey, $dismissedRailRevision);
+  $: seenRailIds = readSeenRailIds(seenStorageKey, $dismissedRailRevision);
 
   function dismissRailItem(itemId: string, event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
-    dismissedRailIds = new Set([...dismissedRailIds, itemId]);
-    persistDismissedRailIds(dismissedStorageKey);
+    dismissRailItemId(dismissedStorageKey, itemId);
   }
 
-  $: if (browser) {
-    dismissedRailIds = readDismissedRailIds(dismissedStorageKey);
+  function restoreRailItem(itemId: string) {
+    restoreRailItemId(dismissedStorageKey, itemId);
   }
 
-  $: visibleItems = items.filter(
-    (item) =>
-      item.kind === 'vote' ||
-      item.viewerIsAuthor ||
-      !dismissedRailIds.has(item.id)
-  );
+  function restoreAllClearedItems() {
+    restoreAllRailItems(dismissedStorageKey);
+    showClearedItems = false;
+  }
+
+  $: visibleItems = items.filter((item) => !dismissedRailIds.has(item.id));
+  $: clearedItems = items.filter((item) => dismissedRailIds.has(item.id));
   $: activityItems = visibleItems.filter(
     (item) =>
       item.kind !== 'request' &&
@@ -123,7 +104,7 @@
       item.kind === 'help-request-open' ||
       item.kind === 'help-request-owned'
     ) {
-      return '';
+      return 'Help request';
     }
     if (item.kind === 'request') return 'Service request';
     if (item.kind === 'vote') return item.voteKindLabel ? `Vote · ${item.voteKindLabel.replace('_', ' ')}` : 'Vote';
@@ -161,7 +142,12 @@
     return item.countLabel ?? '';
   }
 
+  function isUnseenItem(item: RightRailActivityItem) {
+    return !seenRailIds.has(item.id);
+  }
+
   async function handleOpenItem(item: RightRailActivityItem) {
+    markRailItemSeen(seenStorageKey, item.id);
     requestClose();
     await goto(item.href);
   }
@@ -244,6 +230,7 @@
       }
 
       await invalidateAll();
+      markRailItemSeen(seenStorageKey, item.id);
       scrollToPendingVote(item.voteKindLabel, item.voteTargetId);
     } finally {
       pendingVoteId = '';
@@ -315,7 +302,7 @@
         </div>
       {:else}
         {#each activityItems as item}
-          <article class="snapshot-row activity-row">
+          <article class="snapshot-row activity-row" class:activity-row-unseen={isUnseenItem(item)}>
             <button
               aria-label="Dismiss activity card"
               class="dismiss-card"
@@ -358,16 +345,14 @@
       {:else}
         {#each helpRequestItems as item}
           <article class="snapshot-row activity-row help-request-row">
-            {#if !item.viewerIsAuthor}
-              <button
-                aria-label="Dismiss help request card"
-                class="dismiss-card"
-                type="button"
-                on:click={(event) => dismissRailItem(item.id, event)}
-              >
-                ×
-              </button>
-            {/if}
+            <button
+              aria-label="Dismiss help request card"
+              class="dismiss-card"
+              type="button"
+              on:click={(event) => dismissRailItem(item.id, event)}
+            >
+              ×
+            </button>
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
                 <SubjectTablet kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'productive'} />
@@ -447,6 +432,14 @@
       {:else}
         {#each voteItems as item}
           <article class="snapshot-row activity-row vote-row">
+            <button
+              aria-label="Dismiss vote card"
+              class="dismiss-card"
+              type="button"
+              on:click={(event) => dismissRailItem(item.id, event)}
+            >
+              ×
+            </button>
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
                 <SubjectTablet
@@ -489,6 +482,37 @@
       {/if}
     </div>
   </section>
+
+  {#if clearedItems.length > 0}
+    <section class="rail-section rail-section-cleared">
+      <div class="cleared-header">
+        <span class="cleared-summary">{clearedItems.length} cleared {clearedItems.length === 1 ? 'item' : 'items'}</span>
+        <div class="cleared-actions">
+          <button class="cleared-toggle" type="button" on:click={() => (showClearedItems = !showClearedItems)}>
+            {showClearedItems ? 'Hide' : 'Show'}
+          </button>
+          <button class="cleared-restore-all" type="button" on:click={restoreAllClearedItems}>
+            Restore all
+          </button>
+        </div>
+      </div>
+      {#if showClearedItems}
+        <div class="cleared-list">
+          {#each clearedItems as item}
+            <div class="cleared-row">
+              <div class="cleared-copy">
+                <span class="cleared-kind">{itemKicker(item)}</span>
+                <strong>{item.title}</strong>
+              </div>
+              <button class="cleared-restore-one" type="button" on:click={() => restoreRailItem(item.id)}>
+                Restore
+              </button>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </section>
+  {/if}
 </section>
 
 <style>
@@ -551,6 +575,11 @@
   .activity-row:hover {
     border-color: var(--brand);
     background: color-mix(in srgb, var(--brand-soft) 42%, var(--panel-soft));
+  }
+
+  .activity-row-unseen {
+    border-color: color-mix(in srgb, var(--brand) 42%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 28%, var(--panel-soft));
   }
 
   .dismiss-card {
@@ -680,5 +709,90 @@
     border: 1px solid var(--panel-border);
     background: var(--panel-strong);
     color: var(--text-main);
+  }
+
+  .rail-section-cleared {
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
+  }
+
+  .cleared-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .cleared-summary {
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .cleared-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .cleared-toggle,
+  .cleared-restore-all,
+  .cleared-restore-one {
+    padding: 6px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .cleared-toggle:hover,
+  .cleared-restore-all:hover,
+  .cleared-restore-one:hover {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .cleared-list {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .cleared-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+  }
+
+  .cleared-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .cleared-kind {
+    color: var(--text-soft);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .cleared-copy strong {
+    font-size: 13px;
+    color: var(--text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

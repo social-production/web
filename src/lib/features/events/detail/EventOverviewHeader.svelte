@@ -18,9 +18,13 @@
   import { buildSharePrefill } from '$lib/utils/sharePrefill';
 
   export let data: EventPageData;
+  export let onSignalRemoved: (() => void) | undefined = undefined;
 
   $: combinedTags = [...data.channelTags, ...data.communityTags];
   $: signalSummary = data.lifecycle.phaseOne.signalSummary;
+  $: canSignal =
+    Boolean(signalSummary) &&
+    (data.lifecycle.phaseOne.viewerCanSignalDemand || data.lifecycle.phaseOne.viewerCanSignalOpposition);
   $: membershipButtonLabel = `${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`;
   $: timeLabel = data.scheduledAt
     ? formatLocalDateTime(data.scheduledAt)
@@ -42,7 +46,17 @@
       return;
     }
 
+    const wasActive =
+      signal === 'demand'
+        ? data.lifecycle.phaseOne.viewerHasDemandSignal
+        : data.lifecycle.phaseOne.viewerHasOppositionSignal;
+
     await setEventSignal(data.slug, signal);
+
+    if (wasActive) {
+      onSignalRemoved?.();
+    }
+
     await invalidateAll();
   }
 
@@ -92,19 +106,28 @@
 </div>
 
 <h1>{data.title}</h1>
+
 <p class="overview-copy">{data.description}</p>
 
 <section class="meta-block" aria-label="Event overview details">
   <ul class="event-meta-list">
-    {#if signalSummary}
+    {#if canSignal && signalSummary}
       <li class="meta-item demand-item">
         <strong>Signals</strong>
         <div id="participation-signals" class="signal-stack">
+          <p class="signal-intro">
+            {#if !data.viewerIsMember}
+              Signal whether this should be facilitated on the platform — you don't need to join to participate in this step.
+            {:else}
+              Signal platform interest in this event — support or oppose without starting a lifecycle vote.
+            {/if}
+          </p>
           <div class="meta-button-row">
             <button
               aria-pressed={data.lifecycle.phaseOne.viewerHasDemandSignal}
               class:active-demand={data.lifecycle.phaseOne.viewerHasDemandSignal}
               class="demand-button"
+              disabled={!data.lifecycle.phaseOne.viewerCanSignalDemand}
               title="Signal interest — this is not a lifecycle vote"
               type="button"
               on:click={() => handleSignalSet('demand')}
@@ -115,6 +138,7 @@
               aria-pressed={data.lifecycle.phaseOne.viewerHasOppositionSignal}
               class:active-opposition={data.lifecycle.phaseOne.viewerHasOppositionSignal}
               class="demand-button opposition-button"
+              disabled={!data.lifecycle.phaseOne.viewerCanSignalOpposition}
               title="Signal opposition — this is not a lifecycle vote"
               type="button"
               on:click={() => handleSignalSet('opposition')}
@@ -122,7 +146,7 @@
               Oppose {signalSummary.oppositionCount}
             </button>
           </div>
-          <span>
+          <span class="signal-summary">
             Demand is {signalSummary.signalRatioPercent}% of current proposal signals.
             {#if signalSummary.usesPlatformVoteContext}
               Proposal advancement also needs {signalSummary.requiredDemandCount} demand signals from {signalSummary.voteContextPopulation} weekly active users.
@@ -245,6 +269,19 @@
     color: var(--text-soft);
     line-height: 1.55;
     overflow-wrap: anywhere;
+  }
+
+  .signal-intro {
+    margin: 0 0 8px;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .signal-summary {
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .demand-button {
