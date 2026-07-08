@@ -1,6 +1,7 @@
 <script lang="ts">
   export let active = false;
   export let ariaLabel = 'Add item';
+  export let participationAction: string | undefined = undefined;
   export let action: (event?: MouseEvent) => unknown = () => {};
 </script>
 
@@ -9,6 +10,7 @@
   aria-pressed={active}
   class:active
   class="round-plus-button"
+  data-participation-action={participationAction}
   type="button"
   on:click={(event) => action(event)}
 >

@@ -23,7 +23,6 @@
   export let removePlanPhase: (index: number) => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
   export let isExpandedPlan: (planId: string) => boolean = () => false;
-  export let valuevote: (planId: string, valueId: string, vote: ProjectApprovalVote | null) => void = () => {};
   export let overallvote: (planId: string, vote: ProjectApprovalVote | null) => void = () => {};
 
   $: submitLabel = isCollectiveServiceProject(data.projectMode)
@@ -48,7 +47,6 @@
     {removePlanPhase}
     {submitPlan}
     {isExpandedPlan}
-    {valuevote}
     {overallvote}
   />
 {/if}

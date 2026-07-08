@@ -28,7 +28,7 @@
     seenRailStorageKey
   } from '$lib/utils/dismissedRailItems';
   import { scrollToPendingVote } from '$lib/utils/pendingVotes';
-  import { formatScheduleLabel } from '$lib/utils/time';
+  import { formatLocalDateTime, formatScheduleLabel } from '$lib/utils/time';
 
   export let items: RightRailActivityItem[] = [];
   export let viewerId: string | null = null;
@@ -124,8 +124,20 @@
   }
 
   function itemTimeLabel(item: RightRailActivityItem) {
-    if (item.timeLabel && !item.timeLabel.includes('T')) {
-      return item.timeLabel;
+    if (item.kind === 'project' || item.kind === 'event' || item.kind === 'vote') {
+      const source = item.createdAt ?? item.timeLabel;
+
+      if (!source) {
+        return '';
+      }
+
+      const parsed = formatLocalDateTime(source);
+
+      if (parsed) {
+        return parsed;
+      }
+
+      return source;
     }
 
     const source = item.timeLabel ?? item.createdAt;
@@ -134,7 +146,23 @@
       return '';
     }
 
+    const parsed = formatLocalDateTime(source);
+
+    if (parsed) {
+      return parsed;
+    }
+
     return formatScheduleLabel(source);
+  }
+
+  async function handleRailAssess(item: RightRailActivityItem, event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    markRailItemSeen(seenStorageKey, item.id);
+    requestClose();
+
+    const basePath = item.href.split('?')[0];
+    await goto(`${basePath}#pending-votes-panel`);
   }
 
   function itemDetail(item: RightRailActivityItem) {
@@ -205,11 +233,12 @@
             await setProjectEditVote(slug, targetId, vote);
             break;
           case 'plan':
-            if (entityKind === 'project') {
-              await handleOpenItem(item);
-              return;
-            }
-            await setEventPlanOverallVote(slug, targetId, vote);
+            await setProjectPlanOverallVote(
+              slug,
+              item.planPhaseId === 'phase-3' ? 'phase-3' : 'phase-2',
+              targetId,
+              vote
+            );
             break;
         }
       } else {
@@ -460,22 +489,34 @@
               {/if}
             </button>
             <div class="vote-row-actions">
-              <button
-                class="vote-action-button reject-button"
-                disabled={pendingVoteId === item.id}
-                type="button"
-                on:click={(event) => handleRailVote(item, 'no', event)}
-              >
-                Reject
-              </button>
-              <button
-                class="vote-action-button approve-button"
-                disabled={pendingVoteId === item.id}
-                type="button"
-                on:click={(event) => handleRailVote(item, 'yes', event)}
-              >
-                Approve
-              </button>
+              {#if item.voteKindLabel === 'plan'}
+                <button
+                  class="vote-action-button assess-button"
+                  disabled={pendingVoteId === item.id}
+                  type="button"
+                  on:click={(event) => handleRailAssess(item, event)}
+                >
+                  Assess
+                </button>
+              {/if}
+              {#if item.voteKindLabel !== 'plan' || item.voteSubKind === 'overall'}
+                <button
+                  class="vote-action-button reject-button"
+                  disabled={pendingVoteId === item.id}
+                  type="button"
+                  on:click={(event) => handleRailVote(item, 'no', event)}
+                >
+                  Reject
+                </button>
+                <button
+                  class="vote-action-button approve-button"
+                  disabled={pendingVoteId === item.id}
+                  type="button"
+                  on:click={(event) => handleRailVote(item, 'yes', event)}
+                >
+                  Approve
+                </button>
+              {/if}
             </div>
           </article>
         {/each}

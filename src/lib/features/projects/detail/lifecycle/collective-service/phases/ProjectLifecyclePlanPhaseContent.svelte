@@ -38,8 +38,14 @@
   export let removePlanPhase: (index: number) => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
   export let isExpandedPlan: (planId: string) => boolean = () => false;
-  export let valuevote: (planId: string, valueId: string, vote: ProjectApprovalVote | null) => void = () => {};
+  export let autoAssessPlanId: string | null = null;
+  export let autoAssessCriterionId: string | null = null;
   export let overallvote: (planId: string, vote: ProjectApprovalVote | null) => void = () => {};
+  export let criterionvote: (
+    planId: string,
+    criterionId: string,
+    rating: import('$lib/types/detail').PlanCriterionRating | null
+  ) => void | Promise<void> = () => {};
 
   $: isPhaseTwo = phaseId === 'phase-2';
   $: collectiveService = isCollectiveServiceProject(data.projectMode);
@@ -138,7 +144,7 @@
 <section class="phase-surface">
   {#if canSubmitPlans}
     <div class="composer-toggle-row">
-      <RoundPlusButton active={showComposer} ariaLabel="Add plan" action={() => (showComposer = !showComposer)} />
+      <RoundPlusButton active={showComposer} ariaLabel="Add plan" participationAction="submit-plan" action={() => (showComposer = !showComposer)} />
     </div>
 
     {#if showComposer}
@@ -281,11 +287,13 @@
         <CollapsiblePlanCard
           canVote={canVoteOnPlans}
           expanded={isExpandedPlan(plan.id)}
+          autoOpenAssessment={autoAssessPlanId === plan.id}
+          autoAssessCriterionId={autoAssessPlanId === plan.id ? autoAssessCriterionId : null}
           showRequestSystem={!isPhaseTwo && collectiveService}
           {plan}
           statusLabel={statusLabel(plan.id)}
-          {valuevote}
           {overallvote}
+          {criterionvote}
         />
       {/each}
     {/if}

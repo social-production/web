@@ -4,7 +4,8 @@
   import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import { page } from '$app/stores';
   import { tick } from 'svelte';
-  import { preserveScrollDuring, scrollComposerIntoView } from '$lib/utils/time';
+  import { preserveScrollDuring } from '$lib/utils/time';
+  import { composeActivityLocationLabel, normalizedRoleRequirements } from '$lib/utils/activityCreationSteps';
   import { resolveEventPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
   import EventLifecycleMechanicsCard from './components/EventLifecycleMechanicsCard.svelte';
   import EventLifecyclePhaseTabs from './components/EventLifecyclePhaseTabs.svelte';
@@ -20,7 +21,6 @@
     eventPlanScheduledDayIsos,
     eventPlanSuggestedDayIso,
     importanceOptions,
-    minimumParticipantsFromRoles,
     type EventActivityForm,
     type EventLifecycleTabItem,
     type EventPlanForm
@@ -40,7 +40,7 @@
     setEventActivityCommitment,
     setEventPhaseChangeVote,
     setEventPlanOverallVote,
-    setEventPlanValueVote,
+    setEventPlanCriterionRating,
     setEventValueImportance
   } from '$lib/services/queries/details';
   import type {
@@ -57,6 +57,10 @@
   export let autoExpandVoteCards = false;
   export let autoExpandVoteKind: string | null = null;
   export let autoExpandVoteTarget: string | null = null;
+  export let autoAssess = false;
+  export let autoAssessCriterionId: string | null = null;
+  export let assessPlanId: string | null = null;
+  export let assessCriterionId: string | null = null;
 
   function currentWinningPlan() {
     return data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ?? null;
@@ -90,7 +94,6 @@
   let showValueComposer = false;
   let showPlanComposer = false;
   let showActivityComposer = false;
-  let activityComposerElement: HTMLDivElement | null = null;
   let draftValue = '';
   let phaseChangeReason = '';
   let selectedDayIso = '';
@@ -242,7 +245,9 @@
   $: targetedPlanId =
     autoExpandVoteCards && autoExpandVoteKind === 'plan'
       ? autoExpandVoteTarget
-      : null;
+      : assessPlanId;
+  $: effectiveAutoAssess = autoAssess || Boolean(assessPlanId);
+  $: effectiveAutoAssessCriterionId = autoAssessCriterionId ?? assessCriterionId;
   $: signalSummary = data.lifecycle.phaseOne.signalSummary;
   $: selectedPlan =
     data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ??
@@ -257,7 +262,6 @@
   $: if (activePhaseId === 'activity' && plannedDayIsos.length > 0 && !plannedDayIsos.includes(selectedDayIso)) {
     selectedDayIso = plannedDayIsos[0];
   }
-  $: minimumParticipants = minimumParticipantsFromRoles(activityForm.roleRequirements);
   $: phaseTabs = data.lifecycle.phases.map(
     (phase): EventLifecycleTabItem => ({
       phase,
@@ -397,16 +401,6 @@
     };
   }
 
-  function removePlanPhase(index: number) {
-    planForm = {
-      ...planForm,
-      planPhases:
-        planForm.planPhases.length === 1
-          ? [{ title: '', details: '' }]
-          : planForm.planPhases.filter((_, phaseIndex) => phaseIndex !== index)
-    };
-  }
-
   async function submitPlan() {
     const { schedule, validationMessages } = validateEventPlanForm(planForm);
     const locationLabel = planForm.locationLabel.trim();
@@ -442,9 +436,13 @@
     await invalidateAll();
   }
 
-  async function voteOnPlanValue(planId: string, valueId: string, vote: ProjectApprovalVote | null) {
+  async function ratePlanCriterion(
+    planId: string,
+    criterionId: string,
+    rating: import('$lib/types/detail').PlanCriterionRating | null
+  ) {
     await preserveScrollDuring(async () => {
-      await setEventPlanValueVote(data.slug, planId, valueId, vote);
+      await setEventPlanCriterionRating(data.slug, planId, criterionId, rating);
       await invalidateAll();
     });
   }
@@ -489,17 +487,19 @@
           : activityForm.endsAt
     };
 
-    await tick();
-    scrollComposerIntoView(activityComposerElement);
   }
 
   async function submitActivity() {
+    const locationLabel = composeActivityLocationLabel(activityForm);
+    const roleRequirements = normalizedRoleRequirements(activityForm.roleRequirements);
+
     if (
       !activityForm.title.trim() ||
       !activityForm.scheduledAt.trim() ||
       !activityForm.endsAt.trim() ||
-      !activityForm.locationLabel.trim() ||
+      !locationLabel ||
       !activityForm.note.trim() ||
+      roleRequirements.length === 0 ||
       !selectedPlan ||
       !eventActivityFitsSchedule(
         selectedPlan.schedule,
@@ -511,9 +511,14 @@
     }
 
     await addEventActivity(data.slug, {
-      ...activityForm,
+      title: activityForm.title,
       scheduledAt: localDateTimeInputToIso(activityForm.scheduledAt),
-      endsAt: localDateTimeInputToIso(activityForm.endsAt)
+      endsAt: localDateTimeInputToIso(activityForm.endsAt),
+      isOnline: activityForm.isOnline,
+      locationLabel,
+      roleRequirements,
+      linkedPlanPhaseId: activityForm.linkedPlanPhaseId,
+      note: activityForm.note
     });
     resetActivityForm();
     showActivityComposer = false;
@@ -577,17 +582,16 @@
       bind:selectedDayIso
       bind:highlightedActivityId
       {targetedPlanId}
+      autoAssess={effectiveAutoAssess}
+      autoAssessCriterionId={effectiveAutoAssessCriterionId}
       bind:planForm
       bind:activityForm
-      {minimumParticipants}
       {submitValue}
       {voteOnValue}
       {addPlanPhase}
-      {removePlanPhase}
       {submitPlan}
-      {voteOnPlanValue}
       {voteOnPlanOverall}
-      bind:activityComposerElement
+      {ratePlanCriterion}
       {openActivityComposerForDay}
       {submitActivity}
       changeCommitment={changeCommitment}

@@ -103,12 +103,18 @@
 
   .create-fab-shell {
     position: fixed;
-    right: 12px;
+    right: calc(var(--right-width, 0px) + 12px);
     bottom: calc(var(--shell-bottom-nav-offset, 0px) + 12px);
     z-index: 56;
     display: grid;
     justify-items: end;
     gap: 10px;
+    pointer-events: none;
+  }
+
+  .create-fab-shell .fab-button,
+  .create-fab-shell .create-menu {
+    pointer-events: auto;
   }
 
   .fab-button {
@@ -207,6 +213,7 @@
 
   @media (min-width: 1081px) {
     .create-fab-shell {
+      right: calc(var(--right-width, 0px) + 20px);
       bottom: 20px;
     }
   }

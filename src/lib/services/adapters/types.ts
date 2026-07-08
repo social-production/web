@@ -157,6 +157,12 @@ export interface AppAdapter {
     valueId: string,
     vote: ProjectApprovalVote | null
   ): Promise<void>;
+  setProjectPlanCriterionRating(
+    projectSlug: string,
+    planId: string,
+    criterionId: string,
+    rating: import('$lib/types/detail').PlanCriterionRating | null
+  ): Promise<void>;
   setProjectPlanOverallVote(
     projectSlug: string,
     phaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>,
@@ -307,6 +313,12 @@ export interface AppAdapter {
     planId: string,
     valueId: string,
     vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  setEventPlanCriterionRating(
+    eventSlug: string,
+    planId: string,
+    criterionId: string,
+    rating: import('$lib/types/detail').PlanCriterionRating | null
   ): Promise<void>;
   setEventPlanOverallVote(
     eventSlug: string,

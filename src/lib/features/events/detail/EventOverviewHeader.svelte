@@ -127,6 +127,7 @@
               aria-pressed={data.lifecycle.phaseOne.viewerHasDemandSignal}
               class:active-demand={data.lifecycle.phaseOne.viewerHasDemandSignal}
               class="demand-button"
+              data-participation-action="signal"
               disabled={!data.lifecycle.phaseOne.viewerCanSignalDemand}
               title="Signal interest — this is not a lifecycle vote"
               type="button"

@@ -6,6 +6,7 @@
   import { localDateTimeInputToIso } from '$lib/utils/eventSchedule';
   import { tick } from 'svelte';
   import { preserveScrollDuring } from '$lib/utils/time';
+  import { composeActivityLocationLabel, normalizedRoleRequirements } from '$lib/utils/activityCreationSteps';
   import ProductiveLifecycleContent from './lifecycle/productive/ProductiveLifecycleContent.svelte';
   import CollectiveServiceLifecycleContent from './lifecycle/collective-service/CollectiveServiceLifecycleContent.svelte';
   import IndividualServiceLifecycleContent from './lifecycle/individual-service/IndividualServiceLifecycleContent.svelte';
@@ -38,6 +39,7 @@
     setProjectMergeCapabilityChangeVote,
     setProjectPhaseChangeVote,
     setProjectPlanOverallVote,
+    setProjectPlanCriterionRating,
     setProjectPlanValueVote,
     setProjectPullRequestVote,
     setProjectRepositoryReplacementVote,
@@ -89,6 +91,10 @@
   export let autoExpandVoteCards = false;
   export let autoExpandVoteKind: string | null = null;
   export let autoExpandVoteTarget: string | null = null;
+  export let autoAssess = false;
+  export let autoAssessCriterionId: string | null = null;
+  export let participationAssessPlanId: string | null = null;
+  export let participationAssessCriterionId: string | null = null;
 
   type DraftPlanPhase = {
     title: string;
@@ -262,7 +268,9 @@
     title: '',
     scheduledAt: '',
     endsAt: '',
+    isOnline: false,
     locationLabel: '',
+    onlineDetail: '',
     roleRequirements: [createDraftActivityRole()],
     linkedPlanPhaseId: '' as string | null,
     note: ''
@@ -454,6 +462,9 @@
     autoExpandVoteCards && autoExpandVoteKind === 'phase_change' && autoExpandVoteTarget
       ? phaseChangeVoteGroup(autoExpandVoteTarget)
       : null;
+  $: resolvedAutoAssessPlanId =
+    autoAssess && autoExpandVoteKind === 'plan' ? autoExpandVoteTarget : participationAssessPlanId;
+  $: resolvedAutoAssessCriterionId = autoAssessCriterionId ?? participationAssessCriterionId;
 
   $: if (lastHowItWorksPhaseId !== activePhaseId) {
     lastHowItWorksPhaseId = activePhaseId;
@@ -580,6 +591,26 @@
   function handleProjectValueVote(valueId: string, voteValue: ProjectImportanceVoteValue) {
     return preserveScrollDuring(() =>
       refreshAfter(() => setProjectValueImportance(data.slug, valueId, voteValue))
+    );
+  }
+
+  function handlePhaseTwoPlanCriterionRating(
+    planId: string,
+    criterionId: string,
+    rating: import('$lib/types/detail').PlanCriterionRating | null
+  ) {
+    return preserveScrollDuring(() =>
+      refreshAfter(() => setProjectPlanCriterionRating(data.slug, planId, criterionId, rating))
+    );
+  }
+
+  function handlePhaseThreePlanCriterionRating(
+    planId: string,
+    criterionId: string,
+    rating: import('$lib/types/detail').PlanCriterionRating | null
+  ) {
+    return preserveScrollDuring(() =>
+      refreshAfter(() => setProjectPlanCriterionRating(data.slug, planId, criterionId, rating))
     );
   }
 
@@ -757,7 +788,9 @@
         title: '',
         scheduledAt: '',
         endsAt: '',
+        isOnline: false,
         locationLabel: '',
+        onlineDetail: '',
         roleRequirements: [createDraftActivityRole()],
         linkedPlanPhaseId: '',
         note: ''
@@ -766,26 +799,14 @@
       return;
     }
 
-    const roleRequirements = activityForm.roleRequirements
-      .map((role) => {
-        const requiredCount = Math.max(1, Number(role.requiredCount) || 1);
-        const parsedMaximumCount = Number(role.maximumCount);
-
-        return {
-          label: role.label.trim(),
-          requiredCount,
-          maximumCount: Number.isFinite(parsedMaximumCount)
-            ? Math.max(requiredCount, Math.floor(parsedMaximumCount))
-            : undefined
-        };
-      })
-      .filter((role) => role.label);
+    const roleRequirements = normalizedRoleRequirements(activityForm.roleRequirements);
+    const locationLabel = composeActivityLocationLabel(activityForm);
 
     if (
       !activityForm.title.trim() ||
       !scheduledAtValue ||
       !endsAtValue ||
-      !activityForm.locationLabel.trim() ||
+      !locationLabel ||
       !activityForm.note.trim() ||
       roleRequirements.length === 0 ||
       new Date(endsAtValue).getTime() <= new Date(scheduledAtValue).getTime()
@@ -801,7 +822,8 @@
         title: activityForm.title,
         scheduledAt: localDateTimeInputToIso(scheduledAtValue),
         endsAt: localDateTimeInputToIso(endsAtValue),
-        locationLabel: activityForm.locationLabel,
+        isOnline: activityForm.isOnline,
+        locationLabel,
         roleRequirements,
         linkedPlanPhaseId: activityForm.linkedPlanPhaseId || null,
         note: activityForm.note
@@ -811,7 +833,9 @@
       title: '',
       scheduledAt: '',
       endsAt: '',
+      isOnline: false,
       locationLabel: '',
+      onlineDetail: '',
       roleRequirements: [createDraftActivityRole()],
       linkedPlanPhaseId: '',
       note: ''
@@ -1109,8 +1133,6 @@
     showCollectiveRequestComposer = false;
     selectedCollectiveRequestActivityId = null;
     showPhaseFiveComposer = true;
-    await tick();
-    scrollElementIntoComfortView(activityComposerElement);
   }
 
   async function openActivityComposer() {
@@ -1118,8 +1140,6 @@
     showCollectiveRequestComposer = false;
     selectedCollectiveRequestActivityId = null;
     showPhaseFiveComposer = true;
-    await tick();
-    scrollElementIntoComfortView(activityComposerElement);
   }
 
   async function openPersonalActivityComposer() {
@@ -1356,12 +1376,16 @@
         cancelEditingProductionPlan={cancelProductionPlanEdit}
         setPhaseTwoPlanValueVote={handlePhaseTwoPlanValueVote}
         setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
+        setPhaseTwoPlanCriterionRating={handlePhaseTwoPlanCriterionRating}
         addDistributionPlanPhase={addDistributionPlanPhase}
         removeDistributionPlanPhase={removeDistributionPlanPhase}
         submitDistributionPlan={submitDistributionPlan}
         setPhaseThreePlanValueVote={handlePhaseThreePlanValueVote}
         setPhaseThreePlanOverallVote={handlePhaseThreePlanOverallVote}
+        setPhaseThreePlanCriterionRating={handlePhaseThreePlanCriterionRating}
         isExpandedPlan={isExpandedPlan}
+        autoAssessPlanId={resolvedAutoAssessPlanId}
+        autoAssessCriterionId={resolvedAutoAssessCriterionId}
         openActivityComposer={openActivityComposer}
         openActivityComposerForDay={openActivityComposerForDay}
         openRequestComposer={openCollectiveServiceRequestComposer}
@@ -1412,12 +1436,16 @@
         cancelEditingProductionPlan={cancelProductionPlanEdit}
         setPhaseTwoPlanValueVote={handlePhaseTwoPlanValueVote}
         setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
+        setPhaseTwoPlanCriterionRating={handlePhaseTwoPlanCriterionRating}
         addDistributionPlanPhase={addDistributionPlanPhase}
         removeDistributionPlanPhase={removeDistributionPlanPhase}
         submitDistributionPlan={submitDistributionPlan}
         setPhaseThreePlanValueVote={handlePhaseThreePlanValueVote}
         setPhaseThreePlanOverallVote={handlePhaseThreePlanOverallVote}
+        setPhaseThreePlanCriterionRating={handlePhaseThreePlanCriterionRating}
         isExpandedPlan={isExpandedPlan}
+        autoAssessPlanId={resolvedAutoAssessPlanId}
+        autoAssessCriterionId={resolvedAutoAssessCriterionId}
         openActivityComposer={openActivityComposer}
         openActivityComposerForDay={openActivityComposerForDay}
         focusActivityCard={focusActivityCard}

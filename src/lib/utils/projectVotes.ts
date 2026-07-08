@@ -55,3 +55,18 @@ export function formatProjectVoteRequirement(
 export function formatProjectVoteSummary(voteSummary: ProjectPlanVoteSummary) {
   return `${voteSummary.approvalPercent}% approval · ${voteSummary.yesCount} yes · ${voteSummary.noCount} no`;
 }
+
+export function formatCompactVoteStatus(
+  voteSummary: ProjectPlanVoteSummary,
+  approvalThresholdPercent?: number
+) {
+  const voted = voteSummary.yesCount + voteSummary.noCount;
+  const eligible = voteSummary.remainingEligibleVotes + voted;
+  const base = `${voteSummary.approvalPercent}% yes · ${voted}/${eligible} voted`;
+
+  if (approvalThresholdPercent == null) {
+    return base;
+  }
+
+  return `${base} · ${approvalThresholdPercent}% needed`;
+}

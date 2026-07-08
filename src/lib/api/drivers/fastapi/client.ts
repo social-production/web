@@ -1,5 +1,6 @@
 import { error as kitError } from '@sveltejs/kit';
 import { clearToken, getStoredToken } from './auth';
+import { clearBootstrapCache } from '$lib/services/bootstrapCache';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -46,6 +47,7 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown): Pro
   if (!response.ok) {
     if (response.status === 401 && isBrowser) {
       clearToken();
+      clearBootstrapCache();
     }
 
     throw {

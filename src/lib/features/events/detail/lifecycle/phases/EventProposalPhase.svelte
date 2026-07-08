@@ -38,6 +38,7 @@
       <RoundPlusButton
         active={showValueComposer}
         ariaLabel="Add event value"
+        participationAction="add-value"
         action={() => (showValueComposer = !showValueComposer)}
       />
     </div>

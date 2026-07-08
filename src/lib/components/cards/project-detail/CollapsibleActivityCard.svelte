@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import type { ProjectActivityItem, ProjectActivityRole } from '$lib/types/detail';
   import { formatLocalDateTimeRange } from '$lib/utils/time';
 
@@ -9,6 +10,8 @@
   export let badgeLabel: string | null = null;
   export let badgeClass: 'complete' | 'upcoming' | 'current' | 'locked' | null = null;
   export let changecommitment: (activityId: string, roleLabel: string | null) => void = () => {};
+
+  let openAssigneeRole: string | null = null;
 
   function timeLabel() {
     return formatLocalDateTimeRange(activity.startAt, activity.endAt);
@@ -26,10 +29,34 @@
     return roleHasOpenCapacity(role) ? 'Take role' : 'Role full';
   }
 
+  function roleAssignees(role: ProjectActivityRole) {
+    return role.assignees ?? [];
+  }
+
+  function toggleAssigneePopover(role: ProjectActivityRole) {
+    if (role.filledCount === 0) {
+      return;
+    }
+
+    openAssigneeRole = openAssigneeRole === role.label ? null : role.label;
+  }
+
+  function closeAssigneePopover() {
+    openAssigneeRole = null;
+  }
+
   let open = expanded;
 
   $: resolvedBadgeLabel = badgeLabel ?? (activity.isActive ? 'Active' : 'Pending roles');
   $: resolvedBadgeClass = badgeClass ?? (activity.isActive ? 'complete' : 'upcoming');
+  $: hasOpenRolesForViewer =
+    !readOnly &&
+    !activity.viewerAssignedRoleLabel &&
+    activity.roles.some(
+      (role) =>
+        !role.isViewerAssigned &&
+        (role.maximumCount == null || role.filledCount < role.maximumCount)
+    );
 
   $: if (expanded || highlighted) {
     open = true;
@@ -42,6 +69,7 @@
   class:expanded={open}
   class:highlighted
   class="activity-card-shell"
+  data-participation-target={hasOpenRolesForViewer ? 'activity-signup' : undefined}
 >
   <summary class="collapse-toggle">
     <div class="activity-header">
@@ -54,7 +82,14 @@
       </span>
     </div>
     <div class="activity-footer">
-      <span>{activity.locationLabel}</span>
+      {#if activity.isOnline}
+        <span class="online-badge">Online</span>
+        {#if activity.locationLabel && activity.locationLabel !== 'Online'}
+          <span>{activity.locationLabel}</span>
+        {/if}
+      {:else}
+        <span>{activity.locationLabel}</span>
+      {/if}
       <span class="commitment-summary">
         <span>{activity.committedCount}/{activity.minimumParticipants} committed</span>
         {#if activity.maximumParticipants && activity.maximumParticipants > activity.minimumParticipants}
@@ -83,7 +118,48 @@
         {#each activity.roles as role}
           <div class="role-card">
             <strong>{role.label}</strong>
-            <span>{role.filledCount} joined</span>
+            <div
+              class="role-count-wrap"
+              aria-label="People in this role"
+              role="group"
+              on:mouseenter={() => {
+                if (typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches) {
+                  openAssigneeRole = role.label;
+                }
+              }}
+              on:mouseleave={() => {
+                if (typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches) {
+                  closeAssigneePopover();
+                }
+              }}
+            >
+              {#if role.filledCount > 0}
+                <button
+                  aria-expanded={openAssigneeRole === role.label}
+                  class="role-count-button"
+                  type="button"
+                  on:click={() => toggleAssigneePopover(role)}
+                >
+                  {role.filledCount} joined
+                </button>
+                {#if openAssigneeRole === role.label}
+                  <div class="assignee-popover" role="tooltip">
+                    {#each roleAssignees(role) as assignee (assignee.username)}
+                      <a class="assignee-row" href={`/profile/${assignee.username}`}>
+                        <AvatarBadge
+                          size="sm"
+                          username={assignee.username}
+                          imageUrl={assignee.profileImageUrl ?? null}
+                        />
+                        <span>{assignee.username}</span>
+                      </a>
+                    {/each}
+                  </div>
+                {/if}
+              {:else}
+                <span>0 joined</span>
+              {/if}
+            </div>
             <span>
               Minimum {role.requiredCount}
               {#if role.maximumCount != null}
@@ -94,6 +170,7 @@
               <button
                 class:selected={activity.viewerAssignedRoleLabel === role.label}
                 class="vote-chip"
+                data-participation-action={!role.isViewerAssigned && roleHasOpenCapacity(role) ? 'take-role' : undefined}
                 disabled={!role.isViewerAssigned && !roleHasOpenCapacity(role)}
                 type="button"
                 on:click={() =>
@@ -209,12 +286,71 @@
   }
 
   .role-card {
+    position: relative;
     padding: 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
     display: grid;
     gap: 8px;
+  }
+
+  .role-count-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .role-count-button {
+    border: none;
+    padding: 0;
+    background: transparent;
+    color: var(--brand-strong);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .assignee-popover {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    z-index: 8;
+    display: grid;
+    gap: 6px;
+    min-width: 180px;
+    padding: 8px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+    box-shadow: 0 10px 28px color-mix(in srgb, #000 18%, transparent);
+  }
+
+  .assignee-popover::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 0;
+    right: 0;
+    height: 6px;
+  }
+
+  .assignee-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .assignee-row:hover {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
   }
 
   .vote-chip {
@@ -245,6 +381,16 @@
     border-radius: 999px;
     background: var(--panel);
     color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .online-badge {
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 70%, var(--panel));
+    color: var(--brand-strong);
     font-size: 11px;
     font-weight: 700;
   }

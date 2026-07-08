@@ -37,7 +37,9 @@
     title: string;
     scheduledAt: string;
     endsAt: string;
+    isOnline: boolean;
     locationLabel: string;
+    onlineDetail: string;
     roleRequirements: ProjectActivityRoleInput[];
     linkedPlanPhaseId: string | null;
     note: string;
@@ -77,6 +79,11 @@
     planId: string,
     vote: ProjectApprovalVote | null
   ) => void | Promise<void> = () => {};
+  export let setPhaseTwoPlanCriterionRating: (
+    planId: string,
+    criterionId: string,
+    rating: import('$lib/types/detail').PlanCriterionRating | null
+  ) => void | Promise<void> = () => {};
   export let addDistributionPlanPhase: () => void = () => {};
   export let removeDistributionPlanPhase: (index: number) => void = () => {};
   export let submitDistributionPlan: () => void | Promise<void> = () => {};
@@ -89,7 +96,14 @@
     planId: string,
     vote: ProjectApprovalVote | null
   ) => void | Promise<void> = () => {};
+  export let setPhaseThreePlanCriterionRating: (
+    planId: string,
+    criterionId: string,
+    rating: import('$lib/types/detail').PlanCriterionRating | null
+  ) => void | Promise<void> = () => {};
   export let isExpandedPlan: (list: 'phase-2' | 'phase-3', planId: string) => boolean = () => false;
+  export let autoAssessPlanId: string | null = null;
+  export let autoAssessCriterionId: string | null = null;
   export let openActivityComposer: () => void | Promise<void> = () => {};
   export let openActivityComposerForDay: (isoDay: string) => void | Promise<void> = () => {};
   export let focusActivityCard: (activityId: string) => void | Promise<void> = () => {};
@@ -146,8 +160,10 @@
     startEditingPlan={startEditingProductionPlan}
     cancelEditingPlan={cancelEditingProductionPlan}
     isExpandedPlan={(planId) => isExpandedPlan('phase-2', planId)}
-    valuevote={setPhaseTwoPlanValueVote}
+    {autoAssessPlanId}
+    {autoAssessCriterionId}
     overallvote={setPhaseTwoPlanOverallVote}
+    criterionvote={setPhaseTwoPlanCriterionRating}
   />
 {:else if activePhaseId === 'phase-3'}
   <ProductiveLifecyclePhaseThree
@@ -158,8 +174,10 @@
     removePlanPhase={removeDistributionPlanPhase}
     submitPlan={submitDistributionPlan}
     isExpandedPlan={(planId) => isExpandedPlan('phase-3', planId)}
-    valuevote={setPhaseThreePlanValueVote}
+    {autoAssessPlanId}
+    {autoAssessCriterionId}
     overallvote={setPhaseThreePlanOverallVote}
+    criterionvote={setPhaseThreePlanCriterionRating}
   />
 {:else if activePhaseId === 'phase-5'}
   <ProductiveLifecyclePhaseFive

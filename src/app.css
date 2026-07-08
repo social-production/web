@@ -328,6 +328,65 @@ p {
   font-size: 13px;
 }
 
+@keyframes participation-target-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 55%, transparent);
+    outline: 2px solid color-mix(in srgb, var(--brand) 70%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+@keyframes participation-button-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+    outline: 3px solid transparent;
+    outline-offset: 2px;
+    filter: brightness(1);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--brand) 60%, transparent),
+      0 0 18px color-mix(in srgb, var(--brand) 45%, transparent);
+    outline: 3px solid color-mix(in srgb, var(--brand) 90%, white);
+    outline-offset: 3px;
+    filter: brightness(1.15);
+    transform: scale(1.03);
+  }
+}
+
+.participation-action-highlight {
+  animation: participation-target-pulse 0.9s ease-in-out 2;
+  border-radius: var(--radius-sm);
+  position: relative;
+  z-index: 1;
+}
+
+button.demand-button.participation-action-highlight,
+button#participation-join.participation-action-highlight,
+button[data-participation-action].participation-action-highlight {
+  animation: participation-button-pulse 0.7s ease-in-out 3 !important;
+  border-radius: var(--radius-sm);
+  position: relative;
+  z-index: 5;
+}
+
+button.round-plus-button.participation-action-highlight {
+  animation: participation-button-pulse 0.7s ease-in-out 3 !important;
+  border-radius: 999px;
+  position: relative;
+  z-index: 5;
+}
+
 #participation-join,
 #participation-signals,
 #participation-values,

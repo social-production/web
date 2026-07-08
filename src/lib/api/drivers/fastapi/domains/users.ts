@@ -27,6 +27,7 @@ interface BackendSettings {
   hide_public_profile_activity_from_non_followers: boolean;
   require_follow_approval: boolean;
   preferred_language: string;
+  display_timezone?: string | null;
 }
 
 interface BackendFollowItem extends BackendUser {
@@ -86,6 +87,7 @@ function mapSettings(user: BackendUser, s: BackendSettings): SettingsPageData {
     hidePublicProfileActivityFromNonFollowers: s.hide_public_profile_activity_from_non_followers,
     requireFollowApproval: s.require_follow_approval,
     preferredLanguage: (s.preferred_language === 'nl' ? 'nl' : 'en') as SettingsPageData['preferredLanguage'],
+    displayTimezone: s.display_timezone ?? null,
   };
 }
 
@@ -130,6 +132,8 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
     body.require_follow_approval = input.requireFollowApproval;
   if (input.preferredLanguage !== undefined)
     body.preferred_language = input.preferredLanguage;
+  if (input.displayTimezone !== undefined)
+    body.display_timezone = input.displayTimezone;
   await apiClient.patch('/users/me/settings', body);
 }
 

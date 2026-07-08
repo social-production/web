@@ -6,6 +6,7 @@ import type {
   ProjectActivityInput,
   ProjectApprovalVote,
   ProjectImportanceVoteValue,
+  PlanCriterionRating,
   GovernanceSignalType,
   ShareTargetResult,
   EventLifecyclePhaseId,
@@ -128,6 +129,18 @@ export async function fetchSetEventPlanValueVote(
   });
 }
 
+export async function fetchSetEventPlanCriterionRating(
+  eventSlug: string,
+  planId: string,
+  criterionId: string,
+  rating: PlanCriterionRating | null
+): Promise<void> {
+  await apiClient.post(`/events/${eventSlug}/plans/${planId}/criterion-ratings`, {
+    criterion_id: criterionId,
+    rating
+  });
+}
+
 // -- Activities --------------------------------------------------------------
 
 export async function fetchAddEventActivity(
@@ -138,6 +151,7 @@ export async function fetchAddEventActivity(
     title: input.title,
     scheduled_at: input.scheduledAt,
     ends_at: input.endsAt,
+    is_online: input.isOnline ?? false,
     location_label: input.locationLabel,
     note: input.note,
     role_requirements: input.roleRequirements.map(r => ({

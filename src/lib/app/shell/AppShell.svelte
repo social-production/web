@@ -212,12 +212,6 @@
     }
   }
 
-  function openActivityFromMore() {
-    rightRailOpen = true;
-    leftRailOpen = false;
-    createFabOpen = false;
-  }
-
   async function submitToolbarSearch(event: SubmitEvent) {
     event.preventDefault();
     toolbarSuggestionsOpen = false;
@@ -487,6 +481,10 @@
       <div class="main-frame">
         <slot />
       </div>
+
+      {#if showCreateFab}
+        <CreateFab bind:open={createFabOpen} viewerLoggedIn={Boolean(bootstrap.viewer)} />
+      {/if}
     </main>
 
     <aside class="rail right-rail" data-open={rightRailOpen}>
@@ -512,12 +510,7 @@
       open={moreSheetOpen}
       {isActive}
       on:close={() => (moreSheetOpen = false)}
-      on:openActivity={openActivityFromMore}
     />
-  {/if}
-
-  {#if showCreateFab}
-    <CreateFab bind:open={createFabOpen} viewerLoggedIn={Boolean(bootstrap.viewer)} />
   {/if}
 </div>
 
@@ -866,6 +859,7 @@
   }
 
   .main-content {
+    position: relative;
     min-width: 0;
     padding: 16px 20px 20px;
     background: var(--page-background);

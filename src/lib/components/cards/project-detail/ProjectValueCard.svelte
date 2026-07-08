@@ -18,7 +18,7 @@
   $: voteLabel = `${value.voteCount} vote${value.voteCount === 1 ? '' : 's'}`;
 </script>
 
-<article class="value-card">
+<article class="value-card" data-participation-action={canVote && !hasUserVote ? 'rate-value' : undefined}>
   <strong class="value-title">{value.label}</strong>
 
   <DiscreteScale

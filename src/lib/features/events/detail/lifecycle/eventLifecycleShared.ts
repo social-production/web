@@ -34,7 +34,9 @@ export type EventActivityForm = {
   title: string;
   scheduledAt: string;
   endsAt: string;
+  isOnline: boolean;
   locationLabel: string;
+  onlineDetail: string;
   roleRequirements: ProjectActivityRoleInput[];
   linkedPlanPhaseId: string | null;
   note: string;
@@ -133,7 +135,9 @@ export function createEventActivityForm(
     title: '',
     scheduledAt: '',
     endsAt: '',
+    isOnline: false,
     locationLabel,
+    onlineDetail: '',
     roleRequirements: [createDraftActivityRole()],
     linkedPlanPhaseId,
     note: ''

@@ -11,15 +11,17 @@
   import ProjectUpdatesSection from '$lib/features/projects/detail/ProjectUpdatesSection.svelte';
   import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
   import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
+  import PlanAssessmentWizard from '$lib/components/shared/PlanAssessmentWizard.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import {
     setProjectEditVote,
     setProjectPhaseChangeVote,
+    setProjectPlanCriterionRating,
     setProjectPlanOverallVote,
     setProjectPlanValueVote,
     setProjectUpdateVote
   } from '$lib/services/queries/details';
-  import type { ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
+  import type { PlanCriterionRating, ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
   import {
     buildProjectParticipationSteps,
     resolveCurrentParticipationStep
@@ -37,6 +39,14 @@
   let autoExpandVoteCards = false;
   let autoExpandVoteKind: string | null = null;
   let autoExpandVoteTarget: string | null = null;
+  let autoAssess = false;
+  let autoAssessCriterionId: string | null = null;
+  let participationAssessPlanId: string | null = null;
+  let participationAssessCriterionId: string | null = null;
+  let pendingAssessmentOpen = false;
+  let pendingAssessmentPlanId: string | null = null;
+  let pendingAssessmentPhaseId: 'phase-2' | 'phase-3' | null = null;
+  let pendingAssessmentCriterionId: string | null = null;
   let isCompact = false;
   let signalRemovalNudge = false;
 
@@ -177,15 +187,43 @@
     autoExpandVoteCards = $page.url.searchParams.get('open') === 'vote';
     autoExpandVoteKind = autoExpandVoteCards ? ($page.url.searchParams.get('voteKind') || null) : null;
     autoExpandVoteTarget = autoExpandVoteCards ? ($page.url.searchParams.get('voteTarget') || null) : null;
-    if (autoExpandVoteCards) void focusVoteTarget(autoExpandVoteKind, autoExpandVoteTarget);
+    autoAssess = $page.url.searchParams.get('assess') === '1';
+    autoAssessCriterionId = $page.url.searchParams.get('criterionId') || null;
+    if ($page.url.hash === '#pending-votes-panel') {
+      activeTab = 'overview';
+      void focusVoteTarget(null, null);
+    } else if (autoExpandVoteCards) {
+      void focusVoteTarget(autoExpandVoteKind, autoExpandVoteTarget);
+    }
   }
+
+  function findProjectPlan(planId: string) {
+    const phaseTwoPlan = data.lifecycle.phaseTwo.plans.find((plan) => plan.id === planId);
+    if (phaseTwoPlan) {
+      return { plan: phaseTwoPlan, phaseId: 'phase-2' as const };
+    }
+
+    const phaseThreePlan = data.lifecycle.phaseThree.plans.find((plan) => plan.id === planId);
+    if (phaseThreePlan) {
+      return { plan: phaseThreePlan, phaseId: 'phase-3' as const };
+    }
+
+    return null;
+  }
+
+  $: pendingAssessmentMatch =
+    pendingAssessmentPlanId == null ? null : findProjectPlan(pendingAssessmentPlanId);
+  $: pendingAssessmentPlan = pendingAssessmentMatch?.plan ?? null;
 
   $: if (isPersonalServiceProject(data.projectMode) && showMembersPanel) {
     showMembersPanel = false;
   }
 
   $: pendingVotes = collectProjectPendingVotes(data);
-  $: participationSteps = buildProjectParticipationSteps(data, pendingVotes, { signalRemovalNudge });
+  $: participationSteps = buildProjectParticipationSteps(data, pendingVotes, {
+    signalRemovalNudge,
+    viewerUsername: $page.data.bootstrap?.viewer?.username ?? null
+  });
   $: currentParticipationStep = resolveCurrentParticipationStep(participationSteps);
   $: if (
     data.lifecycle.phaseOne.viewerHasDemandSignal ||
@@ -202,6 +240,44 @@
     signalRemovalNudge = false;
   }
 
+  function handlePendingAssess(item: PendingVoteItem) {
+    pendingAssessmentPlanId = item.id;
+    pendingAssessmentPhaseId = item.planPhaseId ?? null;
+    pendingAssessmentCriterionId = item.planCriterionId ?? null;
+    pendingAssessmentOpen = true;
+  }
+
+  function closePendingAssessment() {
+    pendingAssessmentOpen = false;
+    pendingAssessmentPlanId = null;
+    pendingAssessmentPhaseId = null;
+    pendingAssessmentCriterionId = null;
+  }
+
+  async function handlePendingCriterionRate(criterionId: string, rating: PlanCriterionRating | null) {
+    if (!pendingAssessmentPlanId || !pendingAssessmentPhaseId) {
+      return;
+    }
+
+    await setProjectPlanCriterionRating(
+      data.slug,
+      pendingAssessmentPlanId,
+      criterionId,
+      rating
+    );
+    await invalidateAll();
+  }
+
+  async function handlePendingOverallVote(vote: ProjectApprovalVote | null) {
+    if (!pendingAssessmentPlanId || !pendingAssessmentPhaseId) {
+      return;
+    }
+
+    await setProjectPlanOverallVote(data.slug, pendingAssessmentPhaseId, pendingAssessmentPlanId, vote);
+    await invalidateAll();
+    closePendingAssessment();
+  }
+
   async function handlePendingVote(item: PendingVoteItem, vote: ProjectApprovalVote) {
     switch (item.voteKind) {
       case 'phase_change':
@@ -214,6 +290,10 @@
         await setProjectEditVote(data.slug, item.id, vote);
         break;
       case 'plan':
+        if (item.planCriterionId) {
+          await handlePendingAssess(item);
+          break;
+        }
         if (item.planPhaseId && item.planValueId) {
           await setProjectPlanValueVote(data.slug, item.planPhaseId, item.id, item.planValueId, vote);
         } else if (item.planPhaseId) {
@@ -262,6 +342,8 @@
       <ParticipationSteps
         steps={participationSteps}
         currentStepId={currentParticipationStep}
+        {pendingVotes}
+        pageData={data}
         placement="lead"
         on:dismiss={handleParticipationDismiss}
       />
@@ -269,6 +351,7 @@
       <PendingVotesPanel
         items={pendingVotes}
         onVote={handlePendingVote}
+        onAssess={handlePendingAssess}
       />
       <ProjectUpdatesSection
         {data}
@@ -286,6 +369,10 @@
           {autoExpandVoteCards}
           {autoExpandVoteKind}
           {autoExpandVoteTarget}
+          {autoAssess}
+          {autoAssessCriterionId}
+          {participationAssessPlanId}
+          {participationAssessCriterionId}
           votesRenderedInHub={pendingVotes.length > 0}
         />
       </div>
@@ -295,6 +382,25 @@
       <ProjectHistoryTab {data} highlightedDecisionId={highlightedDecisionId} />
     {/if}
   </section>
+
+  {#if pendingAssessmentPlan}
+    <PlanAssessmentWizard
+      open={pendingAssessmentOpen}
+      plan={pendingAssessmentPlan}
+      planTitle={pendingAssessmentPlan.title}
+      criteria={pendingAssessmentPlan.criterionAssessments ?? []}
+      canVote={
+        pendingAssessmentPhaseId === 'phase-3'
+          ? data.lifecycle.phaseThree.viewerCanVoteOnPlans
+          : data.lifecycle.phaseTwo.viewerCanVoteOnPlans
+      }
+      initialCriterionId={pendingAssessmentCriterionId}
+      overallActiveVote={pendingAssessmentPlan.overallApproval.activeVote}
+      onRate={handlePendingCriterionRate}
+      onOverallVote={handlePendingOverallVote}
+      onClose={closePendingAssessment}
+    />
+  {/if}
 </section>
 
 <style>

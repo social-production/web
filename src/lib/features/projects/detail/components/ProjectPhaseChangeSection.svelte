@@ -199,9 +199,7 @@
       return personalDirectPhaseChange ? 'Close service' : 'Propose close';
     }
 
-    return personalDirectPhaseChange
-      ? 'Advance project'
-      : `Propose Advance to ${data.lifecycle.nextPhaseLabel}`;
+    return personalDirectPhaseChange ? 'Advance project' : 'Propose advance';
   }
 
   function revertActionLabel() {
@@ -655,7 +653,8 @@
   }
 
   .action-button {
-    width: auto;
+    flex: 1;
+    min-width: 0;
   }
 
   .change-action-panel {

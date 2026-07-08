@@ -1,13 +1,24 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { getParticipationStepAnchor } from '$lib/utils/participationSteps';
+  import {
+    focusActivitySignupTargets,
+    getParticipationStepActionTarget,
+    getParticipationStepAnchor
+  } from '$lib/utils/participationSteps';
+  import { focusParticipationActionTarget, highlightParticipationTarget } from '$lib/utils/participationHighlight';
   import { scrollToPageAnchor } from '$lib/utils/scrollAnchors';
+  import type { PendingVoteItem } from '$lib/utils/pendingVotes';
+  import type { EventPageData, ProjectPageData } from '$lib/types/detail';
 
   export let steps: { id: string; label: string; done: boolean; helper?: string }[] = [];
   export let currentStepId: string | null = null;
   export let placement: 'inline' | 'lead' = 'inline';
+  export let pendingVotes: PendingVoteItem[] = [];
+  export let pageData: ProjectPageData | EventPageData | null = null;
 
-  const dispatch = createEventDispatcher<{ dismiss: void }>();
+  const dispatch = createEventDispatcher<{ dismiss: void; stepAction: { stepId: string } }>();
+
+  const plusActionSteps = new Set(['rate', 'plan', 'propose-activity']);
 
   let dismissed = false;
   let lastStepSignature = '';
@@ -21,14 +32,37 @@
     dismissed = false;
   }
 
-  function scrollToStep(stepId: string) {
-    const anchorId = getParticipationStepAnchor(stepId);
-
-    if (!anchorId) {
+  function activateStep(stepId: string) {
+    if (stepId === 'activity' && pageData) {
+      focusActivitySignupTargets(pageData);
+      dispatch('stepAction', { stepId });
       return;
     }
 
-    scrollToPageAnchor(anchorId);
+    const anchorId = getParticipationStepAnchor(stepId);
+    const actionTarget = getParticipationStepActionTarget(stepId, pendingVotes, pageData);
+
+    if (plusActionSteps.has(stepId) && actionTarget) {
+      focusParticipationActionTarget(actionTarget);
+      dispatch('stepAction', { stepId });
+      return;
+    }
+
+    const isHeaderAction = stepId === 'signal' || stepId === 'join';
+
+    if (isHeaderAction && actionTarget) {
+      highlightParticipationTarget(actionTarget);
+    }
+
+    if (anchorId) {
+      scrollToPageAnchor(anchorId);
+    }
+
+    window.setTimeout(() => {
+      highlightParticipationTarget(actionTarget);
+    }, isHeaderAction ? 700 : 450);
+
+    dispatch('stepAction', { stepId });
   }
 
   function dismiss() {
@@ -43,7 +77,7 @@
       <ol class="step-list">
         {#each visibleSteps as step, index}
           <li class:current={step.id === currentStepId} class="step-item">
-            <button class="step-button" type="button" on:click={() => scrollToStep(step.id)}>
+            <button class="step-button" type="button" on:click={() => activateStep(step.id)}>
               <span class="step-marker">{index + 1}</span>
               <span class="step-label">{step.label}</span>
             </button>
@@ -68,8 +102,9 @@
 <style>
   .participation-steps {
     position: sticky;
-    top: var(--topbar-height);
-    z-index: 2;
+    top: calc(var(--topbar-height) + 8px);
+    z-index: 3;
+    align-self: start;
     display: grid;
     gap: 8px;
     margin: 0 0 16px;

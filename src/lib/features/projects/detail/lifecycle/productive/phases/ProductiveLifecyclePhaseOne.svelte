@@ -208,7 +208,7 @@
   {:else}
     {#if data.lifecycle.phaseOne.viewerCanAddValue}
       <div class="composer-toggle-row">
-        <RoundPlusButton active={showValueComposer} ariaLabel="Add value proposal" action={() => (showValueComposer = !showValueComposer)} />
+        <RoundPlusButton active={showValueComposer} ariaLabel="Add value proposal" participationAction="add-value" action={() => (showValueComposer = !showValueComposer)} />
       </div>
 
       {#if showValueComposer}

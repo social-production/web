@@ -77,8 +77,13 @@ export function describeUpdateTime(createdAt: string, lastUpdateAt?: string | nu
   )}`;
 }
 
-export function formatLocalTimezoneAbbreviation(date: Date): string {
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+import { getDisplayTimezone } from '$lib/stores/timezoneStore';
+
+function resolvedTimeZone() {
+  return getDisplayTimezone();
+}
+
+export function formatLocalTimezoneAbbreviation(date: Date, timeZone = resolvedTimeZone()): string {
   const abbreviationLocale = timeZone.startsWith('Australia/') ? 'en-AU' : undefined;
 
   const abbreviation =
@@ -115,10 +120,11 @@ export function formatLocalDateTime(value: string | null | undefined): string {
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
-    minute: '2-digit'
+    minute: '2-digit',
+    timeZone: resolvedTimeZone()
   });
 
-  const timezone = formatLocalTimezoneAbbreviation(date);
+  const timezone = formatLocalTimezoneAbbreviation(date, resolvedTimeZone());
 
   return timezone ? `${formatted} ${timezone}` : formatted;
 }
@@ -148,21 +154,25 @@ export function formatLocalDateTimeRange(startValue: string | null | undefined, 
     startDate.getDate() === endDate.getDate();
 
   if (sameDay) {
+    const timeZone = resolvedTimeZone();
     const datePart = startDate.toLocaleDateString(undefined, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
-      year: 'numeric'
+      year: 'numeric',
+      timeZone
     });
     const startTime = startDate.toLocaleTimeString(undefined, {
       hour: 'numeric',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone
     });
     const endTime = endDate.toLocaleTimeString(undefined, {
       hour: 'numeric',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone
     });
-    const timezone = formatLocalTimezoneAbbreviation(endDate);
+    const timezone = formatLocalTimezoneAbbreviation(endDate, timeZone);
 
     return timezone
       ? `${datePart}, ${startTime} – ${endTime} ${timezone}`
@@ -183,7 +193,8 @@ export function formatCalendarTime(value: string): string {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
-    minute: '2-digit'
+    minute: '2-digit',
+    timeZone: resolvedTimeZone()
   });
 }
 
@@ -194,6 +205,7 @@ export function formatScheduleLabel(value: string): string {
     return value;
   }
 
+  const timeZone = resolvedTimeZone();
   const formatted = date.toLocaleString(undefined, {
     weekday: 'short',
     month: 'short',
@@ -201,13 +213,16 @@ export function formatScheduleLabel(value: string): string {
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-    timeZoneName: 'short'
+    timeZone
   });
 
-  return formatted.replace(',', ' at').replace(' at ', ' at ');
+  const timezone = formatLocalTimezoneAbbreviation(date, timeZone);
+  const withAt = formatted.replace(',', ' at').replace(' at ', ' at ');
+
+  return timezone ? `${withAt} ${timezone}` : withAt;
 }
 
-function formatClockLabel(value: string | null | undefined) {
+function formatClockLabel(value: string | null | undefined, timeZone = resolvedTimeZone()) {
   const trimmed = value?.trim() ?? '';
 
   if (!trimmed) {
@@ -227,11 +242,12 @@ function formatClockLabel(value: string | null | undefined) {
 
   return date.toLocaleTimeString(undefined, {
     hour: 'numeric',
-    minute: '2-digit'
+    minute: '2-digit',
+    timeZone
   });
 }
 
-function formatShortDateLabel(value: string | null | undefined) {
+function formatShortDateLabel(value: string | null | undefined, timeZone = resolvedTimeZone()) {
   const trimmed = value?.trim() ?? '';
 
   if (!trimmed) {
@@ -248,7 +264,8 @@ function formatShortDateLabel(value: string | null | undefined) {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
+    timeZone
   });
 }
 
@@ -265,18 +282,17 @@ export function formatEventPlanSchedule(
     return '';
   }
 
-  const startTime = formatClockLabel(schedule.startTimeLabel);
-  const finishTime = formatClockLabel(schedule.finishTimeLabel);
+  const timeZone = resolvedTimeZone();
+  const startTime = formatClockLabel(schedule.startTimeLabel, timeZone);
+  const finishTime = formatClockLabel(schedule.finishTimeLabel, timeZone);
   const timeRange =
     startTime && finishTime ? `${startTime} – ${finishTime}` : startTime || finishTime || '';
 
-  const timezone = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' })
-    .formatToParts(new Date())
-    .find((part) => part.type === 'timeZoneName')?.value;
+  const timezone = formatLocalTimezoneAbbreviation(new Date(), timeZone);
 
   if (schedule.mode === 'range' && schedule.startDate && schedule.endDate) {
-    const start = formatShortDateLabel(schedule.startDate);
-    const end = formatShortDateLabel(schedule.endDate);
+    const start = formatShortDateLabel(schedule.startDate, timeZone);
+    const end = formatShortDateLabel(schedule.endDate, timeZone);
     const dateLabel =
       schedule.startDate === schedule.endDate ? start : `${start} – ${end}`;
     return [dateLabel, timeRange, timezone].filter(Boolean).join(' · ');

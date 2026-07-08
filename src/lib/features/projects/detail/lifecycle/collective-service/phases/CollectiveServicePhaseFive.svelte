@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import CollapsibleServiceRequestCard from '$lib/components/cards/project-detail/CollapsibleServiceRequestCard.svelte';
+  import ActivityCreationWizard from '$lib/components/shared/ActivityCreationWizard.svelte';
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import ProjectActivityHistorySection from '$lib/features/projects/detail/components/ProjectActivityHistorySection.svelte';
@@ -32,7 +33,9 @@
     title: string;
     scheduledAt: string;
     endsAt: string;
+    isOnline: boolean;
     locationLabel: string;
+    onlineDetail: string;
     roleRequirements: ProjectActivityRoleInput[];
     linkedPlanPhaseId: string | null;
     note: string;
@@ -746,7 +749,7 @@
   }
 </script>
 
-<section class="phase-surface">
+<section id="participation-activities" class="phase-surface">
   {#if data.lifecycle.currentSubtype === 'software'}
     {#if data.lifecycle.phaseFive.softwareGovernance}
       <ProjectSoftwareGovernancePanel
@@ -1165,43 +1168,13 @@
       </div>
 
       {#if canCreateActivities && showComposer}
-        <div bind:this={activityComposerElement} class="composer-card">
-          <input bind:value={activityForm.title} maxlength="120" placeholder="Activity title" />
-          <div class="number-grid">
-            <label>
-              <span class="field-inline-label">Start time</span>
-              <input bind:this={activityStartInputElement} bind:value={activityForm.scheduledAt} type="datetime-local" />
-            </label>
-            <label>
-              <span class="field-inline-label">Finish time</span>
-              <input bind:this={activityEndInputElement} bind:value={activityForm.endsAt} type="datetime-local" />
-            </label>
-          </div>
-          <input bind:value={activityForm.locationLabel} maxlength="120" placeholder="Place" />
-          <select bind:value={activityForm.linkedPlanPhaseId}>
-            <option value="" disabled>Choose stage</option>
-            {#each data.lifecycle.phaseFive.selectablePlanPhases as stage}
-              <option value={stage.id}>{stage.label}</option>
-            {/each}
-          </select>
-
-          <ProjectActivityRolesEditor bind:roles={activityForm.roleRequirements} />
-
-          <div class="count-field">
-            <span class="count-field-label">
-              <span class="field-inline-label">Minimum people:</span>
-              <span class="count-note">Calculated from the role minimums above. Leave a role max blank if it has no cap.</span>
-            </span>
-            <div class="count-readout">
-              <strong>{minimumParticipants}</strong>
-            </div>
-          </div>
-          <textarea bind:value={activityForm.note} rows="3" placeholder="What should happen in this activity?"></textarea>
-          <div class="composer-actions">
-            <button class="secondary-button" type="button" on:click={closeComposer}>Cancel</button>
-            <button class="primary-button" type="button" on:click={submitActivity}>Create activity</button>
-          </div>
-        </div>
+        <ActivityCreationWizard
+          open={showComposer}
+          form={activityForm}
+          selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
+          onSubmit={submitActivity}
+          onCancel={closeComposer}
+        />
       {/if}
 
       {#if data.lifecycle.phaseFive.activities.length === 0}

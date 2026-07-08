@@ -1,8 +1,7 @@
 <script lang="ts">
   import type { ProjectApprovalVote } from '$lib/types/detail';
   import {
-    formatProjectVoteRequirement,
-    formatProjectVoteSummary
+    formatCompactVoteStatus
   } from '$lib/utils/projectVotes';
   import { pendingVoteCardId, type PendingVoteItem } from '$lib/utils/pendingVotes';
   import { formatRelativeTime } from '$lib/utils/time';
@@ -10,6 +9,35 @@
   export let items: PendingVoteItem[] = [];
   export let onVote: (item: PendingVoteItem, vote: ProjectApprovalVote) => void | Promise<void> =
     () => {};
+  export let onAssess: (item: PendingVoteItem) => void | Promise<void> = () => {};
+
+  let highlightedCardId = '';
+  let highlightResetHandle: ReturnType<typeof setTimeout> | null = null;
+
+  function highlightCard(cardId: string) {
+    highlightedCardId = cardId;
+
+    if (highlightResetHandle) {
+      clearTimeout(highlightResetHandle);
+    }
+
+    highlightResetHandle = setTimeout(() => {
+      highlightedCardId = '';
+      highlightResetHandle = null;
+    }, 1800);
+  }
+
+  function voteMeta(item: PendingVoteItem) {
+    const parts = [formatCompactVoteStatus(item.voteSummary, item.approvalThresholdPercent)];
+
+    if (item.criteriaTotalCount != null && item.criteriaRatedCount != null) {
+      parts.push(`${item.criteriaRatedCount}/${item.criteriaTotalCount} criteria rated`);
+    }
+
+    parts.push(item.authorUsername, formatRelativeTime(item.createdAt));
+
+    return parts.join(' · ');
+  }
 </script>
 
 {#if items.length > 0}
@@ -20,42 +48,59 @@
     </div>
 
     <div class="vote-stack">
-      {#each items as item (item.id + item.voteKind + (item.planValueId ?? ''))}
-        <article
-          id={pendingVoteCardId(item.voteKind, item.id, item.planValueId)}
+      {#each items as item (item.id + item.voteKind + (item.planValueId ?? '') + (item.planCriterionId ?? ''))}
+        {@const cardId = pendingVoteCardId(item.voteKind, item.id, item.planValueId, item.planCriterionId)}
+        <div
+          id={cardId}
           class="pending-vote-banner"
+          class:vote-card-highlight={highlightedCardId === cardId}
         >
-          <div class="banner-copy">
+          <button
+            class="banner-copy"
+            type="button"
+            on:click={() => highlightCard(cardId)}
+          >
             <span class="banner-label">{item.label}</span>
             <span class="banner-title">{item.title}</span>
-            {#if item.reason}
+            {#if item.description}
+              <p>{item.description}</p>
+            {:else if item.reason}
               <p>{item.reason}</p>
             {/if}
-            <span class="vote-meta">
-              {formatProjectVoteRequirement(item.voteSummary, item.approvalThresholdPercent)}
-              · {formatProjectVoteSummary(item.voteSummary)}
-              · {item.authorUsername} · {formatRelativeTime(item.createdAt)}
-            </span>
-          </div>
-          {#if item.canVote}
+            <span class="vote-meta">{voteMeta(item)}</span>
+          </button>
+          {#if item.planCriterionId}
+            <div class="banner-actions">
+              <button
+                class="approve-button"
+                type="button"
+                data-participation-action="assess-plan"
+                on:click|stopPropagation={() => onAssess(item)}
+              >
+                Assess plan
+              </button>
+            </div>
+          {:else if item.canVote}
             <div class="banner-actions">
               <button
                 class="reject-button"
                 type="button"
-                on:click={() => onVote(item, 'no')}
+                data-participation-action="cast-vote"
+                on:click|stopPropagation={() => onVote(item, 'no')}
               >
                 Reject
               </button>
               <button
                 class="approve-button"
                 type="button"
-                on:click={() => onVote(item, 'yes')}
+                data-participation-action="cast-vote"
+                on:click|stopPropagation={() => onVote(item, 'yes')}
               >
                 Approve
               </button>
             </div>
           {/if}
-        </article>
+        </div>
       {/each}
     </div>
   </section>
@@ -108,9 +153,10 @@
     border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--panel) 88%, var(--panel-strong));
     scroll-margin-top: 120px;
+    transition: box-shadow 0.15s ease;
   }
 
-  :global(.vote-card-highlight) {
+  .pending-vote-banner.vote-card-highlight {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 45%, transparent);
   }
 
@@ -119,6 +165,13 @@
     gap: 4px;
     min-width: min(100%, 240px);
     flex: 1;
+    padding: 0;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
   }
 
   .banner-title {
@@ -161,6 +214,7 @@
     border-radius: var(--radius-sm);
     font-size: 12px;
     font-weight: 700;
+    cursor: pointer;
   }
 
   .approve-button {

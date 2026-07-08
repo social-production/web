@@ -87,6 +87,7 @@ export interface SettingsPageData {
   hidePublicProfileActivityFromNonFollowers: boolean;
   requireFollowApproval: boolean;
   preferredLanguage: PreferredLanguage;
+  displayTimezone: string | null;
 }
 
 export interface SettingsUpdateInput {
@@ -101,4 +102,5 @@ export interface SettingsUpdateInput {
   hidePublicProfileActivityFromNonFollowers?: boolean;
   requireFollowApproval?: boolean;
   preferredLanguage?: PreferredLanguage;
+  displayTimezone?: string | null;
 }

@@ -1,5 +1,12 @@
 <script lang="ts">
-  import type { EventPlan, ProjectDistributionPlan, ProjectProductionPlan } from '$lib/types/detail';
+  import PlanAssessmentWizard from '$lib/components/shared/PlanAssessmentWizard.svelte';
+  import type {
+    EventPlan,
+    PlanCriterionRating,
+    ProjectDistributionPlan,
+    ProjectProductionPlan
+  } from '$lib/types/detail';
+  import { allCriteriaRated } from '$lib/utils/planRubric';
   import { formatEventPlanSchedule, formatRelativeTime } from '$lib/utils/time';
 
   export let plan: ProjectProductionPlan | ProjectDistributionPlan | EventPlan;
@@ -8,11 +15,22 @@
   export let canEdit = false;
   export let showRequestSystem = false;
   export let statusLabel: string | null = null;
+  export let autoOpenAssessment = false;
+  export let autoAssessCriterionId: string | null = null;
   export let onEdit: () => void = () => {};
-  export let valuevote: (planId: string, valueId: string, vote: 'yes' | 'no' | null) => void = () => {};
   export let overallvote: (planId: string, vote: 'yes' | 'no' | null) => void = () => {};
+  export let criterionvote: (
+    planId: string,
+    criterionId: string,
+    rating: PlanCriterionRating | null
+  ) => void | Promise<void> = () => {};
 
   let open = expanded;
+  let assessmentOpen = false;
+  let reviewMode = false;
+  let initialCriterionId: string | null = null;
+  let openAtOverallStep = false;
+  let didAutoOpen = false;
 
   $: if (expanded) {
     open = true;
@@ -20,42 +38,47 @@
 
   $: scheduleLabel = 'schedule' in plan ? formatEventPlanSchedule(plan.schedule) : '';
   $: valueNotes = plan.valueConsiderationNotes ?? {};
-  $: valueLabelById = Object.fromEntries(
-    plan.valueAssessments.map((assessment) => [assessment.valueId, assessment.valueLabel])
-  );
+  $: criteria = plan.criterionAssessments ?? [];
   $: authorValueCommentaryEntries = Object.entries(valueNotes)
     .filter(([, note]) => note?.trim())
-    .map(([valueId, note]) => ({
-      valueId,
-      valueLabel: valueLabelById[valueId] ?? 'Shared value',
-      note: note.trim()
-    }));
-  $: authorValueCommentaryCount = authorValueCommentaryEntries.length;
+    .map(([valueId, note]) => ({ valueId, note: note.trim() }));
+  $: allCriteriaComplete = allCriteriaRated(criteria);
+  $: ratedCount = criteria.filter((entry) => entry.activeRating != null).length;
+  $: hasCompletedAssessment = allCriteriaComplete && plan.overallApproval.activeVote != null;
+  $: pendingCriterionCount = criteria.length - ratedCount;
 
-  function noteForValue(valueId: string) {
-    const direct = valueNotes[valueId]?.trim();
-    if (direct) {
-      return direct;
-    }
-
-    const normalizedId = valueId.toLowerCase();
-    for (const [key, note] of Object.entries(valueNotes)) {
-      if (key.toLowerCase() === normalizedId && note?.trim()) {
-        return note.trim();
-      }
-    }
-
-    return '';
+  $: if (!autoOpenAssessment) {
+    didAutoOpen = false;
   }
 
-  function nextVote(activeVote: 'yes' | 'no' | null, vote: 'yes' | 'no') {
-    return activeVote === vote ? null : vote;
+  $: if (autoOpenAssessment && open && !didAutoOpen) {
+    didAutoOpen = true;
+    openAssessmentWizard({ criterionId: autoAssessCriterionId });
   }
 
-  $: allValueVotesCast =
-    plan.valueAssessments.length === 0 ||
-    plan.valueAssessments.every((assessment) => assessment.activeVote === 'yes' || assessment.activeVote === 'no');
-  $: canCastOverallVote = canVote && allValueVotesCast;
+  function openAssessmentWizard(
+    options: { review?: boolean; criterionId?: string | null; openAtOverall?: boolean } = {}
+  ) {
+    reviewMode = Boolean(options.review);
+    initialCriterionId = options.criterionId ?? null;
+    openAtOverallStep = Boolean(options.openAtOverall);
+    assessmentOpen = true;
+  }
+
+  function closeAssessmentWizard() {
+    assessmentOpen = false;
+    reviewMode = false;
+    initialCriterionId = null;
+    openAtOverallStep = false;
+  }
+
+  async function handleCriterionRate(criterionId: string, rating: PlanCriterionRating | null) {
+    await criterionvote(plan.id, criterionId, rating);
+  }
+
+  async function handleOverallVote(vote: 'yes' | 'no' | null) {
+    await overallvote(plan.id, vote);
+  }
 
   function handleEdit(event: MouseEvent) {
     event.preventDefault();
@@ -65,15 +88,12 @@
 
   function normalizeExternalUrl(value: string | null | undefined) {
     const trimmed = value?.trim() ?? '';
-
     if (!trimmed) {
       return '';
     }
-
     if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed)) {
       return trimmed;
     }
-
     return `https://${trimmed}`;
   }
 </script>
@@ -89,23 +109,20 @@
         {#if statusLabel}
           <span class="phase-badge complete">{statusLabel}</span>
         {/if}
+        {#if canVote && criteria.length > 0}
+          <span class="rating-progress">{ratedCount}/{criteria.length} rated</span>
+        {/if}
       </span>
       <span class="plan-description">{plan.description}</span>
       {#if scheduleLabel}
         <span class="plan-schedule-preview">{scheduleLabel}</span>
       {/if}
-      {#if !open && authorValueCommentaryCount > 0}
-        <span class="author-notes-hint">
-          Includes author notes on {authorValueCommentaryCount}
-          {authorValueCommentaryCount === 1 ? 'value' : 'values'}
-        </span>
-      {/if}
       {#if !open}
         <span class="plan-footer-meta base-footer">
-          <span>Overall approval {plan.overallApproval.approvalPercent}% yes · {plan.overallApproval.yesCount} yes / {plan.overallApproval.noCount} no</span>
+          <span>{plan.overallApproval.approvalPercent}% approved</span>
           <span class="author-row">
             {#if canEdit}
-              <button class="vote-chip" type="button" on:click={handleEdit}>Edit plan</button>
+              <button class="text-button" type="button" on:click={handleEdit}>Edit</button>
             {/if}
             <span>{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</span>
           </span>
@@ -115,200 +132,139 @@
   </summary>
 
   {#if open}
-    <div class="plan-phase-stack">
+    <div class="plan-body">
       {#if 'schedule' in plan}
-        <div class="event-plan-meta-stack">
-          <div class="event-plan-meta-item">
-            <strong>Timing</strong>
-            <span>{scheduleLabel || plan.schedule.label}</span>
-          </div>
-          <div class="event-plan-meta-item">
-            <strong>Location</strong>
-            <span>{plan.locationLabel}</span>
-          </div>
+        <div class="meta-row">
+          <span class="meta-label">Timing</span>
+          <span>{scheduleLabel || plan.schedule.label}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Location</span>
+          <span>{plan.locationLabel}</span>
         </div>
       {/if}
 
-      <div class="demand-context-card">
-        <strong>Demand signal</strong>
-        <span class="plan-description">
-          {#if plan.demandSignalSnapshot === null}
-            Legacy plan. No demand snapshot was recorded when this plan was posted.
-          {:else}
-            {plan.demandSignalSnapshot} demand signals were active when this plan was posted — current demand context for evaluation.
-          {/if}
-        </span>
-        {#if plan.demandConsiderationNote?.trim()}
-          <div class="detail-copy">
-            <span class="detail-section-title">Plan author on demand signal</span>
-            <p>{plan.demandConsiderationNote}</p>
-          </div>
-        {/if}
-      </div>
+      {#if plan.demandConsiderationNote?.trim()}
+        <div class="meta-block">
+          <span class="meta-label">Demand response</span>
+          <p>{plan.demandConsiderationNote}</p>
+        </div>
+      {/if}
 
       {#if authorValueCommentaryEntries.length > 0}
-        <div class="author-values-card">
-          <strong>Plan author on shared values</strong>
-          <div class="author-value-stack">
-            {#each authorValueCommentaryEntries as entry (entry.valueId)}
-              <div class="author-value-item">
-                <span class="detail-section-title">Plan author on {entry.valueLabel}</span>
-                <p class="value-note-copy">{entry.note}</p>
-              </div>
-            {/each}
-          </div>
+        <div class="meta-block">
+          <span class="meta-label">Author notes on values</span>
+          {#each authorValueCommentaryEntries as entry (entry.valueId)}
+            <p class="value-note">{entry.note}</p>
+          {/each}
         </div>
       {/if}
 
-      {#each plan.planPhases as phase}
-        <div class="step-card">
-          <strong>Stage: {phase.title}</strong>
-          <p>{phase.details}</p>
-          {#if 'materialsLabel' in phase}
-            <div class="plan-footer-meta">
-              {#if 'materialsLabel' in phase}
-                <span>{phase.materialsLabel}</span>
-              {/if}
-            </div>
-          {/if}
-        </div>
-      {/each}
-
-      {#if 'repositoryUrl' in plan}
-        <div class="detail-copy">
-          <span class="detail-section-title">Official repository</span>
-          {#if plan.repositoryUrl}
-            <a href={normalizeExternalUrl(plan.repositoryUrl)} rel="noreferrer" target="_blank">{plan.repositoryUrl}</a>
-          {:else}
-            <p>No repository link provided in this plan.</p>
-          {/if}
-        </div>
-      {/if}
-      {#if showRequestSystem && 'requestSystemEnabled' in plan}
-        <div class="plan-footer-meta total-cost-row">
-          <span>Request system</span>
-          <span>{plan.requestSystemEnabled ? 'Enabled in Phase 5' : 'Disabled'}</span>
-        </div>
-        {#if plan.requestSystemEnabled}
-          <div class="plan-footer-meta total-cost-row">
-            <span>Request mode</span>
-            <span>
-              {plan.requestMode === 'calendar'
-                ? 'Calendar only'
-                : plan.requestMode === 'direct'
-                  ? 'Direct only'
-                  : 'Calendar and direct'}
-            </span>
-          </div>
-          <div class="plan-footer-meta total-cost-row">
-            <span>Off-schedule requests</span>
-            <span>{plan.allowOffScheduleRequests ? 'Allowed' : 'Slot-bound only'}</span>
-          </div>
-        {/if}
-      {/if}
-    </div>
-
-    <div class="evaluation-divider">
-      <strong>Plan approval and value criteria</strong>
-      <span>Vote on each carried value, then approve the plan in principle.</span>
-    </div>
-
-    <div class="assessment-stack">
-      {#each plan.valueAssessments as assessment}
-        <div class="assessment-row">
-          <div class="assessment-copy">
-            <strong>{assessment.valueLabel}</strong>
-            <span class="assessment-votes">{assessment.yesCount} yes · {assessment.noCount} no</span>
-            <span class="assessment-approval">{assessment.approvalPercent}% yes</span>
-            {#if noteForValue(assessment.valueId)}
-              <div class="detail-copy">
-                <span class="detail-section-title">Plan author on {assessment.valueLabel}</span>
-                <p class="value-note-copy">{noteForValue(assessment.valueId)}</p>
-              </div>
+      <div class="stage-timeline">
+        {#each plan.planPhases as phase, index}
+          <article class="stage-card">
+            <span class="stage-index">Stage {index + 1}</span>
+            <strong>{phase.title}</strong>
+            <p>{phase.details}</p>
+            {#if 'materialsLabel' in phase && phase.materialsLabel}
+              <span class="stage-materials">{phase.materialsLabel}</span>
             {/if}
-          </div>
-          <div class="assessment-actions">
-            <button
-              class:selected={assessment.activeVote === 'yes'}
-              class="vote-chip"
-              disabled={!canVote}
-              type="button"
-              on:click={() => valuevote(plan.id, assessment.valueId, nextVote(assessment.activeVote, 'yes'))}
-            >
-              Yes
-            </button>
-            <button
-              class:selected={assessment.activeVote === 'no'}
-              class="vote-chip negative"
-              disabled={!canVote}
-              type="button"
-              on:click={() => valuevote(plan.id, assessment.valueId, nextVote(assessment.activeVote, 'no'))}
-            >
-              No
-            </button>
-          </div>
-        </div>
-      {/each}
-
-      <div class="assessment-row">
-        <div class="assessment-copy">
-          <strong>Plan approval</strong>
-          <span class="assessment-subtitle">Does this plan meet the project's needs?</span>
-          {#if !allValueVotesCast && canVote}
-            <span class="assessment-subtitle">Vote on each value criterion above first.</span>
-          {/if}
-          <span class="assessment-votes">{plan.overallApproval.yesCount} yes · {plan.overallApproval.noCount} no</span>
-          <span class="assessment-approval">{plan.overallApproval.approvalPercent}% yes</span>
-        </div>
-        <div class="assessment-actions">
-          <button
-            class:selected={plan.overallApproval.activeVote === 'yes'}
-            class="vote-chip"
-            disabled={!canCastOverallVote}
-            type="button"
-            on:click={() => overallvote(plan.id, nextVote(plan.overallApproval.activeVote, 'yes'))}
-          >
-            Yes
-          </button>
-          <button
-            class:selected={plan.overallApproval.activeVote === 'no'}
-            class="vote-chip negative"
-            disabled={!canCastOverallVote}
-            type="button"
-            on:click={() => overallvote(plan.id, nextVote(plan.overallApproval.activeVote, 'no'))}
-          >
-            No
-          </button>
-        </div>
+          </article>
+        {/each}
       </div>
+
+      {#if 'repositoryUrl' in plan && plan.repositoryUrl}
+        <div class="meta-row">
+          <span class="meta-label">Repository</span>
+          <a href={normalizeExternalUrl(plan.repositoryUrl)} rel="noreferrer" target="_blank">{plan.repositoryUrl}</a>
+        </div>
+      {/if}
+
+      {#if showRequestSystem && 'requestSystemEnabled' in plan && plan.requestSystemEnabled}
+        <div class="meta-row">
+          <span class="meta-label">Requests</span>
+          <span>
+            {plan.requestMode === 'calendar'
+              ? 'Calendar only'
+              : plan.requestMode === 'direct'
+                ? 'Direct only'
+                : 'Calendar and direct'}
+            · {plan.allowOffScheduleRequests ? 'Off-schedule allowed' : 'Slot-bound only'}
+          </span>
+        </div>
+      {/if}
     </div>
 
-    <div class="plan-footer-meta base-footer expanded-footer">
-      <span class="author-row">
-        {#if canEdit}
-          <button class="vote-chip" type="button" on:click={handleEdit}>Edit plan</button>
+    <div class="assessment-bar">
+      {#if canVote}
+        {#if !allCriteriaComplete}
+          <button class="primary-button" type="button" data-participation-action="assess-plan" on:click={() => openAssessmentWizard()}>
+            {pendingCriterionCount > 0 ? `Assess plan (${pendingCriterionCount} left)` : 'Finish approval'}
+          </button>
+        {:else if plan.overallApproval.activeVote == null}
+          <button
+            class="primary-button"
+            type="button"
+            on:click={() => openAssessmentWizard({ openAtOverall: true })}
+          >
+            Cast final approval
+          </button>
+        {:else}
+          <button class="secondary-button" type="button" on:click={() => openAssessmentWizard({ review: false })}>
+            Change ratings
+          </button>
+          <button class="secondary-button" type="button" on:click={() => openAssessmentWizard({ review: true })}>
+            Review ratings
+          </button>
         {/if}
-        <span>{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</span>
+      {:else if hasCompletedAssessment}
+        <button class="secondary-button" type="button" on:click={() => openAssessmentWizard({ review: true })}>
+          Review ratings
+        </button>
+      {/if}
+      <span class="approval-summary">
+        {plan.overallApproval.approvalPercent}% approved
       </span>
+    </div>
+
+    <PlanAssessmentWizard
+      open={assessmentOpen}
+      {plan}
+      planTitle={plan.title}
+      {criteria}
+      {reviewMode}
+      {canVote}
+      {initialCriterionId}
+      {openAtOverallStep}
+      overallActiveVote={plan.overallApproval.activeVote}
+      onRate={handleCriterionRate}
+      onOverallVote={handleOverallVote}
+      onClose={closeAssessmentWizard}
+    />
+
+    <div class="plan-footer-meta">
+      {#if canEdit}
+        <button class="text-button" type="button" on:click={handleEdit}>Edit plan</button>
+      {/if}
+      <span>{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</span>
     </div>
   {/if}
 </details>
 
 <style>
   .plan-card {
-    padding: 14px;
+    padding: 12px 14px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
     display: grid;
-    gap: 12px;
-    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    gap: 10px;
+    transition: border-color 0.12s ease;
   }
 
   .plan-card:hover,
   .plan-card.expanded {
-    border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 25%, transparent);
+    border-color: color-mix(in srgb, var(--brand) 35%, var(--panel-border));
   }
 
   .collapse-toggle {
@@ -326,199 +282,172 @@
   }
 
   .plan-card-copy,
-  .plan-phase-stack,
-  .assessment-copy,
-  .event-plan-meta-stack,
-  .detail-copy {
-    display: grid;
-    gap: 12px;
-  }
-
-  .plan-description,
-  .plan-schedule-preview,
-  .author-notes-hint {
-    color: var(--text-soft);
-    line-height: 1.45;
-  }
-
-  .author-notes-hint {
-    font-size: 12px;
-  }
-
-  .author-values-card,
-  .author-value-stack,
-  .author-value-item {
+  .plan-body {
     display: grid;
     gap: 10px;
   }
 
-  .author-values-card {
-    padding-top: 10px;
-    border-top: 1px solid var(--panel-border);
+  .plan-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
-  .author-values-card strong {
+  .plan-title {
     color: var(--text-main);
-    font-size: 14px;
+    font-size: 15px;
+  }
+
+  .plan-description,
+  .plan-schedule-preview,
+  .approval-summary,
+  .meta-row span:last-child,
+  .meta-block p,
+  .value-note,
+  .stage-card p {
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .plan-schedule-preview {
     font-size: 12px;
   }
 
-  .event-plan-meta-item {
-    display: grid;
-    gap: 4px;
-    color: var(--text-soft);
-    line-height: 1.45;
-  }
-
-  .event-plan-meta-item strong,
-  .detail-section-title {
-    color: var(--text-main);
-    font-size: 12px;
+  .rating-progress {
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--brand-soft) 60%, var(--panel));
+    color: var(--brand-strong);
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.02em;
   }
 
-  .plan-title {
-    color: var(--text-main);
+  .subtype-badge,
+  .phase-badge {
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
   }
 
-  .plan-header,
+  .subtype-badge {
+    border: 1px solid color-mix(in srgb, var(--brand) 32%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 65%, var(--panel));
+    color: var(--brand-strong);
+  }
+
+  .phase-badge.complete {
+    border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 75%, var(--panel));
+    color: var(--brand-strong);
+  }
+
   .plan-footer-meta {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--text-soft);
+    padding-top: 8px;
+    border-top: 1px solid var(--panel-border);
   }
 
-  .plan-footer-meta {
+  .base-footer {
+    margin-top: 4px;
+  }
+
+  .meta-row,
+  .meta-block {
+    display: grid;
+    gap: 4px;
+  }
+
+  .meta-label,
+  .stage-index {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+  }
+
+  .meta-block p,
+  .value-note {
+    margin: 0;
+  }
+
+  .stage-timeline {
+    display: grid;
+    gap: 8px;
+  }
+
+  .stage-card {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+  }
+
+  .stage-card strong {
+    color: var(--text-main);
+    font-size: 14px;
+  }
+
+  .stage-materials {
     font-size: 12px;
     color: var(--text-soft);
   }
 
-  .base-footer {
-    padding-top: 8px;
-    border-top: 1px solid var(--panel-border);
-  }
-
-  .total-cost-row {
-    padding-top: 8px;
-    border-top: 1px solid var(--panel-border);
-  }
-
-  .evaluation-divider,
-  .demand-context-card,
-  .author-values-card,
-  .step-card,
-  .assessment-row {
-    display: grid;
+  .assessment-bar {
+    display: flex;
+    align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
     padding-top: 10px;
     border-top: 1px solid var(--panel-border);
   }
 
-  .evaluation-divider {
-    margin-top: 4px;
-    padding-top: 14px;
-    gap: 4px;
+  .primary-button,
+  .secondary-button {
+    min-height: 34px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
   }
 
-  .evaluation-divider strong {
+  .primary-button {
+    border: 1px solid color-mix(in srgb, var(--brand) 55%, var(--panel-border));
+    background: var(--brand);
+    color: var(--brand-contrast, #fff);
+  }
+
+  .secondary-button {
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
     color: var(--text-main);
-    font-size: 17px;
-    letter-spacing: 0.02em;
   }
 
-  .evaluation-divider span {
-    color: var(--text-soft);
+  .text-button {
+    border: none;
+    background: transparent;
+    color: var(--brand-strong);
     font-size: 12px;
-  }
-
-  .assessment-actions {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .assessment-subtitle,
-  .assessment-votes,
-  .assessment-approval,
-  .value-note-copy {
-    color: var(--text-soft);
-    font-size: 12px;
-  }
-
-  .assessment-subtitle {
-    line-height: 1.45;
-  }
-
-  .value-note-copy {
-    margin: 0;
-    line-height: 1.45;
-  }
-
-  .expanded-footer {
-    margin-top: 2px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
   }
 
   .author-row {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-  }
-
-  .phase-badge {
-    padding: 6px 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: 999px;
-    background: var(--panel);
-    color: var(--text-soft);
-    font-size: 11px;
-    font-weight: 700;
-    width: fit-content;
-    justify-self: end;
-  }
-
-  .subtype-badge {
-    padding: 6px 10px;
-    border: 1px solid color-mix(in srgb, var(--brand) 32%, var(--panel-border));
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--brand-soft) 65%, var(--panel));
-    color: var(--brand-strong);
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .phase-badge.complete {
-    border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 75%, var(--panel));
-    color: var(--brand-strong);
-  }
-
-  .vote-chip {
-    padding: 7px 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-soft);
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .vote-chip.selected {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .vote-chip.negative.selected {
-    border-color: var(--tablet-community-bg);
-    background: color-mix(in srgb, var(--tablet-community-bg) 16%, var(--panel));
-    color: var(--tablet-community-text);
   }
 </style>

@@ -58,6 +58,9 @@ export interface RightRailActivityItem {
   voteEntityKind?: 'project' | 'event';
   voteKindLabel?: string;
   voteTargetId?: string;
+  voteSubKind?: 'criterion' | 'overall';
+  planPhaseId?: 'phase-2' | 'phase-3';
+  scheduledAt?: string;
 }
 
 export interface BootstrapPayload {

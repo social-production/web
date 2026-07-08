@@ -392,6 +392,7 @@
       action={(event) => createAction(event ? eventAnchor(event, event.currentTarget as HTMLElement) : undefined)}
       active={createActive}
       ariaLabel={createAriaLabel}
+      participationAction="propose-activity"
     />
   </div>
 {/if}

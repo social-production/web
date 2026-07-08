@@ -9,6 +9,7 @@
     EventPlan,
     GovernanceSignalSummary,
     ProjectApprovalVote,
+    PlanCriterionRating,
     ProjectImportanceVoteValue
   } from '$lib/types/detail';
   import type { EventActivityForm, EventPlanForm } from './eventLifecycleShared';
@@ -25,6 +26,8 @@
   export let selectedDayIso = '';
   export let highlightedActivityId: string | null = null;
   export let targetedPlanId: string | null = null;
+  export let autoAssess = false;
+  export let autoAssessCriterionId: string | null = null;
   export let planForm: EventPlanForm = {
     title: '',
     description: '',
@@ -42,28 +45,28 @@
     title: '',
     scheduledAt: '',
     endsAt: '',
+    isOnline: false,
     locationLabel: '',
+    onlineDetail: '',
     roleRequirements: [{ label: '', requiredCount: 1 }],
     linkedPlanPhaseId: null,
     note: ''
   };
-  export let minimumParticipants = 0;
   export let submitValue: () => void | Promise<void> = () => {};
   export let voteOnValue: (
     valueId: string,
     vote: ProjectImportanceVoteValue
   ) => void | Promise<void> = () => {};
   export let addPlanPhase: () => void = () => {};
-  export let removePlanPhase: (index: number) => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
-  export let voteOnPlanValue: (
-    planId: string,
-    valueId: string,
-    vote: ProjectApprovalVote | null
-  ) => void | Promise<void> = () => {};
   export let voteOnPlanOverall: (
     planId: string,
     vote: ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
+  export let ratePlanCriterion: (
+    planId: string,
+    criterionId: string,
+    rating: PlanCriterionRating | null
   ) => void | Promise<void> = () => {};
   export let openActivityComposerForDay: (isoDay?: string) => void = () => {};
   export let submitActivity: () => void | Promise<void> = () => {};
@@ -71,7 +74,6 @@
     activityId: string,
     roleLabel: string | null
   ) => void | Promise<void> = () => {};
-  export let activityComposerElement: HTMLDivElement | null = null;
 </script>
 
 {#if activePhaseId === 'proposal'}
@@ -87,15 +89,15 @@
 {:else if activePhaseId === 'event-plan'}
   <EventPlanPhase
     {data}
-    {signalSummary}
     bind:showPlanComposer
     bind:planForm
     {addPlanPhase}
-    {removePlanPhase}
     {submitPlan}
     {targetedPlanId}
-    {voteOnPlanValue}
+    {autoAssess}
+    {autoAssessCriterionId}
     {voteOnPlanOverall}
+    {ratePlanCriterion}
   />
 {:else if activePhaseId === 'activity'}
   <EventActivityPhase
@@ -103,10 +105,8 @@
     {selectedPlan}
     bind:showActivityComposer
     bind:activityForm
-    {minimumParticipants}
     bind:selectedDayIso
     bind:highlightedActivityId
-    bind:activityComposerElement
     {openActivityComposerForDay}
     {submitActivity}
     changeCommitment={changeCommitment}

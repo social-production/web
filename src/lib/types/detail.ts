@@ -183,6 +183,19 @@ export interface ProjectPlanValueAssessment extends ProjectPlanVoteSummary {
   valueLabel: string;
 }
 
+export type PlanCriterionRating = 1 | 2 | 3 | 4 | 5;
+
+export interface PlanCriterionAssessment {
+  criterionId: string;
+  kind: 'rubric' | 'value';
+  label: string;
+  valueId?: string;
+  activeRating: PlanCriterionRating | null;
+  averageRating: number;
+  ratingCount: number;
+  ratingDistribution: Record<PlanCriterionRating, number>;
+}
+
 export interface ProjectProductionPlanInput {
   title: string;
   description: string;
@@ -275,6 +288,7 @@ export interface ProjectProductionPlan {
   acquisitionBundles: ProjectAcquisitionPlanBundle[];
   purchaseRows: ProjectAcquisitionPurchaseRow[];
   valueAssessments: ProjectPlanValueAssessment[];
+  criterionAssessments: PlanCriterionAssessment[];
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
   leaderStatus?: PlanLeaderStatus;
@@ -320,6 +334,7 @@ export interface ProjectDistributionPlan {
   requestMode?: ProjectServiceRequestMode;
   allowOffScheduleRequests?: boolean;
   valueAssessments: ProjectPlanValueAssessment[];
+  criterionAssessments: PlanCriterionAssessment[];
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
   leaderStatus?: PlanLeaderStatus;
@@ -338,6 +353,7 @@ export interface EventPlan {
   schedule: EventPlanSchedule;
   planPhases: EventPlanPhaseItem[];
   valueAssessments: ProjectPlanValueAssessment[];
+  criterionAssessments: PlanCriterionAssessment[];
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
   leaderStatus?: PlanLeaderStatus;
@@ -347,10 +363,16 @@ export interface ProjectActivityInput {
   title: string;
   scheduledAt: string;
   endsAt: string;
+  isOnline?: boolean;
   locationLabel: string;
   roleRequirements: ProjectActivityRoleInput[];
   linkedPlanPhaseId?: string | null;
   note: string;
+}
+
+export interface ProjectActivityAssignee {
+  username: string;
+  profileImageUrl?: string | null;
 }
 
 export interface ProjectActivityRole {
@@ -359,6 +381,7 @@ export interface ProjectActivityRole {
   requiredCount: number;
   maximumCount?: number;
   isViewerAssigned: boolean;
+  assignees?: ProjectActivityAssignee[];
 }
 
 export interface ProjectActivityItem {
@@ -368,6 +391,7 @@ export interface ProjectActivityItem {
   scheduledAt: string;
   startAt: string;
   endAt: string;
+  isOnline: boolean;
   locationLabel: string;
   minimumParticipants: number;
   maximumParticipants?: number;

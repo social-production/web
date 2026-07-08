@@ -1,13 +1,17 @@
 <script lang="ts">
   import CollapsiblePlanCard from '$lib/components/cards/project-detail/CollapsiblePlanCard.svelte';
-  import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
+  import PlanCreationWizard from '$lib/components/shared/PlanCreationWizard.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import {
     isCollectiveServiceProject,
     projectSubtypeOptions
   } from '$lib/features/projects/projectMode';
-  import type { ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
+  import type { ProjectApprovalVote, ProjectPageData, PlanCriterionRating } from '$lib/types/detail';
   import type { ProjectSubtype } from '$lib/types/feed';
+  import {
+    buildProjectDistributionCreationSteps,
+    buildProjectProductionCreationSteps
+  } from '$lib/utils/planRubric';
 
   type DraftPlanPhase = {
     title: string;
@@ -41,8 +45,14 @@
   export let startEditingPlan: (planId: string) => void | Promise<void> = () => {};
   export let cancelEditingPlan: () => void | Promise<void> = () => {};
   export let isExpandedPlan: (planId: string) => boolean = () => false;
-  export let valuevote: (planId: string, valueId: string, vote: ProjectApprovalVote | null) => void = () => {};
+  export let autoAssessPlanId: string | null = null;
+  export let autoAssessCriterionId: string | null = null;
   export let overallvote: (planId: string, vote: ProjectApprovalVote | null) => void = () => {};
+  export let criterionvote: (
+    planId: string,
+    criterionId: string,
+    rating: PlanCriterionRating | null
+  ) => void | Promise<void> = () => {};
 
   $: isPhaseTwo = phaseId === 'phase-2';
   $: collectiveService = isCollectiveServiceProject(data.projectMode);
@@ -59,6 +69,13 @@
   $: subtypeOptions = projectSubtypeOptions(data.projectMode);
   $: selectedSubtype = form.projectSubtype ?? data.lifecycle.currentSubtype ?? 'standard';
   $: prominentValues = data.lifecycle.phaseOne.values.filter((value) => value.importanceScore >= 5);
+  $: wizardSubtypeOptions = subtypeOptions.map((option) => ({ value: option.value, label: option.label }));
+  $: creationSteps = isPhaseTwo
+    ? buildProjectProductionCreationSteps(prominentValues, form.planPhases.length, {
+        includeSubtype: true,
+        includeRepository: selectedSubtype === 'software'
+      })
+    : buildProjectDistributionCreationSteps(prominentValues, form.planPhases.length);
 
   function emptyCopy() {
     if (isPhaseTwo) {
@@ -153,159 +170,34 @@
       <RoundPlusButton
         active={showComposer}
         ariaLabel={editingPlanId ? 'Edit plan' : 'Add plan'}
+        participationAction="submit-plan"
         action={toggleComposer}
       />
     </div>
 
-    {#if showComposer}
-      <div class="composer-card">
-        <DirectUsePolicyNotice variant="plan" context="project" />
-        <div class="step-header-row">
-          <strong>{editingPlanId ? 'Editing plan' : 'New plan'}</strong>
-        </div>
-
-        {#if (form.validationMessages?.length ?? 0) > 0}
-          <div class="warning-card" role="alert">
-            <strong>Plan could not be submitted</strong>
-            <ul class="warning-list">
-              {#each form.validationMessages ?? [] as message}
-                <li>{message}</li>
-              {/each}
-            </ul>
-          </div>
-        {/if}
-
-        <input bind:value={form.title} maxlength="120" placeholder="Plan title" />
-        <textarea bind:value={form.description} rows="3" placeholder={descriptionPlaceholder()}></textarea>
-        {#if isPhaseTwo}
-          <label>
-            <span class="field-inline-label">Subtype</span>
-            <select bind:value={form.projectSubtype}>
-              {#each subtypeOptions as option}
-                <option disabled={option.disabled} value={option.value}>{option.label}</option>
-              {/each}
-            </select>
-          </label>
-          {#if selectedSubtype === 'software'}
-            <input bind:value={form.repositoryUrl} maxlength="240" placeholder="Official repository URL" />
-          {/if}
-        {/if}
-        <div class="demand-context-card">
-          <strong>Current demand signal</strong>
-          <span>{data.signalCount} demand signals are active right now.</span>
-          <span>State whether this plan actually meets that demand and, if not, why it still falls short.</span>
-          <textarea bind:value={form.demandConsiderationNote} rows="3" placeholder={demandPlaceholder()}></textarea>
-          {#if prominentValues.length > 0}
-            <div class="value-proposal-list">
-              <span class="value-proposal-heading">Value proposals rated 5/10 or higher</span>
-              <ul>
-                {#each prominentValues as value}
-                  <li>
-                    <strong>{value.label}</strong>
-                    <span>{value.importanceScore.toFixed(1).replace(/\.0$/, '')}/10 · {value.importanceLabel}</span>
-                  </li>
-                {/each}
-              </ul>
-            </div>
-            <div class="value-note-stack">
-              {#each prominentValues as value}
-                <label class="value-note-field">
-                  <span class="value-note-label">How does this plan address “{value.label}”? (optional)</span>
-                  <textarea
-                    rows="2"
-                    value={valueNote(value.id)}
-                    on:input={(event) => updateValueNote(value.id, (event.currentTarget as HTMLTextAreaElement).value)}
-                    placeholder="Explain how this plan meets or falls short on this value."
-                  ></textarea>
-                </label>
-              {/each}
-            </div>
-          {/if}
-        </div>
-        <div class="step-stack">
-          {#each form.planPhases as phase, index}
-            <div class="step-card">
-              <div class="step-header-row">
-                <strong>Stage {index + 1}</strong>
-                {#if form.planPhases.length > 1}
-                  <button class="secondary-button" type="button" on:click={() => removePlanPhase(index)}>
-                    Remove
-                  </button>
-                {/if}
-              </div>
-              <input bind:value={phase.title} maxlength="120" placeholder="Stage title" />
-              <textarea bind:value={phase.details} rows="2" placeholder="Stage description"></textarea>
-              <div class="materials-stack">
-                {#if phase.materials.length === 0}
-                  <span class="material-empty-copy">No materials added yet.</span>
-                {/if}
-                {#each phase.materials as _, materialIndex}
-                  <div class="material-row">
-                    <input
-                      bind:value={phase.materials[materialIndex]}
-                      maxlength="140"
-                      placeholder={`Material ${materialIndex + 1}`}
-                    />
-                    <button
-                      class="secondary-button"
-                      type="button"
-                      on:click={() => removeMaterial(index, materialIndex)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                {/each}
-                <button class="secondary-button" type="button" on:click={() => addMaterial(index)}>
-                  Add material
-                </button>
-              </div>
-            </div>
-          {/each}
-        </div>
-        {#if !isPhaseTwo && collectiveService}
-          <label class="checkbox-row">
-            <input bind:checked={form.requestSystemEnabled} type="checkbox" />
-            <span>Allow users to request the service in Phase 5</span>
-          </label>
-          {#if form.requestSystemEnabled}
-            <label>
-              <span class="field-inline-label">Request mode</span>
-              <select bind:value={form.requestMode}>
-                <option value="calendar">Scheduled slots only</option>
-                <option value="direct">Message requests only</option>
-                <option value="both">Scheduled slots and message requests</option>
-              </select>
-            </label>
-            <label class="checkbox-row">
-              <input bind:checked={form.allowOffScheduleRequests} type="checkbox" />
-              <span>Allow message requests when no slot is listed</span>
-            </label>
-          {/if}
-        {/if}
-        <div class="composer-actions">
-          <button class="secondary-button" type="button" on:click={addPlanPhase}>Add stage</button>
-        </div>
-        <div class="composer-actions">
-          <button
-            class="secondary-button"
-            type="button"
-            on:click={() => {
-              if (editingPlanId) {
-                cancelEditingPlan();
-              } else {
-                showComposer = false;
-              }
-            }}
-          >
-            Cancel
-          </button>
-          <button class="primary-button" type="button" on:click={submitPlan}>{submitLabel}</button>
-        </div>
-      </div>
-    {/if}
+    <PlanCreationWizard
+      open={showComposer}
+      title={editingPlanId ? 'Edit plan' : isPhaseTwo ? 'Create production plan' : 'Create distribution plan'}
+      context="project"
+      steps={creationSteps}
+      bind:form
+      {submitLabel}
+      subtypeOptions={wizardSubtypeOptions}
+      {addPlanPhase}
+      {addMaterial}
+      {removeMaterial}
+      onSubmit={submitPlan}
+      onCancel={() => {
+        if (editingPlanId) {
+          cancelEditingPlan();
+        } else {
+          showComposer = false;
+        }
+      }}
+    />
   {/if}
 
-  <div class="surface-stack">
+  <div id="participation-plans" class="surface-stack">
     {#if plans.length === 0}
       <div class="empty-card">{emptyCopy()}</div>
     {:else}
@@ -314,12 +206,14 @@
           canEdit={isPhaseTwo && 'viewerCanEdit' in plan && !!plan.viewerCanEdit}
           canVote={canVoteOnPlans}
           expanded={isExpandedPlan(plan.id)}
+          autoOpenAssessment={autoAssessPlanId === plan.id}
+          autoAssessCriterionId={autoAssessPlanId === plan.id ? autoAssessCriterionId : null}
           onEdit={() => startEditingPlan(plan.id)}
           showRequestSystem={!isPhaseTwo && collectiveService}
           {plan}
           statusLabel={statusLabel(plan.id)}
-          {valuevote}
           {overallvote}
+          {criterionvote}
         />
       {/each}
     {/if}

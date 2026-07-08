@@ -19,6 +19,7 @@
   import type { ViewerSummary } from '$lib/types/bootstrap';
   import { applyLocale } from '$lib/i18n/locale';
   import { I18N_ENABLED, LANGUAGE_OPTIONS } from '$lib/i18n/config';
+  import { listDisplayTimezones, setDisplayTimezone } from '$lib/stores/timezoneStore';
   import * as m from '$lib/paraglide/messages';
 
   export let data: SettingsPageData;
@@ -31,6 +32,13 @@
   let followRequestPending = '';
   let profileImageError = '';
   let profilePreviewUrl = '';
+  let timezoneDraft = data.displayTimezone ?? '';
+
+  $: if (pendingKey !== 'timezone' && data.displayTimezone !== timezoneDraft) {
+    timezoneDraft = data.displayTimezone ?? '';
+  }
+
+  const timezoneOptions = listDisplayTimezones();
 
   $: if (pendingKey !== 'bio' && data.profileBio !== lastLoadedBio) {
     bioDraft = data.profileBio;
@@ -68,6 +76,14 @@
 
   function setTheme(theme: AppearanceThemeMode) {
     return applySettings('theme', { appearanceThemeMode: theme });
+  }
+
+  function handleTimezoneChange(event: Event) {
+    const value = (event.currentTarget as HTMLSelectElement).value;
+    timezoneDraft = value;
+    void applySettings('timezone', { displayTimezone: value || null }).then(() => {
+      setDisplayTimezone(value || null);
+    });
   }
 
   function toggleTheme() {
@@ -307,6 +323,21 @@
       <button class="button-secondary" disabled={pendingKey === 'theme'} type="button" on:click={toggleTheme}>
         Switch to {data.appearanceThemeMode === 'dark' ? m.settings_theme_light() : m.settings_theme_dark()}
       </button>
+    </div>
+    <div class="card setting-item">
+      <div>
+        <strong>Display timezone</strong>
+        <p>Used for scheduled activity and event times across the app.</p>
+      </div>
+      <label class="timezone-field">
+        <span class="sr-only">Display timezone</span>
+        <select disabled={pendingKey === 'timezone'} value={timezoneDraft} on:change={handleTimezoneChange}>
+          <option value="">Use browser timezone</option>
+          {#each timezoneOptions as timezone}
+            <option value={timezone}>{timezone}</option>
+          {/each}
+        </select>
+      </label>
     </div>
   </section>
 

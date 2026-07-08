@@ -43,6 +43,5 @@
   {removePlanPhase}
   {submitPlan}
   {isExpandedPlan}
-  {valuevote}
   {overallvote}
 />

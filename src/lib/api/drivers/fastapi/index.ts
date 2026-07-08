@@ -3,6 +3,7 @@ export { createFastApiClient } from './client';
 import type { AppAdapter } from '$lib/services/adapters/types';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
 import { clearToken } from './auth';
+import { clearBootstrapCache } from '$lib/services/bootstrapCache';
 import { fetchBootstrap, fetchBootstrapSummary, fetchOnboarding } from './domains/bootstrap';
 import { fetchSignIn, fetchSignOut, fetchSignUp } from './domains/auth';
 import {
@@ -63,7 +64,7 @@ import {
   fetchToggleProjectDemandSignal, fetchSetProjectSignal,
   fetchAddProjectValue, fetchSetProjectValueImportance,
   fetchAddProjectProductionPlan, fetchUpdateProjectProductionPlan, fetchAddProjectDistributionPlan,
-  fetchSetProjectPlanOverallVote, fetchSetProjectPlanValueVote,
+  fetchSetProjectPlanOverallVote, fetchSetProjectPlanValueVote, fetchSetProjectPlanCriterionRating,
   fetchAddProjectActivity, fetchSetProjectActivityCommitment,
   fetchAddProjectPullRequest, fetchSetProjectPullRequestVote, fetchRecordProjectPullRequestMerge,
   fetchRequestProjectMergeCapabilityChange, fetchSetProjectMergeCapabilityChangeVote,
@@ -82,7 +83,7 @@ import {
 import {
   fetchEvent, fetchCreateEvent, fetchToggleEventMembership,
   fetchSetEventSignal, fetchAddEventValue, fetchSetEventValueImportance,
-  fetchAddEventPlan, fetchSetEventPlanOverallVote, fetchSetEventPlanValueVote,
+  fetchAddEventPlan, fetchSetEventPlanOverallVote, fetchSetEventPlanValueVote, fetchSetEventPlanCriterionRating,
   fetchAddEventActivity, fetchSetEventActivityCommitment,
   fetchRequestEventPhaseChange, fetchSetEventPhaseChangeVote,
   fetchRequestEventUpdate, fetchSetEventUpdateVote,
@@ -120,6 +121,7 @@ export function createFastApiDriver(): AppAdapter {
         const status = (error as { status?: number }).status;
         if (status === 401) {
           clearToken();
+          clearBootstrapCache();
         }
         if (status === 401 || status === 404) {
           return bootstrapFallback;
@@ -134,6 +136,7 @@ export function createFastApiDriver(): AppAdapter {
         const status = (error as { status?: number }).status;
         if (status === 401) {
           clearToken();
+          clearBootstrapCache();
         }
         if (status === 401 || status === 404) {
           return { unreadCounts: bootstrapFallback.unreadCounts };
@@ -254,6 +257,7 @@ export function createFastApiDriver(): AppAdapter {
     async addEventPlan(slug, input) { return fetchAddEventPlan(slug, input); },
     async setEventPlanOverallVote(slug, planId, vote) { return fetchSetEventPlanOverallVote(slug, planId, vote); },
     async setEventPlanValueVote(slug, planId, valueId, vote) { return fetchSetEventPlanValueVote(slug, planId, valueId, vote); },
+    async setEventPlanCriterionRating(slug, planId, criterionId, rating) { return fetchSetEventPlanCriterionRating(slug, planId, criterionId, rating); },
     async addEventActivity(slug, input) { return fetchAddEventActivity(slug, input); },
     async setEventActivityCommitment(slug, activityId, roleLabel) { return fetchSetEventActivityCommitment(slug, activityId, roleLabel); },
     async requestEventPhaseChange(slug, targetPhaseId, reason) { return fetchRequestEventPhaseChange(slug, targetPhaseId, reason); },
@@ -282,6 +286,7 @@ export function createFastApiDriver(): AppAdapter {
     },
     async setProjectPlanOverallVote(slug, phaseId, planId, vote) { return fetchSetProjectPlanOverallVote(slug, phaseId, planId, vote); },
     async setProjectPlanValueVote(slug, phaseId, planId, valueId, vote) { return fetchSetProjectPlanValueVote(slug, phaseId, planId, valueId, vote); },
+    async setProjectPlanCriterionRating(slug, planId, criterionId, rating) { return fetchSetProjectPlanCriterionRating(slug, planId, criterionId, rating); },
     async addProjectActivity(slug, input) { return fetchAddProjectActivity(slug, input); },
     async setProjectActivityCommitment(slug, activityId, roleLabel) { return fetchSetProjectActivityCommitment(slug, activityId, roleLabel); },
     async addProjectPullRequest(slug, input) { return fetchAddProjectPullRequest(slug, input); },

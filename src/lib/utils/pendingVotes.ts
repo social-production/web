@@ -29,7 +29,11 @@ export interface PendingVoteItem {
   label: string;
   title: string;
   reason?: string;
+  description?: string;
+  criteriaRatedCount?: number;
+  criteriaTotalCount?: number;
   planValueId?: string;
+  planCriterionId?: string;
   planPhaseId?: 'phase-2' | 'phase-3';
   voteSummary: ProjectPlanVoteSummary;
   approvalThresholdPercent: number;
@@ -174,6 +178,31 @@ function pushPlanVotes(
   }
 
   for (const plan of plans) {
+    const pendingCriterion = (plan.criterionAssessments ?? []).find(
+      (assessment) => assessment.activeRating == null
+    );
+    if (pendingCriterion) {
+      const criteria = plan.criterionAssessments ?? [];
+      const ratedCount = criteria.filter((entry) => entry.activeRating != null).length;
+      items.push({
+        id: plan.id,
+        voteKind: 'plan',
+        label: 'Plan Assessment',
+        title: plan.title,
+        description: plan.description,
+        planCriterionId: pendingCriterion.criterionId,
+        criteriaRatedCount: ratedCount,
+        criteriaTotalCount: criteria.length,
+        planPhaseId,
+        voteSummary: plan.overallApproval,
+        approvalThresholdPercent: plan.overallApproval.quorumThresholdPercent,
+        authorUsername: plan.authorUsername,
+        createdAt: plan.createdAt,
+        canVote
+      });
+      continue;
+    }
+
     const pendingValue = plan.valueAssessments.find((assessment) => !assessment.activeVote);
     if (pendingValue) {
       items.push({
@@ -241,7 +270,16 @@ export function collectEventPendingVotes(data: EventPageData): PendingVoteItem[]
   return items;
 }
 
-export function pendingVoteCardId(voteKind: PendingVoteKind, id: string, planValueId?: string) {
+export function pendingVoteCardId(
+  voteKind: PendingVoteKind,
+  id: string,
+  planValueId?: string,
+  planCriterionId?: string
+) {
+  if (voteKind === 'plan' && planCriterionId) {
+    return `vote-card-plan-${id}-criterion-${planCriterionId}`;
+  }
+
   if (voteKind === 'plan' && planValueId) {
     return `vote-card-plan-${id}-value-${planValueId}`;
   }
@@ -249,7 +287,12 @@ export function pendingVoteCardId(voteKind: PendingVoteKind, id: string, planVal
   return `vote-card-${voteKind}-${id}`;
 }
 
-export function scrollToPendingVote(voteKind: PendingVoteKind | string, id: string, planValueId?: string) {
+export function scrollToPendingVote(
+  voteKind: PendingVoteKind | string,
+  id: string,
+  planValueId?: string,
+  planCriterionId?: string
+) {
   if (typeof document === 'undefined') {
     return;
   }
@@ -257,7 +300,7 @@ export function scrollToPendingVote(voteKind: PendingVoteKind | string, id: stri
   scrollToPageAnchor('pending-votes-panel');
 
   requestAnimationFrame(() => {
-    const cardId = pendingVoteCardId(voteKind as PendingVoteKind, id, planValueId);
+    const cardId = pendingVoteCardId(voteKind as PendingVoteKind, id, planValueId, planCriterionId);
     scrollToPageAnchor(cardId);
     const card = document.getElementById(cardId);
     card?.classList.add('vote-card-highlight');

@@ -26,8 +26,14 @@
   export let removePlanPhase: (index: number) => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
   export let isExpandedPlan: (planId: string) => boolean = () => false;
-  export let valuevote: (planId: string, valueId: string, vote: ProjectApprovalVote | null) => void = () => {};
+  export let autoAssessPlanId: string | null = null;
+  export let autoAssessCriterionId: string | null = null;
   export let overallvote: (planId: string, vote: ProjectApprovalVote | null) => void = () => {};
+  export let criterionvote: (
+    planId: string,
+    criterionId: string,
+    rating: import('$lib/types/detail').PlanCriterionRating | null
+  ) => void | Promise<void> = () => {};
 
   $: submitLabel = isCollectiveServiceProject(data.projectMode)
     ? 'Submit access plan'
@@ -44,6 +50,8 @@
   {removePlanPhase}
   {submitPlan}
   {isExpandedPlan}
-  {valuevote}
+  {autoAssessPlanId}
+  {autoAssessCriterionId}
   {overallvote}
+  {criterionvote}
 />

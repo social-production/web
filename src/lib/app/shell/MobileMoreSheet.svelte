@@ -9,7 +9,6 @@
 
   const dispatch = createEventDispatcher<{
     close: void;
-    openActivity: void;
   }>();
 
   function close() {
@@ -17,11 +16,6 @@
   }
 
   function handleNavigate() {
-    close();
-  }
-
-  function handleOpenActivity() {
-    dispatch('openActivity');
     close();
   }
 
@@ -76,14 +70,6 @@
         {m.shell_nav_about()}
       </a>
     </div>
-
-    <div class="sheet-divider"></div>
-
-    <div class="sheet-actions">
-      <button class="sheet-action" type="button" on:click={handleOpenActivity}>
-        Schedule &amp; votes
-      </button>
-    </div>
   </div>
 {/if}
 
@@ -123,14 +109,12 @@
     margin-bottom: 4px;
   }
 
-  .sheet-links,
-  .sheet-actions {
+  .sheet-links {
     display: grid;
     gap: 4px;
   }
 
-  .sheet-link,
-  .sheet-action {
+  .sheet-link {
     display: flex;
     align-items: center;
     min-height: var(--shell-touch-min);
@@ -146,15 +130,8 @@
   }
 
   .sheet-link:hover,
-  .sheet-link.active-link,
-  .sheet-action:hover {
+  .sheet-link.active-link {
     background: var(--brand-soft);
     color: var(--brand-strong);
-  }
-
-  .sheet-divider {
-    height: 1px;
-    background: var(--panel-border);
-    margin: 4px 0;
   }
 </style>

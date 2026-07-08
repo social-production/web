@@ -129,6 +129,15 @@ export function setProjectPlanValueVote(
   return currentAdapter.setProjectPlanValueVote(projectSlug, phaseId, planId, valueId, vote);
 }
 
+export function setProjectPlanCriterionRating(
+  projectSlug: string,
+  planId: string,
+  criterionId: string,
+  rating: import('$lib/types/detail').PlanCriterionRating | null
+) {
+  return currentAdapter.setProjectPlanCriterionRating(projectSlug, planId, criterionId, rating);
+}
+
 export function setProjectPlanOverallVote(
   projectSlug: string,
   phaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>,
@@ -361,6 +370,15 @@ export function setEventPlanValueVote(
   vote: ProjectApprovalVote | null
 ) {
   return currentAdapter.setEventPlanValueVote(eventSlug, planId, valueId, vote);
+}
+
+export function setEventPlanCriterionRating(
+  eventSlug: string,
+  planId: string,
+  criterionId: string,
+  rating: import('$lib/types/detail').PlanCriterionRating | null
+) {
+  return currentAdapter.setEventPlanCriterionRating(eventSlug, planId, criterionId, rating);
 }
 
 export function setEventPlanOverallVote(

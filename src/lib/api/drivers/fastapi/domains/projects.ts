@@ -18,6 +18,7 @@ import type {
   ProjectPhaseChangeRequestOptions,
   ProjectApprovalVote,
   ProjectImportanceVoteValue,
+  PlanCriterionRating,
   GovernanceSignalType,
   ShareTargetResult,
 } from '$lib/types/detail';
@@ -250,6 +251,18 @@ export async function fetchSetProjectPlanValueVote(
   });
 }
 
+export async function fetchSetProjectPlanCriterionRating(
+  projectSlug: string,
+  planId: string,
+  criterionId: string,
+  rating: PlanCriterionRating | null
+): Promise<void> {
+  await apiClient.post(`/projects/${projectSlug}/plans/${planId}/criterion-ratings`, {
+    criterion_id: criterionId,
+    rating
+  });
+}
+
 // -- Activities --------------------------------------------------------------
 
 export async function fetchAddProjectActivity(
@@ -260,6 +273,7 @@ export async function fetchAddProjectActivity(
     title: input.title,
     scheduled_at: input.scheduledAt,
     ends_at: input.endsAt,
+    is_online: input.isOnline ?? false,
     location_label: input.locationLabel,
     note: input.note,
     role_requirements: input.roleRequirements.map(r => ({

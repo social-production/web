@@ -1,5 +1,8 @@
 <script lang="ts">
   import { browser } from '$app/environment';
+  import { invalidate } from '$app/navigation';
+  import { onMount } from 'svelte';
+  import { getStoredToken } from '$lib/api/drivers/fastapi/auth';
   import '../app.css';
   import AppShell from '$lib/app/shell/AppShell.svelte';
   import { detectShellMode } from '$lib/platform/shellMode';
@@ -20,6 +23,27 @@
       // ignore storage failures
     }
   }
+
+  onMount(() => {
+    function recoverStaleAuthState() {
+      if (!getStoredToken() && data.bootstrap.viewer) {
+        void invalidate('app:bootstrap');
+      }
+    }
+
+    window.addEventListener('focus', recoverStaleAuthState);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        recoverStaleAuthState();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('focus', recoverStaleAuthState);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  });
 </script>
 
 <svelte:head>

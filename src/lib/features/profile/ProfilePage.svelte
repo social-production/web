@@ -4,7 +4,6 @@
   import { onMount } from 'svelte';
   import PersonalFeedCard from '$lib/components/cards/personal-feed/PersonalFeedCard.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
-  import ContextualBackButton from '$lib/components/shared/ContextualBackButton.svelte';
   import {
     acceptFollowRequest,
     followUser,
@@ -162,11 +161,9 @@
   $: if (!data.canViewPersonalFeed && activeFilter === 'personal') {
     activeFilter = 'all';
   }
-  $: backFallback = $page.url.searchParams.get('from') || '/';
 </script>
 
 <section class="page">
-  <ContextualBackButton fallbackHref={backFallback} />
   <section class="hero-card">
     <div class="hero-topline">
       <div class="hero-identity">

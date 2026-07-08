@@ -135,9 +135,7 @@
       return 'Propose close';
     }
 
-    return data.lifecycle.nextPhaseLabel
-      ? `Propose Advance to ${data.lifecycle.nextPhaseLabel}`
-      : 'Propose Advance';
+    return 'Propose advance';
   }
 
   function revertActionLabel() {
@@ -529,7 +527,8 @@
   }
 
   .action-button {
-    width: auto;
+    flex: 1;
+    min-width: 0;
   }
 
   .change-action-panel {

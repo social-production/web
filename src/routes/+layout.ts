@@ -3,8 +3,14 @@ import { browser } from '$app/environment';
 import { getSettings } from '$lib/services/queries/account';
 import { hydrateClientSettingsState } from '$lib/services/queries/account';
 import { getBootstrap } from '$lib/services/queries/bootstrap';
+import {
+  clearBootstrapCache,
+  isBootstrapCacheUsable,
+  readBootstrapCache,
+  writeBootstrapCache
+} from '$lib/services/bootstrapCache';
+import { clearToken, getStoredToken } from '$lib/api/drivers/fastapi/auth';
 import { syncUnreadCountsFromBootstrap } from '$lib/services/queries/inbox';
-import { getStoredToken } from '$lib/api/drivers/fastapi/auth';
 import { isNetworkLoadError, toLoadError } from '$lib/api/drivers/fastapi/client';
 import {
   applyLocale,
@@ -14,43 +20,13 @@ import {
   type SupportedLocale
 } from '$lib/i18n/locale';
 import { I18N_ENABLED } from '$lib/i18n/config';
-import type { BootstrapPayload } from '$lib/types/bootstrap';
+import { setDisplayTimezone } from '$lib/stores/timezoneStore';
 import type { LayoutLoad } from './$types';
 
 export const ssr = false;
 
 const protectedPrefixes = ['/personal', '/messages', '/notifications', '/settings', '/create'];
 let didHydrateClientState = false;
-
-function bootstrapCacheKey(): string {
-  const token = getStoredToken();
-  return token ? `sp_bootstrap_cache_${token.slice(-24)}` : 'sp_bootstrap_cache_anon';
-}
-
-function readBootstrapCache(): BootstrapPayload | null {
-  if (!browser) {
-    return null;
-  }
-
-  try {
-    const raw = sessionStorage.getItem(bootstrapCacheKey());
-    return raw ? (JSON.parse(raw) as BootstrapPayload) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeBootstrapCache(payload: BootstrapPayload) {
-  if (!browser) {
-    return;
-  }
-
-  try {
-    sessionStorage.setItem(bootstrapCacheKey(), JSON.stringify(payload));
-  } catch {
-    // ignore quota errors
-  }
-}
 
 export const load = (async ({ url, depends }) => {
   depends('app:bootstrap');
@@ -60,13 +36,17 @@ export const load = (async ({ url, depends }) => {
     didHydrateClientState = true;
   }
 
-  let bootstrap: BootstrapPayload;
+  let bootstrap;
   try {
     bootstrap = await getBootstrap();
+    if (browser && getStoredToken() && !bootstrap.viewer) {
+      clearToken();
+      clearBootstrapCache();
+    }
     writeBootstrapCache(bootstrap);
   } catch (err) {
     const cached = readBootstrapCache();
-    if (cached) {
+    if (cached && isBootstrapCacheUsable(cached)) {
       bootstrap = cached;
     } else {
       toLoadError(err, 'Could not reach the server. Check your connection and try again.');
@@ -110,6 +90,7 @@ export const load = (async ({ url, depends }) => {
 
   if (browser) {
     applyLocale(locale);
+    setDisplayTimezone(settings?.displayTimezone ?? null);
   }
 
   return {
