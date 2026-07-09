@@ -3,9 +3,8 @@
   import { page } from '$app/stores';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
+  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
-  import Tablet from '$lib/components/cards/shared/Tablet.svelte';
   import {
     setEventSignal,
     shareEventWithUser,
@@ -89,8 +88,8 @@
 
 <div class="header-row">
   <div class="chips">
-    <SubjectTablet kind="event" />
-    <Tablet label={data.isPrivate ? 'Private' : 'Public'} variant="visibility" />
+    <SurfaceTypeLabel kind="event" />
+    <span class="meta-note">· {data.isPrivate ? 'Private' : 'Public'}</span>
   </div>
 
   <div class="header-actions">
@@ -235,6 +234,14 @@
   .chips {
     min-width: 0;
     flex: 1 1 auto;
+    align-items: center;
+  }
+
+  .meta-note {
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
   .header-actions {

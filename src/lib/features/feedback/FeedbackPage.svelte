@@ -3,6 +3,7 @@
   import { browser } from '$app/environment';
   import { extractErrorMessage } from '$lib/api/drivers/fastapi/client';
   import { localizedApiError } from '$lib/i18n/notifications';
+  import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import * as m from '$lib/paraglide/messages';
   import { submitFeedback, type FeedbackCategory } from '$lib/services/queries/feedback';
 
@@ -43,10 +44,7 @@
 </script>
 
 <section class="page">
-  <section class="hero-card">
-    <h1>{m.feedback_title()}</h1>
-    <p>{m.feedback_intro()}</p>
-  </section>
+  <PageHeader description={m.feedback_intro()} title={m.feedback_title()} />
 
   {#if submitted}
     <section class="success-card">
@@ -117,7 +115,6 @@
     gap: 12px;
   }
 
-  .hero-card,
   .success-card,
   .form-card {
     padding: 16px;
@@ -126,7 +123,6 @@
     background: var(--panel);
   }
 
-  h1,
   h2 {
     color: var(--brand-strong);
   }

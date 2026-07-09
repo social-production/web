@@ -2,11 +2,12 @@
   import { invalidateAll } from '$app/navigation';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
+  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { setVote } from '$lib/services/queries/feeds';
   import type { PublicThreadItem, VoteDirection } from '$lib/types/feed';
+  import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { describeActivityTime } from '$lib/utils/time';
 
   export let item: PublicThreadItem;
@@ -19,13 +20,17 @@
   }
 </script>
 
-<FeedSurface href={item.href} tone="public">
+<FeedSurface href={item.href} tone="public" accent={surfaceTypeAccent('thread')}>
   <div class="header-row">
-    <SubjectTablet kind="thread" />
-
-    <div class="tag-stack">
-      <TagList columns={4} tags={orderedTags} />
+    <div class="chips">
+      <SurfaceTypeLabel kind="thread" />
     </div>
+
+    {#if orderedTags.length > 0}
+      <div class="tag-stack">
+        <TagList tags={orderedTags} />
+      </div>
+    {/if}
   </div>
 
   <a class="title" href={item.href}>{item.title}</a>
@@ -40,8 +45,8 @@
     </div>
     <div class="footer-meta">
       <span>
-        <a class="inline-link" href={`/profile/${item.authorUsername}`}>{item.authorUsername}</a> ·
-        <span class="activity-stamp">{describeActivityTime(item.createdAt, item.createdAt)}</span>
+        <a class="inline-link" href={`/profile/${item.authorUsername}`}>{item.authorUsername}</a>
+        · <span class="activity-stamp">{describeActivityTime(item.createdAt, item.createdAt)}</span>
       </span>
     </div>
   </div>
@@ -54,11 +59,15 @@
     gap: 0.75rem;
     align-items: center;
     flex-wrap: wrap;
+    justify-content: space-between;
   }
 
-  .header-row,
-  .footer {
-    justify-content: space-between;
+  .chips {
+    display: flex;
+    gap: 0.45rem;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .body,
@@ -67,7 +76,6 @@
   }
 
   .title {
-    display: inline-block;
     margin-top: 10px;
     font-size: 16px;
     font-weight: 800;
@@ -80,6 +88,8 @@
 
   .tag-stack {
     margin-left: auto;
+    flex: 0 1 auto;
+    min-width: 0;
   }
 
   .footer {
@@ -111,30 +121,17 @@
     text-align: right;
   }
 
+  .activity-stamp {
+    white-space: nowrap;
+  }
+
   @media (max-width: 760px) {
-    .header-row {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
-    }
-
-    .tag-stack {
-      margin-left: 0;
-      width: 100%;
-    }
-
     .title {
       font-size: 17px;
     }
 
     .body {
       font-size: 15px;
-    }
-
-    .footer {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
     }
 
     .footer-meta {

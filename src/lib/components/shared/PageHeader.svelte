@@ -25,10 +25,11 @@
     align-items: flex-start;
     justify-content: space-between;
     flex-wrap: wrap;
-    padding: 18px 20px;
-    border: 1px solid var(--panel-border);
+    padding: 0 0 16px;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
     border-radius: 0;
-    background: var(--panel);
+    background: transparent;
   }
 
   .copy {
@@ -41,7 +42,7 @@
     margin: 0;
     font-size: 22px;
     letter-spacing: -0.02em;
-    color: var(--brand-strong);
+    color: var(--text-main);
   }
 
   p {

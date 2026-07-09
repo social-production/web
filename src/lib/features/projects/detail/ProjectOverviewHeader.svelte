@@ -3,7 +3,7 @@
   import { page } from '$app/stores';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
+  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
   import {
@@ -84,7 +84,7 @@
 
 <div class="header-row">
   <div class="chips">
-    <SubjectTablet kind="project" projectMode={data.projectMode} />
+    <SurfaceTypeLabel kind="project" projectMode={data.projectMode} />
   </div>
 
   <div class="header-actions">

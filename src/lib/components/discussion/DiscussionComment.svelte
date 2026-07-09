@@ -3,6 +3,7 @@
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import CommentComposer from '$lib/components/shared/CommentComposer.svelte';
   import ReportComposerModal from '$lib/components/shared/ReportComposerModal.svelte';
   import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
   import { addComment, setReportVote, submitReport } from '$lib/services/queries/details';
@@ -15,9 +16,11 @@
   export let comment: DetailComment;
   export let subjectId: string;
   export let highlightedCommentId: string | null = null;
+  export let embedded = false;
 
   let draftReply = '';
   let replyOpen = false;
+  let replyComposer: CommentComposer;
   let reportModalOpen = false;
   let reportPending = false;
   let reportReason: 'spam' | 'serious-harm' = 'spam';
@@ -57,6 +60,7 @@
     await addComment(subjectId, draftReply, comment.id);
     draftReply = '';
     replyOpen = false;
+    await replyComposer?.resetHeight();
     await invalidateAll();
   }
 
@@ -101,6 +105,7 @@
 <article
   id={`comment-${comment.id}`}
   bind:this={cardElement}
+  class:embedded={embedded}
   class:highlighted={isHighlighted}
   class="comment-card"
 >
@@ -142,10 +147,13 @@
 
   {#if replyOpen}
     <div class="composer-card">
-      <textarea bind:value={draftReply} rows="3" placeholder="Write a reply..."></textarea>
-      <div class="composer-actions">
-        <button class="primary-button" type="button" on:click={submitReply}>Add reply</button>
-      </div>
+      <CommentComposer
+        bind:this={replyComposer}
+        bind:value={draftReply}
+        placeholder="Write a reply..."
+        submitLabel="Post reply"
+        on:submit={submitReply}
+      />
     </div>
   {/if}
 
@@ -162,7 +170,7 @@
   {#if comment.replies.length > 0}
     <div class="reply-stack">
       {#each comment.replies as reply}
-        <svelte:self comment={reply} {subjectId} {highlightedCommentId} />
+        <svelte:self comment={reply} {subjectId} {highlightedCommentId} {embedded} />
       {/each}
     </div>
   {/if}
@@ -174,6 +182,7 @@
   .reply-stack {
     display: grid;
     gap: 10px;
+    min-width: 0;
   }
 
   .comment-card {
@@ -181,8 +190,17 @@
     border: none;
     border-radius: 0;
     background: var(--panel);
+    min-width: 0;
     scroll-margin-top: 84px;
     transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  }
+
+  .comment-card.embedded {
+    background: transparent;
+  }
+
+  .comment-card.embedded.highlighted {
+    background: color-mix(in srgb, var(--brand-soft) 30%, transparent);
   }
 
   .comment-card.highlighted {
@@ -191,8 +209,7 @@
   }
 
   .topline,
-  .actions-row,
-  .composer-actions {
+  .actions-row {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
@@ -218,49 +235,25 @@
   .body {
     margin: 0;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .reply-stack {
     margin-left: 14px;
     padding-left: 12px;
     border-left: 2px solid var(--panel-border);
+    min-width: 0;
   }
 
-  textarea {
-    width: 100%;
-    min-height: 88px;
-    padding: 10px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
-    color: var(--text-main);
-    resize: vertical;
-  }
-
-  .reply-button,
-  .primary-button {
+  .reply-button {
     padding: 8px 12px;
     border-radius: var(--radius-sm);
     font-size: 12px;
     font-weight: 700;
-  }
-
-  .reply-button {
     border: 1px solid var(--panel-border);
     background: var(--panel);
     color: var(--text-soft);
-  }
-
-  .primary-button {
-    background: var(--brand);
-    color: var(--page-bg);
-  }
-
-  .composer-actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
   }
 
   .hidden-toggle {

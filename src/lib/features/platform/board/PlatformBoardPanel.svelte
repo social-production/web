@@ -79,22 +79,25 @@
   $: viewerState = pageData.moderatorCandidacyOptions?.viewerState ?? null;
 </script>
 
-<section class="people-card">
-  <h2>Moderators</h2>
-  <p class="panel-copy">{pageData.moderatorNote}</p>
+<section class="moderators-panel">
+  <div class="panel-head">
+    <span class="panel-label">Moderators</span>
+    {#if pageData.moderatorNote}
+      <p class="panel-copy">{pageData.moderatorNote}</p>
+    {/if}
+  </div>
 
   <PlatformBoardExplainerCard />
 
   <div class="people-stack">
     {#if (!pageData.moderators || pageData.moderators.length === 0) && (!pageData.moderatorCandidates || pageData.moderatorCandidates.length === 0)}
-      <div class="person-row empty-row">
-        <strong>No moderators listed yet.</strong>
-      </div>
+      <p class="empty-row">No moderators listed yet.</p>
     {:else}
       <PlatformBoardMemberSection
         title="Active moderators"
         members={pageData.moderators ?? []}
         mode="active"
+        sectionIndex={0}
         {boardStatusLabel}
         {meetsConfidenceThreshold}
         {onVote}
@@ -104,6 +107,7 @@
         title="Seeking position"
         members={pageData.moderatorCandidates ?? []}
         mode="candidate"
+        sectionIndex={1}
         {boardStatusLabel}
         {meetsConfidenceThreshold}
         {onVote}
@@ -150,40 +154,45 @@
 </section>
 
 <style>
-  .people-card,
+  .moderators-panel,
   .people-stack {
     display: grid;
-    gap: 12px;
+    gap: 10px;
   }
 
-  .people-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
+  .moderators-panel {
+    padding: 10px 0 12px;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    background: transparent;
+    min-width: 0;
   }
 
-  h2 {
-    margin: 0;
-    font-size: 16px;
-    color: var(--text-main);
+  .panel-head {
+    display: grid;
+    gap: 4px;
+  }
+
+  .panel-label {
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   .panel-copy {
     margin: 0;
     color: var(--text-soft);
-    line-height: 1.5;
+    font-size: 12px;
+    line-height: 1.45;
   }
 
-  .person-row.empty-row {
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
-  }
-
-  .empty-row strong {
-    color: var(--text-main);
+  .empty-row {
+    margin: 0;
+    padding: 8px 0;
+    color: var(--text-soft);
+    font-size: 12px;
   }
 
   .volunteer-row {
@@ -191,15 +200,15 @@
     gap: 10px;
     flex-wrap: wrap;
     align-items: center;
-    padding: 12px 0 0;
+    padding-top: 4px;
   }
 
   .primary-button,
   .secondary-button,
   .text-button {
-    padding: 8px 14px;
+    padding: 6px 10px;
     border-radius: var(--radius-sm);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
   }
 
@@ -211,7 +220,7 @@
 
   .secondary-button {
     border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
+    background: transparent;
     color: var(--text-main);
   }
 

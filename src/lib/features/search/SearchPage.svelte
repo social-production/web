@@ -1,6 +1,7 @@
 <script lang="ts">
   import { afterNavigate, goto } from '$app/navigation';
   import { createLiveSearchScheduler } from '$lib/features/search/liveSearch';
+  import { formatSearchMeta } from '$lib/features/search/formatSearchMeta';
   import { searchKindLabels } from '$lib/features/search/searchKinds';
   import SearchSuggestionsList from '$lib/features/search/SearchSuggestionsList.svelte';
   import type { SearchPageData } from '$lib/types/search';
@@ -65,7 +66,7 @@
 </script>
 
 <section class="page">
-  <section class="hero-card">
+  <header class="page-header">
     <h1>Search</h1>
     {#if data.query.trim()}
       <p>Showing results for "{data.query}".</p>
@@ -99,7 +100,7 @@
         {/each}
       </div>
     {/if}
-  </section>
+  </header>
 
   <div class="stack">
     {#if data.query.trim() && data.results.length === 0 && !liveLoading}
@@ -112,7 +113,7 @@
         <a class="result-card" href={result.href}>
           <div class="topline">
             <span class="kind-chip">{searchKindLabels[result.kind]}</span>
-            <span>{result.meta}</span>
+            <span>{formatSearchMeta(result.meta, result.kind)}</span>
           </div>
           <h2>{result.title}</h2>
           <p>{result.summary}</p>
@@ -129,12 +130,40 @@
     gap: 12px;
   }
 
-  .hero-card,
+  .page-header {
+    display: grid;
+    gap: 6px;
+    padding: 0 0 16px;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    background: transparent;
+  }
+
+  .page-header h1 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    color: var(--text-main);
+  }
+
+  .page-header p {
+    margin: 0;
+    color: var(--text-soft);
+    line-height: 1.45;
+  }
+
   .result-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
+    padding: 16px 0;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: transparent;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .result-card:last-child {
+    border-bottom: none;
   }
 
   .search-form {
@@ -165,12 +194,6 @@
     background: var(--brand-soft);
     color: var(--brand-strong);
     font-weight: 700;
-  }
-
-  h1 {
-    font-size: 22px;
-    letter-spacing: -0.02em;
-    color: var(--brand-strong);
   }
 
   h2 {

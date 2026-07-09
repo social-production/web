@@ -4,6 +4,8 @@
   import { onMount } from 'svelte';
   import PersonalFeedCard from '$lib/components/cards/personal-feed/PersonalFeedCard.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
+  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import {
     acceptFollowRequest,
     followUser,
@@ -21,6 +23,11 @@
   type PeopleListMode = 'followers' | 'following' | null;
   type SortMode = 'newest' | 'top';
 
+  const sortOptions = [
+    { value: 'newest', label: 'Newest' },
+    { value: 'top', label: 'Top' }
+  ];
+
   let activeFilter: FeedFilter = 'all';
   let viewedUsername = data.username;
   let activePeopleList: PeopleListMode = null;
@@ -31,6 +38,24 @@
   let pendingFollowRequests: ViewerSummary[] = data.pendingFollowRequests;
   let viewerFollowStatus: FollowStatus = data.viewerFollowStatus;
   let viewerIsFollowing = data.viewerIsFollowing;
+
+  $: scopeOptions = [
+    { value: 'all', label: 'All' },
+    { value: 'public', label: 'Public' },
+    ...(data.canViewPersonalFeed ? [{ value: 'personal', label: 'Personal' as const }] : [])
+  ];
+
+  function scopeIconFor(filter: FeedFilter): 'filter' | 'globe' | 'people' {
+    if (filter === 'public') {
+      return 'globe';
+    }
+
+    if (filter === 'personal') {
+      return 'people';
+    }
+
+    return 'filter';
+  }
 
   $: if (data.username !== viewedUsername) {
     viewedUsername = data.username;
@@ -164,7 +189,7 @@
 </script>
 
 <section class="page">
-  <section class="hero-card">
+  <section class="hero-section">
     <div class="hero-topline">
       <div class="hero-identity">
         <AvatarBadge size="md" username={data.username} imageUrl={data.profileImageUrl ?? null} />
@@ -274,43 +299,24 @@
   {/if}
 
   <section class="toolbar-card">
-    <div class="toolbar-group">
-      <button class:active={activeFilter === 'all'} class="toolbar-button" type="button" on:click={() => (activeFilter = 'all')}>
-        All
-      </button>
-      <button
-        class:active={activeFilter === 'public'}
-        class="toolbar-button"
-        type="button"
-        on:click={() => (activeFilter = 'public')}
+    <div class="controls-row">
+      <IconMenuButton
+        bind:value={activeFilter}
+        ariaLabel="Filter profile feed"
+        defaultValue="all"
+        options={scopeOptions}
       >
-        Public
-      </button>
-      {#if data.canViewPersonalFeed}
-        <button
-          class:active={activeFilter === 'personal'}
-          class="toolbar-button"
-          type="button"
-          on:click={() => (activeFilter = 'personal')}
-        >
-          Personal
-        </button>
-      {/if}
-    </div>
+        <FeedToolbarIcon name={scopeIconFor(activeFilter)} />
+      </IconMenuButton>
 
-    <div class="toolbar-group">
-      <span class="toolbar-label">Sort</span>
-      <button
-        class:active={sortMode === 'newest'}
-        class="toolbar-button"
-        type="button"
-        on:click={() => (sortMode = 'newest')}
+      <IconMenuButton
+        bind:value={sortMode}
+        ariaLabel="Sort profile feed"
+        defaultValue="newest"
+        options={sortOptions}
       >
-        Newest
-      </button>
-      <button class:active={sortMode === 'top'} class="toolbar-button" type="button" on:click={() => (sortMode = 'top')}>
-        Top
-      </button>
+        <FeedToolbarIcon name="sort" />
+      </IconMenuButton>
     </div>
   </section>
 
@@ -349,23 +355,62 @@
 
   .feed-stack {
     gap: 0;
+    min-width: 0;
+    overflow-x: clip;
   }
 
-  .hero-card,
-  .toolbar-card,
+  .feed-stack :global(.surface:last-child) {
+    border-bottom: none;
+  }
+
+  .hero-section {
+    display: grid;
+    gap: 12px;
+    padding: 0 0 16px;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: transparent;
+  }
+
   .people-card,
   .requests-card,
   .warning-card,
   .empty-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
+    padding: 14px 0;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .toolbar-card {
+    padding: 12px 4px;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .empty-card {
+    padding: 20px 4px;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: transparent;
   }
 
   .hero-topline,
   .stats-row,
-  .toolbar-group,
   .people-topline {
     display: flex;
     gap: 12px;
@@ -379,26 +424,7 @@
     align-items: center;
   }
 
-  .toolbar-card {
-    display: flex;
-    gap: 12px;
-    flex-wrap: nowrap;
-    align-items: center;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .toolbar-card::-webkit-scrollbar {
-    display: none;
-  }
-
-  .toolbar-group {
-    flex-wrap: nowrap;
-    flex-shrink: 0;
-  }
-
   .hero-topline,
-  .toolbar-card,
   .people-topline {
     justify-content: space-between;
   }
@@ -414,8 +440,7 @@
     margin-left: 0;
   }
 
-  .eyebrow,
-  .toolbar-label {
+  .eyebrow {
     color: var(--text-soft);
     font-size: 12px;
     font-weight: 700;
@@ -435,7 +460,7 @@
     line-height: 1.45;
   }
 
-  .hero-card p {
+  .hero-section p {
     margin-top: 10px;
     max-width: 72ch;
   }
@@ -479,11 +504,6 @@
 
   .message-button {
     background: var(--panel-strong);
-    color: var(--brand-strong);
-  }
-
-  .toolbar-button.active {
-    border-color: var(--brand);
     color: var(--brand-strong);
   }
 

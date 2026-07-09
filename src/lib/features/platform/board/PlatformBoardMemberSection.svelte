@@ -5,6 +5,7 @@
   export let title = '';
   export let members: ScopeMemberSummary[] = [];
   export let mode: 'active' | 'candidate' = 'active';
+  export let sectionIndex = 0;
   export let boardStatusLabel: (member: ScopeMemberSummary) => string = () => 'Recorded board seat';
   export let meetsConfidenceThreshold: (member: ScopeMemberSummary) => boolean = () => false;
   export let onVote: (member: ScopeMemberSummary, vote: VoteDirection) => void | Promise<void> = () => {};
@@ -58,59 +59,59 @@
 </script>
 
 {#if members.length > 0}
-  <section class="member-section">
+  <section class="member-section" class:follows-section={sectionIndex > 0}>
     <div class="section-label">{title}</div>
 
     {#each members as member}
       <div class={`person-row ${rowTone(member)}`}>
-        <div class="person-copy">
+        <div class="person-primary">
           <a class="person-link" href={`/profile/${member.username}`}>
             <strong>{member.username}</strong>
           </a>
-
-          <div class="confidence-metrics">
-            <div class="vote-group">
-              {#if member.confidenceTargetId}
-                <button
-                  aria-label={`Vote up for ${member.username}`}
-                  class="vote-pill"
-                  type="button"
-                  on:click={() => handleVote(member, 1)}
-                >
-                  <span class:active-up={member.confidenceActiveVote === 1} class="vote-arrow">▲</span>
-                  <span class="vote-number">{member.confidenceUpVotes ?? 0}</span>
-                </button>
-                <button
-                  aria-label={`Vote down for ${member.username}`}
-                  class="vote-pill down-vote"
-                  type="button"
-                  on:click={() => handleVote(member, -1)}
-                >
-                  <span class:active-down={member.confidenceActiveVote === -1} class="vote-arrow">▼</span>
-                  <span class="vote-number">{member.confidenceDownVotes ?? 0}</span>
-                </button>
-              {:else}
-                <span class="vote-pill">
-                  <span class="vote-arrow">▲</span>
-                  <span class="vote-number">{member.confidenceUpVotes ?? 0}</span>
-                </span>
-                <span class="vote-pill">
-                  <span class="vote-arrow">▼</span>
-                  <span class="vote-number">{member.confidenceDownVotes ?? 0}</span>
-                </span>
-              {/if}
-            </div>
-
-            {#if member.confidenceRatio !== undefined}
-              <span class="approval-pill">{(member.confidenceRatio * 100).toFixed(0)}% approval</span>
+          <span class="status-copy">{helperLine(member)}</span>
+        </div>
+        <div class="person-secondary">
+          <span class="requirement-value">{voteProgress(member)}</span>
+          {#if approvalLine(member)}
+            <span class="requirement-copy">{approvalLine(member)}</span>
+          {/if}
+        </div>
+        <div class="confidence-metrics">
+          <div class="vote-group">
+            {#if member.confidenceTargetId}
+              <button
+                aria-label={`Vote up for ${member.username}`}
+                class="vote-pill"
+                type="button"
+                on:click={() => handleVote(member, 1)}
+              >
+                <span class:active-up={member.confidenceActiveVote === 1} class="vote-arrow">▲</span>
+                <span class="vote-number">{member.confidenceUpVotes ?? 0}</span>
+              </button>
+              <button
+                aria-label={`Vote down for ${member.username}`}
+                class="vote-pill down-vote"
+                type="button"
+                on:click={() => handleVote(member, -1)}
+              >
+                <span class:active-down={member.confidenceActiveVote === -1} class="vote-arrow">▼</span>
+                <span class="vote-number">{member.confidenceDownVotes ?? 0}</span>
+              </button>
+            {:else}
+              <span class="vote-pill">
+                <span class="vote-arrow">▲</span>
+                <span class="vote-number">{member.confidenceUpVotes ?? 0}</span>
+              </span>
+              <span class="vote-pill">
+                <span class="vote-arrow">▼</span>
+                <span class="vote-number">{member.confidenceDownVotes ?? 0}</span>
+              </span>
             {/if}
           </div>
-        </div>
 
-        <div class="confidence-requirement">
-          <span class="requirement-value">{voteProgress(member)}</span>
-          <span class="requirement-copy">{approvalLine(member)}</span>
-          <span class="requirement-note">{helperLine(member)}</span>
+          {#if member.confidenceRatio !== undefined}
+            <span class="approval-pill">{(member.confidenceRatio * 100).toFixed(0)}%</span>
+          {/if}
         </div>
       </div>
     {/each}
@@ -118,72 +119,113 @@
 {/if}
 
 <style>
-  .member-section,
-  .person-copy,
-  .confidence-requirement {
+  .member-section {
     display: grid;
-    gap: 8px;
+    gap: 0;
+    min-width: 0;
+  }
+
+  .member-section.follows-section .section-label {
+    border-top: 1px solid var(--panel-border);
+    margin-top: 4px;
+    padding-top: 12px;
   }
 
   .section-label {
-    font-size: 12px;
+    padding: 8px 0 8px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-soft);
   }
 
-  .person-row,
-  .confidence-metrics,
-  .vote-group {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
   .person-row {
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
-    justify-content: space-between;
-    gap: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--panel-border);
+    min-width: 0;
   }
 
-  .person-row.healthy {
-    border-color: color-mix(in srgb, var(--brand-soft) 32%, var(--panel-border));
+  .person-primary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .person-secondary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .person-row:last-child {
+    border-bottom: none;
   }
 
   .person-row.warning {
-    border-color: color-mix(in srgb, var(--accent-warm) 38%, var(--panel-border));
-    background: color-mix(in srgb, var(--accent-warm) 6%, var(--panel-soft));
+    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent-warm) 70%, transparent);
+    padding-left: 8px;
+  }
+
+  .person-row.healthy {
+    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--brand) 55%, transparent);
+    padding-left: 8px;
   }
 
   .person-link {
     color: inherit;
     text-decoration: none;
+    flex: 0 1 auto;
+    min-width: 0;
+    white-space: nowrap;
   }
 
   strong {
     color: var(--text-main);
+    font-size: 13px;
   }
 
-  .person-copy {
+  .status-copy {
+    color: var(--text-soft);
+    font-size: 11px;
+    line-height: 1.35;
+    flex: 1 1 auto;
     min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .confidence-metrics,
+  .vote-group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: nowrap;
+    flex: 0 0 auto;
+    margin-left: auto;
   }
 
   .vote-pill,
   .approval-pill {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
+    gap: 4px;
+    padding: 2px 6px;
     border: 1px solid var(--panel-border);
-    border-radius: 999px;
-    background: var(--panel-strong);
-    font-size: 12px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    font-size: 11px;
     font-weight: 700;
+    white-space: nowrap;
   }
 
   button.vote-pill {
@@ -192,17 +234,17 @@
 
   button.vote-pill:hover {
     border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand-soft) 84%, var(--panel-strong));
+    background: color-mix(in srgb, var(--brand-soft) 50%, transparent);
   }
 
   button.vote-pill.down-vote:hover {
     border-color: var(--accent-warm);
-    background: color-mix(in srgb, var(--accent-warm) 16%, var(--panel-strong));
+    background: color-mix(in srgb, var(--accent-warm) 12%, transparent);
   }
 
   .vote-arrow {
     color: var(--text-soft);
-    font-size: 11px;
+    font-size: 10px;
     line-height: 1;
   }
 
@@ -219,38 +261,57 @@
   }
 
   .approval-pill {
-    color: var(--text-main);
-  }
-
-  .confidence-requirement {
-    min-width: 190px;
-    justify-items: end;
-    text-align: right;
+    color: var(--text-soft);
   }
 
   .requirement-value {
     color: var(--text-main);
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
+    flex: 0 1 auto;
+    white-space: nowrap;
   }
 
-  .requirement-copy,
-  .requirement-note {
+  .requirement-copy {
     color: var(--text-soft);
     font-size: 11px;
-    line-height: 1.4;
+    line-height: 1.35;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 640px) {
     .person-row {
-      align-items: stretch;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
+      gap: 8px 10px;
+      align-items: center;
     }
 
-    .confidence-requirement {
+    .person-primary {
+      grid-column: 1 / -1;
+      flex: initial;
+    }
+
+    .person-secondary {
+      grid-column: 1;
+      flex: initial;
       min-width: 0;
-      justify-items: start;
-      text-align: left;
+    }
+
+    .confidence-metrics {
+      grid-column: 2;
+      grid-row: 2;
+      margin-left: 0;
+      justify-self: end;
+    }
+
+    .requirement-copy {
+      display: none;
     }
   }
 </style>

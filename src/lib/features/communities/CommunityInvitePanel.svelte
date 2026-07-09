@@ -9,6 +9,7 @@
   import { parseInviteToken, toAbsoluteInviteLink } from '$lib/utils/invite-token';
 
   export let pageData: ScopePageData;
+  export let variant: 'inline' | 'popover' = 'popover';
   export let active = false;
   export let inviteDraft = '';
   export let invitePending = false;
@@ -140,49 +141,48 @@
   }
 </script>
 
-<section class="invite-card">
+<section class:popover={variant === 'popover'} class="invite-card">
   {#if pageData.membership.viewerIsMember}
-    <div class="invite-copy">
-      <h2>Invite people</h2>
-      <p>Share a link or code, or invite someone directly by username.</p>
-    </div>
+    <p class="invite-kicker">Invite people</p>
 
     <div class="invite-section">
-      <h3>Invite link</h3>
+      <label class="field-label" for={`invite-link-${pageData.slug}`}>Invite link</label>
       <div class="invite-actions">
         <input
+          id={`invite-link-${pageData.slug}`}
           aria-label={`${pageData.title} invite link`}
           readonly
           type="text"
           value={inviteLoadPending ? 'Creating invite link…' : shareInviteLink}
         />
         <button
-          class="tab-chip"
+          class="action-chip"
           disabled={!shareInviteLink || inviteLoadPending}
           type="button"
           on:click={() => copyValue(shareInviteLink, 'Invite link copied.')}
         >
-          Copy link
+          Copy
         </button>
       </div>
     </div>
 
     <div class="invite-section">
-      <h3>Invite code</h3>
+      <label class="field-label" for={`invite-code-${pageData.slug}`}>Invite code</label>
       <div class="invite-actions">
         <input
+          id={`invite-code-${pageData.slug}`}
           aria-label={`${pageData.title} invite code`}
           readonly
           type="text"
           value={inviteLoadPending ? 'Creating invite code…' : inviteToken}
         />
         <button
-          class="tab-chip"
+          class="action-chip"
           disabled={!inviteToken || inviteLoadPending}
           type="button"
           on:click={() => copyValue(inviteToken, 'Invite code copied.')}
         >
-          Copy code
+          Copy
         </button>
       </div>
     </div>
@@ -201,7 +201,7 @@
       />
       <div class="direct-invite-row">
         <button
-          class="tab-chip"
+          class="action-chip"
           disabled={!inviteUsername.trim() || inviteUserPending}
           type="button"
           on:click={handleDirectInvite}
@@ -211,10 +211,8 @@
       </div>
     </div>
   {:else}
-    <div class="invite-copy">
-      <h2>Join with invite</h2>
-      <p>Paste an invite link or invite code from a community member.</p>
-    </div>
+    <p class="invite-kicker">Join with invite</p>
+    <p class="invite-copy">Paste an invite link or invite code from a community member.</p>
 
     <div class="invite-actions">
       <input
@@ -224,12 +222,12 @@
         type="text"
       />
       <button
-        class="tab-chip"
+        class="action-chip"
         disabled={!parseInviteToken(inviteDraft) || invitePending}
         type="button"
         on:click={onRedeem}
       >
-        Join with invite
+        Join
       </button>
     </div>
   {/if}
@@ -242,62 +240,77 @@
 <style>
   .invite-card {
     display: grid;
-    gap: 14px;
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
+    gap: 10px;
+  }
+
+  .invite-card.popover {
+    padding: 8px;
+    gap: 8px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .invite-kicker {
+    margin: 0;
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 800;
   }
 
   .invite-copy,
+  .invite-feedback {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
   .invite-section {
     display: grid;
     gap: 6px;
   }
 
-  .invite-copy h2,
-  .invite-section h3 {
-    color: var(--text-main);
-  }
-
-  .invite-copy h2 {
-    font-size: 16px;
-  }
-
-  .invite-section h3 {
-    font-size: 13px;
-    font-weight: 800;
-  }
-
-  .invite-copy p,
-  .invite-feedback {
+  .field-label {
     color: var(--text-soft);
-    line-height: 1.5;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
   .invite-actions,
   .direct-invite-row {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
     flex-wrap: wrap;
   }
 
   .invite-actions input {
-    flex: 1 1 280px;
+    flex: 1 1 180px;
+    min-width: 0;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text-main);
+    font-size: 12px;
   }
 
-  .tab-chip {
+  .action-chip {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 7px 10px;
+    padding: 6px 10px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--panel-border);
     background: var(--panel-strong);
     color: var(--text-soft);
     font-size: 12px;
     font-weight: 700;
+    white-space: nowrap;
   }
 
   .warning {

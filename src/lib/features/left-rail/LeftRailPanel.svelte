@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import RailLinkRow from '$lib/components/shared/RailLinkRow.svelte';
   import { isAssetsSurfaceEnabled } from '$lib/config/features/phaseScope';
   import type { BootstrapPayload } from '$lib/types/bootstrap';
   import * as m from '$lib/paraglide/messages';
@@ -7,13 +8,6 @@
   export let bootstrap: BootstrapPayload;
   export let isActive: (href: string) => boolean;
   export let closePanels: () => void;
-
-  const railDescriptions = {
-    collective: 'Shared governance and common platform work.',
-    assets: 'Land stewardship, storage services, and collective funds under platform governance.',
-    channels: 'Topic-based discovery across projects, threads, and events.',
-    communities: 'Coordination spaces around shared activity.'
-  };
 
   $: collectiveLink = bootstrap.directory.platform ?? {
     slug: 'platform',
@@ -28,65 +22,53 @@
 
 <section class="rail-panel rail-intro">
   <h2>Networks</h2>
-  <p class="section-subtitle">Channels, communities, and collective surfaces to discover and coordinate shared activity.</p>
+  <p class="section-subtitle">Channels, communities, and collective surfaces.</p>
 </section>
 
 <section class="rail-panel">
   <h2>Collective</h2>
-  <p class="section-subtitle">{railDescriptions.collective}</p>
   <div class="stack-links">
-    <a
-      class:active-link={$page.url.pathname === collectiveLink.href}
-      class="rail-link"
+    <RailLinkRow
+      active={$page.url.pathname === collectiveLink.href}
       href={collectiveLink.href}
+      icon="platform"
+      label={collectiveLink.label}
       on:click={closePanels}
-    >
-      {collectiveLink.label}
-    </a>
+    />
     {#if isAssetsSurfaceEnabled(bootstrap.featureFlags)}
-      <a
-        class:active-link={$page.url.pathname === '/platform/assets' || $page.url.pathname.startsWith('/platform/assets/')}
-        class="rail-link"
+      <RailLinkRow
+        active={$page.url.pathname === '/platform/assets' || $page.url.pathname.startsWith('/platform/assets/')}
         href="/platform/assets"
+        icon="project"
+        label="Assets"
         on:click={closePanels}
       >
-        <span>Assets</span>
-        <span class="feature-pill open">
-          Open
-        </span>
-      </a>
+        <span slot="trailing" class="feature-pill open">Open</span>
+      </RailLinkRow>
     {/if}
   </div>
 </section>
 
 <section class="rail-panel">
   <h2>Channels</h2>
-  <p class="section-subtitle">{railDescriptions.channels}</p>
   <div class="stack-links">
     {#each nonPlatformChannels as link}
-      <a class:active-link={isActive(link.href)} class="rail-link" href={link.href} on:click={closePanels}>
-        {link.label}
-      </a>
+      <RailLinkRow active={isActive(link.href)} href={link.href} icon="channel" label={link.label} on:click={closePanels} />
     {/each}
   </div>
 </section>
 
 <section class="rail-panel">
   <h2>Communities</h2>
-  <p class="section-subtitle">{railDescriptions.communities}</p>
   <div class="stack-links">
     {#each bootstrap.directory.communities as link}
-      <a class:active-link={isActive(link.href)} class="rail-link" href={link.href} on:click={closePanels}>
-        {link.label}
-      </a>
+      <RailLinkRow active={isActive(link.href)} href={link.href} icon="community" label={link.label} on:click={closePanels} />
     {/each}
   </div>
 </section>
 
 <nav class="rail-utility">
-  <a class:active-link={isActive('/feedback')} class="rail-link utility-link" href="/feedback" on:click={closePanels}>
-    {m.feedback_title()}
-  </a>
+  <RailLinkRow active={isActive('/feedback')} href="/feedback" icon="feedback" label={m.feedback_title()} on:click={closePanels} />
 </nav>
 
 <style>
@@ -113,30 +95,7 @@
 
   .stack-links {
     display: grid;
-    gap: 6px;
-  }
-
-  .rail-link {
-    display: inline-flex;
-    gap: 8px;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    padding: 8px 10px;
-    border-radius: var(--radius-sm);
-    color: var(--text-main);
-    font-size: 13px;
-    font-weight: 700;
-    white-space: nowrap;
-    background: transparent;
-    cursor: pointer;
-    transition: background-color 0.18s ease, color 0.18s ease;
-  }
-
-  .rail-link:hover,
-  .rail-link.active-link {
-    background: var(--brand-soft);
-    color: var(--brand-strong);
+    gap: 2px;
   }
 
   .feature-pill {
@@ -148,16 +107,12 @@
   }
 
   .feature-pill.open {
-    background: var(--brand-soft);
-    color: var(--brand-strong);
+    background: transparent;
+    color: var(--text-soft);
   }
 
   .rail-utility {
     padding: 4px 0 12px;
     border-bottom: 1px solid var(--panel-border);
-  }
-
-  .utility-link {
-    color: var(--text-soft);
   }
 </style>

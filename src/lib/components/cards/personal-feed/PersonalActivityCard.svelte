@@ -2,11 +2,12 @@
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
+  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { castFeedVote } from '$lib/services/queries/feeds';
   import type { PersonalActivityItem, VoteDirection } from '$lib/types/feed';
+  import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let item: PersonalActivityItem;
@@ -32,26 +33,29 @@
   async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
     await castFeedVote(item.subjectId, event.detail.vote);
   }
-
-  $: verbLabel = item.actionLabel || 'Created';
 </script>
 
-<FeedSurface href={item.href} tone="personal">
+<FeedSurface
+  href={item.href}
+  tone="personal"
+  accent={surfaceTypeAccent(item.subjectKind, item.subjectProjectMode ?? 'productive')}
+>
   <div class="header-row">
     <div class="identity-row">
       <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
       <div class="identity-copy">
         <div class="name-line">
           <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-          <span class="action">- {verbLabel}</span>
-          <SubjectTablet kind={item.subjectKind} projectMode={item.subjectProjectMode ?? 'productive'} />
+          <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.subjectProjectMode ?? 'productive'} />
         </div>
       </div>
     </div>
 
-    <div class="tag-stack">
-      <TagList columns={4} tags={orderedTags} />
-    </div>
+    {#if orderedTags.length > 0}
+      <div class="tag-stack">
+        <TagList tags={orderedTags} />
+      </div>
+    {/if}
   </div>
 
   <a class="title" href={item.href}>{item.title}</a>
@@ -78,10 +82,7 @@
       </a>
     </div>
     <div class="footer-meta">
-      <span>
-        <a class="inline-link" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-        · {formatRelativeTime(item.createdAt)}
-      </span>
+      <span>{formatRelativeTime(item.createdAt)}</span>
     </div>
   </div>
 </FeedSurface>
@@ -96,22 +97,33 @@
     flex-wrap: wrap;
   }
 
-  .identity-row,
-  .name-line {
+  .identity-row {
     display: flex;
     gap: 0.6rem;
     align-items: center;
-    flex-wrap: wrap;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .name-line {
+    display: flex;
+    gap: 0.45rem;
+    align-items: center;
+    flex-wrap: nowrap;
+    min-width: 0;
   }
 
   .identity-copy,
   .tag-stack {
-    display: grid;
-    gap: 6px;
+    min-width: 0;
+  }
+
+  .tag-stack {
+    margin-left: auto;
+    flex: 0 1 auto;
   }
 
   .name,
-  .action,
   .body {
     margin: 0;
   }
@@ -120,9 +132,15 @@
     font-weight: 800;
   }
 
-  .action,
   .body {
     color: var(--text-soft);
+  }
+
+  .header-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 10rem;
   }
 
   .title {
@@ -192,41 +210,17 @@
 
   .footer-meta {
     text-align: right;
-  }
-
-  .inline-link {
-    color: var(--text-main);
-    font-weight: 700;
+    white-space: nowrap;
   }
 
   @media (max-width: 760px) {
-    .tag-stack {
-      margin-left: 0;
-    }
-
-    .header-row {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
-    }
-
     .header-name {
-      max-width: 9rem;
+      max-width: 7rem;
       font-size: 15px;
     }
 
     .title {
       font-size: 17px;
-    }
-
-    .footer {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
-    }
-
-    .footer-meta .inline-link {
-      display: none;
     }
 
     .footer-meta {

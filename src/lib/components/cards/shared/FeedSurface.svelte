@@ -1,17 +1,31 @@
 <script lang="ts">
+  import type { SurfaceTypeAccent } from '$lib/utils/surfaceType';
+  import { surfaceAccentCssVar } from '$lib/utils/surfaceType';
+
   export let tone: 'public' | 'personal' = 'public';
   export let href: string | null = null;
+  export let accent: SurfaceTypeAccent | null = null;
+  export let isLast = false;
 
   $: skipScrollOnNavigate = href?.includes('comment=') ?? false;
+  $: accentColor = accent ? surfaceAccentCssVar(accent) : null;
 </script>
 
-<article class:tone-public={tone === 'public'} class:tone-personal={tone === 'personal'} class:clickable={!!href} class="surface">
+<article
+  class:tone-public={tone === 'public'}
+  class:tone-personal={tone === 'personal'}
+  class:clickable={!!href}
+  class:last-row={isLast}
+  class:has-accent={!!accent}
+  class="surface"
+  style={accentColor ? `--row-accent: ${accentColor};` : undefined}
+>
   {#if href}
     <a
       aria-label="Open item"
       class="surface-link"
       data-sveltekit-noscroll={skipScrollOnNavigate || undefined}
-      href={href}
+      {href}
     ></a>
   {/if}
 
@@ -23,10 +37,24 @@
 <style>
   .surface {
     position: relative;
-    padding: 16px;
+    min-width: 0;
+    max-width: 100%;
+    padding: 18px 12px;
     border-radius: 0;
-    border: 1px solid var(--surface-thread-border);
-    box-shadow: var(--shadow);
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    box-shadow: none;
+    background: var(--panel);
+    transition: background-color 0.16s ease;
+  }
+
+  .surface.has-accent {
+    border-left: 3px solid var(--row-accent, var(--type-accent-neutral));
+    padding-left: 9px;
+  }
+
+  .surface.last-row {
+    border-bottom: none;
   }
 
   .surface-link {
@@ -39,7 +67,49 @@
   .content {
     position: relative;
     z-index: 1;
+    min-width: 0;
+    max-width: 100%;
     pointer-events: none;
+  }
+
+  .content :global(.title),
+  .content :global(a.title) {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .content :global(.body),
+  .content :global(.summary),
+  .content :global(.comment-excerpt),
+  .content :global(.linked-body.feed) {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-clamp: 3;
+    -webkit-line-clamp: 3;
+  }
+
+  .content :global(.subject-title) {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .content :global(.latest-summary) {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
   }
 
   .content :global(a),
@@ -53,14 +123,9 @@
     cursor: pointer;
   }
 
-  .tone-public {
-    background: var(--panel);
-    border-color: var(--panel-border);
-  }
-
+  .tone-public,
   .tone-personal {
     background: var(--panel);
-    border-color: var(--panel-border);
   }
 
   .clickable {
@@ -68,6 +133,6 @@
   }
 
   .clickable:hover {
-    border-color: var(--brand);
+    background: var(--panel-hover);
   }
 </style>

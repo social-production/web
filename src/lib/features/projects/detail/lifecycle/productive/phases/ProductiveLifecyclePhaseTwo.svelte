@@ -21,7 +21,6 @@
   export let form: DraftPlanForm;
   export let showComposer = false;
   export let addPlanPhase: () => void = () => {};
-  export let removePlanPhase: (index: number) => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
   export let editingPlanId: string | null = null;
   export let startEditingPlan: (planId: string) => void | Promise<void> = () => {};
@@ -55,7 +54,6 @@
     bind:showComposer
     {submitLabel}
     {addPlanPhase}
-    {removePlanPhase}
     {submitPlan}
     {editingPlanId}
     {startEditingPlan}

@@ -861,6 +861,7 @@
   .main-content {
     position: relative;
     min-width: 0;
+    overflow-x: clip;
     padding: 16px 20px 20px;
     background: var(--page-background);
   }
@@ -871,8 +872,10 @@
 
   .main-frame {
     width: 100%;
+    min-width: 0;
     max-width: var(--main-frame-max-width);
     margin: 0 auto;
+    overflow-x: clip;
   }
 
   @media (min-width: 1081px) {

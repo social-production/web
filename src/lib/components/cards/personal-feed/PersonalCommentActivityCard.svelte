@@ -2,10 +2,11 @@
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
+  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { castFeedVote } from '$lib/services/queries/feeds';
   import type { PersonalCommentActivityItem, VoteDirection } from '$lib/types/feed';
+  import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let item: PersonalCommentActivityItem;
@@ -26,7 +27,7 @@
   }
 </script>
 
-<FeedSurface href={item.href} tone="personal">
+<FeedSurface href={item.href} tone="personal" accent={surfaceTypeAccent(item.subjectKind)}>
   <div class="header-row">
     <div class="identity-row">
       <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
@@ -34,7 +35,7 @@
         <div class="name-line">
           <a class="name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
           <span class="action">- commented on</span>
-          <SubjectTablet kind={item.subjectKind} projectMode="productive" />
+          <SurfaceTypeLabel kind={item.subjectKind} />
         </div>
       </div>
     </div>
@@ -70,8 +71,18 @@
     flex-wrap: wrap;
   }
 
-  .identity-row,
+  .identity-row {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .name-line {
+    display: flex;
+    gap: 0.45rem;
+    align-items: center;
     flex-wrap: nowrap;
     min-width: 0;
   }
@@ -130,15 +141,13 @@
     border-radius: var(--radius-sm);
   }
 
-  @media (max-width: 760px) {
-    .header-row {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
-    }
+  .time {
+    white-space: nowrap;
+  }
 
+  @media (max-width: 760px) {
     .name {
-      max-width: 8rem;
+      max-width: 7rem;
       font-size: 14px;
     }
 
@@ -148,12 +157,6 @@
 
     .comment-excerpt {
       font-size: 14px;
-    }
-
-    .footer {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
     }
   }
 </style>

@@ -119,8 +119,6 @@
   export let selectedRequestActivityId: string | null = null;
   export let activityComposerElement: HTMLElement | null = null;
   export let serviceRequestComposerElement: HTMLElement | null = null;
-  export let activityStartInputElement: HTMLInputElement | null = null;
-  export let activityEndInputElement: HTMLInputElement | null = null;
   export let openComposer: () => void | Promise<void> = () => {};
   export let openComposerForDay: (isoDay: string) => void | Promise<void> = () => {};
   export let openRequestComposer: () => void | Promise<void> = () => {};
@@ -1168,13 +1166,15 @@
       </div>
 
       {#if canCreateActivities && showComposer}
-        <ActivityCreationWizard
-          open={showComposer}
-          form={activityForm}
-          selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
-          onSubmit={submitActivity}
-          onCancel={closeComposer}
-        />
+        <div bind:this={activityComposerElement}>
+          <ActivityCreationWizard
+            open={showComposer}
+            form={activityForm}
+            selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
+            onSubmit={submitActivity}
+            onCancel={closeComposer}
+          />
+        </div>
       {/if}
 
       {#if data.lifecycle.phaseFive.activities.length === 0}

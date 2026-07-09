@@ -1,11 +1,12 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
+  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import type { NotificationItem } from '$lib/types/inbox';
   import { localizedNotificationBody } from '$lib/i18n/notifications';
   import * as m from '$lib/paraglide/messages';
+  import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let item: NotificationItem;
@@ -42,7 +43,10 @@
   }
 </script>
 
-<FeedSurface tone={item.surface === 'personal' ? 'personal' : 'public'}>
+<FeedSurface
+  tone={item.surface === 'personal' ? 'personal' : 'public'}
+  accent={isSocialFollowNotice ? null : surfaceTypeAccent(item.subjectKind, item.projectMode ?? 'productive')}
+>
   <div
     class:unread={item.isUnread}
     class="notification-card"
@@ -57,7 +61,7 @@
           <span class="unread-dot"></span>
         {/if}
         {#if !isSocialFollowNotice}
-          <SubjectTablet kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
+          <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
         {/if}
         {#if item.actionLabel}
           <span class="action">- {item.actionLabel}</span>
@@ -123,17 +127,6 @@
 
   .notification-card.unread {
     position: relative;
-  }
-
-  .notification-card.unread::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -16px;
-    width: 3px;
-    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-    background: var(--brand);
   }
 
   .topline,
@@ -235,10 +228,6 @@
   }
 
   @media (max-width: 760px) {
-    .notification-card.unread::before {
-      left: -12px;
-    }
-
     .footer-meta {
       margin-left: 0;
       justify-content: flex-start;

@@ -2,7 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
+  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { setVote } from '$lib/services/queries/feeds';
@@ -23,7 +23,7 @@
 <section class="overview-shell">
   <div class="header-row">
     <div class="chips">
-      <SubjectTablet kind="thread" />
+      <SurfaceTypeLabel kind="thread" />
     </div>
 
     <div class="header-actions">
@@ -55,6 +55,7 @@
   .overview-shell {
     display: grid;
     gap: 16px;
+    min-width: 0;
   }
 
   .header-row,
@@ -96,6 +97,9 @@
     font-size: 24px;
     letter-spacing: -0.02em;
     color: var(--text-main);
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .overview-copy {
@@ -103,12 +107,14 @@
     padding-bottom: 4px;
     color: var(--text-soft);
     line-height: 1.55;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: pre-wrap;
   }
 
   .overview-footer-row {
     justify-content: flex-start;
-    padding-top: 16px;
-    border-top: 1px solid var(--panel-border);
   }
 
   .footer-author-row {

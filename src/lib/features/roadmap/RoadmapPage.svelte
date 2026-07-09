@@ -1,7 +1,9 @@
+<script lang="ts">
+  import PageHeader from '$lib/components/shared/PageHeader.svelte';
+</script>
+
 <section class="page">
-  <section class="hero-card">
-    <h1>Social Production - Development Roadmap</h1>
-  </section>
+  <PageHeader title="Social Production - Development Roadmap" />
 
   <div class="stack">
     <section class="phase-card current-phase">
@@ -44,7 +46,6 @@
     gap: 12px;
   }
 
-  .hero-card,
   .phase-card {
     padding: 12px;
     border: 1px solid var(--panel-border);
@@ -56,12 +57,6 @@
     border-color: var(--brand);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 35%, transparent);
     background: color-mix(in srgb, var(--brand-soft) 22%, var(--panel));
-  }
-
-  h1 {
-    font-size: 22px;
-    letter-spacing: -0.02em;
-    color: var(--brand-strong);
   }
 
   h2 {

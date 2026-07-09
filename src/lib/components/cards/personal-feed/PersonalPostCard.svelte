@@ -3,10 +3,11 @@
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import LinkedPostBody from '$lib/components/shared/LinkedPostBody.svelte';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
+  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { castFeedVote } from '$lib/services/queries/feeds';
   import type { PersonalPostItem, VoteDirection } from '$lib/types/feed';
+  import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let item: PersonalPostItem;
@@ -25,14 +26,14 @@
   }
 </script>
 
-<FeedSurface href={item.href} tone="personal">
+<FeedSurface href={item.href} tone="personal" accent={surfaceTypeAccent('post')}>
   <div class="header-row">
     <div class="identity-row">
       <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
       <div class="identity-copy">
         <div class="name-line">
           <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-          <SubjectTablet kind="post" />
+          <SurfaceTypeLabel kind="post" />
         </div>
       </div>
     </div>
@@ -48,10 +49,7 @@
       </a>
     </div>
     <div class="footer-meta">
-      <span>
-        <a class="inline-link" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-        · {formatRelativeTime(item.createdAt)}
-      </span>
+      <span>{formatRelativeTime(item.createdAt)}</span>
     </div>
   </div>
 </FeedSurface>
@@ -123,27 +121,13 @@
 
   .footer-meta {
     text-align: right;
-  }
-
-  .inline-link {
-    color: var(--text-main);
-    font-weight: 700;
+    white-space: nowrap;
   }
 
   @media (max-width: 760px) {
     .header-name {
-      max-width: 9rem;
+      max-width: 7rem;
       font-size: 15px;
-    }
-
-    .footer {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
-    }
-
-    .footer-meta .inline-link {
-      display: none;
     }
 
     .footer-meta {

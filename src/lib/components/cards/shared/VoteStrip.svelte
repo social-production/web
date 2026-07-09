@@ -42,9 +42,11 @@
 
 <style>
   .vote-strip {
+    box-sizing: border-box;
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    min-height: 32px;
     padding: 4px 6px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -93,14 +95,22 @@
   }
 
   @media (max-width: 760px) {
+    .vote-strip {
+      gap: 4px;
+      min-height: 24px;
+      padding: 2px 4px;
+      border-color: color-mix(in srgb, var(--panel-border) 88%, transparent);
+    }
+
     .vote-button {
-      font-size: 13px;
-      width: 28px;
-      height: 28px;
+      width: 20px;
+      height: 20px;
+      font-size: 10px;
     }
 
     .vote-count {
-      font-size: 14px;
+      min-width: 16px;
+      font-size: 11px;
     }
   }
 </style>

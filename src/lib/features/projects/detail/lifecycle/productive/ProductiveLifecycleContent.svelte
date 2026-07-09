@@ -58,23 +58,15 @@
   export let activityForm: DraftActivityForm;
   export let highlightedActivityId: string | null = null;
   export let activityComposerElement: HTMLElement | null = null;
-  export let activityStartInputElement: HTMLInputElement | null = null;
-  export let activityEndInputElement: HTMLInputElement | null = null;
 
   export let submitValue: () => void | Promise<void> = () => {};
   export let setProjectValueVote: (valueId: string, voteValue: ProjectImportanceVoteValue) => void | Promise<void> =
     () => {};
   export let addProductionPlanPhase: () => void = () => {};
-  export let removeProductionPlanPhase: (index: number) => void = () => {};
   export let submitProductionPlan: () => void | Promise<void> = () => {};
   export let editingProductionPlanId: string | null = null;
   export let startEditingProductionPlan: (planId: string) => void | Promise<void> = () => {};
   export let cancelEditingProductionPlan: () => void | Promise<void> = () => {};
-  export let setPhaseTwoPlanValueVote: (
-    planId: string,
-    valueId: string,
-    vote: ProjectApprovalVote | null
-  ) => void | Promise<void> = () => {};
   export let setPhaseTwoPlanOverallVote: (
     planId: string,
     vote: ProjectApprovalVote | null
@@ -85,13 +77,7 @@
     rating: import('$lib/types/detail').PlanCriterionRating | null
   ) => void | Promise<void> = () => {};
   export let addDistributionPlanPhase: () => void = () => {};
-  export let removeDistributionPlanPhase: (index: number) => void = () => {};
   export let submitDistributionPlan: () => void | Promise<void> = () => {};
-  export let setPhaseThreePlanValueVote: (
-    planId: string,
-    valueId: string,
-    vote: ProjectApprovalVote | null
-  ) => void | Promise<void> = () => {};
   export let setPhaseThreePlanOverallVote: (
     planId: string,
     vote: ProjectApprovalVote | null
@@ -154,7 +140,6 @@
     form={productionForm}
     bind:showComposer={showPhaseTwoComposer}
     addPlanPhase={addProductionPlanPhase}
-    removePlanPhase={removeProductionPlanPhase}
     submitPlan={submitProductionPlan}
     editingPlanId={editingProductionPlanId}
     startEditingPlan={startEditingProductionPlan}
@@ -171,7 +156,6 @@
     form={distributionForm}
     bind:showComposer={showPhaseThreeComposer}
     addPlanPhase={addDistributionPlanPhase}
-    removePlanPhase={removeDistributionPlanPhase}
     submitPlan={submitDistributionPlan}
     isExpandedPlan={(planId) => isExpandedPlan('phase-3', planId)}
     {autoAssessPlanId}
@@ -183,8 +167,6 @@
   <ProductiveLifecyclePhaseFive
     {data}
     bind:activityComposerElement
-    bind:activityEndInputElement
-    bind:activityStartInputElement
     {activityForm}
     {highlightedActivityId}
     openComposer={openActivityComposer}

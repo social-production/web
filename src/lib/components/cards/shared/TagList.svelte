@@ -1,11 +1,12 @@
 <script lang="ts">
-  import Tablet from '$lib/components/cards/shared/Tablet.svelte';
+  import ScopeChip from '$lib/components/cards/shared/ScopeChip.svelte';
+  import type { SurfaceIconId } from '$lib/utils/surfaceType';
   import type { TagRef } from '$lib/types/feed';
 
   export let tags: TagRef[] = [];
   export let columns: number | null = null;
 
-  function variantFor(tag: TagRef) {
+  function iconFor(tag: TagRef): SurfaceIconId {
     if (tag.kind === 'community') {
       return 'community';
     }
@@ -25,9 +26,7 @@
 {#if tags.length > 0}
   <div class:grid-layout={!!columns} class="tag-list" style:--tag-columns={columns ? `${columns}` : undefined}>
     {#each tags as tag}
-      <a class="tag-link" href={hrefFor(tag)}>
-        <Tablet label={tag.label} variant={variantFor(tag)} />
-      </a>
+      <ScopeChip href={hrefFor(tag)} icon={iconFor(tag)} label={tag.label} />
     {/each}
   </div>
 {/if}
@@ -35,26 +34,8 @@
 <style>
   .tag-list {
     display: flex;
-    gap: 0.4rem;
+    gap: 6px;
     flex-wrap: wrap;
-  }
-
-  .tag-link {
-    display: inline-flex;
-    border-radius: 999px;
-    cursor: pointer;
-    text-decoration: none;
-  }
-
-  .tag-link:hover :global(.tablet),
-  .tag-link:focus-visible :global(.tablet) {
-    transform: translateY(-1px);
-    filter: brightness(1.08);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-main) 16%, transparent);
-  }
-
-  .tag-link:focus-visible {
-    outline: none;
   }
 
   .tag-list.grid-layout {
@@ -65,7 +46,9 @@
 
   @media (max-width: 760px) {
     .tag-list.grid-layout {
-      justify-content: start;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
     }
   }
 </style>

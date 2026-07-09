@@ -1364,23 +1364,17 @@
         bind:selectedRequestActivityId={selectedCollectiveRequestActivityId}
         bind:activityComposerElement
         bind:serviceRequestComposerElement
-        bind:activityStartInputElement
-        bind:activityEndInputElement
         submitValue={submitValue}
         setProjectValueVote={handleProjectValueVote}
         addProductionPlanPhase={addProductionPlanPhase}
-        removeProductionPlanPhase={removeProductionPlanPhase}
         submitProductionPlan={submitProductionPlan}
         editingProductionPlanId={editingProductionPlanId}
         startEditingProductionPlan={openProductionPlanEditor}
         cancelEditingProductionPlan={cancelProductionPlanEdit}
-        setPhaseTwoPlanValueVote={handlePhaseTwoPlanValueVote}
         setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
         setPhaseTwoPlanCriterionRating={handlePhaseTwoPlanCriterionRating}
         addDistributionPlanPhase={addDistributionPlanPhase}
-        removeDistributionPlanPhase={removeDistributionPlanPhase}
         submitDistributionPlan={submitDistributionPlan}
-        setPhaseThreePlanValueVote={handlePhaseThreePlanValueVote}
         setPhaseThreePlanOverallVote={handlePhaseThreePlanOverallVote}
         setPhaseThreePlanCriterionRating={handlePhaseThreePlanCriterionRating}
         isExpandedPlan={isExpandedPlan}
@@ -1424,23 +1418,17 @@
         activityForm={activityForm}
         {highlightedActivityId}
         bind:activityComposerElement
-        bind:activityStartInputElement
-        bind:activityEndInputElement
         submitValue={submitValue}
         setProjectValueVote={handleProjectValueVote}
         addProductionPlanPhase={addProductionPlanPhase}
-        removeProductionPlanPhase={removeProductionPlanPhase}
         submitProductionPlan={submitProductionPlan}
         editingProductionPlanId={editingProductionPlanId}
         startEditingProductionPlan={openProductionPlanEditor}
         cancelEditingProductionPlan={cancelProductionPlanEdit}
-        setPhaseTwoPlanValueVote={handlePhaseTwoPlanValueVote}
         setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
         setPhaseTwoPlanCriterionRating={handlePhaseTwoPlanCriterionRating}
         addDistributionPlanPhase={addDistributionPlanPhase}
-        removeDistributionPlanPhase={removeDistributionPlanPhase}
         submitDistributionPlan={submitDistributionPlan}
-        setPhaseThreePlanValueVote={handlePhaseThreePlanValueVote}
         setPhaseThreePlanOverallVote={handlePhaseThreePlanOverallVote}
         setPhaseThreePlanCriterionRating={handlePhaseThreePlanCriterionRating}
         isExpandedPlan={isExpandedPlan}

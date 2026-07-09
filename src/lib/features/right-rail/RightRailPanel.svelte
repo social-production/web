@@ -1,7 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { goto, invalidateAll } from '$app/navigation';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
+  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
+  import { surfaceAccentCssVar, surfaceTypeAccent } from '$lib/utils/surfaceType';
   import {
     setEventActivityCommitment,
     setEventEditVote,
@@ -109,6 +110,10 @@
     if (item.kind === 'request') return 'Service request';
     if (item.kind === 'vote') return item.voteKindLabel ? `Vote · ${item.voteKindLabel.replace('_', ' ')}` : 'Vote';
     return item.kind === 'event' ? 'Event activity' : 'Project activity';
+  }
+
+  function itemAccent(item: RightRailActivityItem) {
+    return surfaceTypeAccent(itemSurfaceKind(item), item.projectMode ?? 'productive');
   }
 
   function itemSurfaceKind(item: RightRailActivityItem) {
@@ -322,7 +327,6 @@
 <section class="rail-panel">
   <section class="rail-section">
     <h2>Project Activity & Events</h2>
-    <p class="section-subtitle">Project activity and related events from your memberships and scopes.</p>
     <div class:snapshot-scroll={activityItems.length > 5} class="snapshot-stack">
       {#if activityItems.length === 0}
         <div class="snapshot-row">
@@ -331,7 +335,11 @@
         </div>
       {:else}
         {#each activityItems as item}
-          <article class="snapshot-row activity-row" class:activity-row-unseen={isUnseenItem(item)}>
+          <article
+            class="snapshot-row activity-row"
+            class:activity-row-unseen={isUnseenItem(item)}
+            style={`--row-accent: ${surfaceAccentCssVar(itemAccent(item))};`}
+          >
             <button
               aria-label="Dismiss activity card"
               class="dismiss-card"
@@ -342,7 +350,7 @@
             </button>
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
-                <SubjectTablet kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'productive'} />
+                <SurfaceTypeLabel kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'productive'} />
                 <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
               {#if itemKicker(item)}
@@ -364,7 +372,6 @@
 
   <section class="rail-section rail-section-help-requests">
     <h2>Help Requests</h2>
-    <p class="section-subtitle">Open help requests in your scopes and anything you signed up for.</p>
     <div class:snapshot-scroll={helpRequestItems.length > 5} class="snapshot-stack">
       {#if helpRequestItems.length === 0}
         <div class="snapshot-row">
@@ -373,7 +380,10 @@
         </div>
       {:else}
         {#each helpRequestItems as item}
-          <article class="snapshot-row activity-row help-request-row">
+          <article
+            class="snapshot-row activity-row help-request-row"
+            style={`--row-accent: ${surfaceAccentCssVar(itemAccent(item))};`}
+          >
             <button
               aria-label="Dismiss help request card"
               class="dismiss-card"
@@ -384,7 +394,7 @@
             </button>
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
-                <SubjectTablet kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'productive'} />
+                <SurfaceTypeLabel kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'productive'} />
                 <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
               {#if itemKicker(item)}
@@ -409,7 +419,6 @@
 
   <section class="rail-section rail-section-requests">
     <h2>Requests</h2>
-    <p class="section-subtitle">Open service requests on projects you manage or personal services you offer.</p>
     <div class:snapshot-scroll={requestItems.length > 5} class="snapshot-stack">
       {#if requestItems.length === 0}
         <div class="snapshot-row">
@@ -418,7 +427,10 @@
         </div>
       {:else}
         {#each requestItems as item}
-          <article class="snapshot-row activity-row request-row">
+          <article
+            class="snapshot-row activity-row request-row"
+            style={`--row-accent: ${surfaceAccentCssVar(itemAccent(item))};`}
+          >
             <button
               aria-label="Dismiss request card"
               class="dismiss-card"
@@ -429,7 +441,7 @@
             </button>
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
-                <SubjectTablet kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'collective-service'} />
+                <SurfaceTypeLabel kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'collective-service'} />
                 <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
               {#if itemKicker(item)}
@@ -451,7 +463,6 @@
 
   <section class="rail-section rail-section-votes">
     <h2>Active Votes</h2>
-    <p class="section-subtitle">Decisions waiting for your Approve or Reject.</p>
     <div class:snapshot-scroll={voteItems.length > 5} class="snapshot-stack">
       {#if voteItems.length === 0}
         <div class="snapshot-row">
@@ -460,7 +471,10 @@
         </div>
       {:else}
         {#each voteItems as item}
-          <article class="snapshot-row activity-row vote-row">
+          <article
+            class="snapshot-row activity-row vote-row"
+            style={`--row-accent: ${surfaceAccentCssVar(itemAccent(item))};`}
+          >
             <button
               aria-label="Dismiss vote card"
               class="dismiss-card"
@@ -471,7 +485,7 @@
             </button>
             <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
               <div class="activity-topline">
-                <SubjectTablet
+                <SurfaceTypeLabel
                   kind={itemSurfaceKind(item)}
                   projectMode={item.projectMode ?? 'productive'}
                 />
@@ -584,16 +598,9 @@
     color: var(--text-main);
   }
 
-  .section-subtitle {
-    margin: 4px 0 10px;
-    color: var(--text-soft);
-    font-size: 12px;
-    line-height: 1.45;
-  }
-
   .snapshot-stack {
     display: grid;
-    gap: 6px;
+    gap: 0;
   }
 
   .snapshot-stack.snapshot-scroll {
@@ -605,22 +612,29 @@
   .snapshot-row {
     position: relative;
     display: grid;
-    gap: 10px;
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
-    transition: border-color 0.16s ease, background-color 0.16s ease;
+    gap: 8px;
+    padding: 14px 12px;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: var(--panel);
+    transition: background-color 0.16s ease;
+  }
+
+  .snapshot-row:last-child {
+    border-bottom: none;
+  }
+
+  .activity-row {
+    border-left: 3px solid var(--row-accent, var(--type-accent-neutral));
   }
 
   .activity-row:hover {
-    border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand-soft) 42%, var(--panel-soft));
+    background: var(--panel-hover);
   }
 
   .activity-row-unseen {
-    border-color: color-mix(in srgb, var(--brand) 42%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 28%, var(--panel-soft));
+    background: color-mix(in srgb, var(--panel-hover) 55%, var(--panel));
   }
 
   .dismiss-card {
@@ -748,6 +762,12 @@
 
   .vote-action-button.reject-button {
     border: 1px solid var(--panel-border);
+    background: transparent;
+    color: var(--text-main);
+  }
+
+  .vote-action-button.assess-button {
+    border: 1px solid var(--panel-border);
     background: var(--panel-strong);
     color: var(--text-main);
   }
@@ -809,10 +829,10 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 10px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
+    padding: 10px 8px;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    background: transparent;
   }
 
   .cleared-copy {

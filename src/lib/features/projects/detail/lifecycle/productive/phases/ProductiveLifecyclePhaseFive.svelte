@@ -35,8 +35,6 @@
   export let showComposer = false;
   export let highlightedActivityId: string | null = null;
   export let activityComposerElement: HTMLElement | null = null;
-  export let activityStartInputElement: HTMLInputElement | null = null;
-  export let activityEndInputElement: HTMLInputElement | null = null;
   export let openComposer: () => void | Promise<void> = () => {};
   export let openComposerForDay: (isoDay: string) => void | Promise<void> = () => {};
   export let focusActivityCard: (activityId: string) => void | Promise<void> = () => {};
@@ -211,13 +209,15 @@
       </div>
 
       {#if data.lifecycle.phaseFive.viewerCanCreateActivities && showComposer}
-        <ActivityCreationWizard
-          open={showComposer}
-          form={activityForm}
-          selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
-          onSubmit={submitActivity}
-          onCancel={closeComposer}
-        />
+        <div bind:this={activityComposerElement}>
+          <ActivityCreationWizard
+            open={showComposer}
+            form={activityForm}
+            selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
+            onSubmit={submitActivity}
+            onCancel={closeComposer}
+          />
+        </div>
       {/if}
 
       {#if data.lifecycle.phaseFive.activities.length === 0}
@@ -255,8 +255,6 @@
   .phase-surface,
   .card-rail-section,
   .history-stack,
-  .composer-card,
-  .number-grid,
   .card-rail {
     display: grid;
     gap: 12px;
@@ -269,18 +267,11 @@
     align-items: end;
   }
 
-  .section-actions,
-  .composer-actions,
-  .count-field-label {
+  .section-actions {
     display: flex;
     gap: 12px;
     align-items: center;
     flex-wrap: wrap;
-  }
-
-  .count-field {
-    display: grid;
-    gap: 6px;
   }
 
   .section-copy h3,
@@ -300,92 +291,34 @@
     min-width: 0;
   }
 
-  .composer-card,
   .empty-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
-  }
-
-  .empty-card,
-  .section-copy p,
-  .count-note {
     color: var(--text-soft);
   }
 
-  h3,
-  strong,
-  .field-inline-label {
+  .section-copy p {
+    color: var(--text-soft);
+  }
+
+  h3 {
     color: var(--text-main);
   }
 
-  .primary-button,
   .secondary-button {
     padding: 8px 12px;
     border-radius: var(--radius-sm);
     font-size: 12px;
     font-weight: 700;
-  }
-
-  .primary-button {
-    background: var(--brand);
-    color: var(--page-bg);
-  }
-
-  .secondary-button {
     border: 1px solid var(--panel-border);
     background: var(--panel);
     color: var(--text-soft);
   }
 
-  .number-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .count-readout {
-    width: 100%;
-    min-height: 48px;
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-main);
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-  }
-
-  .count-readout strong {
-    font-size: 18px;
-    line-height: 1;
-  }
-
-  input,
-  textarea,
-  select {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-main);
-  }
-
   [id^='activity-card-'] {
     scroll-margin-top: 92px;
-  }
-
-  textarea {
-    min-height: 110px;
-    resize: vertical;
-  }
-
-  .field-inline-label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 12px;
-    font-weight: 700;
   }
 
   .software-governance-placeholder {
@@ -408,8 +341,7 @@
   }
 
   @media (max-width: 760px) {
-    .section-head,
-    .number-grid {
+    .section-head {
       grid-template-columns: minmax(0, 1fr);
     }
   }

@@ -2,12 +2,12 @@
   import { invalidateAll } from '$app/navigation';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
+  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
-  import Tablet from '$lib/components/cards/shared/Tablet.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { setVote } from '$lib/services/queries/feeds';
   import type { PublicEventItem, VoteDirection } from '$lib/types/feed';
+  import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
   import { describeUpdateTime, formatLocalDateTime } from '$lib/utils/time';
 
@@ -27,18 +27,18 @@
   }
 </script>
 
-<FeedSurface href={item.href} tone="public">
+<FeedSurface href={item.href} tone="public" accent={surfaceTypeAccent('event')}>
   <div class="header-row">
     <div class="chips">
-      <SubjectTablet kind="event" />
-      <Tablet label={item.isPrivate ? 'Private' : 'Public'} variant="visibility" />
+      <SurfaceTypeLabel kind="event" />
+      <span class="meta-note">· {item.isPrivate ? 'Private' : 'Public'}</span>
       {#if item.stage}
-        <Tablet label={item.stage} variant="stage" />
+        <span class="meta-note">· {item.stage}</span>
       {/if}
     </div>
 
     <div class="tag-stack">
-      <TagList columns={4} tags={orderedTags} />
+      <TagList tags={orderedTags} />
     </div>
   </div>
 
@@ -84,7 +84,16 @@
   .chips {
     display: flex;
     gap: 0.45rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .meta-note {
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 600;
   }
 
   .title {
@@ -108,6 +117,14 @@
     line-height: 1.4;
   }
 
+  .body {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-clamp: 3;
+    -webkit-line-clamp: 3;
+  }
+
   .latest-summary {
     display: -webkit-box;
     overflow: hidden;
@@ -120,6 +137,8 @@
 
   .tag-stack {
     margin-left: auto;
+    flex: 0 1 auto;
+    min-width: 0;
   }
 
   .footer {
@@ -151,11 +170,11 @@
     text-align: right;
   }
 
-  @media (max-width: 760px) {
-    .tag-stack {
-      margin-left: 0;
-    }
+  .activity-stamp {
+    white-space: nowrap;
+  }
 
+  @media (max-width: 760px) {
     .footer-meta {
       text-align: left;
     }

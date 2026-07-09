@@ -23,8 +23,6 @@
   export let showComposer = false;
   export let highlightedActivityId: string | null = null;
   export let activityComposerElement: HTMLElement | null = null;
-  export let activityStartInputElement: HTMLInputElement | null = null;
-  export let activityEndInputElement: HTMLInputElement | null = null;
   export let openComposer: () => void | Promise<void> = () => {};
   export let openComposerForDay: (isoDay: string) => void | Promise<void> = () => {};
   export let focusActivityCard: (activityId: string) => void | Promise<void> = () => {};
@@ -98,13 +96,15 @@
   />
 
   {#if data.lifecycle.phaseFive.viewerCanCreateActivities && showComposer}
-    <ActivityCreationWizard
-      open={showComposer}
-      form={activityForm}
-      selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
-      onSubmit={submitActivity}
-      onCancel={closeComposer}
-    />
+    <div bind:this={activityComposerElement}>
+      <ActivityCreationWizard
+        open={showComposer}
+        form={activityForm}
+        selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
+        onSubmit={submitActivity}
+        onCancel={closeComposer}
+      />
+    </div>
   {/if}
 
   <div class="surface-stack">
@@ -129,8 +129,7 @@
   .surface-stack,
   .composer-card,
   .mechanics-card,
-  .request-card-shell,
-  .number-grid {
+  .request-card-shell {
     display: grid;
     gap: 12px;
   }
@@ -161,8 +160,7 @@
   }
 
   strong,
-  h3,
-  .field-inline-label {
+  h3 {
     color: var(--text-main);
   }
 
@@ -176,72 +174,17 @@
     font-weight: 700;
   }
 
-  .primary-button,
-  .secondary-button {
+  .primary-button {
     padding: 8px 12px;
     border-radius: var(--radius-sm);
     font-size: 12px;
     font-weight: 700;
-  }
-
-  .primary-button {
     background: var(--brand);
     color: var(--page-bg);
   }
 
-  .secondary-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-soft);
-  }
-
-  .number-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .count-field {
-    display: grid;
-    gap: 6px;
-  }
-
-  .count-field-label {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .count-note {
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 400;
-  }
-
-  .count-readout {
-    width: 100%;
-    min-height: 48px;
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-main);
-    box-sizing: border-box;
-  }
-
-  .count-readout {
-    display: flex;
-    align-items: center;
-  }
-
-  .count-readout strong {
-    color: var(--text-main);
-    font-size: 18px;
-    line-height: 1;
-  }
-
   input,
-  textarea,
-  select {
+  textarea {
     width: 100%;
     padding: 12px;
     border: 1px solid var(--panel-border);
@@ -257,18 +200,5 @@
   textarea {
     min-height: 110px;
     resize: vertical;
-  }
-
-  .field-inline-label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  @media (max-width: 760px) {
-    .number-grid {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

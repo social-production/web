@@ -29,8 +29,6 @@
   export let removePlanPhase: (index: number) => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
   export let isExpandedPlan: (planId: string) => boolean = () => false;
-  export let autoAssessPlanId: string | null = null;
-  export let autoAssessCriterionId: string | null = null;
   export let overallvote: (planId: string, vote: ProjectApprovalVote | null) => void = () => {};
 
   $: isPhaseTwo = phaseId === 'phase-2';

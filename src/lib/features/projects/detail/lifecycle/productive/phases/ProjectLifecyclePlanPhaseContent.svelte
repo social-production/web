@@ -39,7 +39,6 @@
   export let showComposer = false;
   export let submitLabel = 'Submit plan';
   export let addPlanPhase: () => void = () => {};
-  export let removePlanPhase: (index: number) => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
   export let editingPlanId: string | null = null;
   export let startEditingPlan: (planId: string) => void | Promise<void> = () => {};
@@ -222,170 +221,21 @@
 
 <style>
   .phase-surface,
-  .surface-stack,
-  .composer-card,
-  .warning-card,
-  .demand-context-card,
-  .materials-stack,
-  .step-stack,
-  .step-card {
+  .surface-stack {
     display: grid;
     gap: 12px;
-  }
-
-  .material-row {
-    display: grid;
-    gap: 8px;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-  }
-
-  .material-empty-copy {
-    color: var(--text-soft);
-    font-size: 12px;
-  }
-
-  .composer-toggle-row,
-  .composer-actions,
-  .step-header-row,
-  .checkbox-row {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
   }
 
   .composer-toggle-row {
+    display: flex;
     justify-content: center;
   }
 
-  .step-header-row {
-    justify-content: space-between;
-  }
-
-  .composer-card,
-  .demand-context-card,
-  .empty-card,
-  .step-card {
+  .empty-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
-  }
-
-  .warning-card {
-    padding: 14px 16px;
-    border: 1px solid color-mix(in srgb, var(--status-yellow) 50%, var(--panel-border));
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--status-yellow) 14%, var(--panel-strong));
-  }
-
-  .warning-list {
-    margin: 0;
-    padding-left: 18px;
     color: var(--text-soft);
-    display: grid;
-    gap: 4px;
-  }
-
-  .empty-card {
-    color: var(--text-soft);
-  }
-
-  .primary-button,
-  .secondary-button {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .primary-button {
-    background: var(--brand);
-    color: var(--page-bg);
-  }
-
-  .secondary-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-soft);
-  }
-
-  input,
-  select,
-  textarea {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-main);
-  }
-
-  textarea {
-    min-height: 110px;
-    resize: vertical;
-  }
-
-  .checkbox-row input {
-    width: auto;
-    padding: 0;
-  }
-
-  .checkbox-row span,
-  .demand-context-card span,
-  .field-inline-label,
-  strong {
-    color: var(--text-main);
-  }
-
-  .value-proposal-list {
-    display: grid;
-    gap: 8px;
-  }
-
-  .value-proposal-heading {
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .value-proposal-list ul {
-    margin: 0;
-    padding-left: 18px;
-    display: grid;
-    gap: 6px;
-  }
-
-  .value-proposal-list li {
-    display: grid;
-    gap: 2px;
-  }
-
-  .value-proposal-list li span {
-    color: var(--text-soft);
-    font-size: 12px;
-  }
-
-  .value-note-stack {
-    display: grid;
-    gap: 10px;
-  }
-
-  .value-note-field {
-    display: grid;
-    gap: 6px;
-  }
-
-  .value-note-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-main);
-  }
-
-  .field-inline-label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 12px;
-    font-weight: 700;
   }
 </style>

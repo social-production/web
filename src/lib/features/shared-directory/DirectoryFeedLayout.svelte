@@ -2,13 +2,14 @@
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import PublicFeedCard from '$lib/components/cards/public-feed/PublicFeedCard.svelte';
-  import CommunityInvitePanel from '$lib/features/communities/CommunityInvitePanel.svelte';
+  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import PlatformBoardPanel from '$lib/features/platform/board/PlatformBoardPanel.svelte';
+  import ScopeDirectoryHeader from '$lib/features/shared-directory/ScopeDirectoryHeader.svelte';
   import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import { setVote } from '$lib/services/queries/feeds';
   import { redeemScopeInvite, toggleScopeMembership, castModeratorVote } from '$lib/services/queries/scopes';
   import { parseInviteToken } from '$lib/utils/invite-token';
-  import { buildScopedCreateHref } from '$lib/utils/createScopePrefill';
   import type { PublicFeedItem, VoteDirection } from '$lib/types/feed';
   import type { ScopeMemberSummary, ScopePageData } from '$lib/types/scope';
 
@@ -18,7 +19,28 @@
   type FeedSort = 'popular' | 'recent';
   type FeedWindow = '12h' | '1d' | '7d' | '1m' | '1y' | 'all';
 
-  let activeFilter: 'all' | 'projects' | 'threads' | 'events' = 'all';
+  const filterOptions = [
+    { value: 'all', label: 'All items' },
+    { value: 'projects', label: 'Projects', icon: 'project' as const },
+    { value: 'threads', label: 'Threads', icon: 'thread' as const },
+    { value: 'events', label: 'Events', icon: 'event' as const }
+  ];
+
+  const sortOptions = [
+    { value: 'popular', label: 'Most popular' },
+    { value: 'recent', label: 'Most recent' }
+  ];
+
+  const windowOptions = [
+    { value: '12h', label: 'Last 12 hours' },
+    { value: '1d', label: '1 day' },
+    { value: '7d', label: '7 days' },
+    { value: '1m', label: '1 month' },
+    { value: '1y', label: '1 year' },
+    { value: 'all', label: 'All time' }
+  ];
+
+  let activeFilter: DirectoryFilter = 'all';
   let activeSort: FeedSort = 'popular';
   let activeWindow: FeedWindow = 'all';
   let showBoardPanel = false;
@@ -30,7 +52,6 @@
   let inviteFeedbackTone: 'soft' | 'warning' = 'soft';
   let lastInviteParam = '';
   let autoRedeemAttempted = false;
-  let showCreateMenu = false;
 
   $: showRolePanel = pageData.kind === 'platform';
   $: if (!showRolePanel && showBoardPanel) {
@@ -42,10 +63,6 @@
     .filter((item) => matchesWindow(item, activeWindow, referenceTime))
     .slice()
     .sort((left, right) => compareItems(left, right, activeSort));
-  $: inviteButtonActive =
-    pageData.membership.joinPolicy === 'invite_only'
-      ? showInvitePanel
-      : pageData.membership.viewerIsMember;
   $: {
     const inviteParam = $page.url.searchParams.get('invite') ?? '';
 
@@ -171,21 +188,6 @@
     }
   }
 
-  async function handleHeaderAction() {
-    if (pageData.membership.joinPolicy === 'invite_only') {
-      showInvitePanel = !showInvitePanel;
-      inviteFeedback = '';
-      inviteFeedbackTone = 'soft';
-      return;
-    }
-
-    await handleMembershipToggle();
-  }
-
-  function toggleCreateMenu() {
-    showCreateMenu = !showCreateMenu;
-  }
-
   async function handleInviteRedeem() {
     const token = parseInviteToken(inviteDraft);
     if (!token) {
@@ -221,132 +223,20 @@
 </script>
 
 <section class="directory-page">
-  <section class="header-card">
-    <div class="header-topline">
-      <div class="badge-row">
-        {#each pageData.badges as badge}
-          <span class="badge">{badge}</span>
-        {/each}
-      </div>
-      <div class="membership-row">
-        <span class="member-count">{pageData.membership.memberCount} members</span>
-        {#if pageData.membership.joinPolicy === 'invite_only' && pageData.membership.viewerIsMember}
-          <button
-            class="tab-chip"
-            disabled={membershipPending}
-            type="button"
-            on:click={handleMembershipToggle}
-          >
-            Leave
-          </button>
-        {/if}
-        <button
-          aria-label={
-            pageData.membership.joinPolicy === 'invite_only'
-              ? showInvitePanel
-                ? `Hide invite panel for ${pageData.title}`
-                : `Open invite panel for ${pageData.title}`
-              : pageData.membership.viewerIsMember
-                ? `Leave ${pageData.title}`
-                : `Join ${pageData.title}`
-          }
-          class:active={inviteButtonActive}
-          class="membership-button"
-          disabled={
-            pageData.membership.joinPolicy === 'invite_only'
-              ? false
-              : !pageData.membership.viewerCanToggleMembership || membershipPending
-          }
-          type="button"
-          on:click={handleHeaderAction}
-        >
-          +
-        </button>
-        {#if pageData.membership.viewerIsMember || pageData.kind === 'platform'}
-          <div class="create-menu-shell">
-            <button
-              aria-expanded={showCreateMenu}
-              aria-label={`Create content in ${pageData.title}`}
-              class:active={showCreateMenu}
-              class="create-button"
-              type="button"
-              on:click={toggleCreateMenu}
-            >
-              Create
-            </button>
-            {#if showCreateMenu}
-              <div class="create-menu">
-                <a href={buildScopedCreateHref('/create/thread', pageData.kind, pageData.slug)}>Thread</a>
-                <a href={buildScopedCreateHref('/create/project', pageData.kind, pageData.slug)}>Project</a>
-                <a href={buildScopedCreateHref('/create/event', pageData.kind, pageData.slug)}>Event</a>
-                <a href={buildScopedCreateHref('/create/help-request', pageData.kind, pageData.slug)}>Help request</a>
-              </div>
-            {/if}
-          </div>
-        {/if}
-      </div>
-    </div>
-
-    <div class="header-copy">
-      <h1>{pageData.title}</h1>
-      <p>{pageData.description}</p>
-      {#if pageData.note}
-        <p class="note">{pageData.note}</p>
-      {/if}
-    </div>
-
-    {#if showRolePanel}
-      <div class="header-actions">
-        <button
-          class:active={showBoardPanel}
-          class="tab-chip"
-          type="button"
-          on:click={() => (showBoardPanel = !showBoardPanel)}
-        >
-          Moderators
-        </button>
-      </div>
-    {/if}
-
-    {#if pageData.membership.joinPolicy === 'invite_only' && showInvitePanel}
-      <CommunityInvitePanel
-        active={showInvitePanel}
-        bind:inviteDraft
-        bind:inviteFeedback
-        bind:inviteFeedbackTone
-        bind:invitePending
-        {pageData}
-        onRedeem={handleInviteRedeem}
-      />
-    {/if}
-  </section>
-
-  {#if pageData.membership.viewerCanSeeFeed}
-    <section class="toolbar-card">
-      <div class="controls-row">
-        <select aria-label={`Filter ${pageData.title} feed`} bind:value={activeFilter}>
-          <option value="all">All items</option>
-          <option value="projects">Projects</option>
-          <option value="threads">Threads</option>
-          <option value="events">Events</option>
-        </select>
-
-        <select aria-label={`Sort ${pageData.title} feed by`} bind:value={activeSort}>
-          <option value="popular">Most popular</option>
-          <option value="recent">Most recent</option>
-        </select>
-
-        <select aria-label={`${pageData.title} feed time window`} bind:value={activeWindow}>
-          <option value="12h">Last 12 hours</option>
-          <option value="1d">1 day</option>
-          <option value="7d">7 days</option>
-          <option value="1m">1 month</option>
-          <option value="1y">1 year</option>
-          <option value="all">All time</option>
-        </select>
-      </div>
-    </section>
-  {/if}
+  <ScopeDirectoryHeader
+    bind:inviteDraft
+    bind:inviteFeedback
+    bind:inviteFeedbackTone
+    bind:invitePending
+    bind:showBoardPanel
+    bind:showInvitePanel
+    {membershipPending}
+    {pageData}
+    onInviteRedeem={handleInviteRedeem}
+    onLeave={handleMembershipToggle}
+    onMembershipAction={handleMembershipToggle}
+    onToggleBoardPanel={() => (showBoardPanel = !showBoardPanel)}
+  />
 
   {#if showRolePanel && showBoardPanel}
     <PlatformBoardPanel
@@ -355,6 +245,35 @@
       {meetsConfidenceThreshold}
       onVote={handleConfidenceVote}
     />
+  {/if}
+
+  {#if pageData.membership.viewerCanSeeFeed}
+    <section class="toolbar-card">
+      <div class="controls-row">
+        <IconMenuButton
+          bind:value={activeFilter}
+          ariaLabel={`Filter ${pageData.title} feed`}
+          defaultValue="all"
+          options={filterOptions}
+          showOptionIcons
+        >
+          <FeedToolbarIcon name="filter" />
+        </IconMenuButton>
+
+        <IconMenuButton bind:value={activeSort} ariaLabel={`Sort ${pageData.title} feed by`} options={sortOptions}>
+          <FeedToolbarIcon name="sort" />
+        </IconMenuButton>
+
+        <IconMenuButton
+          bind:value={activeWindow}
+          ariaLabel={`${pageData.title} feed time window`}
+          defaultValue="all"
+          options={windowOptions}
+        >
+          <FeedToolbarIcon name="clock" />
+        </IconMenuButton>
+      </div>
+    </section>
   {/if}
 
   <div class="stack">
@@ -386,186 +305,34 @@
 
   .stack {
     gap: 0;
+    min-width: 0;
+    overflow-x: clip;
   }
 
-  .header-card {
-    display: grid;
-    gap: 12px;
+  .stack :global(.surface:last-child) {
+    border-bottom: none;
   }
 
-  .header-card,
   .toolbar-card,
   .info-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-  }
-
-  .info-card {
+    padding: 12px 0;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
     border-radius: 0;
-  }
-
-  .header-topline,
-  .membership-row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  .header-topline {
-    justify-content: space-between;
-  }
-
-  .badge-row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .badge,
-  .tab-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 7px 10px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .tab-chip.active {
-    border-color: transparent;
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .header-actions {
-    display: flex;
-    justify-content: flex-end;
+    background: transparent;
   }
 
   .controls-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(150px, 184px));
-    gap: 8px;
-    justify-content: start;
-  }
-
-  .controls-row select {
-    min-width: 0;
-    height: 38px;
-    padding: 0 12px;
-  }
-
-  .header-copy {
-    display: grid;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
     gap: 6px;
+    width: 100%;
+    overflow-x: auto;
   }
 
-  .header-copy h1 {
-    font-size: 22px;
-    letter-spacing: -0.02em;
-  }
-
-  .header-copy p,
-  .member-count,
-  .note,
   .info-card p {
     color: var(--text-soft);
     line-height: 1.5;
-  }
-
-  .membership-button {
-    width: 34px;
-    height: 34px;
-    border-radius: 999px;
-    border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
-    color: var(--brand-strong);
-    font-size: 18px;
-    font-weight: 800;
-  }
-
-  .membership-button.active,
-  .membership-button:hover:not(:disabled) {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-  }
-
-  .create-menu-shell {
-    position: relative;
-  }
-
-  .create-button {
-    padding: 7px 12px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--panel-border);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .create-button.active,
-  .create-button:hover {
-    border-color: var(--brand);
-  }
-
-  .create-menu {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 4;
-    display: grid;
-    min-width: 160px;
-    padding: 6px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--text-main) 12%, transparent);
-  }
-
-  .create-menu a {
-    padding: 8px 10px;
-    border-radius: var(--radius-sm);
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .create-menu a:hover {
-    background: var(--panel-soft);
-  }
-
-  @media (max-width: 760px) {
-    .toolbar-card,
-    .header-topline {
-      align-items: stretch;
-      flex-direction: column;
-    }
-
-    .membership-row,
-    .badge-row {
-      width: 100%;
-    }
-
-    .header-actions {
-      justify-content: flex-start;
-    }
-
-    .controls-row {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      width: 100%;
-    }
-
-    .controls-row select {
-      height: 32px;
-      font-size: 11px;
-    }
   }
 </style>

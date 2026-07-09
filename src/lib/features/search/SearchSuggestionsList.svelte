@@ -1,5 +1,6 @@
 <script lang="ts">
   import { searchKindLabels } from '$lib/features/search/searchKinds';
+  import { formatSearchMeta } from '$lib/features/search/formatSearchMeta';
   import type { SearchResultItem } from '$lib/types/search';
 
   export let results: SearchResultItem[] = [];
@@ -21,7 +22,7 @@
           <span class="kind-chip">{searchKindLabels[result.kind]}</span>
           <span class="suggestion-copy">
             <strong>{result.title}</strong>
-            <span>{result.meta}</span>
+            <span>{formatSearchMeta(result.meta, result.kind)}</span>
           </span>
         </button>
       {:else}
@@ -29,7 +30,7 @@
           <span class="kind-chip">{searchKindLabels[result.kind]}</span>
           <span class="suggestion-copy">
             <strong>{result.title}</strong>
-            <span>{result.meta}</span>
+            <span>{formatSearchMeta(result.meta, result.kind)}</span>
           </span>
         </a>
       {/if}

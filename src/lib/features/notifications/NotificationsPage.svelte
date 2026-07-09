@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import NotificationCard from '$lib/components/cards/inbox/NotificationCard.svelte';
+  import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import { acceptFollowRequest, rejectFollowRequest } from '$lib/services/queries/account';
   import { markAllNotificationsRead, markNotificationRead } from '$lib/services/queries/inbox';
   import type { NotificationItem, NotificationsPageData } from '$lib/types/inbox';
@@ -62,16 +63,11 @@
 </script>
 
 <section class="page">
-  <section class="hero-card">
-    <div class="hero-topline">
-      <div>
-        <h1>{m.notifications_page_title()}</h1>
-        <p>{m.notifications_page_intro()}</p>
-      </div>
-
+  <PageHeader description={m.notifications_page_intro()} title={m.notifications_page_title()}>
+    <svelte:fragment slot="actions">
       <button class="secondary-button" type="button" on:click={readAll}>{m.notifications_mark_all_read()}</button>
-    </div>
-  </section>
+    </svelte:fragment>
+  </PageHeader>
 
   <div class="stack">
     {#each data.items as item}
@@ -96,31 +92,6 @@
 
   .stack {
     gap: 0;
-  }
-
-  .hero-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-  }
-
-  .hero-topline {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  h1 {
-    font-size: 22px;
-    letter-spacing: -0.02em;
-    color: var(--brand-strong);
-  }
-
-  p {
-    color: var(--text-soft);
-    line-height: 1.45;
   }
 
   .secondary-button {

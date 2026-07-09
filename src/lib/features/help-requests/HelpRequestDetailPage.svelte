@@ -5,7 +5,6 @@
   import { onMount } from 'svelte';
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
-  import ContextualBackButton from '$lib/components/shared/ContextualBackButton.svelte';
   import HelpRequestOverviewHeader from '$lib/features/help-requests/detail/HelpRequestOverviewHeader.svelte';
   import HelpRequestRolesSection from '$lib/features/help-requests/detail/HelpRequestRolesSection.svelte';
   import { addComment } from '$lib/services/queries/details';
@@ -119,9 +118,6 @@
 
 <section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
   <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
-    {#if !(activeTab === 'chat' && isCompact)}
-      <ContextualBackButton fallbackHref="/" />
-    {/if}
     <div class="top-tab-row" role="tablist" aria-label="Help request detail tabs">
       <button
         class:active-tab={activeTab === 'overview'}

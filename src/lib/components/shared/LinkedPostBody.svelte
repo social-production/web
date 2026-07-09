@@ -83,6 +83,7 @@
     margin-top: 10px;
     font-size: 14px;
     line-height: 1.45;
+    white-space: normal;
   }
 
   .linked-body.detail {

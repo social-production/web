@@ -2,11 +2,12 @@
   import { invalidateAll } from '$app/navigation';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
-  import SubjectTablet from '$lib/components/cards/shared/SubjectTablet.svelte';
+  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { setVote } from '$lib/services/queries/feeds';
   import type { PublicHelpRequestItem, VoteDirection } from '$lib/types/feed';
+  import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { describeActivityTime, formatLocalDateTime } from '$lib/utils/time';
 
   export let item: PublicHelpRequestItem;
@@ -26,14 +27,14 @@
   }
 </script>
 
-<FeedSurface href={item.href} tone="public">
+<FeedSurface href={item.href} tone="public" accent={surfaceTypeAccent('help-request')}>
   <div class="header-row">
     <div class="chips">
-      <SubjectTablet kind="help-request" />
+      <SurfaceTypeLabel kind="help-request" />
     </div>
 
     <div class="tag-stack">
-      <TagList columns={4} tags={orderedTags} />
+      <TagList tags={orderedTags} />
     </div>
   </div>
 
@@ -78,11 +79,16 @@
   .chips {
     display: flex;
     gap: 0.5rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .tag-stack {
     margin-left: auto;
+    flex: 0 1 auto;
+    min-width: 0;
   }
 
   .footer {
@@ -141,11 +147,11 @@
     text-align: right;
   }
 
-  @media (max-width: 760px) {
-    .tag-stack {
-      margin-left: 0;
-    }
+  .activity-stamp {
+    white-space: nowrap;
+  }
 
+  @media (max-width: 760px) {
     .footer-meta {
       text-align: left;
     }

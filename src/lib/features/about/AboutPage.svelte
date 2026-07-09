@@ -1,17 +1,24 @@
-<section class="page">
-  <section class="hero-card">
-    <h1>About</h1>
-    <p>
-      Social Production is a coordination platform for collective activity. It is a social network built to help people organize work, events, services, software, mutual aid, and eventually larger real-world production outside the logic of markets, wages, and private profit.
-    </p>
-    <p>
-      The Phase 1 web prototype is focused on facilitation: helping people find each other, create projects and events, coordinate requests and activity, and test the social mechanics before legal, funding, asset-holding, and peer-to-peer infrastructure come online.
-    </p>
-  </section>
+<script lang="ts">
+  import PageHeader from '$lib/components/shared/PageHeader.svelte';
+</script>
 
-  <section class="hero-card">
-    <h2 class="roadmap-title">Roadmap</h2>
-  </section>
+<section class="page">
+  <PageHeader description="A coordination platform for collective activity." title="About" />
+
+  <div class="intro-prose">
+    <p>
+      Social Production is a coordination platform for collective activity. It is a social network built to help people
+      organize work, events, services, software, mutual aid, and eventually larger real-world production outside the
+      logic of markets, wages, and private profit.
+    </p>
+    <p>
+      The Phase 1 web prototype is focused on facilitation: helping people find each other, create projects and events,
+      coordinate requests and activity, and test the social mechanics before legal, funding, asset-holding, and
+      peer-to-peer infrastructure come online.
+    </p>
+  </div>
+
+  <h2 class="roadmap-title">Roadmap</h2>
 
   <div class="stack">
     <section class="phase-card current-phase">
@@ -86,6 +93,18 @@
     gap: 12px;
   }
 
+  .intro-prose {
+    max-width: 65ch;
+    display: grid;
+    gap: 12px;
+  }
+
+  .intro-prose p {
+    margin: 0;
+    color: var(--text-soft);
+    line-height: 1.6;
+  }
+
   .hero-card,
   .phase-card {
     padding: 12px;
@@ -100,12 +119,6 @@
     background: color-mix(in srgb, var(--brand-soft) 22%, var(--panel));
   }
 
-  h1 {
-    font-size: 22px;
-    letter-spacing: -0.02em;
-    color: var(--brand-strong);
-  }
-
   h2,
   h3 {
     margin-top: 4px;
@@ -114,7 +127,10 @@
   }
 
   .roadmap-title {
-    text-align: center;
+    margin: 0;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+    text-align: left;
   }
 
   .phase-head {
@@ -148,7 +164,6 @@
     border: 1px solid var(--brand);
   }
 
-  p,
   li {
     margin-top: 8px;
     color: var(--text-soft);

@@ -23,7 +23,6 @@
   export let form: DraftPlanForm;
   export let showComposer = false;
   export let addPlanPhase: () => void = () => {};
-  export let removePlanPhase: (index: number) => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
   export let isExpandedPlan: (planId: string) => boolean = () => false;
   export let autoAssessPlanId: string | null = null;
@@ -47,7 +46,6 @@
   bind:showComposer
   {submitLabel}
   {addPlanPhase}
-  {removePlanPhase}
   {submitPlan}
   {isExpandedPlan}
   {autoAssessPlanId}

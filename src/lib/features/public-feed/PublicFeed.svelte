@@ -3,6 +3,8 @@
   import { page } from '$app/stores';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import PublicFeedCard from '$lib/components/cards/public-feed/PublicFeedCard.svelte';
+  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import { getHomeFeed } from '$lib/services/queries/feeds';
   import { getSettings, updateSettings } from '$lib/services/queries/account';
   import type {
@@ -27,6 +29,32 @@
     sort: 'popular',
     window: 'all'
   };
+
+  const scopeOptions = [
+    { value: 'home', label: 'Home' },
+    { value: 'global', label: 'Global' }
+  ];
+
+  const filterOptions = [
+    { value: 'all', label: 'All items' },
+    { value: 'projects', label: 'Projects', icon: 'project' as const },
+    { value: 'threads', label: 'Threads', icon: 'thread' as const },
+    { value: 'events', label: 'Events', icon: 'event' as const }
+  ];
+
+  const sortOptions = [
+    { value: 'popular', label: 'Most popular' },
+    { value: 'recent', label: 'Most recent' }
+  ];
+
+  const windowOptions = [
+    { value: '12h', label: 'Last 12 hours' },
+    { value: '1d', label: '1 day' },
+    { value: '7d', label: '7 days' },
+    { value: '1m', label: '1 month' },
+    { value: '1y', label: '1 year' },
+    { value: 'all', label: 'All time' }
+  ];
 
   let activeScope: PublicScope = defaultPreferences.scope;
   let activeFilter: PublicFilter = defaultPreferences.filter;
@@ -230,31 +258,45 @@
 
   <section class="toolbar-card">
     <div class="controls-row">
-      <select aria-label="Choose public feed scope" bind:value={activeScope} on:change={handlePreferencesChange}>
-        <option value="home">Home</option>
-        <option value="global">Global</option>
-      </select>
+      <IconMenuButton
+        bind:value={activeScope}
+        ariaLabel="Choose public feed scope"
+        defaultValue="global"
+        options={scopeOptions}
+        on:change={handlePreferencesChange}
+      >
+        <FeedToolbarIcon name={activeScope === 'home' ? 'home' : 'globe'} />
+      </IconMenuButton>
 
-      <select aria-label="Filter public feed" bind:value={activeFilter} on:change={handlePreferencesChange}>
-        <option value="all">All items</option>
-        <option value="projects">Projects</option>
-        <option value="threads">Threads</option>
-        <option value="events">Events</option>
-      </select>
+      <IconMenuButton
+        bind:value={activeFilter}
+        ariaLabel="Filter public feed"
+        defaultValue="all"
+        options={filterOptions}
+        showOptionIcons
+        on:change={handlePreferencesChange}
+      >
+        <FeedToolbarIcon name="filter" />
+      </IconMenuButton>
 
-      <select aria-label="Sort public feed by" bind:value={activeSort} on:change={handlePreferencesChange}>
-        <option value="popular">Most popular</option>
-        <option value="recent">Most recent</option>
-      </select>
+      <IconMenuButton
+        bind:value={activeSort}
+        ariaLabel="Sort public feed by"
+        options={sortOptions}
+        on:change={handlePreferencesChange}
+      >
+        <FeedToolbarIcon name="sort" />
+      </IconMenuButton>
 
-      <select aria-label="Public feed time window" bind:value={activeWindow} on:change={handlePreferencesChange}>
-        <option value="12h">Last 12 hours</option>
-        <option value="1d">1 day</option>
-        <option value="7d">7 days</option>
-        <option value="1m">1 month</option>
-        <option value="1y">1 year</option>
-        <option value="all">All time</option>
-      </select>
+      <IconMenuButton
+        bind:value={activeWindow}
+        ariaLabel="Public feed time window"
+        defaultValue="all"
+        options={windowOptions}
+        on:change={handlePreferencesChange}
+      >
+        <FeedToolbarIcon name="clock" />
+      </IconMenuButton>
     </div>
   </section>
 
@@ -287,49 +329,40 @@
 
   .stack {
     gap: 0;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .stack :global(.surface:last-child) {
+    border-bottom: none;
   }
 
   .toolbar-card {
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
+    padding: 12px 4px;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: transparent;
   }
 
   .controls-row {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
     width: 100%;
-  }
-
-  .controls-row select {
-    min-width: 0;
-    height: 34px;
-    padding: 0 10px;
-    font-size: 12px;
+    overflow-x: auto;
   }
 
   .empty-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
+    padding: 20px 4px;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
     border-radius: 0;
-    background: var(--panel);
+    background: transparent;
   }
 
   .empty-card p {
     color: var(--text-soft);
-  }
-
-  @media (max-width: 760px) {
-    .controls-row {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      width: 100%;
-    }
-
-    .controls-row select {
-      height: 32px;
-      font-size: 13px;
-    }
   }
 </style>
