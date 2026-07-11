@@ -61,6 +61,8 @@ export interface RightRailActivityItem {
   voteSubKind?: 'criterion' | 'overall';
   planPhaseId?: 'phase-2' | 'phase-3';
   scheduledAt?: string;
+  endsAt?: string;
+  viewerParticipated?: boolean;
 }
 
 export interface BootstrapPayload {
@@ -70,4 +72,5 @@ export interface BootstrapPayload {
   directory: ScopeDirectory;
   suggestedContacts: ViewerSummary[];
   activityRail: RightRailActivityItem[];
+  activityRailHistory: RightRailActivityItem[];
 }

@@ -63,6 +63,11 @@
     role: ProjectServiceHistoryCompletionRole,
     selection?: ProjectServiceHistoryCompletionChoice
   ) => void | Promise<void> = () => {};
+  export let saveActivityRating: (
+    activityId: string,
+    rating: number,
+    comment: string | null
+  ) => void | Promise<void> = () => {};
 </script>
 
 {#if activePhaseId === 'phase-1'}
@@ -87,6 +92,7 @@
     {requestServiceRequestSettingsChange}
     {voteOnRequestSettingsChange}
     {toggleHistoryCompletion}
+    {saveActivityRating}
   />
 {:else}
   <IndividualServicePhaseTwo projectMode={data.projectMode} />

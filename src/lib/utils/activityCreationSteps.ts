@@ -138,6 +138,77 @@ export function buildActivityCreationSteps(hasPlanStages: boolean): ActivityCrea
   return steps;
 }
 
+export function localDateTimeValue(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  const hours = `${date.getHours()}`.padStart(2, '0');
+  const minutes = `${date.getMinutes()}`.padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+export function localTodayIsoDay() {
+  return localDateTimeValue(new Date()).slice(0, 10);
+}
+
+export function effectiveActivityStartMin(
+  scheduledAt: string,
+  scheduleBounds: ActivityScheduleBounds | null
+): string | undefined {
+  const boundsMin = scheduleBounds?.startLocal ?? undefined;
+  const nowMin = localDateTimeValue(new Date());
+  const selectedDay = scheduledAt.slice(0, 10);
+
+  if (!selectedDay || selectedDay !== localTodayIsoDay()) {
+    return boundsMin;
+  }
+
+  if (!boundsMin) {
+    return nowMin;
+  }
+
+  return boundsMin > nowMin ? boundsMin : nowMin;
+}
+
+export function activityScheduleStartIsValid(form: ActivityCreationForm): boolean {
+  if (!form.scheduledAt.trim() || !form.endsAt.trim()) {
+    return false;
+  }
+
+  const startMs = new Date(form.scheduledAt).getTime();
+  const endMs = new Date(form.endsAt).getTime();
+
+  return (
+    !Number.isNaN(startMs) &&
+    !Number.isNaN(endMs) &&
+    endMs > startMs &&
+    startMs >= Date.now()
+  );
+}
+
+export function activityScheduleValidationMessage(form: ActivityCreationForm): string | null {
+  if (!form.scheduledAt.trim() || !form.endsAt.trim()) {
+    return null;
+  }
+
+  const startMs = new Date(form.scheduledAt).getTime();
+  const endMs = new Date(form.endsAt).getTime();
+
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+    return 'Choose valid start and finish times.';
+  }
+
+  if (endMs <= startMs) {
+    return 'Finish must be after the start time.';
+  }
+
+  if (startMs < Date.now()) {
+    return 'Start time must be in the future.';
+  }
+
+  return null;
+}
+
 export function validateActivityStep(
   step: ActivityCreationStep,
   form: ActivityCreationForm
@@ -145,15 +216,8 @@ export function validateActivityStep(
   switch (step.type) {
     case 'title':
       return !!form.title.trim();
-    case 'schedule': {
-      if (!form.scheduledAt.trim() || !form.endsAt.trim()) {
-        return false;
-      }
-
-      const startMs = new Date(form.scheduledAt).getTime();
-      const endMs = new Date(form.endsAt).getTime();
-      return !Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs;
-    }
+    case 'schedule':
+      return activityScheduleStartIsValid(form);
     case 'location':
       return form.isOnline || !!form.locationLabel.trim();
     case 'plan-stage':

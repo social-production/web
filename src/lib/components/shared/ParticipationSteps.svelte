@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import {
+    activateParticipationActivityPhase,
     focusActivitySignupTargets,
     getParticipationStepActionTarget,
     getParticipationStepAnchor
@@ -54,13 +55,22 @@
       highlightParticipationTarget(actionTarget);
     }
 
+    if (anchorId === 'participation-activities') {
+      activateParticipationActivityPhase();
+    }
+
     if (anchorId) {
-      scrollToPageAnchor(anchorId);
+      window.setTimeout(
+        () => {
+          scrollToPageAnchor(anchorId);
+        },
+        anchorId === 'participation-activities' ? 120 : 0
+      );
     }
 
     window.setTimeout(() => {
       highlightParticipationTarget(actionTarget);
-    }, isHeaderAction ? 700 : 450);
+    }, isHeaderAction ? 700 : anchorId === 'participation-activities' ? 620 : 450);
 
     dispatch('stepAction', { stepId });
   }

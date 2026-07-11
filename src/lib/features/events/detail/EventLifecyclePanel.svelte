@@ -3,20 +3,20 @@
   import { invalidateAll } from '$app/navigation';
   import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import { page } from '$app/stores';
-  import { tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { preserveScrollDuring } from '$lib/utils/time';
   import { composeActivityLocationLabel, normalizedRoleRequirements } from '$lib/utils/activityCreationSteps';
   import { resolveEventPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
   import EventLifecycleMechanicsCard from './components/EventLifecycleMechanicsCard.svelte';
   import EventLifecyclePhaseTabs from './components/EventLifecyclePhaseTabs.svelte';
   import EventPhaseChangeSection from './components/EventPhaseChangeSection.svelte';
+  import { PARTICIPATION_FOCUS_ACTIVITIES_EVENT } from '$lib/utils/participationActivityFocus';
   import { scrollToPendingVote } from '$lib/utils/pendingVotes';
   import EventLifecycleContent from './lifecycle/EventLifecycleContent.svelte';
   import {
     createEventActivityForm,
     createEventPlanForm,
     eventPlanDefaultActivityWindow,
-    eventPlanDefaultLocationLabel,
     eventPlanScheduleFromForm,
     eventPlanScheduledDayIsos,
     eventPlanSuggestedDayIso,
@@ -27,6 +27,7 @@
   } from './lifecycle/eventLifecycleShared';
   import {
     eventActivityFitsSchedule,
+    eventPlanFutureDayIsos,
     eventScheduleBounds,
     eventScheduleIsValid,
     eventScheduleStartsInFuture,
@@ -38,6 +39,7 @@
     addEventValue,
     requestEventPhaseChange,
     setEventActivityCommitment,
+    setEventActivityRating,
     setEventPhaseChangeVote,
     setEventPlanOverallVote,
     setEventPlanCriterionRating,
@@ -74,7 +76,7 @@
     const winningPlan = currentWinningPlan();
     const defaultDayIso = defaultActivityDayIso(isoDay);
     const baseForm = createEventActivityForm(
-      eventPlanDefaultLocationLabel(winningPlan) || data.locationLabel,
+      '',
       data.lifecycle.activity.selectablePlanPhases[0]?.id ?? null
     );
     const defaultWindow = eventPlanDefaultActivityWindow(winningPlan, defaultDayIso);
@@ -105,15 +107,20 @@
   let lastVoteTargetSignature = '';
 
   function readActivityTarget(url: URL): string | null {
+    if (url.hash.startsWith('#activity-card-')) {
+      return url.hash.slice('#activity-card-'.length) || null;
+    }
+
     if (url.hash.startsWith('#event-activity-')) {
       return url.hash.slice('#event-activity-'.length) || null;
     }
+
     return url.searchParams.get('activity');
   }
 
   function scrollActivityCardIntoView(activityId: string) {
     if (!browser) return;
-    document.getElementById(`event-activity-${activityId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById(`activity-card-${activityId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function openActivityDetails(activityId: string) {
@@ -149,6 +156,18 @@
       activityHighlightResetHandle = null;
     }, 1800);
   }
+
+  function handleParticipationActivitiesFocus() {
+    activePhaseId = 'activity';
+  }
+
+  onMount(() => {
+    document.addEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
+  });
+
+  onDestroy(() => {
+    document.removeEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
+  });
 
   function phaseChangeVoteGroup(requestId: string): 'return' | 'advance' | 'close' | null {
     const request = data.lifecycle.phaseChangeRequests.find((item) => item.id === requestId);
@@ -253,14 +272,19 @@
     data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ??
     null;
   $: plannedDayIsos = eventPlanScheduledDayIsos(selectedPlan);
+  $: futurePlannedDayIsos = eventPlanFutureDayIsos(selectedPlan);
   $: canAdvanceCurrentPhase =
     data.lifecycle.currentPhaseId === 'proposal'
       ? (signalSummary?.advancementUnlocked ?? false)
       : data.lifecycle.currentPhaseId === 'event-plan'
         ? !!data.lifecycle.phaseTwo.winningPlanId
         : data.lifecycle.currentPhaseId === 'activity';
-  $: if (activePhaseId === 'activity' && plannedDayIsos.length > 0 && !plannedDayIsos.includes(selectedDayIso)) {
-    selectedDayIso = plannedDayIsos[0];
+  $: if (
+    activePhaseId === 'activity' &&
+    futurePlannedDayIsos.length > 0 &&
+    !futurePlannedDayIsos.includes(selectedDayIso)
+  ) {
+    selectedDayIso = futurePlannedDayIsos[0];
   }
   $: phaseTabs = data.lifecycle.phases.map(
     (phase): EventLifecycleTabItem => ({
@@ -471,12 +495,11 @@
     const winningPlan = currentWinningPlan();
     const defaultDayIso = defaultActivityDayIso(targetDayIso);
     const defaultWindow = eventPlanDefaultActivityWindow(winningPlan, defaultDayIso);
-    const defaultLocationLabel = eventPlanDefaultLocationLabel(winningPlan) || data.locationLabel;
     const shouldRefreshWindow = !!targetDayIso || !activityForm.scheduledAt || !activityForm.endsAt;
 
     activityForm = {
       ...activityForm,
-      locationLabel: activityForm.locationLabel || defaultLocationLabel,
+      locationLabel: '',
       scheduledAt:
         shouldRefreshWindow && defaultWindow.scheduledAt
           ? defaultWindow.scheduledAt
@@ -528,6 +551,15 @@
   async function changeCommitment(activityId: string, roleLabel: string | null) {
     await setEventActivityCommitment(data.slug, activityId, roleLabel);
     await invalidateAll();
+  }
+
+  async function saveActivityRating(
+    activityId: string,
+    rating: number,
+    comment: string | null
+  ) {
+    await setEventActivityRating(data.slug, activityId, rating, comment);
+    await Promise.all([invalidateAll(), refreshBootstrap()]);
   }
 
   async function requestPhaseChange(targetPhaseId: EventLifecyclePhaseId, reason: string) {
@@ -595,6 +627,7 @@
       {openActivityComposerForDay}
       {submitActivity}
       changeCommitment={changeCommitment}
+      {saveActivityRating}
     />
 
     <EventPhaseChangeSection

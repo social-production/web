@@ -22,6 +22,7 @@
     dismissedRailRevision,
     dismissedRailStorageKey,
     markRailItemSeen,
+    pruneDismissedRailIds,
     readDismissedRailIds,
     readSeenRailIds,
     restoreAllRailItems,
@@ -32,6 +33,7 @@
   import { formatLocalDateTime, formatScheduleLabel } from '$lib/utils/time';
 
   export let items: RightRailActivityItem[] = [];
+  export let historyItems: RightRailActivityItem[] = [];
   export let viewerId: string | null = null;
 
   const dispatch = createEventDispatcher<{ close: void }>();
@@ -39,11 +41,17 @@
   let pendingSubjectId = '';
   let pendingVoteId = '';
   let showClearedItems = false;
+  let showHistoryItems = false;
+  let showAllHistory = false;
 
   $: dismissedStorageKey = dismissedRailStorageKey(viewerId);
   $: seenStorageKey = seenRailStorageKey(viewerId);
   $: dismissedRailIds = readDismissedRailIds(dismissedStorageKey, $dismissedRailRevision);
   $: seenRailIds = readSeenRailIds(seenStorageKey, $dismissedRailRevision);
+  $: activeRailIdSet = new Set(items.map((item) => item.id));
+  $: if (dismissedStorageKey) {
+    pruneDismissedRailIds(dismissedStorageKey, activeRailIdSet);
+  }
 
   function dismissRailItem(itemId: string, event: MouseEvent) {
     event.preventDefault();
@@ -61,7 +69,12 @@
   }
 
   $: visibleItems = items.filter((item) => !dismissedRailIds.has(item.id));
-  $: clearedItems = items.filter((item) => dismissedRailIds.has(item.id));
+  $: clearedItems = items.filter(
+    (item) => dismissedRailIds.has(item.id) && activeRailIdSet.has(item.id)
+  );
+  $: displayedHistoryItems = showAllHistory
+    ? historyItems
+    : historyItems.filter((item) => item.viewerParticipated !== false);
   $: activityItems = visibleItems.filter(
     (item) =>
       item.kind !== 'request' &&
@@ -538,6 +551,35 @@
     </div>
   </section>
 
+  {#if displayedHistoryItems.length > 0}
+    <section class="rail-section rail-section-history">
+      <div class="history-header">
+        <span class="history-summary">History · {displayedHistoryItems.length}</span>
+        <div class="history-actions">
+          <button class="history-toggle-filter" type="button" on:click={() => (showAllHistory = !showAllHistory)}>
+            {showAllHistory ? 'Mine only' : 'Show all'}
+          </button>
+          <button class="history-toggle" type="button" on:click={() => (showHistoryItems = !showHistoryItems)}>
+            {showHistoryItems ? 'Hide' : 'Show'}
+          </button>
+        </div>
+      </div>
+      {#if showHistoryItems}
+        <div class="history-list">
+          {#each displayedHistoryItems as item}
+            <button class="history-row" type="button" on:click={() => handleOpenItem(item)}>
+              <span class="history-kind">{itemKicker(item)}</span>
+              <strong>{item.title}</strong>
+              {#if item.meta}
+                <span class="history-meta">{item.meta}</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </section>
+  {/if}
+
   {#if clearedItems.length > 0}
     <section class="rail-section rail-section-cleared">
       <div class="cleared-header">
@@ -775,6 +817,83 @@
   .rail-section-cleared {
     padding-top: 8px;
     border-top: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
+  }
+
+  .rail-section-history {
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
+  }
+
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .history-summary {
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .history-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .history-toggle,
+  .history-toggle-filter,
+  .history-row {
+    padding: 6px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .history-toggle:hover,
+  .history-toggle-filter:hover {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .history-list {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .history-row {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    text-align: left;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    background: transparent;
+    border-radius: 0;
+    padding: 10px 8px;
+  }
+
+  .history-kind,
+  .history-meta {
+    color: var(--text-soft);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .history-meta {
+    text-transform: none;
+    font-weight: 600;
+    font-size: 11px;
   }
 
   .cleared-header {

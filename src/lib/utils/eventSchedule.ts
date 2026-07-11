@@ -196,3 +196,96 @@ export function suggestedEventActivityWindow(
         : dayBounds.endLocal
   };
 }
+
+export function localTodayIsoDay(now = new Date()) {
+  return formatLocalDateTimeValue(now).slice(0, 10);
+}
+
+export function isFutureSelectablePlanDay(
+  schedule: EventScheduleLike | null | undefined,
+  isoDay: string,
+  now = new Date()
+) {
+  const today = localTodayIsoDay(now);
+
+  if (isoDay > today) {
+    return true;
+  }
+
+  if (isoDay < today) {
+    return false;
+  }
+
+  const bounds = eventScheduleBounds(schedule);
+  return !!bounds.end && bounds.end.getTime() > now.getTime();
+}
+
+export function eventPlanFutureDayIsos(
+  plan: { schedule: EventScheduleLike } | null | undefined,
+  now = new Date()
+) {
+  if (!plan) {
+    return [];
+  }
+
+  const scheduledDays =
+    plan.schedule.mode === 'date' || plan.schedule.mode === 'range'
+      ? expandPlanDayIsos(plan.schedule)
+      : [];
+
+  return scheduledDays.filter((isoDay) => isFutureSelectablePlanDay(plan.schedule, isoDay, now));
+}
+
+function expandPlanDayIsos(schedule: EventScheduleLike) {
+  const startDate = normalizeDateInput(schedule.startDate);
+
+  if (!startDate) {
+    return [];
+  }
+
+  const start = new Date(`${startDate}T00:00:00`);
+
+  if (Number.isNaN(start.getTime())) {
+    return [];
+  }
+
+  const endDate =
+    schedule.mode === 'range' && schedule.endDate
+      ? normalizeDateInput(schedule.endDate)
+      : startDate;
+  const end = new Date(`${endDate}T00:00:00`);
+
+  if (Number.isNaN(end.getTime()) || end.getTime() < start.getTime()) {
+    return [startDate];
+  }
+
+  const days: string[] = [];
+  const cursor = new Date(start);
+
+  while (cursor.getTime() <= end.getTime()) {
+    const year = `${cursor.getFullYear()}`;
+    const month = `${cursor.getMonth() + 1}`.padStart(2, '0');
+    const day = `${cursor.getDate()}`.padStart(2, '0');
+    days.push(`${year}-${month}-${day}`);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return days;
+}
+
+export function canProposeEventActivity(
+  plan: { schedule: EventScheduleLike } | null | undefined,
+  now = new Date()
+) {
+  if (!plan) {
+    return false;
+  }
+
+  const bounds = eventScheduleBounds(plan.schedule);
+
+  if (!bounds.end || bounds.end.getTime() <= now.getTime()) {
+    return false;
+  }
+
+  return eventPlanFutureDayIsos(plan, now).length > 0;
+}

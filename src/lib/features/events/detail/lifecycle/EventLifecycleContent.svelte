@@ -74,6 +74,11 @@
     activityId: string,
     roleLabel: string | null
   ) => void | Promise<void> = () => {};
+  export let saveActivityRating: (
+    activityId: string,
+    rating: number,
+    comment: string | null
+  ) => void | Promise<void> = () => {};
 </script>
 
 {#if activePhaseId === 'proposal'}
@@ -110,6 +115,7 @@
     {openActivityComposerForDay}
     {submitActivity}
     changeCommitment={changeCommitment}
+    {saveActivityRating}
   />
 {:else}
   <EventClosedPhase />

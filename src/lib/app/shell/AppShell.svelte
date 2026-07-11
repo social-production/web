@@ -490,6 +490,7 @@
     <aside class="rail right-rail" data-open={rightRailOpen}>
       <RightRailPanel
         items={bootstrap.activityRail}
+        historyItems={bootstrap.activityRailHistory ?? []}
         viewerId={bootstrap.viewer?.id ?? null}
         on:close={closeCompactPanels}
       />

@@ -1,19 +1,15 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import ActivityCreationWizard from '$lib/components/shared/ActivityCreationWizard.svelte';
-  import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
-  import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
-  import ProjectActivityHistorySection from '$lib/features/projects/detail/components/ProjectActivityHistorySection.svelte';
+  import ActivitySchedulingPanel from '$lib/features/projects/detail/components/ActivitySchedulingPanel.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
-  import ProjectActivityViewTabs from '$lib/features/projects/detail/components/ProjectActivityViewTabs.svelte';
   import type {
     ProjectActivityRoleInput,
     ProjectPageData,
     ProjectServiceHistoryCompletionChoice,
     ProjectServiceHistoryCompletionRole,
     ProjectSoftwareMergeCapabilityChangeInput,
-    ProjectSoftwarePullRequestInput
-    ,ProjectSoftwareRepositoryReplacementInput
+    ProjectSoftwarePullRequestInput,
+    ProjectSoftwareRepositoryReplacementInput
   } from '$lib/types/detail';
 
   type ActivityForm = {
@@ -28,13 +24,10 @@
     note: string;
   };
 
-  type ProductiveActivityTab = 'live' | 'history';
-
   export let data: ProjectPageData;
   export let activityForm: ActivityForm;
   export let showComposer = false;
   export let highlightedActivityId: string | null = null;
-  export let activityComposerElement: HTMLElement | null = null;
   export let openComposer: () => void | Promise<void> = () => {};
   export let openComposerForDay: (isoDay: string) => void | Promise<void> = () => {};
   export let focusActivityCard: (activityId: string) => void | Promise<void> = () => {};
@@ -65,14 +58,15 @@
     role: ProjectServiceHistoryCompletionRole,
     selection?: ProjectServiceHistoryCompletionChoice
   ) => void | Promise<void> = () => {};
+  export let saveActivityRating: (
+    activityId: string,
+    rating: number,
+    comment: string | null
+  ) => void | Promise<void> = () => {};
 
-  let activeTab: ProductiveActivityTab = 'live';
+  let historyOpen = false;
   let highlightedHistoryId: string | null = null;
   let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
-
-  function historyItemByActivityId(activityId: string) {
-    return data.lifecycle.phaseFive.history.find((item) => item.activity.id === activityId) ?? null;
-  }
 
   function scrollHistoryCardIntoView(historyId: string) {
     if (typeof document === 'undefined') {
@@ -94,14 +88,6 @@
     await tick();
     scrollHistoryCardIntoView(historyId);
 
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollHistoryCardIntoView(historyId);
-        });
-      });
-    }
-
     historyHighlightResetHandle = setTimeout(() => {
       if (highlightedHistoryId === historyId) {
         highlightedHistoryId = null;
@@ -111,40 +97,17 @@
     }, 1800);
   }
 
-  async function openLiveComposer() {
-    activeTab = 'live';
-    await openComposer();
-  }
-
-  async function openLiveComposerForDay(isoDay: string) {
-    activeTab = 'live';
-    await openComposerForDay(isoDay);
-  }
-
   async function toggleActivityComposer() {
     if (showComposer) {
       showComposer = false;
       return;
     }
 
-    await openLiveComposer();
+    await openComposer();
   }
 
   function closeComposer() {
     showComposer = false;
-  }
-
-  async function handleActivitySelection(activityId: string) {
-    const historyItem = historyItemByActivityId(activityId);
-
-    if (historyItem) {
-      activeTab = 'history';
-      await focusHistoryCard(historyItem.id);
-      return;
-    }
-
-    activeTab = 'live';
-    await focusActivityCard(activityId);
   }
 
   $: calendarActivities = [
@@ -153,9 +116,6 @@
       .filter((item) => item.historyState !== 'request-only')
       .map((item) => item.activity)
   ];
-  $: if (highlightedActivityId) {
-    activeTab = 'live';
-  }
 </script>
 
 <section id="participation-activities" class="phase-surface">
@@ -179,146 +139,40 @@
     {/if}
   {/if}
 
-  <ProjectActivityCalendarCard
-    activities={calendarActivities}
+  <ActivitySchedulingPanel
+    {calendarActivities}
+    liveActivities={data.lifecycle.phaseFive.activities}
+    historyItems={data.lifecycle.phaseFive.history}
     canCreate={data.lifecycle.phaseFive.viewerCanCreateActivities}
+    {showComposer}
     createActive={showComposer}
     selectedDayIso={activityForm.scheduledAt}
-    daySelect={openLiveComposerForDay}
+    {highlightedActivityId}
+    {highlightedHistoryId}
+    bind:historyOpen
+    {activityForm}
+    selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
+    liveTitle="Activity setup"
+    liveDescription="Schedule productive work blocks and track which ones have enough committed roles to activate."
+    historyDescription="Past productive activity, ratings, and completion check-in."
+    emptyLiveMessage="No activities scheduled yet."
+    emptyHistoryMessage="No activity has moved into history yet."
+    {submitActivity}
+    {closeComposer}
+    daySelect={openComposerForDay}
     createAction={toggleActivityComposer}
-    activitySelect={handleActivitySelection}
+    {changecommitment}
+    {toggleHistoryCompletion}
+    {saveActivityRating}
+    onLiveActivitySelect={focusActivityCard}
+    onHistoryActivitySelect={focusHistoryCard}
   />
-
-  <ProjectActivityViewTabs bind:activeTab ariaLabel="Productive activity view" />
-
-  {#if activeTab === 'live'}
-    <section class="card-rail-section">
-      <div class="section-head">
-        <div class="section-copy">
-          <h3>Activity setup</h3>
-          <p>Schedule productive work blocks and track which ones have enough committed roles to activate.</p>
-        </div>
-
-        {#if data.lifecycle.phaseFive.viewerCanCreateActivities}
-          <div class="section-actions">
-            <button class="secondary-button" type="button" on:click={toggleActivityComposer}>
-              {showComposer ? 'Hide composer' : 'New activity'}
-            </button>
-          </div>
-        {/if}
-      </div>
-
-      {#if data.lifecycle.phaseFive.viewerCanCreateActivities && showComposer}
-        <div bind:this={activityComposerElement}>
-          <ActivityCreationWizard
-            open={showComposer}
-            form={activityForm}
-            selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
-            onSubmit={submitActivity}
-            onCancel={closeComposer}
-          />
-        </div>
-      {/if}
-
-      {#if data.lifecycle.phaseFive.activities.length === 0}
-        <div class="empty-card">No activities scheduled yet.</div>
-      {:else}
-        <div class="card-rail">
-          {#each data.lifecycle.phaseFive.activities as activity (activity.id)}
-            <div id={`activity-card-${activity.id}`} class="rail-card">
-              <CollapsibleActivityCard
-                activity={activity}
-                expanded={highlightedActivityId === activity.id}
-                highlighted={highlightedActivityId === activity.id}
-                changecommitment={changecommitment}
-              />
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </section>
-  {:else}
-    <div class="history-stack">
-      <ProjectActivityHistorySection
-        title="History"
-        description="Past productive activity and completion check-in."
-        items={data.lifecycle.phaseFive.history}
-        emptyMessage="No activity has moved into history yet."
-        {highlightedHistoryId}
-        {toggleHistoryCompletion}
-      />
-    </div>
-  {/if}
 </section>
 
 <style>
-  .phase-surface,
-  .card-rail-section,
-  .history-stack,
-  .card-rail {
+  .phase-surface {
     display: grid;
     gap: 12px;
-  }
-
-  .section-head {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px;
-    align-items: end;
-  }
-
-  .section-actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .section-copy h3,
-  .section-copy p {
-    margin: 0;
-  }
-
-  .card-rail {
-    grid-template-columns: minmax(0, 1fr);
-    max-height: min(34rem, 72vh);
-    overflow-y: auto;
-    align-items: start;
-    padding-right: 2px;
-  }
-
-  .rail-card {
-    min-width: 0;
-  }
-
-  .empty-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-  }
-
-  .section-copy p {
-    color: var(--text-soft);
-  }
-
-  h3 {
-    color: var(--text-main);
-  }
-
-  .secondary-button {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-soft);
-  }
-
-  [id^='activity-card-'] {
-    scroll-margin-top: 92px;
   }
 
   .software-governance-placeholder {
@@ -338,11 +192,5 @@
   .software-governance-placeholder p {
     color: var(--text-soft);
     line-height: 1.45;
-  }
-
-  @media (max-width: 760px) {
-    .section-head {
-      grid-template-columns: minmax(0, 1fr);
-    }
   }
 </style>

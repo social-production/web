@@ -175,6 +175,12 @@ export interface AppAdapter {
     activityId: string,
     roleLabel: string | null
   ): Promise<void>;
+  setProjectActivityRating(
+    projectSlug: string,
+    activityId: string,
+    rating: number,
+    comment: string | null
+  ): Promise<void>;
   addProjectServiceRequest(
     projectSlug: string,
     input: ProjectServiceRequestInput
@@ -330,6 +336,12 @@ export interface AppAdapter {
     eventSlug: string,
     activityId: string,
     roleLabel: string | null
+  ): Promise<void>;
+  setEventActivityRating(
+    eventSlug: string,
+    activityId: string,
+    rating: number,
+    comment: string | null
   ): Promise<void>;
   requestEventPhaseChange(
     eventSlug: string,

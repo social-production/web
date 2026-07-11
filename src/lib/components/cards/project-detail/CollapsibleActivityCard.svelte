@@ -47,10 +47,11 @@
 
   let open = expanded;
 
-  $: resolvedBadgeLabel = badgeLabel ?? (activity.isActive ? 'Active' : 'Pending roles');
-  $: resolvedBadgeClass = badgeClass ?? (activity.isActive ? 'complete' : 'upcoming');
+  $: resolvedBadgeLabel = badgeLabel ?? (activity.rolesLocked ? 'Ended' : activity.isActive ? 'Active' : 'Pending roles');
+  $: resolvedBadgeClass = badgeClass ?? (activity.rolesLocked ? 'locked' : activity.isActive ? 'complete' : 'upcoming');
   $: hasOpenRolesForViewer =
     !readOnly &&
+    !activity.rolesLocked &&
     !activity.viewerAssignedRoleLabel &&
     activity.roles.some(
       (role) =>
@@ -166,7 +167,9 @@
                 · Maximum {role.maximumCount}
               {/if}
             </span>
-            {#if !readOnly}
+            {#if !readOnly && activity.rolesLocked}
+              <span class="roles-locked-copy">Roles locked — activity ended</span>
+            {:else if !readOnly}
               <button
                 class:selected={activity.viewerAssignedRoleLabel === role.label}
                 class="vote-chip"
@@ -405,6 +408,18 @@
     border-color: color-mix(in srgb, var(--status-yellow) 44%, var(--panel-border));
     background: color-mix(in srgb, var(--status-yellow-soft) 72%, var(--panel));
     color: var(--status-yellow-strong);
+  }
+
+  .phase-badge.locked {
+    border-color: var(--panel-border);
+    background: var(--panel);
+    color: var(--text-soft);
+  }
+
+  .roles-locked-copy {
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 600;
   }
 
   @media (max-width: 760px) {

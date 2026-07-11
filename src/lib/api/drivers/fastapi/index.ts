@@ -65,7 +65,7 @@ import {
   fetchAddProjectValue, fetchSetProjectValueImportance,
   fetchAddProjectProductionPlan, fetchUpdateProjectProductionPlan, fetchAddProjectDistributionPlan,
   fetchSetProjectPlanOverallVote, fetchSetProjectPlanValueVote, fetchSetProjectPlanCriterionRating,
-  fetchAddProjectActivity, fetchSetProjectActivityCommitment,
+  fetchAddProjectActivity, fetchSetProjectActivityCommitment, fetchSetProjectActivityRating,
   fetchAddProjectPullRequest, fetchSetProjectPullRequestVote, fetchRecordProjectPullRequestMerge,
   fetchRequestProjectMergeCapabilityChange, fetchSetProjectMergeCapabilityChangeVote,
   fetchRequestProjectRepositoryReplacement, fetchSetProjectRepositoryReplacementVote,
@@ -84,7 +84,7 @@ import {
   fetchEvent, fetchCreateEvent, fetchToggleEventMembership,
   fetchSetEventSignal, fetchAddEventValue, fetchSetEventValueImportance,
   fetchAddEventPlan, fetchSetEventPlanOverallVote, fetchSetEventPlanValueVote, fetchSetEventPlanCriterionRating,
-  fetchAddEventActivity, fetchSetEventActivityCommitment,
+  fetchAddEventActivity, fetchSetEventActivityCommitment, fetchSetEventActivityRating,
   fetchRequestEventPhaseChange, fetchSetEventPhaseChangeVote,
   fetchRequestEventUpdate, fetchSetEventUpdateVote,
   fetchRequestEventEdit, fetchSetEventEditVote,
@@ -109,7 +109,8 @@ const bootstrapFallback: BootstrapPayload = {
     communities: []
   },
   suggestedContacts: [],
-  activityRail: []
+  activityRail: [],
+  activityRailHistory: []
 };
 
 export function createFastApiDriver(): AppAdapter {
@@ -260,6 +261,7 @@ export function createFastApiDriver(): AppAdapter {
     async setEventPlanCriterionRating(slug, planId, criterionId, rating) { return fetchSetEventPlanCriterionRating(slug, planId, criterionId, rating); },
     async addEventActivity(slug, input) { return fetchAddEventActivity(slug, input); },
     async setEventActivityCommitment(slug, activityId, roleLabel) { return fetchSetEventActivityCommitment(slug, activityId, roleLabel); },
+    async setEventActivityRating(slug, activityId, rating, comment) { return fetchSetEventActivityRating(slug, activityId, rating, comment); },
     async requestEventPhaseChange(slug, targetPhaseId, reason) { return fetchRequestEventPhaseChange(slug, targetPhaseId, reason); },
     async setEventPhaseChangeVote(slug, requestId, vote) { return fetchSetEventPhaseChangeVote(slug, requestId, vote); },
     async requestEventUpdate(slug, body) { return fetchRequestEventUpdate(slug, body); },
@@ -289,6 +291,7 @@ export function createFastApiDriver(): AppAdapter {
     async setProjectPlanCriterionRating(slug, planId, criterionId, rating) { return fetchSetProjectPlanCriterionRating(slug, planId, criterionId, rating); },
     async addProjectActivity(slug, input) { return fetchAddProjectActivity(slug, input); },
     async setProjectActivityCommitment(slug, activityId, roleLabel) { return fetchSetProjectActivityCommitment(slug, activityId, roleLabel); },
+    async setProjectActivityRating(slug, activityId, rating, comment) { return fetchSetProjectActivityRating(slug, activityId, rating, comment); },
     async addProjectPullRequest(slug, input) { return fetchAddProjectPullRequest(slug, input); },
     async setProjectPullRequestVote(slug, decisionId, vote) { return fetchSetProjectPullRequestVote(slug, decisionId, vote); },
     async recordProjectPullRequestMerge(slug, requestId, mergeId) { return fetchRecordProjectPullRequestMerge(slug, requestId, mergeId); },

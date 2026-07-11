@@ -1,11 +1,14 @@
 <script lang="ts">
-  import ActivityCreationWizard from '$lib/components/shared/ActivityCreationWizard.svelte';
-  import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
-  import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
+  import { tick } from 'svelte';
+  import ActivitySchedulingPanel from '$lib/features/projects/detail/components/ActivitySchedulingPanel.svelte';
   import type { EventPageData, EventPlan } from '$lib/types/detail';
   import { eventPlanScheduledDayIsos } from '../eventLifecycleShared';
   import type { EventActivityForm } from '../eventLifecycleShared';
   import { eventScheduleDayBounds } from '$lib/utils/eventSchedule';
+  import type {
+    ProjectServiceHistoryCompletionChoice,
+    ProjectServiceHistoryCompletionRole
+  } from '$lib/types/detail';
   import { formatEventPlanSchedule } from '$lib/utils/time';
 
   export let data: EventPageData;
@@ -30,21 +33,60 @@
     activityId: string,
     roleLabel: string | null
   ) => void | Promise<void> = () => {};
+  export let toggleHistoryCompletion: (
+    historyId: string,
+    role: ProjectServiceHistoryCompletionRole,
+    selection?: ProjectServiceHistoryCompletionChoice
+  ) => void | Promise<void> = () => {};
+  export let saveActivityRating: (
+    activityId: string,
+    rating: number,
+    comment: string | null
+  ) => void | Promise<void> = () => {};
 
-  function scrollToActivity(activityId: string) {
-    highlightedActivityId = activityId;
-    if (typeof document !== 'undefined') {
-      document.getElementById(`event-activity-${activityId}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      });
-    }
-  }
+  let historyOpen = false;
+  let highlightedHistoryId: string | null = null;
 
   $: plannedDayIsos = eventPlanScheduledDayIsos(selectedPlan);
   $: planTimingLabel = selectedPlan ? formatEventPlanSchedule(selectedPlan.schedule) : '';
   $: composerDayIso = selectedDayIso || plannedDayIsos[0] || selectedPlan?.schedule.startDate || '';
   $: activityWindowBounds = eventScheduleDayBounds(selectedPlan?.schedule ?? null, composerDayIso);
+  $: calendarActivities = [
+    ...data.lifecycle.activity.activities,
+    ...(data.lifecycle.activity.history ?? []).map((item) => item.activity)
+  ];
+
+  async function focusActivityCard(activityId: string) {
+    highlightedActivityId = activityId;
+    await tick();
+    document.getElementById(`activity-card-${activityId}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+  }
+
+  async function focusHistoryCard(historyId: string) {
+    highlightedHistoryId = historyId;
+    await tick();
+    document.getElementById(`history-card-${historyId}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
+
+  async function toggleActivityComposer() {
+    if (showActivityComposer) {
+      showActivityComposer = false;
+      return;
+    }
+
+    openActivityComposerForDay(selectedDayIso);
+    showActivityComposer = true;
+  }
+
+  function closeComposer() {
+    showActivityComposer = false;
+  }
 </script>
 
 <section id="participation-activities" class="phase-surface">
@@ -61,77 +103,63 @@
     </div>
   {/if}
 
-  <ProjectActivityCalendarCard
-    activities={data.lifecycle.activity.activities}
+  <ActivitySchedulingPanel
+    {calendarActivities}
     {plannedDayIsos}
+    liveActivities={data.lifecycle.activity.activities}
+    historyItems={data.lifecycle.activity.history ?? []}
     canCreate={data.lifecycle.activity.viewerCanCreateActivities}
+    showComposer={showActivityComposer}
     createActive={showActivityComposer}
-    createAction={() => openActivityComposerForDay(selectedDayIso)}
+    {selectedDayIso}
+    {highlightedActivityId}
+    {highlightedHistoryId}
+    bind:historyOpen
+    {activityForm}
+    selectablePlanPhases={data.lifecycle.activity.selectablePlanPhases}
+    scheduleBounds={activityWindowBounds}
+    liveTitle="Activity"
+    liveDescription="Schedule event activities and sign up for open roles."
+    historyDescription="Past event activity, ratings, and completion check-in."
+    emptyLiveMessage={plannedDayIsos.length > 0
+      ? 'No activity scheduled yet. Click a marked plan day to add the first activity.'
+      : 'No activity scheduled yet.'}
+    emptyHistoryMessage="No activity has moved into history yet."
+    {submitActivity}
+    {closeComposer}
     daySelect={(isoDay) => {
       selectedDayIso = isoDay;
       if (data.lifecycle.activity.viewerCanCreateActivities) {
         openActivityComposerForDay(isoDay);
       }
     }}
-    selectedActivityId={highlightedActivityId ?? ''}
-    {selectedDayIso}
-    activitySelect={scrollToActivity}
+    createAction={() => openActivityComposerForDay(selectedDayIso)}
+    changecommitment={changeCommitment}
+    {toggleHistoryCompletion}
+    {saveActivityRating}
+    onLiveActivitySelect={focusActivityCard}
+    onHistoryActivitySelect={focusHistoryCard}
   />
-
-  <ActivityCreationWizard
-    open={showActivityComposer}
-    form={activityForm}
-    selectablePlanPhases={data.lifecycle.activity.selectablePlanPhases}
-    scheduleBounds={activityWindowBounds}
-    onSubmit={submitActivity}
-    onCancel={() => (showActivityComposer = false)}
-  />
-
-  <div class="surface-stack">
-    {#if data.lifecycle.activity.activities.length === 0}
-      <div class="empty-card">
-        {plannedDayIsos.length > 0
-          ? 'No activity scheduled yet. Click a marked plan day to add the first activity.'
-          : 'No activity scheduled yet.'}
-      </div>
-    {:else}
-      {#each data.lifecycle.activity.activities as activity}
-        <div id={`event-activity-${activity.id}`}>
-          <CollapsibleActivityCard
-            activity={activity}
-            highlighted={highlightedActivityId === activity.id}
-            changecommitment={changeCommitment}
-          />
-        </div>
-      {/each}
-    {/if}
-  </div>
 </section>
 
 <style>
   .phase-surface,
-  .surface-stack,
   .info-card {
     display: grid;
     gap: 12px;
   }
 
-  .info-card,
-  .empty-card {
+  .info-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
   }
 
-  strong {
-    color: var(--text-main);
-  }
-
-  p,
-  .empty-card {
+  .info-card p {
     margin: 0;
     color: var(--text-soft);
+    line-height: 1.45;
   }
 
   .plan-timing-note {

@@ -175,6 +175,18 @@ export async function fetchSetEventActivityCommitment(
   }
 }
 
+export async function fetchSetEventActivityRating(
+  eventSlug: string,
+  activityId: string,
+  rating: number,
+  comment: string | null
+): Promise<void> {
+  await apiClient.put(`/events/${eventSlug}/activities/${activityId}/rating`, {
+    rating,
+    comment
+  });
+}
+
 // -- Phase lifecycle ---------------------------------------------------------
 
 export async function fetchRequestEventPhaseChange(

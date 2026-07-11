@@ -1,5 +1,6 @@
 import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
-import type { EventPageData, ProjectPageData } from '$lib/types/detail';
+import type { EventPageData, EventPlan, ProjectPageData } from '$lib/types/detail';
+import { canProposeEventActivity } from '$lib/utils/eventSchedule';
 import { pendingVoteCardId, type PendingVoteItem } from '$lib/utils/pendingVotes';
 
 export interface ParticipationStep {
@@ -67,6 +68,24 @@ function viewerSubmittedPlan(data: ProjectPageData | EventPageData, viewerUserna
   return data.lifecycle.phaseTwo.plans.some(
     (plan) => matchesViewer(plan.authorUsername)
   );
+}
+
+function eventWinningPlan(data: EventPageData): EventPlan | null {
+  const winningPlanId = data.lifecycle.phaseTwo.winningPlanId;
+
+  if (!winningPlanId) {
+    return null;
+  }
+
+  return data.lifecycle.phaseTwo.plans.find((plan) => plan.id === winningPlanId) ?? null;
+}
+
+function viewerCanProposeActivity(data: ProjectPageData | EventPageData) {
+  if ('projectMode' in data) {
+    return true;
+  }
+
+  return canProposeEventActivity(eventWinningPlan(data));
 }
 
 function viewerProposedActivity(data: ProjectPageData | EventPageData, viewerUsername: string | null) {
@@ -141,7 +160,10 @@ function viewerNeedsActivitySignup(data: ProjectPageData | EventPageData) {
   return activities.some((activity) => !activity.viewerAssignedRoleLabel);
 }
 
-export { focusActivitySignupTargets } from '$lib/utils/participationActivityFocus';
+export {
+  activateParticipationActivityPhase,
+  focusActivitySignupTargets
+} from '$lib/utils/participationActivityFocus';
 
 function signalHelper(
   data: ProjectPageData | EventPageData,
@@ -277,16 +299,18 @@ function buildParticipationSteps(
         helper: joined ? 'Take a role on scheduled activity others have proposed.' : undefined
       });
     }
-    steps.push({
-      id: 'propose-activity',
-      label: 'Propose activity',
-      done: viewerProposedActivity(data, viewerUsername),
-      helper: joined
-        ? activitiesExist
-          ? 'Add more activity others can sign up for.'
-          : 'Add the first activity others can sign up for.'
-        : undefined
-    });
+    if (viewerCanProposeActivity(data)) {
+      steps.push({
+        id: 'propose-activity',
+        label: 'Propose activity',
+        done: viewerProposedActivity(data, viewerUsername),
+        helper: joined
+          ? activitiesExist
+            ? 'Add more activity others can sign up for.'
+            : 'Add the first activity others can sign up for.'
+          : undefined
+      });
+    }
   }
 
   const hasAssessPlansStep = steps.some((step) => step.id === 'assess-plans');

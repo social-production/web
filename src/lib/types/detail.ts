@@ -402,6 +402,25 @@ export interface ProjectActivityItem {
   roles: ProjectActivityRole[];
   note: string;
   isActive: boolean;
+  rolesLocked?: boolean;
+}
+
+export interface ActivityRatingEntry {
+  userId: string;
+  username: string;
+  rating: number;
+  comment: string | null;
+  updatedAt: string;
+}
+
+export interface ActivityRatingSummary {
+  average: number | null;
+  count: number;
+}
+
+export interface ActivityViewerRating {
+  rating: number;
+  comment: string | null;
 }
 
 export interface ProjectSoftwareMergeCapabilityMember extends DetailMember {
@@ -524,6 +543,8 @@ export interface ProjectServiceHistoryCompletionState {
   doneCount: number;
   viewerCanToggle: boolean;
   viewerHasMarkedDone: boolean;
+  systemAutoUncompleted?: boolean;
+  statusLabel?: string;
 }
 
 export interface ProjectServiceHistoryItem {
@@ -540,6 +561,10 @@ export interface ProjectServiceHistoryItem {
   aggregateCompletionTone: 'complete' | 'mixed' | 'uncompleted';
   requesterCompletion: ProjectServiceHistoryCompletionState | null;
   participantCompletion: ProjectServiceHistoryCompletionState;
+  aggregateRating: ActivityRatingSummary;
+  ratings: ActivityRatingEntry[];
+  viewerCanRate: boolean;
+  viewerRating: ActivityViewerRating | null;
 }
 
 export interface ProjectActivityPlanPhaseOption {
@@ -734,6 +759,7 @@ export interface EventPhaseTwoData {
 
 export interface EventPhaseActivityData {
   activities: ProjectActivityItem[];
+  history: ProjectServiceHistoryItem[];
   viewerCanCreateActivities: boolean;
   selectablePlanPhases: ProjectActivityPlanPhaseOption[];
 }

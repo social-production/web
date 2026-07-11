@@ -4,8 +4,7 @@
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
-  import ProjectActivityHistorySection from '$lib/features/projects/detail/components/ProjectActivityHistorySection.svelte';
-  import ProjectActivityViewTabs from '$lib/features/projects/detail/components/ProjectActivityViewTabs.svelte';
+  import ActivityHistorySection from '$lib/features/projects/detail/components/ActivityHistorySection.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import {
     formatProjectVoteRequirement,
@@ -74,6 +73,13 @@
     role: ProjectServiceHistoryCompletionRole,
     selection?: ProjectServiceHistoryCompletionChoice
   ) => void | Promise<void> = () => {};
+  export let saveActivityRating: (
+    activityId: string,
+    rating: number,
+    comment: string | null
+  ) => void | Promise<void> = () => {};
+
+  let historyOpen = false;
 
   function localDateTimeValue(value: string) {
     const date = new Date(value);
@@ -208,7 +214,7 @@
     const historyItem = historyItemByActivityId(activityId);
 
     if (historyItem && historyItem.historyState !== 'request-only') {
-      activeTab = 'history';
+      historyOpen = true;
       await focusHistoryCard(historyItem.id);
       return;
     }
@@ -397,9 +403,6 @@
     {/if}
   {/if}
 
-  <ProjectActivityViewTabs bind:activeTab ariaLabel="Service activity view" />
-
-  {#if activeTab === 'live'}
     {#if data.lifecycle.requestSystem}
       <section class="card-rail-section">
         <div class="section-head">
@@ -665,30 +668,67 @@
         </div>
       {/if}
     </section>
-  {:else}
+  <details class="history-section" bind:open={historyOpen}>
+    <summary class="history-summary">
+      <span>History</span>
+      <span class="history-count">{data.lifecycle.phaseFive.history.length}</span>
+    </summary>
     <div class="history-stack">
-      <ProjectActivityHistorySection
+      <ActivityHistorySection
         title="Request history"
         description="Past accepted requests and request-based activity."
         items={requestHistory}
         emptyMessage="No request-based activity has moved into history yet."
         {highlightedHistoryId}
         {toggleHistoryCompletion}
+        {saveActivityRating}
       />
 
-      <ProjectActivityHistorySection
+      <ActivityHistorySection
         title="Self planned history"
         description="Past availability or directly created service activity."
         items={selfPlannedHistory}
         emptyMessage="No self-planned activity has moved into history yet."
         {highlightedHistoryId}
         {toggleHistoryCompletion}
+        {saveActivityRating}
       />
     </div>
-  {/if}
+  </details>
 </section>
 
 <style>
+  .history-section {
+    border-top: 1px solid var(--panel-border);
+    padding-top: 12px;
+  }
+
+  .history-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    list-style: none;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 12px;
+  }
+
+  .history-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .history-count {
+    padding: 4px 8px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
   .phase-surface,
   .surface-stack,
   .card-rail-section,

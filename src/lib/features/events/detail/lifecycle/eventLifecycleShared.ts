@@ -8,6 +8,7 @@ import type {
   ProjectImportanceVoteValue
 } from '$lib/types/detail';
 import { eventPlanScheduleStartIso, suggestedEventActivityWindow } from '$lib/utils/eventSchedule';
+import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
 
 export type DraftPlanPhase = {
   title: string;
@@ -210,7 +211,8 @@ export function eventPlanDefaultActivityWindow(
 }
 
 export function eventPlanDefaultLocationLabel(plan: Pick<EventPlan, 'locationLabel'> | null) {
-  return plan?.locationLabel?.trim() || '';
+  const label = plan?.locationLabel?.trim() || '';
+  return isImplementedScheduleLabel(label) ? label : '';
 }
 
 export function minimumParticipantsFromRoles(roleRequirements: ProjectActivityRoleInput[]) {

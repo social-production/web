@@ -89,6 +89,18 @@ export function markRailItemSeen(storageKey: string, itemId: string) {
   return next;
 }
 
+export function pruneDismissedRailIds(storageKey: string, activeItemIds: Set<string>) {
+  const current = readDismissedRailIds(storageKey);
+  const next = new Set([...current].filter((id) => activeItemIds.has(id)));
+
+  if (next.size !== current.size) {
+    persistIdSet(storageKey, next);
+    bumpRevision();
+  }
+
+  return next;
+}
+
 export function countDismissedRailItems(storageKey: string) {
   return readDismissedRailIds(storageKey).size;
 }

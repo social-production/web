@@ -297,6 +297,18 @@ export async function fetchSetProjectActivityCommitment(
   }
 }
 
+export async function fetchSetProjectActivityRating(
+  projectSlug: string,
+  activityId: string,
+  rating: number,
+  comment: string | null
+): Promise<void> {
+  await apiClient.put(`/projects/${projectSlug}/activities/${activityId}/rating`, {
+    rating,
+    comment
+  });
+}
+
 // -- Software ----------------------------------------------------------------
 
 export async function fetchAddProjectPullRequest(

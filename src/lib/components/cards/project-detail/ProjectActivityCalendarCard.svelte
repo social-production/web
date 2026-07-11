@@ -28,7 +28,7 @@
     items: Array<{
       id: string;
       title: string;
-      statusTone: 'red' | 'yellow' | 'green';
+      statusTone: 'red' | 'yellow' | 'green' | 'muted';
       startTimeLabel: string;
       endTimeLabel: string;
       topPercent: number;
@@ -150,10 +150,13 @@
           startMinutes + 30
         );
 
+        const ended =
+          activity.rolesLocked === true || new Date(activity.endAt).getTime() <= Date.now();
+
         return {
           id: activity.id,
           title: activity.title,
-          statusTone: activity.statusTone,
+          statusTone: (ended ? 'muted' : activity.statusTone) as DayCell['items'][number]['statusTone'],
           startTimeLabel: formatTimeLabel(segmentStart),
           endTimeLabel: formatTimeLabel(segmentEnd),
           startMinutes,
@@ -657,6 +660,12 @@
   .tone-green {
     background: color-mix(in srgb, var(--brand-soft) 88%, var(--panel));
     color: var(--text-main);
+  }
+
+  .tone-muted {
+    background: color-mix(in srgb, var(--text-soft) 18%, var(--panel));
+    color: var(--text-soft);
+    opacity: 0.82;
   }
 
   .create-row {

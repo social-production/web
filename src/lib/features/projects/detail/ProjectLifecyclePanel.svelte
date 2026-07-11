@@ -4,7 +4,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import { localDateTimeInputToIso } from '$lib/utils/eventSchedule';
-  import { tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { preserveScrollDuring } from '$lib/utils/time';
   import { composeActivityLocationLabel, normalizedRoleRequirements } from '$lib/utils/activityCreationSteps';
   import ProductiveLifecycleContent from './lifecycle/productive/ProductiveLifecycleContent.svelte';
@@ -14,6 +14,7 @@
   import ProjectLifecyclePhaseTabs from './components/ProjectLifecyclePhaseTabs.svelte';
   import ProjectPhaseChangeSection from './components/ProjectPhaseChangeSection.svelte';
   import { scrollToPendingVote } from '$lib/utils/pendingVotes';
+  import { PARTICIPATION_FOCUS_ACTIVITIES_EVENT } from '$lib/utils/participationActivityFocus';
   import {
     isCollectiveServiceProject,
     isPersonalServiceProject
@@ -36,6 +37,7 @@
     requestProjectPhaseChange,
     requestProjectServiceRequestSettingsChange,
     setProjectActivityCommitment,
+    setProjectActivityRating,
     setProjectMergeCapabilityChangeVote,
     setProjectPhaseChangeVote,
     setProjectPlanOverallVote,
@@ -915,6 +917,14 @@
     );
   }
 
+  async function saveActivityRating(
+    activityId: string,
+    rating: number,
+    comment: string | null
+  ) {
+    await refreshAfter(() => setProjectActivityRating(data.slug, activityId, rating, comment));
+  }
+
   async function advancePhase(closeNote?: string) {
     await refreshAfter(() => advanceProjectPhase(data.slug, closeNote));
   }
@@ -1046,6 +1056,20 @@
         return;
       }
 
+      const defaultStart = new Date(`${isoDay}T18:00`);
+      const defaultEnd = new Date(`${isoDay}T19:00`);
+
+      if (defaultStart.getTime() < Date.now()) {
+        const bumpedStart = new Date();
+        bumpedStart.setSeconds(0, 0);
+        bumpedStart.setMinutes(0);
+        bumpedStart.setHours(bumpedStart.getHours() + 1);
+        const bumpedEnd = new Date(bumpedStart.getTime() + 60 * 60 * 1000);
+        activityForm.scheduledAt = localDateTimeValue(bumpedStart);
+        activityForm.endsAt = localDateTimeValue(bumpedEnd);
+        return;
+      }
+
       activityForm.scheduledAt = `${isoDay}T18:00`;
       activityForm.endsAt = `${isoDay}T19:00`;
       return;
@@ -1130,6 +1154,10 @@
 
   async function openActivityComposerForDay(isoDay: string) {
     selectCalendarDay(isoDay);
+    activityForm = {
+      ...activityForm,
+      locationLabel: ''
+    };
     showCollectiveRequestComposer = false;
     selectedCollectiveRequestActivityId = null;
     showPhaseFiveComposer = true;
@@ -1137,6 +1165,10 @@
 
   async function openActivityComposer() {
     setDefaultActivityTimes();
+    activityForm = {
+      ...activityForm,
+      locationLabel: ''
+    };
     showCollectiveRequestComposer = false;
     selectedCollectiveRequestActivityId = null;
     showPhaseFiveComposer = true;
@@ -1285,6 +1317,18 @@
     }, 1800);
   }
 
+  function handleParticipationActivitiesFocus() {
+    activePhaseId = isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5';
+  }
+
+  onMount(() => {
+    document.addEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
+  });
+
+  onDestroy(() => {
+    document.removeEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
+  });
+
   async function focusRequestCard(requestId: string) {
     if (requestHighlightResetHandle) {
       clearTimeout(requestHighlightResetHandle);
@@ -1342,6 +1386,7 @@
         requestServiceRequestSettingsChange={submitServiceRequestSettingsChange}
         voteOnRequestSettingsChange={voteOnServiceRequestSettingsChange}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
+        {saveActivityRating}
       />
     {:else if isCollectiveServiceProject(data.projectMode)}
       <CollectiveServiceLifecycleContent
@@ -1402,6 +1447,7 @@
         voteMergeCapabilityChange={voteSoftwareMergeCapabilityChange}
         voteRepositoryReplacement={voteSoftwareRepositoryReplacement}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
+        {saveActivityRating}
       />
     {:else}
       <ProductiveLifecycleContent
@@ -1417,7 +1463,6 @@
         distributionForm={distributionForm}
         activityForm={activityForm}
         {highlightedActivityId}
-        bind:activityComposerElement
         submitValue={submitValue}
         setProjectValueVote={handleProjectValueVote}
         addProductionPlanPhase={addProductionPlanPhase}
@@ -1447,6 +1492,7 @@
         voteMergeCapabilityChange={voteSoftwareMergeCapabilityChange}
         voteRepositoryReplacement={voteSoftwareRepositoryReplacement}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
+        {saveActivityRating}
       />
     {/if}
 

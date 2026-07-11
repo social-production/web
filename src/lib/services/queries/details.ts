@@ -159,6 +159,15 @@ export function setProjectActivityCommitment(
   return currentAdapter.setProjectActivityCommitment(projectSlug, activityId, roleLabel);
 }
 
+export function setProjectActivityRating(
+  projectSlug: string,
+  activityId: string,
+  rating: number,
+  comment: string | null
+) {
+  return currentAdapter.setProjectActivityRating(projectSlug, activityId, rating, comment);
+}
+
 export function addProjectServiceRequest(projectSlug: string, input: ProjectServiceRequestInput) {
   return currentAdapter.addProjectServiceRequest(projectSlug, input);
 }
@@ -399,6 +408,15 @@ export function setEventActivityCommitment(
   roleLabel: string | null
 ) {
   return currentAdapter.setEventActivityCommitment(eventSlug, activityId, roleLabel);
+}
+
+export function setEventActivityRating(
+  eventSlug: string,
+  activityId: string,
+  rating: number,
+  comment: string | null
+) {
+  return currentAdapter.setEventActivityRating(eventSlug, activityId, rating, comment);
 }
 
 export function requestEventPhaseChange(

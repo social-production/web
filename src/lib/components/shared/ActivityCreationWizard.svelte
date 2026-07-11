@@ -4,6 +4,8 @@
   import {
     buildActivityCreationSteps,
     composeActivityLocationLabel,
+    effectiveActivityStartMin,
+    activityScheduleValidationMessage,
     minimumParticipantsFromRoles,
     normalizedRoleRequirements,
     validateActivityStep,
@@ -30,6 +32,9 @@
   $: nextLabel = isReviewStep ? submitLabel : 'Next';
   $: canGoBack = stepIndex > 0;
   $: canGoNext = currentStep ? validateActivityStep(currentStep, form) : false;
+  $: scheduleStartMin = effectiveActivityStartMin(form.scheduledAt, scheduleBounds);
+  $: scheduleValidationMessage =
+    currentStep?.type === 'schedule' ? activityScheduleValidationMessage(form) : null;
   $: minimumParticipants = minimumParticipantsFromRoles(form.roleRequirements);
   $: locationSummary = composeActivityLocationLabel(form);
   $: linkedStageLabel =
@@ -108,7 +113,7 @@
             <input
               bind:value={form.scheduledAt}
               type="datetime-local"
-              min={scheduleBounds?.startLocal ?? undefined}
+              min={scheduleStartMin ?? scheduleBounds?.startLocal ?? undefined}
               max={scheduleBounds?.endLocal ?? undefined}
             />
           </label>
@@ -117,11 +122,14 @@
             <input
               bind:value={form.endsAt}
               type="datetime-local"
-              min={form.scheduledAt || scheduleBounds?.startLocal || undefined}
+              min={form.scheduledAt || scheduleStartMin || scheduleBounds?.startLocal || undefined}
               max={scheduleBounds?.endLocal ?? undefined}
             />
           </label>
         </div>
+        {#if scheduleValidationMessage}
+          <p class="validation-copy">{scheduleValidationMessage}</p>
+        {/if}
       {:else if currentStep.type === 'location'}
         <div class="location-stack">
           <label class="checkbox-row">
@@ -218,6 +226,13 @@
     margin: 0;
     color: var(--text-soft);
     line-height: 1.5;
+  }
+
+  .validation-copy {
+    margin: 0;
+    color: var(--status-red-strong, #b42318);
+    font-size: 12px;
+    line-height: 1.45;
   }
 
   input,

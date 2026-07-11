@@ -4,8 +4,7 @@
   import ActivityCreationWizard from '$lib/components/shared/ActivityCreationWizard.svelte';
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
-  import ProjectActivityHistorySection from '$lib/features/projects/detail/components/ProjectActivityHistorySection.svelte';
-  import ProjectActivityViewTabs from '$lib/features/projects/detail/components/ProjectActivityViewTabs.svelte';
+  import ActivityHistorySection from '$lib/features/projects/detail/components/ActivityHistorySection.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
@@ -169,6 +168,13 @@
     role: ProjectServiceHistoryCompletionRole,
     selection?: ProjectServiceHistoryCompletionChoice
   ) => void | Promise<void> = () => {};
+  export let saveActivityRating: (
+    activityId: string,
+    rating: number,
+    comment: string | null
+  ) => void | Promise<void> = () => {};
+
+  let historyOpen = false;
 
   function createDraftActivityRole(label = ''): ProjectActivityRoleInput {
     return {
@@ -541,7 +547,7 @@
     const historyItem = historyItemByActivityId(activityId);
 
     if (historyItem && historyItem.historyState !== 'request-only') {
-      activeTab = 'history';
+      historyOpen = true;
       closeCalendarActionTarget();
       await focusHistoryCard(historyItem.id);
       return;
@@ -847,9 +853,6 @@
     activitySelect={handleActivitySelection}
   />
 
-  <ProjectActivityViewTabs bind:activeTab ariaLabel="Service activity view" />
-
-  {#if activeTab === 'live'}
     {#if data.lifecycle.requestSystem}
       <section class="card-rail-section">
         <div class="section-head">
@@ -1194,30 +1197,67 @@
         </div>
       {/if}
     </section>
-  {:else}
+  <details class="history-section" bind:open={historyOpen}>
+    <summary class="history-summary">
+      <span>History</span>
+      <span class="history-count">{data.lifecycle.phaseFive.history.length}</span>
+    </summary>
     <div class="history-stack">
-      <ProjectActivityHistorySection
+      <ActivityHistorySection
         title="Request history"
         description="Requests that moved into past activity."
         items={requestHistory}
         emptyMessage="No request-based activity has moved into history yet."
         {highlightedHistoryId}
         {toggleHistoryCompletion}
+        {saveActivityRating}
       />
 
-      <ProjectActivityHistorySection
+      <ActivityHistorySection
         title="Self planned history"
         description="Past activity the collective created directly."
         items={selfPlannedHistory}
         emptyMessage="No self-planned activity has moved into history yet."
         {highlightedHistoryId}
         {toggleHistoryCompletion}
+        {saveActivityRating}
       />
     </div>
-  {/if}
+  </details>
 </section>
 
 <style>
+  .history-section {
+    border-top: 1px solid var(--panel-border);
+    padding-top: 12px;
+  }
+
+  .history-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    list-style: none;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 12px;
+  }
+
+  .history-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .history-count {
+    padding: 4px 8px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
   .phase-surface,
   .card-rail-section,
   .history-stack,

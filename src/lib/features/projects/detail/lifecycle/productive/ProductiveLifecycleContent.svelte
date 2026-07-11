@@ -57,7 +57,6 @@
   export let distributionForm: DraftPlanForm;
   export let activityForm: DraftActivityForm;
   export let highlightedActivityId: string | null = null;
-  export let activityComposerElement: HTMLElement | null = null;
 
   export let submitValue: () => void | Promise<void> = () => {};
   export let setProjectValueVote: (valueId: string, voteValue: ProjectImportanceVoteValue) => void | Promise<void> =
@@ -123,6 +122,11 @@
     role: ProjectServiceHistoryCompletionRole,
     selection?: ProjectServiceHistoryCompletionChoice
   ) => void | Promise<void> = () => {};
+  export let saveActivityRating: (
+    activityId: string,
+    rating: number,
+    comment: string | null
+  ) => void | Promise<void> = () => {};
 </script>
 
 {#if activePhaseId === 'phase-1'}
@@ -166,7 +170,6 @@
 {:else if activePhaseId === 'phase-5'}
   <ProductiveLifecyclePhaseFive
     {data}
-    bind:activityComposerElement
     {activityForm}
     {highlightedActivityId}
     openComposer={openActivityComposer}
@@ -183,6 +186,7 @@
     {voteMergeCapabilityChange}
     {voteRepositoryReplacement}
     {toggleHistoryCompletion}
+    {saveActivityRating}
   />
 {:else if activePhaseId === 'phase-7' || activePhaseId === 'phase-6' || activePhaseId === 'phase-4'}
   <ProductiveLifecyclePhaseSix
