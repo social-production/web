@@ -40,8 +40,7 @@
 
   let pendingSubjectId = '';
   let pendingVoteId = '';
-  let showClearedItems = false;
-  let showHistoryItems = false;
+  let clearedOpen = false;
   let showAllHistory = false;
 
   $: dismissedStorageKey = dismissedRailStorageKey(viewerId);
@@ -65,7 +64,7 @@
 
   function restoreAllClearedItems() {
     restoreAllRailItems(dismissedStorageKey);
-    showClearedItems = false;
+    clearedOpen = false;
   }
 
   $: visibleItems = items.filter((item) => !dismissedRailIds.has(item.id));
@@ -551,64 +550,82 @@
     </div>
   </section>
 
-  {#if displayedHistoryItems.length > 0}
-    <section class="rail-section rail-section-history">
-      <div class="history-header">
-        <span class="history-summary">History · {displayedHistoryItems.length}</span>
-        <div class="history-actions">
-          <button class="history-toggle-filter" type="button" on:click={() => (showAllHistory = !showAllHistory)}>
-            {showAllHistory ? 'Mine only' : 'Show all'}
+  {#if historyItems.length > 0}
+    <details class="rail-section rail-section-history history-section">
+      <summary class="rail-section-summary">
+        <span>History</span>
+        <span class="rail-section-count">{historyItems.length}</span>
+      </summary>
+      <div class="history-body">
+        <div class="history-filter" role="group" aria-label="History filter">
+          <button
+            class:selected={showAllHistory}
+            class="history-filter-button"
+            type="button"
+            on:click={() => (showAllHistory = true)}
+          >
+            All
           </button>
-          <button class="history-toggle" type="button" on:click={() => (showHistoryItems = !showHistoryItems)}>
-            {showHistoryItems ? 'Hide' : 'Show'}
+          <button
+            class:selected={!showAllHistory}
+            class="history-filter-button"
+            type="button"
+            on:click={() => (showAllHistory = false)}
+          >
+            Mine only
           </button>
         </div>
+        {#if displayedHistoryItems.length === 0}
+          <p class="history-empty">No history items match this filter.</p>
+        {:else}
+          <div class="history-list">
+            {#each displayedHistoryItems as item}
+              <button class="history-row" type="button" on:click={() => handleOpenItem(item)}>
+                <span class="history-kind">{itemKicker(item)}</span>
+                <strong>{item.title}</strong>
+                {#if item.meta}
+                  <span class="history-meta">{item.meta}</span>
+                {/if}
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
-      {#if showHistoryItems}
-        <div class="history-list">
-          {#each displayedHistoryItems as item}
-            <button class="history-row" type="button" on:click={() => handleOpenItem(item)}>
-              <span class="history-kind">{itemKicker(item)}</span>
-              <strong>{item.title}</strong>
-              {#if item.meta}
-                <span class="history-meta">{item.meta}</span>
-              {/if}
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </section>
+    </details>
   {/if}
 
   {#if clearedItems.length > 0}
-    <section class="rail-section rail-section-cleared">
-      <div class="cleared-header">
-        <span class="cleared-summary">{clearedItems.length} cleared {clearedItems.length === 1 ? 'item' : 'items'}</span>
-        <div class="cleared-actions">
-          <button class="cleared-toggle" type="button" on:click={() => (showClearedItems = !showClearedItems)}>
-            {showClearedItems ? 'Hide' : 'Show'}
-          </button>
-          <button class="cleared-restore-all" type="button" on:click={restoreAllClearedItems}>
-            Restore all
-          </button>
-        </div>
-      </div>
-      {#if showClearedItems}
+    <details class="rail-section rail-section-cleared cleared-section" bind:open={clearedOpen}>
+      <summary class="rail-section-summary">
+        <span>Cleared</span>
+        <span class="rail-section-count">{clearedItems.length}</span>
+      </summary>
+      <div class="cleared-body">
+        <button class="cleared-restore-all" type="button" on:click={restoreAllClearedItems}>
+          Restore all
+        </button>
         <div class="cleared-list">
           {#each clearedItems as item}
             <div class="cleared-row">
-              <div class="cleared-copy">
+              <button class="cleared-open-button" type="button" on:click={() => handleOpenItem(item)}>
                 <span class="cleared-kind">{itemKicker(item)}</span>
                 <strong>{item.title}</strong>
-              </div>
-              <button class="cleared-restore-one" type="button" on:click={() => restoreRailItem(item.id)}>
+                {#if item.meta}
+                  <span class="cleared-meta">{item.meta}</span>
+                {/if}
+              </button>
+              <button
+                class="cleared-restore-one"
+                type="button"
+                on:click|stopPropagation={() => restoreRailItem(item.id)}
+              >
                 Restore
               </button>
             </div>
           {/each}
         </div>
-      {/if}
-    </section>
+      </div>
+    </details>
   {/if}
 </section>
 
@@ -824,50 +841,78 @@
     border-top: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
   }
 
-  .history-header {
+  .rail-section-summary {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .history-summary {
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .history-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-
-  .history-toggle,
-  .history-toggle-filter,
-  .history-row {
-    padding: 6px 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
+    gap: 12px;
     cursor: pointer;
+    list-style: none;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
   }
 
-  .history-toggle:hover,
-  .history-toggle-filter:hover {
+  .rail-section-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .rail-section-count {
+    padding: 4px 8px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  details[open] > .rail-section-summary .rail-section-count {
     border-color: var(--brand);
     background: var(--brand-soft);
     color: var(--brand-strong);
   }
 
-  .history-list {
+  .history-body,
+  .cleared-body {
     display: grid;
-    gap: 6px;
-    margin-top: 8px;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .history-filter {
+    display: inline-flex;
+    gap: 0;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    width: fit-content;
+  }
+
+  .history-filter-button {
+    padding: 6px 10px;
+    border: none;
+    background: var(--panel);
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .history-filter-button.selected {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .history-filter-button:hover {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .history-empty {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 600;
   }
 
   .history-row {
@@ -875,11 +920,19 @@
     gap: 4px;
     width: 100%;
     text-align: left;
+    padding: 10px 8px;
     border: none;
     border-bottom: 1px solid var(--panel-border);
-    background: transparent;
     border-radius: 0;
-    padding: 10px 8px;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .history-row:hover {
+    background: var(--panel-strong);
   }
 
   .history-kind,
@@ -896,29 +949,8 @@
     font-size: 11px;
   }
 
-  .cleared-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .cleared-summary {
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .cleared-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-
-  .cleared-toggle,
-  .cleared-restore-all,
-  .cleared-restore-one {
+  .cleared-restore-all {
+    width: fit-content;
     padding: 6px 10px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -929,9 +961,7 @@
     cursor: pointer;
   }
 
-  .cleared-toggle:hover,
-  .cleared-restore-all:hover,
-  .cleared-restore-one:hover {
+  .cleared-restore-all:hover {
     border-color: var(--brand);
     background: var(--brand-soft);
     color: var(--brand-strong);
@@ -939,40 +969,79 @@
 
   .cleared-list {
     display: grid;
-    gap: 6px;
-    margin-top: 8px;
+    gap: 0;
   }
 
   .cleared-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .cleared-row:last-child {
+    border-bottom: none;
+  }
+
+  .cleared-open-button {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+    text-align: left;
     padding: 10px 8px;
     border: none;
-    border-bottom: 1px solid var(--panel-border);
+    border-radius: 0;
     background: transparent;
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
   }
 
-  .cleared-copy {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
+  .cleared-open-button:hover {
+    background: var(--panel-strong);
   }
 
-  .cleared-kind {
-    color: var(--text-soft);
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .cleared-copy strong {
+  .cleared-open-button strong {
     font-size: 13px;
     color: var(--text-main);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .cleared-kind,
+  .cleared-meta {
+    color: var(--text-soft);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .cleared-meta {
+    text-transform: none;
+    font-weight: 600;
+    font-size: 11px;
+  }
+
+  .cleared-restore-one {
+    margin-right: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text-main);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .cleared-restore-one:hover {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
   }
 </style>

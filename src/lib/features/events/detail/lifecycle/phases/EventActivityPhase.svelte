@@ -9,6 +9,7 @@
     ProjectServiceHistoryCompletionChoice,
     ProjectServiceHistoryCompletionRole
   } from '$lib/types/detail';
+  import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
   import { formatEventPlanSchedule } from '$lib/utils/time';
 
   export let data: EventPageData;
@@ -27,6 +28,7 @@
   };
   export let selectedDayIso = '';
   export let highlightedActivityId: string | null = null;
+  export let highlightedHistoryId: string | null = null;
   export let openActivityComposerForDay: (isoDay?: string) => void = () => {};
   export let submitActivity: () => void | Promise<void> = () => {};
   export let changeCommitment: (
@@ -43,9 +45,10 @@
     rating: number,
     comment: string | null
   ) => void | Promise<void> = () => {};
+  export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
 
   let historyOpen = false;
-  let highlightedHistoryId: string | null = null;
+  let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
 
   $: plannedDayIsos = eventPlanScheduledDayIsos(selectedPlan);
   $: planTimingLabel = selectedPlan ? formatEventPlanSchedule(selectedPlan.schedule) : '';
@@ -66,11 +69,21 @@
   }
 
   async function focusHistoryCard(historyId: string) {
-    highlightedHistoryId = historyId;
-    await tick();
-    document.getElementById(`history-card-${historyId}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
+    historyOpen = true;
+    await focusEndedActivityCard(historyId, {
+      tick,
+      setHighlighted: (id) => {
+        highlightedHistoryId = id;
+      },
+      getHighlighted: () => highlightedHistoryId,
+      clearHandle: () => {
+        if (historyHighlightResetHandle) {
+          clearTimeout(historyHighlightResetHandle);
+        }
+      },
+      setHandle: (handle) => {
+        historyHighlightResetHandle = handle;
+      }
     });
   }
 
@@ -137,6 +150,7 @@
     changecommitment={changeCommitment}
     {toggleHistoryCompletion}
     {saveActivityRating}
+    {deleteActivityRating}
     onLiveActivitySelect={focusActivityCard}
     onHistoryActivitySelect={focusHistoryCard}
   />

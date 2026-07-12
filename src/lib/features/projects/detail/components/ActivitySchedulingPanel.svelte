@@ -52,6 +52,7 @@
     rating: number,
     comment: string | null
   ) => void | Promise<void> = () => {};
+  export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
 
   async function handleActivitySelection(activityId: string, anchor?: CalendarInteractionAnchor) {
     const historyItem = historyItems.find((item) => item.activity.id === activityId);
@@ -141,6 +142,7 @@
       {highlightedHistoryId}
       {toggleHistoryCompletion}
       {saveActivityRating}
+      {deleteActivityRating}
     />
   </details>
 </section>

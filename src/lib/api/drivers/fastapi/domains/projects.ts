@@ -309,6 +309,13 @@ export async function fetchSetProjectActivityRating(
   });
 }
 
+export async function fetchDeleteProjectActivityRating(
+  projectSlug: string,
+  activityId: string
+): Promise<void> {
+  await apiClient.delete(`/projects/${projectSlug}/activities/${activityId}/rating`);
+}
+
 // -- Software ----------------------------------------------------------------
 
 export async function fetchAddProjectPullRequest(

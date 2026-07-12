@@ -35,6 +35,7 @@
   export let serviceRequestForm: DraftServiceRequestForm;
   export let highlightedActivityId: string | null = null;
   export let highlightedRequestId: string | null = null;
+  export let highlightedHistoryId: string | null = null;
   export let showPersonalActivityComposer = false;
   export let showPersonalServiceRequestComposer = false;
   export let activityComposerElement: HTMLElement | null = null;
@@ -68,6 +69,7 @@
     rating: number,
     comment: string | null
   ) => void | Promise<void> = () => {};
+  export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
 </script>
 
 {#if activePhaseId === 'phase-1'}
@@ -82,6 +84,7 @@
     {activityForm}
     {highlightedActivityId}
     {highlightedRequestId}
+    bind:highlightedHistoryId
     {openPersonalActivityComposer}
     {openPersonalServiceRequestComposer}
     {openPersonalServiceRequestComposerForDay}
@@ -93,6 +96,7 @@
     {voteOnRequestSettingsChange}
     {toggleHistoryCompletion}
     {saveActivityRating}
+    {deleteActivityRating}
   />
 {:else}
   <IndividualServicePhaseTwo projectMode={data.projectMode} />

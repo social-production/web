@@ -181,6 +181,7 @@ export interface AppAdapter {
     rating: number,
     comment: string | null
   ): Promise<void>;
+  deleteProjectActivityRating(projectSlug: string, activityId: string): Promise<void>;
   addProjectServiceRequest(
     projectSlug: string,
     input: ProjectServiceRequestInput
@@ -342,6 +343,13 @@ export interface AppAdapter {
     activityId: string,
     rating: number,
     comment: string | null
+  ): Promise<void>;
+  deleteEventActivityRating(eventSlug: string, activityId: string): Promise<void>;
+  toggleEventHistoryCompletion(
+    eventSlug: string,
+    historyId: string,
+    role: import('$lib/types/detail').ProjectServiceHistoryCompletionRole,
+    selection?: import('$lib/types/detail').ProjectServiceHistoryCompletionChoice
   ): Promise<void>;
   requestEventPhaseChange(
     eventSlug: string,

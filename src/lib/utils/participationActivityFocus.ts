@@ -1,8 +1,104 @@
-import type { EventPageData, ProjectActivityItem, ProjectPageData } from '$lib/types/detail';
+import type {
+  EventPageData,
+  ProjectActivityItem,
+  ProjectPageData,
+  ProjectServiceHistoryItem
+} from '$lib/types/detail';
 import { highlightParticipationTarget } from '$lib/utils/participationHighlight';
 import { scrollElementIntoViewWithOffset, scrollToPageAnchor } from '$lib/utils/scrollAnchors';
 
 export const PARTICIPATION_FOCUS_ACTIVITIES_EVENT = 'participation:focus-activities';
+export const PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT = 'participation:focus-history-activity';
+
+export type HistoryFollowUpFocusDetail = {
+  activityId: string;
+  highlightCompletion: boolean;
+  highlightRating: boolean;
+};
+
+function projectHistoryItems(data: ProjectPageData | EventPageData): ProjectServiceHistoryItem[] {
+  return 'projectMode' in data ? data.lifecycle.phaseFive.history : data.lifecycle.activity.history;
+}
+
+export function viewerNeedsHistoryCompletion(item: ProjectServiceHistoryItem) {
+  const requester = item.requesterCompletion;
+  const participant = item.participantCompletion;
+
+  return (
+    (requester?.viewerCanSet && requester.viewerSelection == null) ||
+    (participant.viewerCanSet && participant.viewerSelection == null)
+  );
+}
+
+export function viewerNeedsHistoryRating(item: ProjectServiceHistoryItem) {
+  return item.viewerCanRate && item.viewerRating == null;
+}
+
+export function getHistoryItemsNeedingFollowUp(data: ProjectPageData | EventPageData) {
+  return projectHistoryItems(data).filter(
+    (item) => viewerNeedsHistoryCompletion(item) || viewerNeedsHistoryRating(item)
+  );
+}
+
+export function dispatchFocusHistoryActivity(
+  activityId: string,
+  options: Pick<HistoryFollowUpFocusDetail, 'highlightCompletion' | 'highlightRating'> = {
+    highlightCompletion: true,
+    highlightRating: true
+  }
+) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  document.dispatchEvent(
+    new CustomEvent<HistoryFollowUpFocusDetail>(PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT, {
+      detail: {
+        activityId,
+        highlightCompletion: options.highlightCompletion,
+        highlightRating: options.highlightRating
+      }
+    })
+  );
+}
+
+function highlightHistoryFollowUpTargets(activityId: string, detail: HistoryFollowUpFocusDetail) {
+  const cardSelector = `#history-card-${activityId}`;
+
+  if (detail.highlightCompletion) {
+    highlightParticipationTarget(`${cardSelector} [data-participation-target="history-completion"]`);
+  }
+
+  if (detail.highlightRating) {
+    highlightParticipationTarget(`${cardSelector} [data-participation-target="history-rating"]`);
+  }
+}
+
+export function focusHistoryFollowUpTargets(
+  data: ProjectPageData | EventPageData,
+  activityId?: string
+) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const items = getHistoryItemsNeedingFollowUp(data);
+  const target = items.find((item) => item.activity.id === activityId) ?? items[0];
+
+  if (!target) {
+    return;
+  }
+
+  const detail: HistoryFollowUpFocusDetail = {
+    activityId: target.activity.id,
+    highlightCompletion: viewerNeedsHistoryCompletion(target),
+    highlightRating: viewerNeedsHistoryRating(target)
+  };
+
+  activateParticipationActivityPhase();
+  dispatchFocusHistoryActivity(detail.activityId, detail);
+  window.setTimeout(() => highlightHistoryFollowUpTargets(detail.activityId, detail), 620);
+}
 
 function activityList(data: ProjectPageData | EventPageData): ProjectActivityItem[] {
   return 'projectMode' in data ? data.lifecycle.phaseFive.activities : data.lifecycle.activity.activities;

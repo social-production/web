@@ -10,7 +10,9 @@
     GovernanceSignalSummary,
     ProjectApprovalVote,
     PlanCriterionRating,
-    ProjectImportanceVoteValue
+    ProjectImportanceVoteValue,
+    ProjectServiceHistoryCompletionChoice,
+    ProjectServiceHistoryCompletionRole
   } from '$lib/types/detail';
   import type { EventActivityForm, EventPlanForm } from './eventLifecycleShared';
 
@@ -25,6 +27,7 @@
   export let showActivityComposer = false;
   export let selectedDayIso = '';
   export let highlightedActivityId: string | null = null;
+  export let highlightedHistoryId: string | null = null;
   export let targetedPlanId: string | null = null;
   export let autoAssess = false;
   export let autoAssessCriterionId: string | null = null;
@@ -79,6 +82,12 @@
     rating: number,
     comment: string | null
   ) => void | Promise<void> = () => {};
+  export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
+  export let toggleHistoryCompletion: (
+    historyId: string,
+    role: ProjectServiceHistoryCompletionRole,
+    selection?: ProjectServiceHistoryCompletionChoice
+  ) => void | Promise<void> = () => {};
 </script>
 
 {#if activePhaseId === 'proposal'}
@@ -112,10 +121,13 @@
     bind:activityForm
     bind:selectedDayIso
     bind:highlightedActivityId
+    bind:highlightedHistoryId
     {openActivityComposerForDay}
     {submitActivity}
     changeCommitment={changeCommitment}
     {saveActivityRating}
+    {deleteActivityRating}
+    {toggleHistoryCompletion}
   />
 {:else}
   <EventClosedPhase />

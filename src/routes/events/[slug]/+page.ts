@@ -1,6 +1,11 @@
 import { error } from '@sveltejs/kit';
 import { getEvent } from '$lib/services/queries/details';
-import { isNetworkLoadError, toLoadError } from '$lib/api/drivers/fastapi/client';
+import {
+  extractErrorMessage,
+  isApiClientError,
+  isNetworkLoadError,
+  toLoadError
+} from '$lib/api/drivers/fastapi/client';
 import type { PageLoad } from './$types';
 
 export const ssr = false;
@@ -15,6 +20,13 @@ export const load = (async ({ params }) => {
 
     return { event, loadError: null as string | null };
   } catch (err) {
+    if (isApiClientError(err) && err.status >= 500) {
+      return {
+        event: null,
+        loadError: extractErrorMessage(err, 'Could not load this event.')
+      };
+    }
+
     if (isNetworkLoadError(err)) {
       return {
         event: null,

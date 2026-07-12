@@ -7,14 +7,17 @@
     "dev": "vite dev",
     "dev:lan": "vite dev --host 0.0.0.0",
     "build": "npm run paraglide && vite build",
-    "start": "vite preview --host 0.0.0.0 --port ${PORT:-3000}",
+    "start": "node build",
     "preview": "vite preview",
     "paraglide": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide",
     "check": "npm run paraglide && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "smoke": "npm run check && npm run build"
+    "smoke": "npm run check && npm run build",
+    "format": "prettier --write \"src/**/*.{ts,svelte}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,svelte}\""
   },
   "devDependencies": {
     "@inlang/paraglide-js": "^2.20.2",
+    "@sveltejs/adapter-node": "^5.2.12",
     "@sveltejs/adapter-auto": "^3.2.0",
     "@sveltejs/kit": "^2.5.7",
     "@sveltejs/vite-plugin-svelte": "^4.0.0-next.6",
@@ -22,7 +25,9 @@
     "svelte": "^5.0.0",
     "svelte-check": "^3.8.4",
     "typescript": "^5.4.5",
-    "vite": "^5.2.12"
+    "vite": "^5.2.12",
+    "prettier": "^3.5.3",
+    "prettier-plugin-svelte": "^3.3.3"
   },
   "overrides": {
     "@sveltejs/vite-plugin-svelte": "^4.0.0-next.6"

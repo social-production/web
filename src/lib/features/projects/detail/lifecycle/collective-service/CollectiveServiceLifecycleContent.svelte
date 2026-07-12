@@ -71,6 +71,7 @@
   export let serviceRequestFeedback = '';
   export let highlightedActivityId: string | null = null;
   export let highlightedRequestId: string | null = null;
+  export let highlightedHistoryId: string | null = null;
   export let selectedRequestActivityId: string | null = null;
   export let activityComposerElement: HTMLElement | null = null;
   export let serviceRequestComposerElement: HTMLElement | null = null;
@@ -164,6 +165,7 @@
     rating: number,
     comment: string | null
   ) => void | Promise<void> = () => {};
+  export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
 </script>
 
 {#if activePhaseId === 'phase-1'}
@@ -212,6 +214,7 @@
     {activityForm}
     {highlightedActivityId}
     {highlightedRequestId}
+    bind:highlightedHistoryId
     bind:selectedRequestActivityId
     openComposer={openActivityComposer}
     openComposerForDay={openActivityComposerForDay}
@@ -240,6 +243,7 @@
     {voteRepositoryReplacement}
     {toggleHistoryCompletion}
     {saveActivityRating}
+    {deleteActivityRating}
   />
 {:else}
   <CollectiveServicePhaseSix projectMode={data.projectMode} />

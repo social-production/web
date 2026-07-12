@@ -14,7 +14,19 @@
   import ProjectLifecyclePhaseTabs from './components/ProjectLifecyclePhaseTabs.svelte';
   import ProjectPhaseChangeSection from './components/ProjectPhaseChangeSection.svelte';
   import { scrollToPendingVote } from '$lib/utils/pendingVotes';
-  import { PARTICIPATION_FOCUS_ACTIVITIES_EVENT } from '$lib/utils/participationActivityFocus';
+  import {
+    PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
+    PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT,
+    type HistoryFollowUpFocusDetail
+  } from '$lib/utils/participationActivityFocus';
+  import {
+    focusActivityCard as focusProjectActivityCard,
+    focusActivityOrHistoryTarget,
+    focusRequestCard as focusProjectRequestCard,
+    readActivityTarget,
+    readRequestTarget,
+    scrollElementIntoComfortView,
+  } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
   import {
     isCollectiveServiceProject,
     isPersonalServiceProject
@@ -38,6 +50,7 @@
     requestProjectServiceRequestSettingsChange,
     setProjectActivityCommitment,
     setProjectActivityRating,
+    deleteProjectActivityRating,
     setProjectMergeCapabilityChangeVote,
     setProjectPhaseChangeVote,
     setProjectPlanOverallVote,
@@ -294,9 +307,11 @@
   let expandedPhaseThreePlanIds: string[] = [];
   let expandedActivityIds: string[] = [];
   let highlightedActivityId: string | null = null;
+  let highlightedHistoryId: string | null = null;
   let highlightedRequestId: string | null = null;
   let selectedCollectiveRequestActivityId: string | null = null;
   let activityHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
+  let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let requestHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let lastActivityTargetId: string | null = null;
   let lastRequestTargetId: string | null = null;
@@ -312,28 +327,12 @@
     return visibleLifecyclePhases.find((phase) => phase.id === phaseId)?.order ?? 1;
   }
 
-  function readActivityTarget(url: URL) {
-    if (url.hash.startsWith('#activity-card-')) {
-      return url.hash.slice('#activity-card-'.length) || null;
-    }
-
-    if (url.hash.startsWith('#activity-')) {
-      return url.hash.slice('#activity-'.length) || null;
-    }
-
-    return url.searchParams.get('activity');
+  function readActivityTargetFromUrl(url: URL) {
+    return readActivityTarget(url);
   }
 
-  function readRequestTarget(url: URL) {
-    if (url.hash.startsWith('#request-card-')) {
-      return url.hash.slice('#request-card-'.length) || null;
-    }
-
-    if (url.hash.startsWith('#request-')) {
-      return url.hash.slice('#request-'.length) || null;
-    }
-
-    return url.searchParams.get('request');
+  function readRequestTargetFromUrl(url: URL) {
+    return readRequestTarget(url);
   }
 
   function phaseContainingPlan(planId: string): 'phase-2' | 'phase-3' | null {
@@ -510,7 +509,7 @@
   $: activePhaseProgressLabel = phaseProgressLabel(activePhase);
 
   $: {
-    const activityTargetId = readActivityTarget($page.url);
+    const activityTargetId = readActivityTargetFromUrl($page.url);
 
     if (!activityTargetId) {
       lastActivityTargetId = null;
@@ -520,12 +519,12 @@
       if (!expandedActivityIds.includes(activityTargetId)) {
         expandedActivityIds = [...expandedActivityIds, activityTargetId];
       }
-      void focusActivityCard(activityTargetId);
+      void focusActivityTarget(activityTargetId);
     }
   }
 
   $: {
-    const requestTargetId = readRequestTarget($page.url);
+    const requestTargetId = readRequestTargetFromUrl($page.url);
 
     if (!requestTargetId) {
       lastRequestTargetId = null;
@@ -925,6 +924,10 @@
     await refreshAfter(() => setProjectActivityRating(data.slug, activityId, rating, comment));
   }
 
+  async function deleteActivityRating(activityId: string) {
+    await refreshAfter(() => deleteProjectActivityRating(data.slug, activityId));
+  }
+
   async function advancePhase(closeNote?: string) {
     await refreshAfter(() => advanceProjectPhase(data.slug, closeNote));
   }
@@ -1137,17 +1140,6 @@
     serviceRequestForm.endsAt = localDateTimeValue(new Date(endsAt));
   }
 
-  function scrollElementIntoComfortView(element: HTMLElement | null) {
-    if (!browser || !element) {
-      return;
-    }
-
-    const topOffset = 104;
-    const targetTop = Math.max(0, window.scrollY + element.getBoundingClientRect().top - topOffset);
-
-    window.scrollTo({ top: targetTop, behavior: 'smooth' });
-  }
-
   function selectCalendarDay(isoDay: string) {
     setDefaultActivityTimes(isoDay);
   }
@@ -1245,115 +1237,94 @@
     return expandedActivityIds.includes(activityId);
   }
 
-  function scrollActivityCardIntoView(activityId: string) {
-    if (!browser) {
-      return;
-    }
-
-    document.getElementById(`activity-card-${activityId}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    });
-  }
-
-  function openActivityDetails(activityId: string) {
-    if (!browser) {
-      return;
-    }
-
-    const details = document.getElementById(`activity-${activityId}`);
-
-    if (details instanceof HTMLDetailsElement) {
-      details.open = true;
-    }
-  }
-
-  function scrollRequestCardIntoView(requestId: string) {
-    if (!browser) {
-      return;
-    }
-
-    document.getElementById(`request-card-${requestId}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
-  }
-
-  function openRequestDetails(requestId: string) {
-    if (!browser) {
-      return;
-    }
-
-    const details = document.getElementById(`request-${requestId}`);
-
-    if (details instanceof HTMLDetailsElement) {
-      details.open = true;
-    }
-  }
-
   async function focusActivityCard(activityId: string) {
-    if (activityHighlightResetHandle) {
-      clearTimeout(activityHighlightResetHandle);
-    }
-    highlightedActivityId = activityId;
-    await tick();
-    openActivityDetails(activityId);
-    scrollActivityCardIntoView(activityId);
-
-    if (browser) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          openActivityDetails(activityId);
-          scrollActivityCardIntoView(activityId);
-        });
-      });
-    }
-
-    activityHighlightResetHandle = setTimeout(() => {
-      if (highlightedActivityId === activityId) {
-        highlightedActivityId = null;
+    await focusProjectActivityCard(activityId, {
+      tick,
+      setHighlighted: (id) => {
+        highlightedActivityId = id;
+      },
+      getHighlighted: () => highlightedActivityId,
+      clearHandle: () => {
+        if (activityHighlightResetHandle) {
+          clearTimeout(activityHighlightResetHandle);
+        }
+      },
+      setHandle: (handle) => {
+        activityHighlightResetHandle = handle;
       }
-      activityHighlightResetHandle = null;
-    }, 1800);
+    });
+  }
+
+  async function focusActivityTarget(activityId: string) {
+    await focusActivityOrHistoryTarget(activityId, {
+      tick,
+      setLiveHighlighted: (id) => {
+        highlightedActivityId = id;
+      },
+      getLiveHighlighted: () => highlightedActivityId,
+      clearLiveHandle: () => {
+        if (activityHighlightResetHandle) {
+          clearTimeout(activityHighlightResetHandle);
+        }
+      },
+      setLiveHandle: (handle) => {
+        activityHighlightResetHandle = handle;
+      },
+      setHistoryHighlighted: (id) => {
+        highlightedHistoryId = id;
+      },
+      getHistoryHighlighted: () => highlightedHistoryId,
+      clearHistoryHandle: () => {
+        if (historyHighlightResetHandle) {
+          clearTimeout(historyHighlightResetHandle);
+        }
+      },
+      setHistoryHandle: (handle) => {
+        historyHighlightResetHandle = handle;
+      }
+    });
   }
 
   function handleParticipationActivitiesFocus() {
     activePhaseId = isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5';
   }
 
+  function handleParticipationHistoryFocus(event: Event) {
+    const detail = (event as CustomEvent<HistoryFollowUpFocusDetail>).detail;
+    if (!detail?.activityId) {
+      return;
+    }
+
+    activePhaseId = isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5';
+    void focusActivityTarget(detail.activityId);
+  }
+
   onMount(() => {
     document.addEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
+    document.addEventListener(PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT, handleParticipationHistoryFocus);
   });
 
   onDestroy(() => {
     document.removeEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
+    document.removeEventListener(PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT, handleParticipationHistoryFocus);
   });
 
   async function focusRequestCard(requestId: string) {
-    if (requestHighlightResetHandle) {
-      clearTimeout(requestHighlightResetHandle);
-    }
-
-    highlightedRequestId = requestId;
-    await tick();
-    openRequestDetails(requestId);
-    scrollRequestCardIntoView(requestId);
-
-    if (browser) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          openRequestDetails(requestId);
-          scrollRequestCardIntoView(requestId);
-        });
-      });
-    }
-
-    requestHighlightResetHandle = setTimeout(() => {
-      if (highlightedRequestId === requestId) {
-        highlightedRequestId = null;
+    await focusProjectRequestCard(requestId, {
+      tick,
+      setHighlighted: (id) => {
+        highlightedRequestId = id;
+      },
+      getHighlighted: () => highlightedRequestId,
+      clearHandle: () => {
+        if (requestHighlightResetHandle) {
+          clearTimeout(requestHighlightResetHandle);
+        }
+      },
+      setHandle: (handle) => {
+        requestHighlightResetHandle = handle;
       }
-      requestHighlightResetHandle = null;
-    }, 1800);
+    });
   }
 </script>
 
@@ -1377,6 +1348,7 @@
         bind:activityEndInputElement
         {highlightedActivityId}
         {highlightedRequestId}
+        bind:highlightedHistoryId
         openPersonalActivityComposer={openPersonalActivityComposer}
         openPersonalServiceRequestComposer={openPersonalServiceRequestComposer}
         openPersonalServiceRequestComposerForDay={openPersonalServiceRequestComposerForDay}
@@ -1387,6 +1359,7 @@
         voteOnRequestSettingsChange={voteOnServiceRequestSettingsChange}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
         {saveActivityRating}
+        {deleteActivityRating}
       />
     {:else if isCollectiveServiceProject(data.projectMode)}
       <CollectiveServiceLifecycleContent
@@ -1406,6 +1379,7 @@
         serviceRequestFeedback={serviceRequestFeedback}
         {highlightedActivityId}
         {highlightedRequestId}
+        bind:highlightedHistoryId
         bind:selectedRequestActivityId={selectedCollectiveRequestActivityId}
         bind:activityComposerElement
         bind:serviceRequestComposerElement
@@ -1448,6 +1422,7 @@
         voteRepositoryReplacement={voteSoftwareRepositoryReplacement}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
         {saveActivityRating}
+        {deleteActivityRating}
       />
     {:else}
       <ProductiveLifecycleContent
@@ -1463,6 +1438,7 @@
         distributionForm={distributionForm}
         activityForm={activityForm}
         {highlightedActivityId}
+        bind:highlightedHistoryId
         submitValue={submitValue}
         setProjectValueVote={handleProjectValueVote}
         addProductionPlanPhase={addProductionPlanPhase}
@@ -1493,6 +1469,7 @@
         voteRepositoryReplacement={voteSoftwareRepositoryReplacement}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
         {saveActivityRating}
+        {deleteActivityRating}
       />
     {/if}
 

@@ -10,6 +10,8 @@ import type {
   GovernanceSignalType,
   ShareTargetResult,
   EventLifecyclePhaseId,
+  ProjectServiceHistoryCompletionChoice,
+  ProjectServiceHistoryCompletionRole,
 } from '$lib/types/detail';
 import type { CreateEventInput, CreateResult } from '$lib/types/feed';
 
@@ -184,6 +186,25 @@ export async function fetchSetEventActivityRating(
   await apiClient.put(`/events/${eventSlug}/activities/${activityId}/rating`, {
     rating,
     comment
+  });
+}
+
+export async function fetchDeleteEventActivityRating(
+  eventSlug: string,
+  activityId: string
+): Promise<void> {
+  await apiClient.delete(`/events/${eventSlug}/activities/${activityId}/rating`);
+}
+
+export async function fetchToggleEventHistoryCompletion(
+  eventSlug: string,
+  historyId: string,
+  role: ProjectServiceHistoryCompletionRole,
+  selection?: ProjectServiceHistoryCompletionChoice
+): Promise<void> {
+  await apiClient.post(`/events/${eventSlug}/activity-history/${historyId}/completion`, {
+    role,
+    selection: selection ?? null
   });
 }
 

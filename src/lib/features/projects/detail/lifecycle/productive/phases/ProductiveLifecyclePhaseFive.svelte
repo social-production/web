@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import ActivitySchedulingPanel from '$lib/features/projects/detail/components/ActivitySchedulingPanel.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
+  import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
   import type {
     ProjectActivityRoleInput,
     ProjectPageData,
@@ -28,6 +29,7 @@
   export let activityForm: ActivityForm;
   export let showComposer = false;
   export let highlightedActivityId: string | null = null;
+  export let highlightedHistoryId: string | null = null;
   export let openComposer: () => void | Promise<void> = () => {};
   export let openComposerForDay: (isoDay: string) => void | Promise<void> = () => {};
   export let focusActivityCard: (activityId: string) => void | Promise<void> = () => {};
@@ -63,38 +65,28 @@
     rating: number,
     comment: string | null
   ) => void | Promise<void> = () => {};
+  export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
 
   let historyOpen = false;
-  let highlightedHistoryId: string | null = null;
   let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
 
-  function scrollHistoryCardIntoView(historyId: string) {
-    if (typeof document === 'undefined') {
-      return;
-    }
-
-    document.getElementById(`history-card-${historyId}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
-  }
-
   async function focusHistoryCard(historyId: string) {
-    if (historyHighlightResetHandle) {
-      clearTimeout(historyHighlightResetHandle);
-    }
-
-    highlightedHistoryId = historyId;
-    await tick();
-    scrollHistoryCardIntoView(historyId);
-
-    historyHighlightResetHandle = setTimeout(() => {
-      if (highlightedHistoryId === historyId) {
-        highlightedHistoryId = null;
+    historyOpen = true;
+    await focusEndedActivityCard(historyId, {
+      tick,
+      setHighlighted: (id) => {
+        highlightedHistoryId = id;
+      },
+      getHighlighted: () => highlightedHistoryId,
+      clearHandle: () => {
+        if (historyHighlightResetHandle) {
+          clearTimeout(historyHighlightResetHandle);
+        }
+      },
+      setHandle: (handle) => {
+        historyHighlightResetHandle = handle;
       }
-
-      historyHighlightResetHandle = null;
-    }, 1800);
+    });
   }
 
   async function toggleActivityComposer() {
@@ -164,6 +156,7 @@
     {changecommitment}
     {toggleHistoryCompletion}
     {saveActivityRating}
+    {deleteActivityRating}
     onLiveActivitySelect={focusActivityCard}
     onHistoryActivitySelect={focusHistoryCard}
   />

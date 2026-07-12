@@ -168,6 +168,10 @@ export function setProjectActivityRating(
   return currentAdapter.setProjectActivityRating(projectSlug, activityId, rating, comment);
 }
 
+export function deleteProjectActivityRating(projectSlug: string, activityId: string) {
+  return currentAdapter.deleteProjectActivityRating(projectSlug, activityId);
+}
+
 export function addProjectServiceRequest(projectSlug: string, input: ProjectServiceRequestInput) {
   return currentAdapter.addProjectServiceRequest(projectSlug, input);
 }
@@ -417,6 +421,19 @@ export function setEventActivityRating(
   comment: string | null
 ) {
   return currentAdapter.setEventActivityRating(eventSlug, activityId, rating, comment);
+}
+
+export function deleteEventActivityRating(eventSlug: string, activityId: string) {
+  return currentAdapter.deleteEventActivityRating(eventSlug, activityId);
+}
+
+export function toggleEventHistoryCompletion(
+  eventSlug: string,
+  historyId: string,
+  role: ProjectServiceHistoryCompletionRole,
+  selection?: ProjectServiceHistoryCompletionChoice
+) {
+  return currentAdapter.toggleEventHistoryCompletion(eventSlug, historyId, role, selection);
 }
 
 export function requestEventPhaseChange(

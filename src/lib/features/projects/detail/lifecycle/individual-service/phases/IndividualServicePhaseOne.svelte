@@ -6,6 +6,7 @@
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import ActivityHistorySection from '$lib/features/projects/detail/components/ActivityHistorySection.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
+  import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
   import {
     formatProjectVoteRequirement,
     formatProjectVoteSummary
@@ -47,6 +48,7 @@
   export let data: ProjectPageData;
   export let highlightedActivityId: string | null = null;
   export let highlightedRequestId: string | null = null;
+  export let highlightedHistoryId: string | null = null;
   export let showPersonalActivityComposer = false;
   export let showPersonalServiceRequestComposer = false;
   export let serviceRequestForm: ProjectServiceRequestInput;
@@ -78,6 +80,7 @@
     rating: number,
     comment: string | null
   ) => void | Promise<void> = () => {};
+  export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
 
   let historyOpen = false;
 
@@ -138,41 +141,23 @@
     return data.lifecycle.phaseFive.history.find((item) => item.activity.id === activityId) ?? null;
   }
 
-  function scrollHistoryCardIntoView(historyId: string) {
-    if (typeof document === 'undefined') {
-      return;
-    }
-
-    document.getElementById(`history-card-${historyId}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
-  }
-
   async function focusHistoryCard(historyId: string) {
-    if (historyHighlightResetHandle) {
-      clearTimeout(historyHighlightResetHandle);
-    }
-
-    highlightedHistoryId = historyId;
-    await tick();
-    scrollHistoryCardIntoView(historyId);
-
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollHistoryCardIntoView(historyId);
-        });
-      });
-    }
-
-    historyHighlightResetHandle = setTimeout(() => {
-      if (highlightedHistoryId === historyId) {
-        highlightedHistoryId = null;
+    historyOpen = true;
+    await focusEndedActivityCard(historyId, {
+      tick,
+      setHighlighted: (id) => {
+        highlightedHistoryId = id;
+      },
+      getHighlighted: () => highlightedHistoryId,
+      clearHandle: () => {
+        if (historyHighlightResetHandle) {
+          clearTimeout(historyHighlightResetHandle);
+        }
+      },
+      setHandle: (handle) => {
+        historyHighlightResetHandle = handle;
       }
-
-      historyHighlightResetHandle = null;
-    }, 1800);
+    });
   }
 
   async function openCalendarComposer() {
@@ -318,7 +303,6 @@
 
   let activeTab: ServiceTab = 'live';
   let selectedActivityId = '';
-  let highlightedHistoryId: string | null = null;
   let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let showRequestSettingsComposer = false;
   let showRequestSettingsVote = false;
@@ -682,6 +666,7 @@
         {highlightedHistoryId}
         {toggleHistoryCompletion}
         {saveActivityRating}
+        {deleteActivityRating}
       />
 
       <ActivityHistorySection
@@ -692,6 +677,7 @@
         {highlightedHistoryId}
         {toggleHistoryCompletion}
         {saveActivityRating}
+        {deleteActivityRating}
       />
     </div>
   </details>

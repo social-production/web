@@ -1,7 +1,20 @@
 import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
-import type { EventPageData, EventPlan, ProjectPageData } from '$lib/types/detail';
+import type { EventPageData, EventPlan, ProjectPageData, ProjectServiceHistoryItem } from '$lib/types/detail';
 import { canProposeEventActivity } from '$lib/utils/eventSchedule';
+import {
+  activateParticipationActivityPhase,
+  focusActivitySignupTargets,
+  focusHistoryFollowUpTargets,
+  getHistoryItemsNeedingFollowUp
+} from '$lib/utils/participationActivityFocus';
 import { pendingVoteCardId, type PendingVoteItem } from '$lib/utils/pendingVotes';
+
+export {
+  activateParticipationActivityPhase,
+  focusActivitySignupTargets,
+  focusHistoryFollowUpTargets,
+  getHistoryItemsNeedingFollowUp
+};
 
 export interface ParticipationStep {
   id: string;
@@ -160,11 +173,6 @@ function viewerNeedsActivitySignup(data: ProjectPageData | EventPageData) {
   return activities.some((activity) => !activity.viewerAssignedRoleLabel);
 }
 
-export {
-  activateParticipationActivityPhase,
-  focusActivitySignupTargets
-} from '$lib/utils/participationActivityFocus';
-
 function signalHelper(
   data: ProjectPageData | EventPageData,
   signaled: boolean,
@@ -215,6 +223,38 @@ function buildSignalStep(
   };
 }
 
+function historyFollowUpHelper(items: ProjectServiceHistoryItem[]) {
+  const needsCompletion = items.some(
+    (item) =>
+      (item.requesterCompletion?.viewerCanSet && item.requesterCompletion.viewerSelection == null) ||
+      (item.participantCompletion.viewerCanSet && item.participantCompletion.viewerSelection == null)
+  );
+  const needsRating = items.some((item) => item.viewerCanRate && item.viewerRating == null);
+
+  if (needsCompletion && needsRating) {
+    return 'Mark completion and leave a rating for activity you joined.';
+  }
+
+  if (needsCompletion) {
+    return 'Say whether this activity completed from your side.';
+  }
+
+  if (needsRating) {
+    return 'Rate an activity you took part in.';
+  }
+
+  return undefined;
+}
+
+function buildHistoryFollowUpStep(items: ProjectServiceHistoryItem[]): ParticipationStep {
+  return {
+    id: 'history-follow-up',
+    label: items.length > 1 ? 'Wrap up activities' : 'Wrap up activity',
+    done: false,
+    helper: historyFollowUpHelper(items)
+  };
+}
+
 function rateValuesHelper(
   values: { activeImportanceVote: number }[],
   joined: boolean,
@@ -238,7 +278,12 @@ function buildParticipationSteps(
   options: ParticipationStepOptions = {}
 ): ParticipationStep[] {
   if ('projectMode' in data && isPersonalServiceProject(data.projectMode)) {
-    return [];
+    const historyPending = getHistoryItemsNeedingFollowUp(data);
+    if (historyPending.length === 0) {
+      return [];
+    }
+
+    return [buildHistoryFollowUpStep(historyPending)].filter((step) => !step.done);
   }
 
   const joined = data.viewerIsMember;
@@ -313,6 +358,11 @@ function buildParticipationSteps(
     }
   }
 
+  const historyPending = getHistoryItemsNeedingFollowUp(data);
+  if (historyPending.length > 0) {
+    steps.push(buildHistoryFollowUpStep(historyPending));
+  }
+
   const hasAssessPlansStep = steps.some((step) => step.id === 'assess-plans');
   const skipVoteForPlanAssess =
     hasAssessPlansStep && pendingVotesArePlanAssessmentsOnly(pendingVotes);
@@ -351,7 +401,16 @@ export function resolveCurrentParticipationStep(steps: ParticipationStep[]) {
     return signalStep.id;
   }
 
-  const priority = ['join', 'rate', 'plan', 'assess-plans', 'activity', 'propose-activity', 'vote'];
+  const priority = [
+    'join',
+    'rate',
+    'plan',
+    'assess-plans',
+    'activity',
+    'propose-activity',
+    'history-follow-up',
+    'vote'
+  ];
   for (const id of priority) {
     const match = steps.find((step) => step.id === id && !step.done);
     if (match) {
@@ -383,6 +442,7 @@ export function getParticipationStepAnchor(stepId: string): string | null {
       return 'pending-votes-panel';
     case 'activity':
     case 'propose-activity':
+    case 'history-follow-up':
       return 'participation-activities';
     case 'vote':
     case 'phase-vote':

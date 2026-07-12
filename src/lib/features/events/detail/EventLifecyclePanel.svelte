@@ -10,7 +10,11 @@
   import EventLifecycleMechanicsCard from './components/EventLifecycleMechanicsCard.svelte';
   import EventLifecyclePhaseTabs from './components/EventLifecyclePhaseTabs.svelte';
   import EventPhaseChangeSection from './components/EventPhaseChangeSection.svelte';
-  import { PARTICIPATION_FOCUS_ACTIVITIES_EVENT } from '$lib/utils/participationActivityFocus';
+  import {
+    PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
+    PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT,
+    type HistoryFollowUpFocusDetail
+  } from '$lib/utils/participationActivityFocus';
   import { scrollToPendingVote } from '$lib/utils/pendingVotes';
   import EventLifecycleContent from './lifecycle/EventLifecycleContent.svelte';
   import {
@@ -40,6 +44,8 @@
     requestEventPhaseChange,
     setEventActivityCommitment,
     setEventActivityRating,
+    deleteEventActivityRating,
+    toggleEventHistoryCompletion,
     setEventPhaseChangeVote,
     setEventPlanOverallVote,
     setEventPlanCriterionRating,
@@ -50,7 +56,9 @@
     EventLifecyclePhaseId,
     EventPageData,
     ProjectApprovalVote,
-    ProjectImportanceVoteValue
+    ProjectImportanceVoteValue,
+    ProjectServiceHistoryCompletionChoice,
+    ProjectServiceHistoryCompletionRole
   } from '$lib/types/detail';
 
   export let data: EventPageData;
@@ -100,73 +108,42 @@
   let phaseChangeReason = '';
   let selectedDayIso = '';
   let highlightedActivityId: string | null = null;
+  let highlightedHistoryId: string | null = null;
   let planForm: EventPlanForm = createEventPlanForm();
   let activityForm: EventActivityForm = createDefaultActivityForm();
   let activityHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
+  let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let lastActivityTargetId: string | null = null;
   let lastVoteTargetSignature = '';
 
-  function readActivityTarget(url: URL): string | null {
-    if (url.hash.startsWith('#activity-card-')) {
-      return url.hash.slice('#activity-card-'.length) || null;
-    }
-
-    if (url.hash.startsWith('#event-activity-')) {
-      return url.hash.slice('#event-activity-'.length) || null;
-    }
-
-    return url.searchParams.get('activity');
-  }
-
-  function scrollActivityCardIntoView(activityId: string) {
-    if (!browser) return;
-    document.getElementById(`activity-card-${activityId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  function openActivityDetails(activityId: string) {
-    if (!browser) return;
-    const details = document.getElementById(`activity-${activityId}`);
-    if (details instanceof HTMLDetailsElement) {
-      details.open = true;
-    }
-  }
-
-  async function focusActivityCard(activityId: string) {
-    if (activityHighlightResetHandle) {
-      clearTimeout(activityHighlightResetHandle);
-    }
-    highlightedActivityId = activityId;
-    await tick();
-    openActivityDetails(activityId);
-    scrollActivityCardIntoView(activityId);
-
-    if (browser) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          openActivityDetails(activityId);
-          scrollActivityCardIntoView(activityId);
-        });
-      });
-    }
-
-    activityHighlightResetHandle = setTimeout(() => {
-      if (highlightedActivityId === activityId) {
-        highlightedActivityId = null;
-      }
-      activityHighlightResetHandle = null;
-    }, 1800);
-  }
+  import {
+    focusActivityCard as focusLiveActivityCard,
+    focusActivityOrHistoryTarget,
+    readActivityTarget
+  } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
 
   function handleParticipationActivitiesFocus() {
     activePhaseId = 'activity';
   }
 
+  function handleParticipationHistoryFocus(event: Event) {
+    const detail = (event as CustomEvent<HistoryFollowUpFocusDetail>).detail;
+    if (!detail?.activityId) {
+      return;
+    }
+
+    activePhaseId = 'activity';
+    void focusActivityTarget(detail.activityId);
+  }
+
   onMount(() => {
     document.addEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
+    document.addEventListener(PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT, handleParticipationHistoryFocus);
   });
 
   onDestroy(() => {
     document.removeEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
+    document.removeEventListener(PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT, handleParticipationHistoryFocus);
   });
 
   function phaseChangeVoteGroup(requestId: string): 'return' | 'advance' | 'close' | null {
@@ -215,8 +192,56 @@
     } else if (activityTargetId !== lastActivityTargetId) {
       lastActivityTargetId = activityTargetId;
       activePhaseId = 'activity';
-      void focusActivityCard(activityTargetId);
+      void focusActivityTarget(activityTargetId);
     }
+  }
+
+  async function focusActivityCard(activityId: string) {
+    await focusLiveActivityCard(activityId, {
+      tick,
+      setHighlighted: (id) => {
+        highlightedActivityId = id;
+      },
+      getHighlighted: () => highlightedActivityId,
+      clearHandle: () => {
+        if (activityHighlightResetHandle) {
+          clearTimeout(activityHighlightResetHandle);
+        }
+      },
+      setHandle: (handle) => {
+        activityHighlightResetHandle = handle;
+      }
+    });
+  }
+
+  async function focusActivityTarget(activityId: string) {
+    await focusActivityOrHistoryTarget(activityId, {
+      tick,
+      setLiveHighlighted: (id) => {
+        highlightedActivityId = id;
+      },
+      getLiveHighlighted: () => highlightedActivityId,
+      clearLiveHandle: () => {
+        if (activityHighlightResetHandle) {
+          clearTimeout(activityHighlightResetHandle);
+        }
+      },
+      setLiveHandle: (handle) => {
+        activityHighlightResetHandle = handle;
+      },
+      setHistoryHighlighted: (id) => {
+        highlightedHistoryId = id;
+      },
+      getHistoryHighlighted: () => highlightedHistoryId,
+      clearHistoryHandle: () => {
+        if (historyHighlightResetHandle) {
+          clearTimeout(historyHighlightResetHandle);
+        }
+      },
+      setHistoryHandle: (handle) => {
+        historyHighlightResetHandle = handle;
+      }
+    });
   }
 
   $: {
@@ -562,6 +587,20 @@
     await Promise.all([invalidateAll(), refreshBootstrap()]);
   }
 
+  async function deleteActivityRating(activityId: string) {
+    await deleteEventActivityRating(data.slug, activityId);
+    await Promise.all([invalidateAll(), refreshBootstrap()]);
+  }
+
+  async function toggleHistoryCompletion(
+    historyId: string,
+    role: ProjectServiceHistoryCompletionRole,
+    selection?: ProjectServiceHistoryCompletionChoice
+  ) {
+    await toggleEventHistoryCompletion(data.slug, historyId, role, selection);
+    await Promise.all([invalidateAll(), refreshBootstrap()]);
+  }
+
   async function requestPhaseChange(targetPhaseId: EventLifecyclePhaseId, reason: string) {
     if (!targetPhaseId || !reason.trim()) {
       return;
@@ -613,6 +652,7 @@
       bind:showActivityComposer
       bind:selectedDayIso
       bind:highlightedActivityId
+      bind:highlightedHistoryId
       {targetedPlanId}
       autoAssess={effectiveAutoAssess}
       autoAssessCriterionId={effectiveAutoAssessCriterionId}
@@ -628,6 +668,8 @@
       {submitActivity}
       changeCommitment={changeCommitment}
       {saveActivityRating}
+      {deleteActivityRating}
+      {toggleHistoryCompletion}
     />
 
     <EventPhaseChangeSection

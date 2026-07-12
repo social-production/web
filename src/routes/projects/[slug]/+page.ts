@@ -1,6 +1,11 @@
 import { error } from '@sveltejs/kit';
 import { getProject } from '$lib/services/queries/details';
-import { isNetworkLoadError, toLoadError } from '$lib/api/drivers/fastapi/client';
+import {
+  extractErrorMessage,
+  isApiClientError,
+  isNetworkLoadError,
+  toLoadError
+} from '$lib/api/drivers/fastapi/client';
 import type { PageLoad } from './$types';
 
 export const ssr = false;
@@ -15,6 +20,13 @@ export const load = (async ({ params }) => {
 
     return { project, loadError: null as string | null };
   } catch (err) {
+    if (isApiClientError(err) && err.status >= 500) {
+      return {
+        project: null,
+        loadError: extractErrorMessage(err, 'Could not load this project.')
+      };
+    }
+
     if (isNetworkLoadError(err)) {
       return {
         project: null,

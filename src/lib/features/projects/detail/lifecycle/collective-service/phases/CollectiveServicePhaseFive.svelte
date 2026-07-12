@@ -6,13 +6,27 @@
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import ActivityHistorySection from '$lib/features/projects/detail/components/ActivityHistorySection.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
+  import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
   import {
     formatProjectVoteRequirement,
     formatProjectVoteSummary
   } from '$lib/utils/projectVotes';
-  import type { ProjectSubtype } from '$lib/types/feed';
+  import {
+    buildSpecializedRequestPayload,
+    createDraftActivityRole,
+    createRequestPlanningForm,
+    createRequestSettingsForm,
+    createSpecializedRequestForm,
+    currentCollectiveSubtype,
+    requestComposerCopy,
+    type ComparableRequestSettings,
+    type RequestComposerCopy,
+    type RequestPlanningForm,
+    type RequestSettingsForm,
+    type SpecializedRequestForm
+  } from '$lib/features/projects/detail/lifecycle/collective-service/collectiveServiceRequestForms';
   import type {
     ProjectActivityRoleInput,
     ProjectApprovalVote,
@@ -51,52 +65,6 @@
     clientY: number;
   };
 
-  type RequestPlanningForm = {
-    title: string;
-    locationLabel: string;
-    roleRequirements: ProjectActivityRoleInput[];
-    linkedPlanPhaseId: string | null;
-    note: string;
-  };
-
-  type RequestSettingsForm = {
-    enabled: boolean;
-    requestMode: 'calendar' | 'direct' | 'both';
-    allowOffScheduleRequests: boolean;
-    reason: string;
-  };
-
-  type ComparableRequestSettings = Omit<RequestSettingsForm, 'reason'>;
-
-  type SpecializedRequestForm = {
-    requestUse: 'project' | 'individual';
-    itemSummary: string;
-    pickupLabel: string;
-    destinationLabel: string;
-    description: string;
-    needsDelivery: boolean;
-  };
-
-  type RequestComposerCopy = {
-    sectionTitle: string;
-    actionLabel: string;
-    composerTitle: string;
-    descriptionLabel: string;
-    descriptionPlaceholder: string;
-    startLabel: string;
-    endLabel: string;
-    submitLabel: string;
-    selectionHelp: string;
-    usesAssetFields: boolean;
-    usesDeliveryFields: boolean;
-    itemLabel?: string;
-    itemPlaceholder?: string;
-    pickupLabel?: string;
-    destinationLabel?: string;
-    titlePlaceholder?: string;
-    bodyPlaceholder?: string;
-  };
-
   type ServiceTab = 'live' | 'history';
   type RequestSettingsVote = NonNullable<
     NonNullable<ProjectPageData['lifecycle']['requestSystem']>['settingsChangeRequests']
@@ -115,6 +83,7 @@
   export let showRequestComposer = false;
   export let highlightedActivityId: string | null = null;
   export let highlightedRequestId: string | null = null;
+  export let highlightedHistoryId: string | null = null;
   export let selectedRequestActivityId: string | null = null;
   export let activityComposerElement: HTMLElement | null = null;
   export let serviceRequestComposerElement: HTMLElement | null = null;
@@ -173,121 +142,9 @@
     rating: number,
     comment: string | null
   ) => void | Promise<void> = () => {};
+  export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
 
   let historyOpen = false;
-
-  function createDraftActivityRole(label = ''): ProjectActivityRoleInput {
-    return {
-      label,
-      requiredCount: 1
-    };
-  }
-
-  function createRequestPlanningForm(request?: ProjectServiceRequestItem): RequestPlanningForm {
-    return {
-      title: request?.title ?? '',
-      locationLabel: data.locationLabel,
-      roleRequirements: [createDraftActivityRole('Service lead')],
-      linkedPlanPhaseId: '',
-      note: request?.body ?? ''
-    };
-  }
-
-  function createRequestSettingsForm(): RequestSettingsForm {
-    const settings = data.lifecycle.requestSystem?.settings;
-
-    return {
-      enabled: settings?.enabled ?? false,
-      requestMode: settings?.requestMode ?? 'both',
-      allowOffScheduleRequests: settings?.allowOffScheduleRequests ?? false,
-      reason: ''
-    };
-  }
-
-  function createSpecializedRequestForm(): SpecializedRequestForm {
-    return {
-      requestUse: 'project',
-      itemSummary: '',
-      pickupLabel: '',
-      destinationLabel: '',
-      description: '',
-      needsDelivery: false
-    };
-  }
-
-  function currentSubtype(): ProjectSubtype {
-    return data.lifecycle.currentSubtype ?? data.projectSubtype ?? 'standard';
-  }
-
-  function requestComposerCopy(subtype: ProjectSubtype): RequestComposerCopy {
-    switch (subtype) {
-      case 'asset-management':
-        return {
-          sectionTitle: 'Asset requests',
-          actionLabel: 'Request assets',
-          composerTitle: 'Create asset request',
-          descriptionLabel: 'Description',
-          descriptionPlaceholder:
-            'Describe the land access, asset support, storage need, or handoff coordination needed during this time.',
-          startLabel: 'Requested start',
-          endLabel: 'Requested finish',
-          submitLabel: 'Create request',
-          selectionHelp:
-            'Use this form when the inventory list is not the entry point for asset-management work.',
-          usesAssetFields: true,
-          usesDeliveryFields: false,
-          itemLabel: 'Asset, site use, or handoff need',
-          itemPlaceholder: 'What needs managing, moving, reserving, or supporting?'
-        };
-      default:
-        return {
-          sectionTitle: 'Requests',
-          actionLabel: 'Request service',
-          composerTitle: 'Create request',
-          descriptionLabel: 'Request details',
-          descriptionPlaceholder: 'What should happen during this requested window?',
-          startLabel: 'Requested start',
-          endLabel: 'Requested finish',
-          submitLabel: 'Create request',
-          selectionHelp: 'Use this form to request service during the selected time.',
-          usesAssetFields: false,
-          usesDeliveryFields: false,
-          titlePlaceholder: 'Request title',
-          bodyPlaceholder: 'What should happen during this requested window?'
-        };
-    }
-  }
-
-  function buildSpecializedRequestPayload(subtype: ProjectSubtype, form: SpecializedRequestForm) {
-    if (subtype === 'asset-management') {
-      const itemSummary = form.itemSummary.trim();
-      const description = form.description.trim();
-
-      if (!itemSummary || !description) {
-        return null;
-      }
-
-      return {
-        title: `Asset request: ${itemSummary}`,
-        body: [
-          `Use type: ${form.requestUse === 'project' ? 'Project use' : 'Individual use'}`,
-          `Delivery needed: ${form.needsDelivery ? 'Yes' : 'No'}`,
-          `Asset-management need: ${itemSummary}`,
-          '',
-          description
-        ].join('\n')
-      };
-    }
-
-    const title = serviceRequestForm.title.trim();
-    const body = serviceRequestForm.body.trim();
-
-    if (!title || !body) {
-      return null;
-    }
-
-    return { title, body };
-  }
 
   function resolveRequestSettings(
     settings?: ComparableRequestSettings | NonNullable<ProjectPageData['lifecycle']['requestSystem']>['settings'] | null
@@ -353,41 +210,23 @@
     return data.lifecycle.phaseFive.history.find((item) => item.activity.id === activityId) ?? null;
   }
 
-  function scrollHistoryCardIntoView(historyId: string) {
-    if (typeof document === 'undefined') {
-      return;
-    }
-
-    document.getElementById(`history-card-${historyId}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
-  }
-
   async function focusHistoryCard(historyId: string) {
-    if (historyHighlightResetHandle) {
-      clearTimeout(historyHighlightResetHandle);
-    }
-
-    highlightedHistoryId = historyId;
-    await tick();
-    scrollHistoryCardIntoView(historyId);
-
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollHistoryCardIntoView(historyId);
-        });
-      });
-    }
-
-    historyHighlightResetHandle = setTimeout(() => {
-      if (highlightedHistoryId === historyId) {
-        highlightedHistoryId = null;
+    historyOpen = true;
+    await focusEndedActivityCard(historyId, {
+      tick,
+      setHighlighted: (id) => {
+        highlightedHistoryId = id;
+      },
+      getHighlighted: () => highlightedHistoryId,
+      clearHandle: () => {
+        if (historyHighlightResetHandle) {
+          clearTimeout(historyHighlightResetHandle);
+        }
+      },
+      setHandle: (handle) => {
+        historyHighlightResetHandle = handle;
       }
-
-      historyHighlightResetHandle = null;
-    }, 1800);
+    });
   }
 
   function closeComposer() {
@@ -400,7 +239,7 @@
   }
 
   function resetRequestPlanningForm() {
-    requestPlanningForm = createRequestPlanningForm();
+    requestPlanningForm = createRequestPlanningForm(data);
   }
 
   function closeRequestPlanning() {
@@ -421,7 +260,7 @@
 
   async function openRequestPlanning(request: ProjectServiceRequestItem) {
     planningRequestId = request.id;
-    requestPlanningForm = createRequestPlanningForm(request);
+    requestPlanningForm = createRequestPlanningForm(data, request);
 
     if (showRequestComposer) {
       await closeRequestComposer();
@@ -452,7 +291,11 @@
   }
 
   async function handleSubmitServiceRequest() {
-    const payload = buildSpecializedRequestPayload(requestFormSubtype, specializedRequestForm);
+    const payload = buildSpecializedRequestPayload(
+      requestFormSubtype,
+      specializedRequestForm,
+      serviceRequestForm
+    );
 
     if (!payload) {
       return;
@@ -648,7 +491,7 @@
       return;
     }
 
-    requestSettingsForm = createRequestSettingsForm();
+    requestSettingsForm = createRequestSettingsForm(data);
     showRequestSettingsComposer = true;
     showRequestSettingsVote = false;
     await tick();
@@ -663,7 +506,7 @@
 
   function closeRequestSettingsComposer() {
     showRequestSettingsComposer = false;
-    requestSettingsForm = createRequestSettingsForm();
+    requestSettingsForm = createRequestSettingsForm(data);
   }
 
   function toggleRequestSettingsVotePanel() {
@@ -691,13 +534,12 @@
   let calendarActionTarget: CalendarActionTarget = null;
   let calendarActionAnchor: CalendarActionAnchor | null = null;
   let actionPickerElement: HTMLDivElement | null = null;
-  let highlightedHistoryId: string | null = null;
   let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let planningRequestId: string | null = null;
-  let requestPlanningForm: RequestPlanningForm = createRequestPlanningForm();
+  let requestPlanningForm: RequestPlanningForm = createRequestPlanningForm(data);
   let showRequestSettingsComposer = false;
   let showRequestSettingsVote = false;
-  let requestSettingsForm: RequestSettingsForm = createRequestSettingsForm();
+  let requestSettingsForm: RequestSettingsForm = createRequestSettingsForm(data);
   let requestSettingsComposerElement: HTMLDivElement | null = null;
   let specializedRequestForm: SpecializedRequestForm = createSpecializedRequestForm();
 
@@ -727,7 +569,7 @@
   $: selfPlannedHistory = data.lifecycle.phaseFive.history.filter(
     (item) => item.source === 'self-planned'
   );
-  $: requestFormSubtype = currentSubtype();
+  $: requestFormSubtype = currentCollectiveSubtype(data);
   $: requestFormCopy = requestComposerCopy(requestFormSubtype);
   $: calendarActivities = [
     ...data.lifecycle.phaseFive.activities,
@@ -740,7 +582,7 @@
   $: requestSettingsChanged = !requestSettingsMatch(currentRequestSettings, draftRequestSettings);
   $: requestSettingsCanSubmit = requestSettingsChanged && requestSettingsForm.reason.trim().length > 0;
   $: if (!showRequestSettingsComposer) {
-    requestSettingsForm = createRequestSettingsForm();
+    requestSettingsForm = createRequestSettingsForm(data);
   }
   $: if (!showRequestComposer) {
     specializedRequestForm = createSpecializedRequestForm();
@@ -1211,6 +1053,7 @@
         {highlightedHistoryId}
         {toggleHistoryCompletion}
         {saveActivityRating}
+        {deleteActivityRating}
       />
 
       <ActivityHistorySection
@@ -1221,6 +1064,7 @@
         {highlightedHistoryId}
         {toggleHistoryCompletion}
         {saveActivityRating}
+        {deleteActivityRating}
       />
     </div>
   </details>

@@ -1,13 +1,16 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { page } from '$app/stores';
   import {
     activateParticipationActivityPhase,
     focusActivitySignupTargets,
+    focusHistoryFollowUpTargets,
     getParticipationStepActionTarget,
     getParticipationStepAnchor
   } from '$lib/utils/participationSteps';
   import { focusParticipationActionTarget, highlightParticipationTarget } from '$lib/utils/participationHighlight';
   import { scrollToPageAnchor } from '$lib/utils/scrollAnchors';
+  import { requireViewer } from '$lib/utils/requireViewer';
   import type { PendingVoteItem } from '$lib/utils/pendingVotes';
   import type { EventPageData, ProjectPageData } from '$lib/types/detail';
 
@@ -20,6 +23,17 @@
   const dispatch = createEventDispatcher<{ dismiss: void; stepAction: { stepId: string } }>();
 
   const plusActionSteps = new Set(['rate', 'plan', 'propose-activity']);
+  const authGatedSteps = new Set([
+    'signal',
+    'join',
+    'rate',
+    'plan',
+    'propose-activity',
+    'activity',
+    'history-follow-up',
+    'vote',
+    'assess-plans'
+  ]);
 
   let dismissed = false;
   let lastStepSignature = '';
@@ -34,8 +48,18 @@
   }
 
   function activateStep(stepId: string) {
+    if (authGatedSteps.has(stepId) && !requireViewer($page.data.bootstrap?.viewer)) {
+      return;
+    }
+
     if (stepId === 'activity' && pageData) {
       focusActivitySignupTargets(pageData);
+      dispatch('stepAction', { stepId });
+      return;
+    }
+
+    if (stepId === 'history-follow-up' && pageData) {
+      focusHistoryFollowUpTargets(pageData);
       dispatch('stepAction', { stepId });
       return;
     }

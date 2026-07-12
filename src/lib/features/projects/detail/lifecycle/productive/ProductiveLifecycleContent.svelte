@@ -57,6 +57,7 @@
   export let distributionForm: DraftPlanForm;
   export let activityForm: DraftActivityForm;
   export let highlightedActivityId: string | null = null;
+  export let highlightedHistoryId: string | null = null;
 
   export let submitValue: () => void | Promise<void> = () => {};
   export let setProjectValueVote: (valueId: string, voteValue: ProjectImportanceVoteValue) => void | Promise<void> =
@@ -127,6 +128,7 @@
     rating: number,
     comment: string | null
   ) => void | Promise<void> = () => {};
+  export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
 </script>
 
 {#if activePhaseId === 'phase-1'}
@@ -172,6 +174,7 @@
     {data}
     {activityForm}
     {highlightedActivityId}
+    bind:highlightedHistoryId
     openComposer={openActivityComposer}
     openComposerForDay={openActivityComposerForDay}
     {focusActivityCard}
@@ -187,6 +190,7 @@
     {voteRepositoryReplacement}
     {toggleHistoryCompletion}
     {saveActivityRating}
+    {deleteActivityRating}
   />
 {:else if activePhaseId === 'phase-7' || activePhaseId === 'phase-6' || activePhaseId === 'phase-4'}
   <ProductiveLifecyclePhaseSix
