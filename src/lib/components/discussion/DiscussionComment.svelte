@@ -6,7 +6,7 @@
   import CommentComposer from '$lib/components/shared/CommentComposer.svelte';
   import ReportComposerModal from '$lib/components/shared/ReportComposerModal.svelte';
   import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
-  import { addComment, setReportVote, submitReport } from '$lib/services/queries/details';
+  import { addComment, setReportVote, submitReport } from '$lib/services/commands/shared';
   import { setVote } from '$lib/services/queries/feeds';
   import type { DetailComment } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';

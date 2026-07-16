@@ -3,19 +3,8 @@
   import { goto, invalidateAll } from '$app/navigation';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import { surfaceAccentCssVar, surfaceTypeAccent } from '$lib/utils/surfaceType';
-  import {
-    setEventActivityCommitment,
-    setEventEditVote,
-    setEventPhaseChangeVote,
-    setEventPlanOverallVote,
-    setEventUpdateVote,
-    setProjectActivityCommitment,
-    setProjectEditVote,
-    setProjectPhaseChangeVote,
-    setProjectPlanOverallVote,
-    setProjectUpdateVote,
-    toggleEventMembership
-  } from '$lib/services/queries/details';
+  import { setProjectActivityCommitment, setProjectEditVote, setProjectPhaseChangeVote, setProjectPlanOverallVote, setProjectUpdateVote } from '$lib/services/commands/projects';
+import { setEventActivityCommitment, setEventEditVote, setEventPhaseChangeVote, setEventPlanOverallVote, setEventUpdateVote, toggleEventMembership } from '$lib/services/commands/events';
   import type { RightRailActivityItem } from '$lib/types/bootstrap';
   import {
     dismissRailItemId,

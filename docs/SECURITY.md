@@ -25,7 +25,7 @@ Trusted-beta posture for the SvelteKit PWA. Backend details: [web-backend/docs/S
 
 ## Adapter boundary
 
-Routes should call `$lib/services/queries` and `$lib/services/commands`, not raw `fetch` or driver internals. See [ADAPTER_AUDIT.md](./ADAPTER_AUDIT.md) and [BACKEND_DRIVER_GUIDE.md](./BACKEND_DRIVER_GUIDE.md).
+Routes should call `$lib/services/queries` and `$lib/services/commands`, not raw `fetch` or driver internals. See [ADAPTERS.md](./ADAPTERS.md).
 
 ## Deferred (public launch)
 

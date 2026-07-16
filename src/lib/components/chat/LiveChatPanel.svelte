@@ -4,7 +4,7 @@
   import { page } from '$app/stores';
   import ReportComposerModal from '$lib/components/shared/ReportComposerModal.svelte';
   import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
-  import { addComment, setReportVote, submitReport } from '$lib/services/queries/details';
+  import { addComment, setReportVote, submitReport } from '$lib/services/commands/shared';
   import type { ContentReportSummary, DetailComment } from '$lib/types/detail';
   import { linkifyMessageBody } from '$lib/utils/linkifyMessageBody';
   import { ChatSendError } from '$lib/utils/discussionState';

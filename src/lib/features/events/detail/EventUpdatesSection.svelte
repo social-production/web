@@ -6,12 +6,7 @@
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
-  import {
-    requestEventEdit,
-    requestEventUpdate,
-    setEventEditVote,
-    setEventUpdateVote
-  } from '$lib/services/queries/details';
+  import { requestEventEdit, requestEventUpdate, setEventEditVote, setEventUpdateVote } from '$lib/services/commands/events';
   import { setVote } from '$lib/services/queries/feeds';
   import {
     formatProjectVoteRequirement,

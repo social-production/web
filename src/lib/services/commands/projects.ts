@@ -303,22 +303,8 @@ export function revertProjectPhase(
   return currentAdapter.revertProjectPhase(projectSlug, targetPhaseId, reason);
 }
 
-export function addComment(
-  subjectId: string,
-  body: string,
-  parentId?: string,
-  subjectType?: 'thread' | 'post' | 'event' | 'project' | 'help_request'
-) {
-  return currentAdapter.addComment(subjectId, body, parentId, subjectType);
-}
 
-export function submitReport(subjectId: string, targetId: string, reason: string, details: string) {
-  return currentAdapter.submitReport(subjectId, targetId, reason, details);
-}
 
-export function setReportVote(targetId: string, vote: 'yes' | 'no') {
-  return currentAdapter.setReportVote(targetId, vote);
-}
 
 export function addProjectUpdate(projectSlug: string, title: string, body: string) {
   return currentAdapter.addProjectUpdate(projectSlug, title, body);

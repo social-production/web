@@ -5,11 +5,7 @@
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
-  import {
-    setEventSignal,
-    shareEventWithUser,
-    toggleEventMembership
-  } from '$lib/services/queries/details';
+  import { setEventSignal, shareEventWithUser, toggleEventMembership } from '$lib/services/commands/events';
   import type { EventPageData } from '$lib/types/detail';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
   import { formatLocalDateTime } from '$lib/utils/time';

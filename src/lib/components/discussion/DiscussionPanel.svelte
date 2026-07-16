@@ -4,7 +4,7 @@
   import CommentComposer from '$lib/components/shared/CommentComposer.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
-  import { addComment } from '$lib/services/queries/details';
+  import { addComment } from '$lib/services/commands/shared';
   import type { PostPageData, ThreadPageData } from '$lib/types/detail';
 
   export let data: Pick<PostPageData | ThreadPageData, 'id' | 'discussion'>;

@@ -9,7 +9,7 @@
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import { unreadCounts } from '$lib/stores/unreadCounts';
-  import { addComment } from '$lib/services/queries/details';
+  import { addComment } from '$lib/services/commands/shared';
   import { fetchComments } from '$lib/api/drivers/fastapi/domains/content';
   import { registerEntityType, registerCommentIds } from '$lib/api/drivers/fastapi/typeRegistry';
   import {

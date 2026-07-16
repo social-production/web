@@ -6,11 +6,7 @@
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
-  import {
-    setProjectSignal,
-    shareProjectWithUser,
-    toggleProjectMembership
-  } from '$lib/services/queries/details';
+  import { setProjectSignal, shareProjectWithUser, toggleProjectMembership } from '$lib/services/commands/projects';
   import type { ProjectPageData } from '$lib/types/detail';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
   import { requireViewer } from '$lib/utils/requireViewer';

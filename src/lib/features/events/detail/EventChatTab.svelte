@@ -2,7 +2,7 @@
   import { page } from '$app/stores';
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
-  import { addComment } from '$lib/services/queries/details';
+  import { addComment } from '$lib/services/commands/shared';
   import { registerEntityType } from '$lib/api/drivers/fastapi/typeRegistry';
   import type { DetailComment, EventPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';

@@ -13,14 +13,7 @@
   import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
   import PlanAssessmentWizard from '$lib/components/shared/PlanAssessmentWizard.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
-  import {
-    setProjectEditVote,
-    setProjectPhaseChangeVote,
-    setProjectPlanCriterionRating,
-    setProjectPlanOverallVote,
-    setProjectPlanValueVote,
-    setProjectUpdateVote
-  } from '$lib/services/queries/details';
+  import { setProjectEditVote, setProjectPhaseChangeVote, setProjectPlanCriterionRating, setProjectPlanOverallVote, setProjectPlanValueVote, setProjectUpdateVote } from '$lib/services/commands/projects';
   import type { PlanCriterionRating, ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
   import {
     buildProjectParticipationSteps,

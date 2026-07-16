@@ -1,9 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
-  import {
-    createProjectManualLinkRequest,
-    setProjectManualLinkVote
-  } from '$lib/services/queries/details';
+  import { createProjectManualLinkRequest, setProjectManualLinkVote } from '$lib/services/commands/projects';
   import type { ProjectLinkCandidate, ProjectManualLinkRequest, ProjectApprovalVote } from '$lib/types/detail';
 
   export let projectSlug = '';

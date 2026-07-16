@@ -37,20 +37,7 @@
     eventScheduleStartsInFuture,
     localDateTimeInputToIso
   } from '$lib/utils/eventSchedule';
-  import {
-    addEventActivity,
-    addEventPlan,
-    addEventValue,
-    requestEventPhaseChange,
-    setEventActivityCommitment,
-    setEventActivityRating,
-    deleteEventActivityRating,
-    toggleEventHistoryCompletion,
-    setEventPhaseChangeVote,
-    setEventPlanOverallVote,
-    setEventPlanCriterionRating,
-    setEventValueImportance
-  } from '$lib/services/queries/details';
+  import { addEventActivity, addEventPlan, addEventValue, requestEventPhaseChange, setEventActivityCommitment, setEventActivityRating, deleteEventActivityRating, toggleEventHistoryCompletion, setEventPhaseChangeVote, setEventPlanOverallVote, setEventPlanCriterionRating, setEventValueImportance } from '$lib/services/commands/events';
   import type {
     EventLifecyclePhase,
     EventLifecyclePhaseId,

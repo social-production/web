@@ -21,18 +21,3 @@ export function getCsrfToken(): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]+)`));
   return match ? decodeURIComponent(match[1]) : null;
 }
-
-/** @deprecated Cookie auth stores tokens server-side; use hasAuthenticatedSession(). */
-export function storeToken(_token: string): void {
-  markAuthenticatedSession();
-}
-
-/** @deprecated Cookie auth stores tokens server-side; use hasAuthenticatedSession(). */
-export function getStoredToken(): string | null {
-  return hasAuthenticatedSession() ? 'cookie-session' : null;
-}
-
-/** @deprecated Use clearAuthenticatedSession(). */
-export function clearToken(): void {
-  clearAuthenticatedSession();
-}

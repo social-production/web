@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import ProjectInventorySummary from './components/ProjectInventorySummary.svelte';
-  import { addProjectServiceRequest } from '$lib/services/queries/details';
+  import { addProjectServiceRequest } from '$lib/services/commands/projects';
   import type { ProjectInventoryFrameData } from '$lib/types/detail';
 
   export let frame: ProjectInventoryFrameData;

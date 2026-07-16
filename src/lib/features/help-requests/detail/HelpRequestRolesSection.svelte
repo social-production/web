@@ -1,9 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
-  import {
-    commitHelpRequestRole,
-    uncommitHelpRequestRole
-  } from '$lib/services/queries/details';
+  import { commitHelpRequestRole, uncommitHelpRequestRole } from '$lib/services/commands/shared';
   import type { HelpRequestPageData, HelpRequestRoleData } from '$lib/types/detail';
 
   export let data: HelpRequestPageData;

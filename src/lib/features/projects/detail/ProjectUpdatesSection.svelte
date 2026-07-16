@@ -8,14 +8,7 @@
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import {
-    addProjectUpdate,
-    requestProjectEdit,
-    requestProjectUpdate,
-    setProjectEditVote,
-    updateProjectDetails,
-    setProjectUpdateVote
-  } from '$lib/services/queries/details';
+  import { addProjectUpdate, requestProjectEdit, requestProjectUpdate, setProjectEditVote, updateProjectDetails, setProjectUpdateVote } from '$lib/services/commands/projects';
   import { setVote } from '$lib/services/queries/feeds';
   import {
     formatProjectVoteRequirement,

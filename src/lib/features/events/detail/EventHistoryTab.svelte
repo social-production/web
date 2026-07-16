@@ -1,11 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import DecisionHistoryList from '$lib/components/shared/DecisionHistoryList.svelte';
-  import {
-    setEventEditVote,
-    setEventPhaseChangeVote,
-    setEventUpdateVote
-  } from '$lib/services/queries/details';
+  import { setEventEditVote, setEventPhaseChangeVote, setEventUpdateVote } from '$lib/services/commands/events';
   import type { DecisionHistoryEntry, EventPageData, ProjectApprovalVote } from '$lib/types/detail';
 
   export let data: EventPageData;

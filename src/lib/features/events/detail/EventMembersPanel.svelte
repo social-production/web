@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import MemberListPanel from '$lib/components/shared/MemberListPanel.svelte';
-  import { grantEventEditAccess, revokeEventEditAccess } from '$lib/services/queries/details';
+  import { grantEventEditAccess, revokeEventEditAccess } from '$lib/services/commands/events';
   import type { EventPageData, EventRoleMember } from '$lib/types/detail';
 
   export let data: EventPageData;

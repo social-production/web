@@ -12,14 +12,7 @@
   import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
   import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
   import PlanAssessmentWizard from '$lib/components/shared/PlanAssessmentWizard.svelte';
-  import {
-    setEventEditVote,
-    setEventPhaseChangeVote,
-    setEventPlanCriterionRating,
-    setEventPlanOverallVote,
-    setEventPlanValueVote,
-    setEventUpdateVote
-  } from '$lib/services/queries/details';
+  import { setEventEditVote, setEventPhaseChangeVote, setEventPlanCriterionRating, setEventPlanOverallVote, setEventPlanValueVote, setEventUpdateVote } from '$lib/services/commands/events';
   import type { EventPageData, PlanCriterionRating, ProjectApprovalVote } from '$lib/types/detail';
   import {
     buildEventParticipationSteps,

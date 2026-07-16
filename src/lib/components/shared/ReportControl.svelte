@@ -3,7 +3,7 @@
   import { page } from '$app/stores';
   import ReportComposerModal from '$lib/components/shared/ReportComposerModal.svelte';
   import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
-  import { setReportVote, submitReport } from '$lib/services/queries/details';
+  import { setReportVote, submitReport } from '$lib/services/commands/shared';
   import type { ContentReportReason, ContentReportSummary } from '$lib/types/detail';
 
   export let subjectId = '';

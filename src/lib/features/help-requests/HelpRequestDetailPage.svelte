@@ -7,7 +7,7 @@
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import HelpRequestOverviewHeader from '$lib/features/help-requests/detail/HelpRequestOverviewHeader.svelte';
   import HelpRequestRolesSection from '$lib/features/help-requests/detail/HelpRequestRolesSection.svelte';
-  import { addComment } from '$lib/services/queries/details';
+  import { addComment } from '$lib/services/commands/shared';
   import { registerEntityType } from '$lib/api/drivers/fastapi/typeRegistry';
   import type { DetailComment, HelpRequestPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';

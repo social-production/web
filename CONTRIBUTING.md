@@ -25,8 +25,9 @@ Set `VITE_BACKEND=fastapi` and `VITE_API_URL=http://localhost:8000` in `.env`.
 - All backend access goes through the **AppAdapter** (`src/lib/services/adapters/`)
 - API contract docs: [`docs/WEB_BACKEND_CONTRACT.md`](docs/WEB_BACKEND_CONTRACT.md)
 - Frontend architecture: [`docs/FRONTEND_ARCHITECTURE.md`](docs/FRONTEND_ARCHITECTURE.md)
+- Adapters / drivers: [`docs/ADAPTERS.md`](docs/ADAPTERS.md)
 
-Do not call `fetch()` directly from components — add methods to the FastAPI driver under `src/lib/api/drivers/fastapi/domains/`.
+Do not call `fetch()` directly from components — add methods to the FastAPI driver under `src/lib/api/drivers/fastapi/domains/`, then expose them via `queries/` or `commands/`.
 
 ## Checks before opening a PR
 
