@@ -1,5 +1,5 @@
 import { getPersonalFeed } from '$lib/services/queries/feeds';
-import { isNetworkLoadError, toLoadError } from '$lib/api/drivers/fastapi/client';
+import { isNetworkLoadError, toLoadError } from '$lib/services/errors';
 import type { PageLoad } from './$types';
 
 export const load = (async () => {

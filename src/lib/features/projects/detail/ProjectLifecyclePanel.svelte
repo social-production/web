@@ -62,7 +62,7 @@
     setProjectServiceRequestStatus,
     toggleProjectServiceHistoryCompletion,
     setProjectValueImportance
-  } from '$lib/services/queries/details';
+  } from '$lib/services/commands/projects';
   import type { ProjectSubtype } from '$lib/types/feed';
   import type {
     ProjectActivityRoleInput,

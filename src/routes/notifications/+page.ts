@@ -1,5 +1,5 @@
 import { isRedirect, redirect } from '@sveltejs/kit';
-import { toLoadError } from '$lib/api/drivers/fastapi/client';
+import { toLoadError } from '$lib/services/errors';
 import { getNotifications, refreshUnreadCounts } from '$lib/services/queries/inbox';
 import type { PageLoad } from './$types';
 

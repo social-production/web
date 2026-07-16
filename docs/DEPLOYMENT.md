@@ -79,13 +79,14 @@ In Railway Docker settings, map these as build arguments or service variables co
 
 ## Threat model (test deploy)
 
-This configuration is for **trusted testers**, not public production:
+This configuration is for **trusted testers**, not unrestricted public production:
 
-- JWT stored in `localStorage` (XSS risk)
-- No CSP/HSTS headers yet
-- Redis fail-open for rate limits during outages
+- httpOnly cookie sessions with CSRF double-submit (`X-CSRF-Token`); no JWT in `localStorage`
+- Security headers on API and SvelteKit (HSTS when served over HTTPS, baseline CSP on frontend)
+- Redis-backed rate limits fail-closed in production when Redis is unavailable
+- Per-user rate limits on search, feeds, and bootstrap endpoints
 
-See [`SECURITY.md`](SECURITY.md) for the full hardening backlog.
+See [`SECURITY.md`](SECURITY.md) for the full hardening checklist and deferred items.
 
 ## Updating
 

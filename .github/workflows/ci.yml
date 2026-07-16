@@ -25,6 +25,9 @@ jobs:
       - name: Dependency audit
         run: npm audit --audit-level=high
 
+      - name: Route adapter boundary
+        run: bash scripts/check-route-boundary.sh
+
       - name: Smoke test
         run: npm run smoke
         env:

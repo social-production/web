@@ -5,7 +5,7 @@ import {
   isApiClientError,
   isNetworkLoadError,
   toLoadError
-} from '$lib/api/drivers/fastapi/client';
+} from '$lib/services/errors';
 import type { PageLoad } from './$types';
 
 export const ssr = false;

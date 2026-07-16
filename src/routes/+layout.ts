@@ -12,9 +12,9 @@ import {
 import {
   clearAuthenticatedSession,
   hasAuthenticatedSession
-} from '$lib/api/drivers/fastapi/auth';
+} from '$lib/services/session';
 import { syncUnreadCountsFromBootstrap } from '$lib/services/queries/inbox';
-import { isNetworkLoadError, toLoadError } from '$lib/api/drivers/fastapi/client';
+import { isNetworkLoadError, toLoadError } from '$lib/services/errors';
 import {
   applyLocale,
   detectBrowserLocale,
