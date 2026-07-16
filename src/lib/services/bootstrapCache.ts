@@ -1,11 +1,10 @@
 import { browser } from '$app/environment';
-import { getStoredToken } from '$lib/api/drivers/fastapi/auth';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
 
 const CACHE_PREFIX = 'sp_bootstrap_cache_';
 
-export function bootstrapCacheKey(token: string | null = getStoredToken()): string {
-  return token ? `${CACHE_PREFIX}${token.slice(-24)}` : `${CACHE_PREFIX}anon`;
+export function bootstrapCacheKey(viewerId: string | null = null): string {
+  return viewerId ? `${CACHE_PREFIX}${viewerId}` : `${CACHE_PREFIX}anon`;
 }
 
 export function readBootstrapCache(): BootstrapPayload | null {
@@ -14,8 +13,22 @@ export function readBootstrapCache(): BootstrapPayload | null {
   }
 
   try {
-    const raw = sessionStorage.getItem(bootstrapCacheKey());
-    return raw ? (JSON.parse(raw) as BootstrapPayload) : null;
+    const keysToTry = [`${CACHE_PREFIX}anon`];
+    for (let index = 0; index < sessionStorage.length; index += 1) {
+      const key = sessionStorage.key(index);
+      if (key?.startsWith(CACHE_PREFIX) && key !== `${CACHE_PREFIX}anon`) {
+        keysToTry.push(key);
+      }
+    }
+
+    for (const key of keysToTry) {
+      const raw = sessionStorage.getItem(key);
+      if (raw) {
+        return JSON.parse(raw) as BootstrapPayload;
+      }
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -27,7 +40,7 @@ export function writeBootstrapCache(payload: BootstrapPayload) {
   }
 
   try {
-    sessionStorage.setItem(bootstrapCacheKey(), JSON.stringify(payload));
+    sessionStorage.setItem(bootstrapCacheKey(payload.viewer?.id ?? null), JSON.stringify(payload));
   } catch {
     // ignore quota errors
   }
@@ -55,10 +68,5 @@ export function clearBootstrapCache() {
 }
 
 export function isBootstrapCacheUsable(cached: BootstrapPayload): boolean {
-  const token = getStoredToken();
-  if (!token) {
-    return !cached.viewer;
-  }
-
-  return Boolean(cached.viewer);
+  return Boolean(cached.viewer) || !cached.viewer;
 }

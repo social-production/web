@@ -9,7 +9,10 @@ import {
   readBootstrapCache,
   writeBootstrapCache
 } from '$lib/services/bootstrapCache';
-import { clearToken, getStoredToken } from '$lib/api/drivers/fastapi/auth';
+import {
+  clearAuthenticatedSession,
+  hasAuthenticatedSession
+} from '$lib/api/drivers/fastapi/auth';
 import { syncUnreadCountsFromBootstrap } from '$lib/services/queries/inbox';
 import { isNetworkLoadError, toLoadError } from '$lib/api/drivers/fastapi/client';
 import {
@@ -39,8 +42,8 @@ export const load = (async ({ url, depends }) => {
   let bootstrap;
   try {
     bootstrap = await getBootstrap();
-    if (browser && getStoredToken() && !bootstrap.viewer) {
-      clearToken();
+    if (browser && hasAuthenticatedSession() && !bootstrap.viewer) {
+      clearAuthenticatedSession();
       clearBootstrapCache();
     }
     writeBootstrapCache(bootstrap);

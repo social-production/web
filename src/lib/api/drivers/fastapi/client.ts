@@ -1,5 +1,10 @@
 import { error as kitError } from '@sveltejs/kit';
-import { clearToken, getStoredToken } from './auth';
+import {
+  clearAuthenticatedSession,
+  getCsrfToken,
+  hasAuthenticatedSession,
+  markAuthenticatedSession
+} from './auth';
 import { clearBootstrapCache } from '$lib/services/bootstrapCache';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -21,32 +26,69 @@ function getBaseUrl(): string {
   return 'http://localhost:8000';
 }
 
-async function request<T>(method: HttpMethod, path: string, body?: unknown): Promise<T> {
-  const isBrowser = typeof window !== 'undefined';
-  const token = isBrowser ? getStoredToken() : null;
+function buildHeaders(method: HttpMethod, body?: unknown): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: 'application/json'
   };
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+  const bearerToken = import.meta.env.VITE_API_BEARER_TOKEN?.trim();
+  if (bearerToken) {
+    headers.Authorization = `Bearer ${bearerToken}`;
   }
-
-  const options: RequestInit = {
-    method,
-    headers
-  };
 
   if (body !== undefined && method !== 'GET' && method !== 'DELETE') {
     headers['Content-Type'] = 'application/json';
+  }
+
+  if (method !== 'GET') {
+    const csrf = getCsrfToken();
+    if (csrf) {
+      headers['X-CSRF-Token'] = csrf;
+    }
+  }
+
+  return headers;
+}
+
+async function refreshSession(): Promise<boolean> {
+  const response = await fetch(`${getBaseUrl()}/auth/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: buildHeaders('POST')
+  });
+
+  if (!response.ok) {
+    return false;
+  }
+
+  markAuthenticatedSession();
+  return true;
+}
+
+async function request<T>(method: HttpMethod, path: string, body?: unknown, allowRefresh = true): Promise<T> {
+  const isBrowser = typeof window !== 'undefined';
+  const options: RequestInit = {
+    method,
+    credentials: 'include',
+    headers: buildHeaders(method, body)
+  };
+
+  if (body !== undefined && method !== 'GET' && method !== 'DELETE') {
     options.body = JSON.stringify(body);
   }
 
   const response = await fetch(`${getBaseUrl()}${path}`, options);
 
+  if (response.status === 401 && allowRefresh && isBrowser && hasAuthenticatedSession() && path !== '/auth/refresh') {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      return request<T>(method, path, body, false);
+    }
+  }
+
   if (!response.ok) {
     if (response.status === 401 && isBrowser) {
-      clearToken();
+      clearAuthenticatedSession();
       clearBootstrapCache();
     }
 

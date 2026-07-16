@@ -1,16 +1,38 @@
-const TOKEN_KEY = 'sp_jwt';
+const SESSION_KEY = 'sp_session';
+const CSRF_COOKIE = 'sp_csrf';
 
-export function storeToken(token: string): void {
-  if (typeof localStorage === 'undefined') return;
-  localStorage.setItem(TOKEN_KEY, token);
+export function markAuthenticatedSession(): void {
+  if (typeof sessionStorage === 'undefined') return;
+  sessionStorage.setItem(SESSION_KEY, '1');
 }
 
+export function hasAuthenticatedSession(): boolean {
+  if (typeof sessionStorage === 'undefined') return false;
+  return sessionStorage.getItem(SESSION_KEY) === '1';
+}
+
+export function clearAuthenticatedSession(): void {
+  if (typeof sessionStorage === 'undefined') return;
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+export function getCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/** @deprecated Cookie auth stores tokens server-side; use hasAuthenticatedSession(). */
+export function storeToken(_token: string): void {
+  markAuthenticatedSession();
+}
+
+/** @deprecated Cookie auth stores tokens server-side; use hasAuthenticatedSession(). */
 export function getStoredToken(): string | null {
-  if (typeof localStorage === 'undefined') return null;
-  return localStorage.getItem(TOKEN_KEY);
+  return hasAuthenticatedSession() ? 'cookie-session' : null;
 }
 
+/** @deprecated Use clearAuthenticatedSession(). */
 export function clearToken(): void {
-  if (typeof localStorage === 'undefined') return;
-  localStorage.removeItem(TOKEN_KEY);
+  clearAuthenticatedSession();
 }

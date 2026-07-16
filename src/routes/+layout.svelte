@@ -2,7 +2,7 @@
   import { browser } from '$app/environment';
   import { invalidate } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { getStoredToken } from '$lib/api/drivers/fastapi/auth';
+  import { hasAuthenticatedSession } from '$lib/api/drivers/fastapi/auth';
   import '../app.css';
   import AppShell from '$lib/app/shell/AppShell.svelte';
   import { detectShellMode } from '$lib/platform/shellMode';
@@ -26,7 +26,7 @@
 
   onMount(() => {
     function recoverStaleAuthState() {
-      if (!getStoredToken() && data.bootstrap.viewer) {
+      if (!hasAuthenticatedSession() && data.bootstrap.viewer) {
         void invalidate('app:bootstrap');
       }
     }
