@@ -16,7 +16,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,svelte}\""
   },
   "devDependencies": {
-    "@inlang/paraglide-js": "^2.20.2",
+    "@inlang/paraglide-js": "^2.22.0",
     "@sveltejs/adapter-node": "^5.2.12",
     "@sveltejs/adapter-auto": "^3.2.0",
     "@sveltejs/kit": "^2.5.7",
