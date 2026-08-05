@@ -36,6 +36,10 @@
   let shell: PlanWizardShell;
   let compact = false;
   let lastScrolledStep = -1;
+  /** Optimistic ratings so the final step unlocks before invalidateAll refreshes props. */
+  let localRatings: Record<string, PlanCriterionRating | null> = {};
+  let localOverallVote: ProjectApprovalVote | null | undefined = undefined;
+  let ratingsSeededForOpen = false;
 
   function resolveInitialStep() {
     if (openAtOverallStep) {
@@ -47,6 +51,43 @@
       return;
     }
     stepIndex = 0;
+  }
+
+  function seedLocalRatings() {
+    const next: Record<string, PlanCriterionRating | null> = {};
+    for (const entry of criteria) {
+      next[entry.criterionId] = entry.activeRating;
+    }
+    localRatings = next;
+    localOverallVote = undefined;
+    ratingsSeededForOpen = true;
+  }
+
+  function effectiveRating(entry: PlanCriterionAssessment): PlanCriterionRating | null {
+    if (Object.prototype.hasOwnProperty.call(localRatings, entry.criterionId)) {
+      return localRatings[entry.criterionId] ?? null;
+    }
+    return entry.activeRating;
+  }
+
+  function syncLocalFromProps() {
+    if (!open || !ratingsSeededForOpen) {
+      return;
+    }
+
+    const next = { ...localRatings };
+    for (const entry of criteria) {
+      const local = next[entry.criterionId];
+      // Prefer server value once it catches up to the optimistic rating.
+      if (entry.activeRating === local || local == null) {
+        next[entry.criterionId] = entry.activeRating;
+      } else if (entry.activeRating != null && local == null) {
+        next[entry.criterionId] = entry.activeRating;
+      } else if (!(entry.criterionId in next)) {
+        next[entry.criterionId] = entry.activeRating;
+      }
+    }
+    localRatings = next;
   }
 
   onMount(() => {
@@ -63,12 +104,14 @@
   $: totalSteps = assessmentSteps.length + (includeOverallStep ? 1 : 0);
   $: isOverallStep = includeOverallStep && stepIndex === assessmentSteps.length;
   $: currentCriterion = !isOverallStep ? assessmentSteps[stepIndex] ?? null : null;
-  $: allCriteriaRated = assessmentSteps.every((entry) => entry.activeRating != null);
+  $: allCriteriaRated = assessmentSteps.every((entry) => effectiveRating(entry) != null);
+  $: effectiveOverallVote =
+    localOverallVote !== undefined ? localOverallVote : overallActiveVote;
   $: nextLabel = isOverallStep ? (reviewMode ? 'Close' : 'Finish') : 'Next';
   $: canGoBack = stepIndex > 0;
   $: canGoNext = isOverallStep
-    ? reviewMode || !canVote || overallActiveVote != null
-    : reviewMode || (currentCriterion?.activeRating != null);
+    ? reviewMode || !canVote || effectiveOverallVote != null
+    : reviewMode || (currentCriterion ? effectiveRating(currentCriterion) != null : false);
   $: criterionContext =
     plan && currentCriterion
       ? getCriterionContext(currentCriterion.criterionId, plan, currentCriterion.label)
@@ -80,14 +123,22 @@
     shell?.scrollBodyToTop();
   }
 
-  $: if (open) {
+  $: if (open && !ratingsSeededForOpen) {
+    seedLocalRatings();
     resolveInitialStep();
     lastScrolledStep = -1;
+  }
+
+  $: if (open && ratingsSeededForOpen) {
+    syncLocalFromProps();
   }
 
   $: if (!open) {
     stepIndex = 0;
     lastScrolledStep = -1;
+    ratingsSeededForOpen = false;
+    localRatings = {};
+    localOverallVote = undefined;
   }
 
   $: if (open && stepIndex !== lastScrolledStep) {
@@ -108,7 +159,7 @@
         return;
       }
 
-      if (canVote && overallActiveVote == null) {
+      if (canVote && effectiveOverallVote == null) {
         return;
       }
 
@@ -123,6 +174,9 @@
 
   function handleClose() {
     stepIndex = 0;
+    ratingsSeededForOpen = false;
+    localRatings = {};
+    localOverallVote = undefined;
     onClose();
   }
 
@@ -131,7 +185,12 @@
       return;
     }
 
-    const nextRating = currentCriterion.activeRating === rating ? null : rating;
+    const previous = effectiveRating(currentCriterion);
+    const nextRating = previous === rating ? null : rating;
+    localRatings = {
+      ...localRatings,
+      [currentCriterion.criterionId]: nextRating
+    };
     await onRate(currentCriterion.criterionId, nextRating);
 
     if (!reviewMode && nextRating != null && stepIndex < totalSteps - 1) {
@@ -145,7 +204,8 @@
       return;
     }
 
-    const nextVote = overallActiveVote === vote ? null : vote;
+    const nextVote = effectiveOverallVote === vote ? null : vote;
+    localOverallVote = nextVote;
     await onOverallVote(nextVote);
   }
 </script>
@@ -188,7 +248,7 @@
 
       <div class="rating-actions overall-actions">
         <button
-          class:selected={overallActiveVote === 'yes'}
+          class:selected={effectiveOverallVote === 'yes'}
           class="vote-chip"
           disabled={reviewMode || !canVote || !allCriteriaRated}
           type="button"
@@ -197,7 +257,7 @@
           Yes
         </button>
         <button
-          class:selected={overallActiveVote === 'no'}
+          class:selected={effectiveOverallVote === 'no'}
           class="vote-chip negative"
           disabled={reviewMode || !canVote || !allCriteriaRated}
           type="button"
@@ -229,7 +289,7 @@
         <div class="review-summary">
           <div class="review-stat">
             <span>Your rating</span>
-            <strong>{ratingLabel(currentCriterion.activeRating)}</strong>
+            <strong>{ratingLabel(effectiveRating(currentCriterion))}</strong>
           </div>
           <div class="review-stat">
             <span>Community average</span>
@@ -242,7 +302,7 @@
         <div class="rating-row" role="group" aria-label="Rating scale">
           {#each PLAN_RATING_OPTIONS as option}
             <button
-              class:selected={currentCriterion.activeRating === option.value}
+              class:selected={effectiveRating(currentCriterion) === option.value}
               class="rating-chip"
               disabled={!canVote}
               title={option.label}

@@ -65,27 +65,30 @@
 </section>
 
 <style>
-  .conversion-section,
-  .lineage-grid,
-  .lineage-card {
+  .conversion-section {
     display: grid;
     gap: 10px;
+    padding: 4px 0 8px;
   }
 
   .lineage-grid {
+    display: grid;
+    gap: 8px;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 
   .lineage-card,
   .note-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
+    display: grid;
+    gap: 8px;
+    padding: 12px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+    background: transparent;
   }
 
-  .conversion-section,
-  .lineage-card {
-    background: var(--panel-strong);
+  .lineage-card:last-child,
+  .note-card:last-child {
+    border-bottom: none;
   }
 
   .section-heading {
@@ -122,22 +125,17 @@
 
   .status-pill,
   .relationship-pill {
-    padding: 6px 10px;
-    border: 1px solid var(--panel-border);
+    padding: 4px 9px;
     border-radius: 999px;
-    background: var(--panel);
+    background: color-mix(in srgb, var(--panel-border) 22%, transparent);
     color: var(--text-soft);
     font-size: 11px;
     font-weight: 700;
   }
 
   .status-pill {
-    background: color-mix(in srgb, var(--accent-warm) 14%, var(--panel));
+    background: color-mix(in srgb, var(--accent-warm) 14%, transparent);
     color: var(--accent-warm-strong);
-  }
-
-  .note-card {
-    background: var(--panel);
   }
 
   .open-link {

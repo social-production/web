@@ -5,6 +5,7 @@
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import { castFeedVote } from '$lib/services/queries/feeds';
   import type { PersonalHelpRequestItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
@@ -22,12 +23,20 @@
         ? `${roleCount} ${roleCount === 1 ? 'role' : 'roles'} needed`
         : '';
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await castFeedVote(item.id, event.detail.vote);
+  async function handleVote({ vote }: { vote: VoteDirection }) {
+    return castFeedVote(item.id, vote, {
+      activeVote: item.activeVote,
+      voteCount: item.voteCount
+    });
   }
 </script>
 
-<FeedSurface href={item.href} tone="personal" accent={surfaceTypeAccent('help-request')}>
+<FeedSurface
+  contentRestricted={item.moderationState === 'hidden'}
+  href={item.href}
+  tone="personal"
+  accent={surfaceTypeAccent('help-request')}
+>
   <div class="header-row">
     <div class="identity-row">
       <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
@@ -35,6 +44,17 @@
         <div class="name-line">
           <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
           <SurfaceTypeLabel kind="help-request" />
+          <ReportControl
+            hasActiveReport={item.hasActiveReport}
+            isUnderReview={item.isUnderReview}
+            itemLabel="help request"
+            moderationState={item.moderationState}
+            ownerUsername={item.author.username}
+            report={item.report ?? null}
+            subjectId={item.id}
+        targetId={item.id}
+        targetType="help_request"
+      />
           {#if item.feedSource === 'discovery'}
             <span class="meta-note">· Popular</span>
           {/if}
@@ -49,7 +69,7 @@
     {/if}
   </div>
 
-  <a class="title" href={item.href}>{item.title}</a>
+  <a class="title" data-sveltekit-preload-data="off" href={item.href}>{item.title}</a>
   <p class="body">{item.body}</p>
   {#if whenLabel || item.locationLabel}
     <p class="location">{[whenLabel, item.locationLabel].filter(Boolean).join(' · ')}</p>
@@ -60,7 +80,7 @@
 
   <div class="footer">
     <div class="engagement-row">
-      <VoteStrip activeVote={item.activeVote} count={item.voteCount} on:vote={handleVote} />
+      <VoteStrip activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
       <a class="comment-link" href={`${item.href}?tab=chat`}>
         <CountPill label={`${item.commentCount} comments`} />
       </a>
@@ -93,7 +113,7 @@
     display: flex;
     gap: 0.45rem;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     min-width: 0;
   }
 

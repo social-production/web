@@ -8,6 +8,10 @@
 
   export let data: ThreadPageData;
 
+  type CommentSort = 'oldest' | 'newest' | 'top';
+
+  let sortMode: CommentSort = 'oldest';
+
   function readCommentTarget(url: URL) {
     if (url.hash.startsWith('#comment-')) {
       return url.hash.slice('#comment-'.length) || null;
@@ -21,11 +25,11 @@
 
 <section class="page">
   <FeedSurface tone="public" accent={surfaceTypeAccent('thread')} isLast>
-    <ThreadOverviewPanel {data} />
+    <ThreadOverviewPanel {data} bind:sortMode />
 
     <div class="comments-divider" aria-hidden="true"></div>
 
-    <DiscussionPanel {data} {highlightedCommentId} embedded />
+    <DiscussionPanel {data} {highlightedCommentId} bind:sortMode embedded />
   </FeedSurface>
 </section>
 

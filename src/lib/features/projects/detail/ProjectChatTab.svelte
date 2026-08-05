@@ -78,8 +78,14 @@
     emptyCopy="No project chat yet."
     fitViewport={isCompact || fullscreen}
     {highlightedCommentId}
+    onModerated={async () => {
+      const refreshed = await refreshSubjectDiscussion('project', data.id);
+      serverDiscussion = refreshed;
+      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+    }}
     onSubmitMessage={submitProjectMessage}
     placeholder="Message the project..."
+    reportTargetType="comment"
     showHeader={!(isCompact || fullscreen)}
     subjectId={data.id}
     submitLabel="Send"

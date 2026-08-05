@@ -21,7 +21,7 @@
       class:complete-phase={tab.phase.progressState === 'complete'}
       class:future-phase={tab.isFuture && tab.phase.progressState !== 'locked'}
       class:locked-phase={tab.phase.progressState === 'locked'}
-      class="phase-tab"
+      class="phase-tab detail-surface-tab"
       type="button"
       aria-label={`${tab.title} · ${tab.progressLabel}`}
       on:click={() => selectPhase(tab.phase)}
@@ -55,7 +55,6 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
-    color: var(--text-soft);
     text-align: left;
     font-size: 12px;
     font-weight: 700;
@@ -65,12 +64,12 @@
     display: none;
   }
 
-  .phase-tab.future-phase {
+  .phase-tab.future-phase:not(.active) {
     border-color: color-mix(in srgb, var(--accent-warm) 35%, var(--panel-border));
     color: var(--accent-warm-strong);
   }
 
-  .phase-tab.locked-phase {
+  .phase-tab.locked-phase:not(.active) {
     border-color: color-mix(in srgb, var(--tablet-community-bg) 60%, var(--panel-border));
     background: color-mix(in srgb, var(--tablet-community-bg) 16%, var(--panel));
     color: var(--tablet-community-text);
@@ -83,14 +82,19 @@
   }
 
   .phase-tab.active {
-    border-color: var(--brand);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 30%, transparent);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--brand) 25%, transparent),
+      0 0 0 4px color-mix(in srgb, var(--brand) 12%, transparent);
   }
 
   .phase-tab-title {
-    color: var(--text-main);
+    color: inherit;
     font-size: 13px;
     font-weight: 700;
+  }
+
+  .phase-tab.active .phase-tab-title {
+    color: var(--brand-strong);
   }
 
   .phase-tab small.current-label {
@@ -114,8 +118,12 @@
       justify-items: center;
     }
 
+    .phase-tab:hover:not(:disabled):not(.active),
     .phase-tab.active {
+      border: none;
+      background: transparent;
       box-shadow: none;
+      color: inherit;
     }
 
     .phase-tab-title,
@@ -150,6 +158,10 @@
     .phase-tab.locked-phase .phase-tab-swatch {
       background: color-mix(in srgb, var(--tablet-community-bg) 55%, var(--panel-strong));
       border-color: color-mix(in srgb, var(--tablet-community-bg) 60%, var(--panel-border));
+    }
+
+    .phase-tab:hover:not(.active) .phase-tab-swatch {
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 35%, transparent);
     }
 
     .phase-tab.active .phase-tab-swatch {

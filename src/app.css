@@ -32,8 +32,8 @@
   --tablet-help-request-text: #f1bd84;
   --tablet-project-production-bg: #2f8a57;
   --tablet-project-production-text: #95e2aa;
-  --tablet-project-service-bg: #c56a24;
-  --tablet-project-service-text: #f1bd84;
+  --tablet-project-service-bg: #a16207;
+  --tablet-project-service-text: #fde68a;
   --tablet-project-personal-service-bg: #924317;
   --tablet-project-personal-service-text: #e1a17f;
   --tablet-post-bg: #6f4a30;
@@ -50,7 +50,7 @@
   --type-accent-event: #6d46a4;
   --type-accent-help-request: #c56a24;
   --type-accent-project-production: #2f8a57;
-  --type-accent-project-service: #c56a24;
+  --type-accent-project-service: #ca8a04;
   --type-accent-project-personal-service: #924317;
   --type-accent-post: #6f4a30;
   --type-accent-channel: #9e7b12;
@@ -116,8 +116,8 @@ body[data-theme='light'] {
   --tablet-help-request-text: #9d5410;
   --tablet-project-production-bg: #2f8a57;
   --tablet-project-production-text: #266740;
-  --tablet-project-service-bg: #c56a24;
-  --tablet-project-service-text: #9d5410;
+  --tablet-project-service-bg: #ca8a04;
+  --tablet-project-service-text: #854d0e;
   --tablet-project-personal-service-bg: #8e3e12;
   --tablet-project-personal-service-text: #6e3413;
   --tablet-post-bg: #7a5234;
@@ -134,7 +134,7 @@ body[data-theme='light'] {
   --type-accent-event: #7b50b2;
   --type-accent-help-request: #d97736;
   --type-accent-project-production: #2f8a57;
-  --type-accent-project-service: #c56a24;
+  --type-accent-project-service: #ca8a04;
   --type-accent-project-personal-service: #8e3e12;
   --type-accent-post: #7a5234;
   --type-accent-channel: #b28715;
@@ -337,6 +337,81 @@ p {
   color: var(--brand-strong);
 }
 
+/* Shared detail-page action buttons (governance, phase-change, etc.) */
+.detail-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text-soft);
+  cursor: pointer;
+  filter: none;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.detail-action-button:hover:not(:disabled),
+.detail-action-button.highlighted {
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
+  background: color-mix(in srgb, var(--brand-soft) 46%, var(--panel));
+  color: var(--brand-strong);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--brand) 25%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--brand) 12%, transparent);
+  filter: none;
+}
+
+.detail-action-button.primary-action {
+  border: none;
+  background: var(--brand);
+  color: var(--page-bg);
+  box-shadow: none;
+}
+
+.detail-action-button.primary-action:hover:not(:disabled) {
+  border: none;
+  background: var(--brand);
+  color: var(--page-bg);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 18%, transparent);
+  filter: none;
+}
+
+/* Shared detail-page tab surfaces (top tabs + lifecycle phase tabs) */
+.detail-surface-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-soft);
+  filter: none;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.detail-surface-tab:hover:not(:disabled):not(.active-tab):not(.active) {
+  border-color: color-mix(in srgb, var(--brand) 35%, var(--panel-border));
+  background: color-mix(in srgb, var(--brand-soft) 42%, var(--panel));
+  color: var(--brand-strong);
+  filter: none;
+}
+
+.detail-surface-tab.active-tab,
+.detail-surface-tab.active {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  filter: none;
+}
+
 .helper-text {
   color: var(--text-soft);
   font-size: 12px;
@@ -392,7 +467,8 @@ p {
   animation: participation-target-pulse 0.9s ease-in-out 2;
   border-radius: var(--radius-sm);
   position: relative;
-  z-index: 1;
+  /* Stay under sticky guide (z-index 3) and modal overlays (z-index 90+). */
+  z-index: 0;
 }
 
 button.demand-button.participation-action-highlight,
@@ -401,14 +477,52 @@ button[data-participation-action].participation-action-highlight {
   animation: participation-button-pulse 0.7s ease-in-out 3 !important;
   border-radius: var(--radius-sm);
   position: relative;
-  z-index: 5;
+  z-index: 0;
 }
 
 button.round-plus-button.participation-action-highlight {
   animation: participation-button-pulse 0.7s ease-in-out 3 !important;
   border-radius: 999px;
   position: relative;
-  z-index: 5;
+  z-index: 0;
+}
+
+.activity-card-shell.participation-action-highlight {
+  animation: participation-card-pulse 0.9s ease-in-out 2;
+  z-index: 0;
+}
+
+.pending-vote-banner.participation-action-highlight {
+  animation: participation-card-pulse 0.9s ease-in-out 2;
+  z-index: 0;
+}
+
+[data-participation-target='phase-help'].participation-action-highlight {
+  animation: participation-card-pulse 0.9s ease-in-out 2;
+  z-index: 0;
+}
+
+/* While a modal/wizard is open, keep guide pulses flat so they cannot paint over overlays. */
+html.participation-highlight-under-overlay .participation-action-highlight,
+html.participation-highlight-under-overlay button.demand-button.participation-action-highlight,
+html.participation-highlight-under-overlay button#participation-join.participation-action-highlight,
+html.participation-highlight-under-overlay button[data-participation-action].participation-action-highlight,
+html.participation-highlight-under-overlay button.round-plus-button.participation-action-highlight {
+  z-index: 0 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+@keyframes participation-card-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 25%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--brand) 55%, transparent),
+      0 0 0 6px color-mix(in srgb, var(--brand) 18%, transparent);
+  }
 }
 
 #participation-join,

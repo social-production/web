@@ -3,61 +3,83 @@
   import { page } from '$app/stores';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
+  import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
+  import SignalEngagementButtons from '$lib/components/shared/SignalEngagementButtons.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
-  import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
-  import { setProjectSignal, shareProjectWithUser, toggleProjectMembership } from '$lib/services/commands/projects';
+  import { supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
+  import { shareProjectWithUser, toggleProjectMembership } from '$lib/services/commands/projects';
   import type { ProjectPageData } from '$lib/types/detail';
+  import type { SignalToggleResult } from '$lib/types/feed';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
   import { requireViewer } from '$lib/utils/requireViewer';
   import { buildSharePrefill } from '$lib/utils/sharePrefill';
 
-  export let data: ProjectPageData;
-  export let onSignalRemoved: (() => void) | undefined = undefined;
+  let {
+    data,
+    signalChange = undefined,
+    onMembershipChange = undefined
+  }: {
+    data: ProjectPageData;
+    signalChange?: (result: SignalToggleResult) => void;
+    onMembershipChange?: (next: { viewerIsMember: boolean; memberCount: number }) => void;
+  } = $props();
 
-  $: combinedTags = [...data.channelTags, ...data.communityTags];
-  $: signalSummary = data.lifecycle.phaseOne?.signalSummary ?? null;
-  $: canSignal =
+  const combinedTags = $derived([...data.channelTags, ...data.communityTags]);
+  const signalSummary = $derived(data.lifecycle.phaseOne?.signalSummary ?? null);
+  const canSignal = $derived(
     supportsProjectDemandSignals(data.projectMode) &&
-    (data.lifecycle.phaseOne.viewerCanSignalDemand || data.lifecycle.phaseOne.viewerCanSignalOpposition);
-  $: implementedLocation = isImplementedScheduleLabel(data.locationLabel) ? data.locationLabel.trim() : '';
-  $: showProposalLocationCopy =
+      (data.lifecycle.phaseOne.viewerCanSignalDemand || data.lifecycle.phaseOne.viewerCanSignalOpposition)
+  );
+  const implementedLocation = $derived(
+    isImplementedScheduleLabel(data.locationLabel) ? data.locationLabel.trim() : ''
+  );
+  const showProposalLocationCopy = $derived(
     supportsProjectDemandSignals(data.projectMode) &&
-    data.lifecycle.currentPhaseId === 'phase-1' &&
-    !implementedLocation;
-  $: membershipMetaLabel = 'Members';
-  $: membershipButtonLabel = `${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`;
-  $: quorumLabel =
+      data.lifecycle.currentPhaseId === 'phase-1' &&
+      !implementedLocation
+  );
+  const membershipMetaLabel = 'Members';
+  const membershipButtonLabel = $derived(`${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`);
+  const quorumLabel = $derived(
     data.lifecycle.quorumVotesRequired <= 0
       ? 'No votes required yet'
-      : `${data.lifecycle.quorumVotesRequired} ${data.lifecycle.quorumVotesRequired === 1 ? 'vote' : 'votes'} required from ${data.lifecycle.voteContextPopulation} ${data.lifecycle.voteContextLabel}`;
-
-  async function handleSignalSet(signal: 'demand' | 'opposition') {
-    if (!requireViewer($page.data.bootstrap?.viewer)) {
-      return;
-    }
-
-    const wasActive =
-      signal === 'demand'
-        ? data.lifecycle.phaseOne.viewerHasDemandSignal
-        : data.lifecycle.phaseOne.viewerHasOppositionSignal;
-
-    await setProjectSignal(data.slug, signal);
-
-    if (wasActive) {
-      onSignalRemoved?.();
-    }
-
-    await invalidateAll();
-  }
+      : `${data.lifecycle.quorumVotesRequired} ${data.lifecycle.quorumVotesRequired === 1 ? 'vote' : 'votes'} required from ${data.lifecycle.voteContextPopulation} ${data.lifecycle.voteContextLabel}`
+  );
+  const displaySignalRatioPercent = $derived(
+    signalSummary && signalSummary.totalCount > 0
+      ? Math.round(signalSummary.signalRatioPercent)
+      : 0
+  );
+  const initialViewerSignal = $derived(
+    data.lifecycle.phaseOne.viewerHasDemandSignal
+      ? 'demand'
+      : data.lifecycle.phaseOne.viewerHasOppositionSignal
+        ? 'opposition'
+        : null
+  );
 
   async function handleMembershipToggle() {
     if (!requireViewer($page.data.bootstrap?.viewer)) {
       return;
     }
 
-    await toggleProjectMembership(data.slug);
-    await invalidateAll();
+    const wasMember = data.viewerIsMember;
+    const previousCount = data.memberCount;
+    onMembershipChange?.({
+      viewerIsMember: !wasMember,
+      memberCount: previousCount + (wasMember ? -1 : 1)
+    });
+
+    try {
+      await toggleProjectMembership(data.slug);
+      await invalidateAll();
+    } catch {
+      onMembershipChange?.({
+        viewerIsMember: wasMember,
+        memberCount: previousCount
+      });
+    }
   }
 
   async function handleProjectShare(username: string) {
@@ -81,23 +103,28 @@
 <div class="header-row">
   <div class="chips">
     <SurfaceTypeLabel kind="project" projectMode={data.projectMode} />
-  </div>
-
-  <div class="header-actions">
-    <TagList tags={combinedTags} />
     <ReportControl
+      hasActiveReport={Boolean(data.report)}
+      isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
       itemLabel="project"
+      moderationState={data.moderationState}
       report={data.report}
       ownerUsername={data.authorUsername}
       subjectId={data.id}
       targetId={data.id}
+      targetType="project"
     />
+  </div>
+
+  <div class="header-actions">
+    <TagList tags={combinedTags} />
   </div>
 </div>
 
-<h1>{data.title}</h1>
-
-<p class="overview-copy">{data.description}</p>
+<ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
+  <h1>{data.title}</h1>
+  <p class="overview-copy">{data.description}</p>
+</ModerationRestrictionNotice>
 
 <section class="meta-block" aria-label="Project overview details">
   <ul class="project-meta-list">
@@ -112,34 +139,20 @@
               Signal platform interest in this project — support or oppose without starting a lifecycle vote.
             {/if}
           </p>
-          <div class="meta-button-row">
-            <button
-              aria-pressed={data.lifecycle.phaseOne.viewerHasDemandSignal}
-              class:active-demand={data.lifecycle.phaseOne.viewerHasDemandSignal}
-              class="demand-button"
-              data-participation-action="signal"
-              disabled={!data.lifecycle.phaseOne.viewerCanSignalDemand}
-              title="Signal interest — this is not a lifecycle vote"
-              type="button"
-              on:click={() => handleSignalSet('demand')}
-            >
-              Support {signalSummary?.demandCount ?? data.signalCount}
-            </button>
-            <button
-              aria-pressed={data.lifecycle.phaseOne.viewerHasOppositionSignal}
-              class:active-opposition={data.lifecycle.phaseOne.viewerHasOppositionSignal}
-              class="demand-button opposition-button"
-              disabled={!data.lifecycle.phaseOne.viewerCanSignalOpposition}
-              title="Signal opposition — this is not a lifecycle vote"
-              type="button"
-              on:click={() => handleSignalSet('opposition')}
-            >
-              Oppose {signalSummary?.oppositionCount ?? 0}
-            </button>
-          </div>
+          <SignalEngagementButtons
+            entityKind="project"
+            slug={data.slug}
+            syncKey={data.id}
+            supportCount={signalSummary?.demandCount ?? data.signalCount ?? 0}
+            opposeCount={signalSummary?.oppositionCount ?? 0}
+            viewerSignal={initialViewerSignal}
+            canSignalDemand={data.lifecycle.phaseOne.viewerCanSignalDemand}
+            canSignalOpposition={data.lifecycle.phaseOne.viewerCanSignalOpposition}
+            {signalChange}
+          />
           {#if signalSummary}
             <span class="signal-summary">
-              Demand is {signalSummary.signalRatioPercent}% of current proposal signals.
+              Demand is {displaySignalRatioPercent}% of current proposal signals.
               {#if signalSummary.usesPlatformVoteContext}
                 Proposal advancement also needs {signalSummary.requiredDemandCount} demand signals from {signalSummary.voteContextPopulation} weekly active users.
               {:else}
@@ -194,7 +207,7 @@
             class:active-demand={data.viewerIsMember}
             class="demand-button"
             type="button"
-            on:click={handleMembershipToggle}
+            onclick={handleMembershipToggle}
           >
             {membershipButtonLabel}
           </button>
@@ -351,11 +364,6 @@
   .demand-button.active-demand {
     border-color: var(--brand);
     color: var(--brand-strong);
-  }
-
-  .opposition-button.active-opposition {
-    border-color: var(--tablet-community-bg);
-    color: var(--tablet-community-text);
   }
 
   @media (max-width: 760px) {

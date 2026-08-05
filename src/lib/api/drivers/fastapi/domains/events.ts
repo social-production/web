@@ -13,14 +13,11 @@ import type {
   ProjectServiceHistoryCompletionChoice,
   ProjectServiceHistoryCompletionRole,
 } from '$lib/types/detail';
+import type { SignalToggleResult } from '$lib/types/feed';
 import type { CreateEventInput, CreateResult } from '$lib/types/feed';
 
 // Membership cache for toggle direction (populated from getEvent viewerIsMember)
 const membershipCache = new Map<string, boolean>();
-
-function slugify(s: string): string {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
 
 // -- Read -------------------------------------------------------------------
 
@@ -30,6 +27,62 @@ export async function fetchEvent(slug: string): Promise<EventPageData | null> {
     membershipCache.set(res.slug, res.viewerIsMember);
     registerEntityType(res.id, 'event');
     if (res.discussion) registerCommentIds(res.discussion);
+
+    if (!res.lifecycle) {
+      throw new Error('Event detail response is missing lifecycle data.');
+    }
+
+    res.lifecycle.phases = res.lifecycle.phases ?? [];
+    res.lifecycle.phaseOne = res.lifecycle.phaseOne ?? {
+      values: [],
+      viewerCanSignalDemand: false,
+      viewerCanSignalOpposition: false,
+      viewerCanAddValue: false,
+      viewerCanVoteOnValues: false,
+      viewerHasDemandSignal: false,
+      viewerHasOppositionSignal: false,
+      signalSummary: {
+        demandCount: 0,
+        oppositionCount: 0,
+        totalCount: 0,
+        viewerSignal: null,
+        signalRatioPercent: 0,
+        ratioRequirementMet: false,
+        requiredDemandCount: 0,
+        demandRequirementMet: false,
+        advancementUnlocked: false,
+        usesPlatformVoteContext: false,
+        voteContextLabel: '',
+        voteContextPopulation: 0
+      }
+    };
+    res.lifecycle.phaseOne.signalSummary = res.lifecycle.phaseOne.signalSummary ?? {
+      demandCount: 0,
+      oppositionCount: 0,
+      totalCount: 0,
+      viewerSignal: null,
+      signalRatioPercent: 0,
+      ratioRequirementMet: false,
+      requiredDemandCount: 0,
+      demandRequirementMet: false,
+      advancementUnlocked: false,
+      usesPlatformVoteContext: false,
+      voteContextLabel: '',
+      voteContextPopulation: 0
+    };
+    res.lifecycle.phaseTwo = res.lifecycle.phaseTwo ?? {
+      plans: [],
+      winningPlanId: null,
+      viewerCanSubmitPlans: false,
+      viewerCanVoteOnPlans: false
+    };
+    res.lifecycle.activity = res.lifecycle.activity ?? {
+      activities: [],
+      history: [],
+      viewerCanCreateActivities: false,
+      selectablePlanPhases: []
+    };
+
     return res;
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
@@ -41,15 +94,25 @@ export async function fetchEvent(slug: string): Promise<EventPageData | null> {
 
 export async function fetchCreateEvent(input: CreateEventInput): Promise<CreateResult> {
   try {
+    const locationLabel = input.locationLabel?.trim() || 'TBD';
     const res = await apiClient.post<{ event: { slug: string } }>('/events', {
-      slug: slugify(input.title),
       title: input.title,
       description: input.description,
-      is_private: input.isPrivate ?? false,
-      time_label: 'TBD',
-      location_label: 'TBD',
-      channel_slugs: input.channelTags.map(t => t.slug),
-      community_slugs: input.communityTags.map(t => t.slug),
+      is_private: input.audience !== 'public',
+      audience: input.audience,
+      governance: input.governance,
+      home_community_slug: input.homeCommunitySlug ?? null,
+      time_label: input.timeLabel?.trim() || 'TBD',
+      location_label: locationLabel,
+      location_id: input.locationId ?? null,
+      channel_slugs: input.channelTags.map((t) => t.slug),
+      community_slugs: input.communityTags.map((t) => t.slug),
+      invited_usernames: input.invitedUsernames,
+      editor_usernames: input.editorUsernames ?? [],
+      plan_title: input.planTitle ?? null,
+      plan_description: input.planDescription ?? null,
+      schedule_payload: input.schedulePayload ?? null,
+      plan_payload: input.planPayload ?? null
     });
     return { ok: true, slug: res.event.slug };
   } catch (err) {
@@ -72,8 +135,28 @@ export async function fetchToggleEventMembership(eventSlug: string): Promise<voi
 
 // -- Signals -----------------------------------------------------------------
 
-export async function fetchSetEventSignal(eventSlug: string, signal: GovernanceSignalType): Promise<void> {
-  await apiClient.post(`/events/${eventSlug}/signals`, { signal_type: signal });
+type EventSignalToggleResponse = {
+  ok: boolean;
+  slug: string;
+  action: 'added' | 'removed' | 'switched';
+  signal_type: 'demand' | 'opposition';
+  signals: { demand: number; opposition: number; total: number };
+};
+
+export async function fetchSetEventSignal(
+  eventSlug: string,
+  signal: GovernanceSignalType
+): Promise<SignalToggleResult> {
+  const response = await apiClient.post<EventSignalToggleResponse>(`/events/${eventSlug}/signals`, {
+    signal_type: signal
+  });
+  return {
+    ok: response.ok,
+    slug: response.slug,
+    action: response.action,
+    signalType: response.signal_type,
+    signals: response.signals
+  };
 }
 
 // -- Values ------------------------------------------------------------------
@@ -99,6 +182,8 @@ export async function fetchAddEventPlan(eventSlug: string, input: EventPlanInput
       description: input.description,
       demand_consideration_note: input.demandConsiderationNote,
       location_label: input.locationLabel,
+      location_id: input.locationId ?? null,
+      is_online: input.isOnline ?? false,
       schedule_payload: input.schedule ?? {},
       plan_payload: {
         planPhases: input.planPhases,
@@ -155,6 +240,7 @@ export async function fetchAddEventActivity(
     ends_at: input.endsAt,
     is_online: input.isOnline ?? false,
     location_label: input.locationLabel,
+    location_id: input.locationId ?? null,
     note: input.note,
     role_requirements: input.roleRequirements.map(r => ({
       label: r.label,
@@ -260,6 +346,42 @@ export async function fetchSetEventEditVote(
 ): Promise<void> {
   if (!vote) return;
   await apiClient.post(`/events/${eventSlug}/edit-requests/${requestId}/vote`, { vote });
+}
+
+// -- Manual links ------------------------------------------------------------
+
+export async function fetchCreateEventManualLinkRequest(
+  eventSlug: string,
+  targetKind: 'project' | 'event',
+  targetSlug: string,
+  summary: string,
+  relationshipLabel?: string | null
+): Promise<void> {
+  await apiClient.post(`/events/${eventSlug}/manual-links`, {
+    target_kind: targetKind,
+    target_slug: targetSlug,
+    relationship_label: relationshipLabel ?? undefined,
+    summary,
+  });
+}
+
+export async function fetchSetEventManualLinkVote(
+  eventSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+): Promise<void> {
+  if (!vote) return;
+  await apiClient.post(`/events/${eventSlug}/manual-links/${requestId}/vote`, { vote });
+}
+
+export async function fetchCreateEventManualLinkSeverRequest(
+  eventSlug: string,
+  linkId: string,
+  summary?: string | null
+): Promise<void> {
+  await apiClient.post(`/events/${eventSlug}/links/${linkId}/sever`, {
+    summary: summary ?? undefined
+  });
 }
 
 // -- Editors -----------------------------------------------------------------

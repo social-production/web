@@ -3,65 +3,120 @@
   import { page } from '$app/stores';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
+  import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
+  import SignalEngagementButtons from '$lib/components/shared/SignalEngagementButtons.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
-  import { setEventSignal, shareEventWithUser, toggleEventMembership } from '$lib/services/commands/events';
-  import type { EventPageData } from '$lib/types/detail';
+  import { shareEventWithUser, toggleEventMembership } from '$lib/services/commands/events';
+  import { getMessageContacts } from '$lib/services/queries/inbox';
+  import type { DetailMember, EventPageData } from '$lib/types/detail';
+  import type { SignalToggleResult } from '$lib/types/feed';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
   import { formatLocalDateTime } from '$lib/utils/time';
   import { requireViewer } from '$lib/utils/requireViewer';
   import { buildSharePrefill } from '$lib/utils/sharePrefill';
 
-  export let data: EventPageData;
-  export let onSignalRemoved: (() => void) | undefined = undefined;
+  let {
+    data,
+    signalChange = undefined,
+    onMembershipChange = undefined
+  }: {
+    data: EventPageData;
+    signalChange?: (result: SignalToggleResult) => void;
+    onMembershipChange?: (next: { viewerIsMember: boolean; memberCount: number }) => void;
+  } = $props();
 
-  $: combinedTags = [...data.channelTags, ...data.communityTags];
-  $: signalSummary = data.lifecycle.phaseOne.signalSummary;
-  $: canSignal =
-    Boolean(signalSummary) &&
-    (data.lifecycle.phaseOne.viewerCanSignalDemand || data.lifecycle.phaseOne.viewerCanSignalOpposition);
-  $: membershipButtonLabel = `${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`;
-  $: timeLabel = data.scheduledAt
-    ? formatLocalDateTime(data.scheduledAt)
-    : isImplementedScheduleLabel(data.timeLabel)
-      ? data.timeLabel.trim()
-      : '';
-  $: locationLabel = isImplementedScheduleLabel(data.locationLabel) ? data.locationLabel.trim() : '';
-  $: showScheduledMeta = !!timeLabel || !!locationLabel;
-  $: proposalMetaCopy = data.isPrivate
-    ? 'This private event stays proposal-first until an approved plan sets the live schedule and location.'
-    : 'This event stays proposal-first until an approved plan sets the live schedule and location.';
-  $: quorumLabel =
+  let liveShareContacts = $state<DetailMember[]>([]);
+
+  async function searchShareContacts(query: string): Promise<DetailMember[]> {
+    try {
+      const results = await getMessageContacts(query, 8);
+      liveShareContacts = results.map((contact) => ({
+        id: contact.id,
+        username: contact.username,
+        bio: contact.bio ?? ''
+      }));
+      return liveShareContacts;
+    } catch {
+      liveShareContacts = [];
+      return [];
+    }
+  }
+
+  const combinedTags = $derived([...data.channelTags, ...data.communityTags]);
+  const isOrganizerControlled = $derived(data.governance === 'organizer_controlled');
+  const signalSummary = $derived(data.lifecycle.phaseOne?.signalSummary ?? null);
+  const canSignal = $derived(
+    !isOrganizerControlled &&
+      Boolean(signalSummary) &&
+      (data.lifecycle.phaseOne.viewerCanSignalDemand || data.lifecycle.phaseOne.viewerCanSignalOpposition)
+  );
+  const membershipButtonLabel = $derived(`${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`);
+  const timeLabel = $derived(
+    data.scheduledAt
+      ? formatLocalDateTime(data.scheduledAt)
+      : isImplementedScheduleLabel(data.timeLabel)
+        ? data.timeLabel.trim()
+        : ''
+  );
+  const locationLabel = $derived(
+    isImplementedScheduleLabel(data.locationLabel) ? data.locationLabel.trim() : ''
+  );
+  const showScheduledMeta = $derived(!!timeLabel || !!locationLabel);
+  const proposalMetaCopy = $derived(
+    isOrganizerControlled
+      ? 'Organizers set the plan and schedule. Members can join and sign up for roles once activities are posted.'
+      : data.isPrivate
+        ? 'This private event stays proposal-first until an approved plan sets the live schedule and location.'
+        : 'This event stays proposal-first until an approved plan sets the live schedule and location.'
+  );
+  const showQuorum = $derived(!isOrganizerControlled);
+  const controlLabel = $derived(
+    data.isPrivate
+      ? isOrganizerControlled
+        ? 'Organizer-controlled'
+        : 'Collaborative'
+      : null
+  );
+  const quorumLabel = $derived(
     data.lifecycle.quorumVotesRequired <= 0
       ? 'No votes required yet'
-      : `${data.lifecycle.quorumVotesRequired} ${data.lifecycle.quorumVotesRequired === 1 ? 'vote' : 'votes'} required from ${data.lifecycle.voteContextPopulation} ${data.lifecycle.voteContextLabel}`;
-
-  async function handleSignalSet(signal: 'demand' | 'opposition') {
-    if (!requireViewer($page.data.bootstrap?.viewer)) {
-      return;
-    }
-
-    const wasActive =
-      signal === 'demand'
-        ? data.lifecycle.phaseOne.viewerHasDemandSignal
-        : data.lifecycle.phaseOne.viewerHasOppositionSignal;
-
-    await setEventSignal(data.slug, signal);
-
-    if (wasActive) {
-      onSignalRemoved?.();
-    }
-
-    await invalidateAll();
-  }
+      : `${data.lifecycle.quorumVotesRequired} ${data.lifecycle.quorumVotesRequired === 1 ? 'vote' : 'votes'} required from ${data.lifecycle.voteContextPopulation} ${data.lifecycle.voteContextLabel}`
+  );
+  const displaySignalRatioPercent = $derived(
+    signalSummary && signalSummary.totalCount > 0
+      ? Math.round(signalSummary.signalRatioPercent)
+      : 0
+  );
+  const initialViewerSignal = $derived(
+    data.lifecycle.phaseOne.viewerHasDemandSignal
+      ? 'demand'
+      : data.lifecycle.phaseOne.viewerHasOppositionSignal
+        ? 'opposition'
+        : null
+  );
 
   async function handleMembershipToggle() {
     if (!requireViewer($page.data.bootstrap?.viewer)) {
       return;
     }
 
-    await toggleEventMembership(data.slug);
-    await invalidateAll();
+    const wasMember = data.viewerIsMember;
+    const previousCount = data.memberCount;
+    onMembershipChange?.({
+      viewerIsMember: !wasMember,
+      memberCount: previousCount + (wasMember ? -1 : 1)
+    });
+
+    try {
+      await toggleEventMembership(data.slug);
+      await invalidateAll();
+    } catch {
+      onMembershipChange?.({
+        viewerIsMember: wasMember,
+        memberCount: previousCount
+      });
+    }
   }
 
   async function handleEventShare(username: string) {
@@ -86,23 +141,31 @@
   <div class="chips">
     <SurfaceTypeLabel kind="event" />
     <span class="meta-note">· {data.isPrivate ? 'Private' : 'Public'}</span>
-  </div>
-
-  <div class="header-actions">
-    <TagList tags={combinedTags} />
+    {#if controlLabel}
+      <span class="meta-note">· {controlLabel}</span>
+    {/if}
     <ReportControl
+      hasActiveReport={Boolean(data.report)}
+      isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
       itemLabel="event"
+      moderationState={data.moderationState}
       report={data.report}
       ownerUsername={data.createdByUsername}
       subjectId={data.id}
       targetId={data.id}
+      targetType="event"
     />
+  </div>
+
+  <div class="header-actions">
+    <TagList tags={combinedTags} />
   </div>
 </div>
 
-<h1>{data.title}</h1>
-
-<p class="overview-copy">{data.description}</p>
+<ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
+  <h1>{data.title}</h1>
+  <p class="overview-copy">{data.description}</p>
+</ModerationRestrictionNotice>
 
 <section class="meta-block" aria-label="Event overview details">
   <ul class="event-meta-list">
@@ -117,33 +180,19 @@
               Signal platform interest in this event — support or oppose without starting a lifecycle vote.
             {/if}
           </p>
-          <div class="meta-button-row">
-            <button
-              aria-pressed={data.lifecycle.phaseOne.viewerHasDemandSignal}
-              class:active-demand={data.lifecycle.phaseOne.viewerHasDemandSignal}
-              class="demand-button"
-              data-participation-action="signal"
-              disabled={!data.lifecycle.phaseOne.viewerCanSignalDemand}
-              title="Signal interest — this is not a lifecycle vote"
-              type="button"
-              on:click={() => handleSignalSet('demand')}
-            >
-              Support {signalSummary.demandCount}
-            </button>
-            <button
-              aria-pressed={data.lifecycle.phaseOne.viewerHasOppositionSignal}
-              class:active-opposition={data.lifecycle.phaseOne.viewerHasOppositionSignal}
-              class="demand-button opposition-button"
-              disabled={!data.lifecycle.phaseOne.viewerCanSignalOpposition}
-              title="Signal opposition — this is not a lifecycle vote"
-              type="button"
-              on:click={() => handleSignalSet('opposition')}
-            >
-              Oppose {signalSummary.oppositionCount}
-            </button>
-          </div>
+          <SignalEngagementButtons
+            entityKind="event"
+            slug={data.slug}
+            syncKey={data.id}
+            supportCount={signalSummary?.demandCount ?? 0}
+            opposeCount={signalSummary?.oppositionCount ?? 0}
+            viewerSignal={initialViewerSignal}
+            canSignalDemand={data.lifecycle.phaseOne.viewerCanSignalDemand}
+            canSignalOpposition={data.lifecycle.phaseOne.viewerCanSignalOpposition}
+            {signalChange}
+          />
           <span class="signal-summary">
-            Demand is {signalSummary.signalRatioPercent}% of current proposal signals.
+            Demand is {displaySignalRatioPercent}% of current proposal signals.
             {#if signalSummary.usesPlatformVoteContext}
               Proposal advancement also needs {signalSummary.requiredDemandCount} demand signals from {signalSummary.voteContextPopulation} weekly active users.
             {:else}
@@ -154,10 +203,12 @@
       </li>
     {/if}
 
-    <li class="meta-item">
-      <strong>Quorum</strong>
-      <span>{quorumLabel}</span>
-    </li>
+    {#if showQuorum}
+      <li class="meta-item">
+        <strong>Quorum</strong>
+        <span>{quorumLabel}</span>
+      </li>
+    {/if}
 
     {#if timeLabel}
       <li class="meta-item">
@@ -173,7 +224,7 @@
     {/if}
     {#if !showScheduledMeta}
       <li class="meta-item">
-        <strong>Proposal</strong>
+        <strong>{isOrganizerControlled ? 'Plan' : 'Proposal'}</strong>
         <span>{proposalMetaCopy}</span>
       </li>
     {/if}
@@ -187,7 +238,7 @@
             class:active-demand={data.viewerIsMember}
             class="demand-button"
             type="button"
-            on:click={handleMembershipToggle}
+            onclick={handleMembershipToggle}
           >
             {membershipButtonLabel}
           </button>
@@ -198,12 +249,13 @@
         {#if data.viewerCanShare}
           <ShareUserMenu
             buttonLabel={data.isPrivate ? 'Invite +' : 'Share +'}
-            contacts={data.shareContacts}
+            contacts={liveShareContacts.length > 0 ? liveShareContacts : data.shareContacts}
             menuTitle={data.isPrivate ? 'Invite to event' : 'Share event'}
-            placeholder="Type a username"
+            placeholder="Search people"
             submitLabel={data.isPrivate ? 'Invite' : 'Share'}
             submitShare={handleEventShare}
-            createPost={handleCreatePostFromEvent}
+            searchContacts={searchShareContacts}
+            createPost={data.isPrivate ? null : handleCreatePostFromEvent}
             createPostLabel="Create post"
           />
         {/if}
@@ -352,11 +404,6 @@
     border-color: var(--brand);
     background: var(--brand-soft);
     color: var(--brand-strong);
-  }
-
-  .opposition-button.active-opposition {
-    border-color: var(--tablet-community-bg);
-    color: var(--tablet-community-text);
   }
 
   @media (max-width: 760px) {

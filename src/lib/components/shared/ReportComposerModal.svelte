@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ContentReportReason } from '$lib/types/detail';
   import { createEventDispatcher } from 'svelte';
+  import { portal } from '$lib/utils/portal';
 
   export let open = false;
   export let itemLabel = 'item';
@@ -46,13 +47,18 @@
     class="report-modal-backdrop"
     on:click={handleBackdropClick}
     on:keydown={handleBackdropKeydown}
+    style="position:fixed;inset:0;z-index:10001;display:grid;place-items:center;padding:24px;background:color-mix(in srgb, var(--text-main) 20%, transparent);"
     tabindex="-1"
+    use:portal={'body'}
   >
     <div
       aria-label={`Report ${itemLabel}`}
       aria-modal="true"
       class="report-modal"
+      on:click|stopPropagation
+      on:keydown|stopPropagation
       role="dialog"
+      style="position:relative;z-index:1;width:min(420px, calc(100vw - 40px));"
       tabindex="-1"
     >
       <div class="report-modal-copy">
@@ -92,17 +98,7 @@
     gap: 12px;
   }
 
-  .report-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    place-items: center;
-    padding: 24px;
-    background: color-mix(in srgb, var(--text-main) 20%, transparent);
-    z-index: 80;
-  }
-
   .report-modal {
-    width: min(420px, calc(100vw - 40px));
     padding: 18px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-md);

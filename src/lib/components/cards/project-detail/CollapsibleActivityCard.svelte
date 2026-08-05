@@ -72,12 +72,12 @@
   class:highlighted
   class:history-mode={historyMode}
   class="activity-card-shell"
+  data-participation-target={hasOpenRolesForViewer ? 'activity-signup' : undefined}
 >
   <details
     id={`activity-${activity.id}`}
     bind:open={open}
     class="activity-details"
-    data-participation-target={hasOpenRolesForViewer ? 'activity-signup' : undefined}
   >
     <summary class="collapse-toggle">
       <div class="activity-header">

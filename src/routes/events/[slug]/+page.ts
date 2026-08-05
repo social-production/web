@@ -1,29 +1,36 @@
-import { error } from '@sveltejs/kit';
 import { getEvent } from '$lib/services/queries/details';
-import {
-  extractErrorMessage,
-  isApiClientError,
-  isNetworkLoadError,
-  toLoadError
-} from '$lib/services/errors';
+import { extractErrorMessage, isApiClientError, isNetworkLoadError } from '$lib/services/errors';
 import type { PageLoad } from './$types';
 
 export const ssr = false;
 
-export const load = (async ({ params }) => {
+function eventLoadError(err: unknown, fallback: string): { event: null; loadError: string } {
+  return {
+    event: null,
+    loadError: extractErrorMessage(err, fallback)
+  };
+}
+
+export const load = (async ({ params, depends }) => {
+  depends('app:bootstrap');
+  depends(`app:event:${params.slug}`);
+
   try {
     const event = await getEvent(params.slug);
 
     if (!event) {
-      throw error(404, 'Event not found');
+      return {
+        event: null,
+        loadError: 'This event is no longer available. It may have been removed by community moderation.'
+      };
     }
 
     return { event, loadError: null as string | null };
   } catch (err) {
-    if (isApiClientError(err) && err.status >= 500) {
+    if (isApiClientError(err) && err.status === 404) {
       return {
         event: null,
-        loadError: extractErrorMessage(err, 'Could not load this event.')
+        loadError: 'This event is no longer available. It may have been removed by community moderation.'
       };
     }
 
@@ -34,6 +41,6 @@ export const load = (async ({ params }) => {
       };
     }
 
-    toLoadError(err, 'Could not load this event.');
+    return eventLoadError(err, 'Could not load this event.');
   }
 }) satisfies PageLoad;

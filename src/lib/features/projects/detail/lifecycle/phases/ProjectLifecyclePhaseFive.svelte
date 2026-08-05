@@ -4,6 +4,7 @@
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import { formatRelativeTime } from '$lib/utils/time';
   import type { ProjectActivityRoleInput, ProjectPageData } from '$lib/types/detail';
+  import { buildActivityLocationQuickPicks } from '$lib/utils/activityLocationQuickPicks';
 
   type ActivityForm = {
     title: string;
@@ -42,6 +43,33 @@
   function closeComposer() {
     showComposer = false;
   }
+
+  $: winningProductionPlan =
+    data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ??
+    null;
+  $: winningDistributionPlan =
+    data.lifecycle.phaseThree.plans.find((plan) => plan.id === data.lifecycle.phaseThree.winningPlanId) ??
+    null;
+  $: locationQuickPicks = buildActivityLocationQuickPicks([
+    {
+      id: 'project-initial',
+      label: data.locationLabel,
+      locationId: data.locationId,
+      sourceLabel: 'Project location'
+    },
+    {
+      id: 'production-plan',
+      label: winningProductionPlan?.locationLabel,
+      locationId: winningProductionPlan?.locationId,
+      sourceLabel: 'Plan location'
+    },
+    {
+      id: 'distribution-plan',
+      label: winningDistributionPlan?.locationLabel,
+      locationId: winningDistributionPlan?.locationId,
+      sourceLabel: 'Distribution plan'
+    }
+  ]);
 </script>
 
 <section id="participation-activities" class="phase-surface">
@@ -101,6 +129,7 @@
         open={showComposer}
         form={activityForm}
         selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
+        {locationQuickPicks}
         onSubmit={submitActivity}
         onCancel={closeComposer}
       />

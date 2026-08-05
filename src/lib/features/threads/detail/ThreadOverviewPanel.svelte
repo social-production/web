@@ -1,22 +1,53 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
+  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
+  import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { setVote } from '$lib/services/queries/feeds';
   import type { ThreadPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
+  import { applyVoteTarget } from '$lib/utils/feedSignals';
   import { formatRelativeTime } from '$lib/utils/time';
+  import { createEventDispatcher } from 'svelte';
 
   export let data: ThreadPageData;
+  export let sortMode: CommentSort = 'oldest';
+
+  type CommentSort = 'oldest' | 'newest' | 'top';
+
+  const dispatch = createEventDispatcher<{ sortchange: { value: CommentSort } }>();
+
+  const sortOptions = [
+    { value: 'oldest', label: 'Oldest first' },
+    { value: 'newest', label: 'Newest first' },
+    { value: 'top', label: 'Top voted' }
+  ];
+
+  let localActiveVote = data.activeVote;
+  let localVoteCount = data.voteCount;
+  let lastVoteSyncKey = data.id;
 
   $: combinedTags = [...data.channelTags, ...data.communityTags];
+  $: if (data.id !== lastVoteSyncKey) {
+    lastVoteSyncKey = data.id;
+    localActiveVote = data.activeVote;
+    localVoteCount = data.voteCount;
+  }
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await setVote(data.id, event.detail.vote);
-    await invalidateAll();
+  async function handleVote({ vote }: { vote: VoteDirection }) {
+    const next = applyVoteTarget(localActiveVote, localVoteCount, vote);
+    localActiveVote = next.activeVote;
+    localVoteCount = next.voteCount;
+    await setVote(data.id, vote);
+  }
+
+  function handleSortChange(event: CustomEvent<{ value: string }>) {
+    sortMode = event.detail.value as CommentSort;
+    dispatch('sortchange', { value: sortMode });
   }
 </script>
 
@@ -24,26 +55,41 @@
   <div class="header-row">
     <div class="chips">
       <SurfaceTypeLabel kind="thread" />
-    </div>
-
-    <div class="header-actions">
-      <TagList tags={combinedTags} />
       <ReportControl
+        hasActiveReport={Boolean(data.report)}
+        isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
         itemLabel="thread"
+        moderationState={data.moderationState}
         report={data.report}
         ownerUsername={data.authorUsername}
         subjectId={data.id}
         targetId={data.id}
+        targetType="thread"
       />
+    </div>
+
+    <div class="header-actions">
+      <TagList tags={combinedTags} />
     </div>
   </div>
 
-  <h1>{data.title}</h1>
-  <p class="overview-copy">{data.body}</p>
+  <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
+    <h1>{data.title}</h1>
+    <p class="overview-copy">{data.body}</p>
+  </ModerationRestrictionNotice>
 
   <div class="overview-footer-row">
-    <VoteStrip activeVote={data.activeVote} count={data.voteCount} on:vote={handleVote} />
+    <VoteStrip activeVote={localActiveVote} count={localVoteCount} syncKey={data.id} onvote={handleVote} />
     <CountPill label={`${data.commentCount} comments`} />
+    <IconMenuButton
+      bind:value={sortMode}
+      ariaLabel="Sort comments"
+      defaultValue="oldest"
+      options={sortOptions}
+      on:change={handleSortChange}
+    >
+      <FeedToolbarIcon name="sort" />
+    </IconMenuButton>
     <span class="footer-author-row">
       <a class="inline-link" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>
       · {formatRelativeTime(data.lastActivityAt)}

@@ -4,9 +4,11 @@
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
+  import CreateLocationIntent from '$lib/features/create/shared/CreateLocationIntent.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import CreateScopeTagSelector from '$lib/features/create/shared/CreateScopeTagSelector.svelte';
   import CreateTypeSelector from '$lib/features/create/shared/CreateTypeSelector.svelte';
+  import CreateWizard from '$lib/features/create/shared/CreateWizard.svelte';
   import { commitSingleSuggestion, mergeScopeOptions } from '$lib/features/create/shared/createFormActions';
   import { loadTaggableScopeOptions } from '$lib/features/create/shared/taggableScopes';
   import { createProject } from '$lib/services/queries/create';
@@ -18,6 +20,7 @@
   } from '$lib/features/projects/projectMode';
   import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
   import type { ProjectMode, PublicProjectItem, TagRef } from '$lib/types/feed';
+  import { emptyLocationPickerValue, type LocationPickerValue } from '$lib/types/locationPicker';
   import {
     applyScopePrefillToSelections,
     readScopePrefillFromSearchParams
@@ -25,18 +28,28 @@
   import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 
   const platformTagSlug = 'platform';
-  const defaultProductiveLocation = 'Not specified';
+  const defaultProductiveLocation = '';
+
+  const wizardSteps = [
+    { id: 'type', title: 'Type' },
+    { id: 'basics', title: 'Basics' },
+    { id: 'location', title: 'Location' },
+    { id: 'scope', title: 'Scope' },
+    { id: 'overview', title: 'Overview' }
+  ];
 
   let selectedType: ProjectMode = 'productive';
   let title = '';
   let description = '';
-  let locationLabel = '';
+  let locationIntent: 'physical' | 'online' | 'later' = 'later';
+  let locationValue: LocationPickerValue = emptyLocationPickerValue();
   let selectedChannelIds: string[] = [];
   let selectedCommunityIds: string[] = [];
   let primaryChannelQuery = '';
   let additionalChannelQuery = '';
   let communityQuery = '';
   let serviceRequestMode: 'calendar' | 'direct' | 'both' = 'both';
+  let stepIndex = 0;
   let statusMessage = '';
   let isSubmitting = false;
   let channelSuggestionPool: ScopeDirectoryItem[] = [];
@@ -138,8 +151,13 @@
   $: selectedServiceModeOption =
     serviceRequestModeOptions.find((option) => option.value === serviceRequestMode) ??
     serviceRequestModeOptions[2];
-  $: showLocationField = isPersonalServiceProject(selectedType);
-  $: resolvedLocationLabel = showLocationField ? locationLabel.trim() : defaultProductiveLocation;
+  $: resolvedLocationLabel =
+    locationIntent === 'online'
+      ? 'Online'
+      : locationIntent === 'physical'
+        ? locationValue.displayLabel.trim()
+        : defaultProductiveLocation;
+  $: resolvedLocationId = locationIntent === 'physical' ? locationValue.locationId : null;
 
   $: projectPreview = {
     kind: 'project',
@@ -156,10 +174,19 @@
     channelTags: selectedScopeTags(selectedChannelIds, allChannelOptions, 'channel'),
     communityTags: selectedScopeTags(selectedCommunityIds, allCommunityOptions, 'community'),
     stage: isPersonalServiceProject(selectedType) ? 'Activity' : 'Proposal',
-    locationLabel: resolvedLocationLabel,
+    locationLabel:
+      locationIntent === 'online'
+        ? 'Online'
+        : locationIntent === 'physical'
+          ? locationValue.displayLabel.trim() || 'Physical location'
+          : 'Location TBD',
     voteCount: 0,
     activeVote: 0,
     signalCount: 0,
+    supportCount: 0,
+    opposeCount: 0,
+    favorability: null,
+    viewerSignal: null,
     commentCount: 0,
     memberCount: 0,
     lastActivityAt: new Date().toISOString()
@@ -169,11 +196,24 @@
   $: personalServiceUsesPlatformTag = usesPlatformTag && isPersonalServiceProject(selectedType);
   $: viewerCanCreatePlatformProject = !usesPlatformTag || !!viewer;
 
+  $: canContinueBasics = title.trim().length > 0 && description.trim().length > 0;
+  $: canContinueLocation =
+    locationIntent !== 'physical' || Boolean(locationValue.displayLabel.trim());
+  $: canContinueScope = selectedChannelIds.length > 0;
+  $: canContinue =
+    wizardSteps[stepIndex]?.id === 'basics'
+      ? canContinueBasics
+      : wizardSteps[stepIndex]?.id === 'location'
+        ? canContinueLocation
+        : wizardSteps[stepIndex]?.id === 'scope'
+          ? canContinueScope
+          : true;
+
   $: canSubmit =
     title.trim().length > 0 &&
     description.trim().length > 0 &&
     selectedChannelIds.length > 0 &&
-    (!showLocationField || locationLabel.trim().length > 0) &&
+    canContinueLocation &&
     viewerCanCreatePlatformProject &&
     !personalServiceUsesPlatformTag;
 
@@ -276,6 +316,7 @@
         title,
         description,
         locationLabel: resolvedLocationLabel,
+        locationId: resolvedLocationId,
         projectMode: selectedType,
         channelTags: projectPreview.channelTags,
         communityTags: projectPreview.communityTags,
@@ -292,122 +333,143 @@
       isSubmitting = false;
     }
   }
-
-  function handleDraft() {
-    statusMessage = 'Draft saving is not wired yet, but the page structure is now in place.';
-  }
 </script>
 
 <CreateFlowLayout>
   <svelte:fragment slot="primary">
     <CreatePanel
-      title="Project proposal"
-      description="Choose the project type, describe the proposal, and anchor discovery with at least one channel tag."
+      title="Create project"
+      description="Choose the type, fill the details, then review before creating."
     >
-      <form class="form-stack" on:submit|preventDefault={handleCreate}>
-        <DirectUsePolicyNotice variant="create" context="project" />
-
-        <CreateTypeSelector
-          label="Project type"
-          name="project-type"
-          bind:selected={selectedType}
-          options={projectCreateTypeOptions}
-          showDetailPanel={false}
-        />
-
-        <label>
-          <RequiredFieldLabel>Title</RequiredFieldLabel>
-          <input bind:value={title} aria-required="true" />
-        </label>
-
-        <label>
-          <RequiredFieldLabel>Proposal description</RequiredFieldLabel>
-          <textarea bind:value={description} rows="5" aria-required="true"></textarea>
-        </label>
-
-        <CreateScopeTagSelector
-          label="Primary channel tag"
-          placeholder="Type to search channels"
-          helperText="At least one channel tag is required. Suggestions only include channels."
-          bind:query={primaryChannelQuery}
-          selectedItems={primaryChannelItems}
-          suggestionItems={primaryChannelSuggestionItems}
-          onAdd={addPrimaryChannelTag}
-          onRemove={removePrimaryChannelTag}
-          onCommitSingleSuggestion={commitSingleSuggestion}
-        />
-
-        <CreateScopeTagSelector
-          label="Additional channel tags"
-          placeholder="Type to add another channel"
-          helperText="Optional. Only channel matches appear here."
-          bind:query={additionalChannelQuery}
-          selectedItems={additionalChannelItems}
-          suggestionItems={additionalChannelSuggestionItems}
-          onAdd={addAdditionalChannelTag}
-          onRemove={removeAdditionalChannelTag}
-          onCommitSingleSuggestion={commitSingleSuggestion}
-        />
-
-        <CreateScopeTagSelector
-          label="Community tags"
-          placeholder="Type to search communities"
-          helperText="Optional. Only community matches appear here."
-          bind:query={communityQuery}
-          selectedItems={selectedCommunityItems}
-          suggestionItems={communitySuggestionItems}
-          onAdd={addCommunityTag}
-          onRemove={removeCommunityTag}
-          onCommitSingleSuggestion={commitSingleSuggestion}
-        />
-
-        {#if showLocationField}
-          <label>
-            <span class="field-label">Suggested location</span>
-            <input bind:value={locationLabel} placeholder="Where the service mainly happens" />
-          </label>
-        {/if}
-
-        {#if isPersonalServiceProject(selectedType)}
-          <CreateTypeSelector
-            label="Service request mode"
-            name="service-request-mode"
-            bind:selected={serviceRequestMode}
-            options={serviceRequestModeOptions}
-            showDetailPanel={false}
-          />
-        {/if}
-
-        <div class="button-row">
-          <button class="button-primary" disabled={!canSubmit || isSubmitting} type="submit">
-            {isSubmitting ? 'Creating...' : 'Create Project'}
-          </button>
-          <button class="button-ghost" type="button" on:click={handleDraft}>Save Draft</button>
-        </div>
-
-        {#if statusMessage}
-          <p class="status-note">{statusMessage}</p>
-        {/if}
-      </form>
+      <CreateWizard
+        steps={wizardSteps}
+        bind:stepIndex
+        {canContinue}
+        {canSubmit}
+        {isSubmitting}
+        submitLabel="Create Project"
+        on:submit={handleCreate}
+      >
+        <svelte:fragment slot="step" let:currentStep>
+          {#if currentStep?.id === 'type'}
+            <div class="form-stack">
+              <CreateTypeSelector
+                label="Project type"
+                name="project-type"
+                bind:selected={selectedType}
+                options={projectCreateTypeOptions}
+                showDetailPanel={false}
+              />
+              {#if isPersonalServiceProject(selectedType)}
+                <CreateTypeSelector
+                  label="Service request mode"
+                  name="service-request-mode"
+                  bind:selected={serviceRequestMode}
+                  options={serviceRequestModeOptions}
+                  showDetailPanel={false}
+                />
+              {/if}
+            </div>
+          {:else if currentStep?.id === 'basics'}
+            <div class="form-stack">
+              <label>
+                <RequiredFieldLabel>Title</RequiredFieldLabel>
+                <input bind:value={title} aria-required="true" />
+              </label>
+              <label>
+                <RequiredFieldLabel>Proposal description</RequiredFieldLabel>
+                <textarea bind:value={description} rows="5" aria-required="true"></textarea>
+              </label>
+              <DirectUsePolicyNotice variant="create" context="project" />
+            </div>
+          {:else if currentStep?.id === 'location'}
+            <CreateLocationIntent bind:intent={locationIntent} bind:locationValue />
+          {:else if currentStep?.id === 'scope'}
+            <div class="form-stack">
+              <CreateScopeTagSelector
+                label="Primary channel tag"
+                placeholder="Type to search channels"
+                helperText="At least one channel tag is required."
+                bind:query={primaryChannelQuery}
+                selectedItems={primaryChannelItems}
+                suggestionItems={primaryChannelSuggestionItems}
+                onAdd={addPrimaryChannelTag}
+                onRemove={removePrimaryChannelTag}
+                onCommitSingleSuggestion={commitSingleSuggestion}
+              />
+              <CreateScopeTagSelector
+                label="Additional channel tags"
+                placeholder="Optional"
+                bind:query={additionalChannelQuery}
+                selectedItems={additionalChannelItems}
+                suggestionItems={additionalChannelSuggestionItems}
+                onAdd={addAdditionalChannelTag}
+                onRemove={removeAdditionalChannelTag}
+                onCommitSingleSuggestion={commitSingleSuggestion}
+              />
+              <CreateScopeTagSelector
+                label="Community tags"
+                placeholder="Optional"
+                bind:query={communityQuery}
+                selectedItems={selectedCommunityItems}
+                suggestionItems={communitySuggestionItems}
+                onAdd={addCommunityTag}
+                onRemove={removeCommunityTag}
+                onCommitSingleSuggestion={commitSingleSuggestion}
+              />
+            </div>
+          {:else}
+            <div class="form-stack overview">
+              <button class="overview-row" type="button" on:click={() => (stepIndex = 0)}>
+                <strong>Type</strong>
+                <span>
+                  {selectedTypeOption.label}
+                  {#if isPersonalServiceProject(selectedType)}
+                    · {selectedServiceModeOption.label}
+                  {/if}
+                </span>
+              </button>
+              <button class="overview-row" type="button" on:click={() => (stepIndex = 1)}>
+                <strong>Basics</strong>
+                <span>{title.trim() || 'Untitled project'}</span>
+              </button>
+              <button class="overview-row" type="button" on:click={() => (stepIndex = 2)}>
+                <strong>Location</strong>
+                <span>
+                  {locationIntent === 'online'
+                    ? 'Online'
+                    : locationIntent === 'physical'
+                      ? locationValue.displayLabel.trim() || 'Physical'
+                      : 'Decide later'}
+                </span>
+              </button>
+              <button class="overview-row" type="button" on:click={() => (stepIndex = 3)}>
+                <strong>Scope</strong>
+                <span>
+                  {selectedChannelIds.length} channels · {selectedCommunityIds.length} communities
+                </span>
+              </button>
+              {#if statusMessage}
+                <p class="status-note">{statusMessage}</p>
+              {/if}
+            </div>
+          {/if}
+        </svelte:fragment>
+      </CreateWizard>
     </CreatePanel>
   </svelte:fragment>
 
   <svelte:fragment slot="secondary">
     <CreatePanel
       title="Live preview"
-      description="Matches the current feed treatment for projects."
+      description="How the project will appear in the feed."
       surface="transparent"
     >
       <ProjectCard item={projectPreview} />
     </CreatePanel>
 
-    <CreatePanel
-      title="About this project type"
-      description="What the selected type is for and what happens after creation."
-    >
+    <CreatePanel title="About this type" description={selectedTypeOption.summary}>
       <div class="type-guidance">
-        <strong>{selectedTypeOption.label}</strong>
-        <p>{selectedTypeOption.summary}</p>
         <div class="type-guidance-block">
           <span class="type-guidance-heading">Best for</span>
           <ul>
@@ -420,13 +482,9 @@
         {#if isPersonalServiceProject(selectedType)}
           <p class="type-guidance-lifecycle">{selectedServiceModeOption.lifecycleNote}</p>
         {/if}
-        {#if usesPlatformTag}
+        {#if personalServiceUsesPlatformTag}
           <p class="type-guidance-note">
-            {#if personalServiceUsesPlatformTag}
-              Personal service projects cannot use the platform channel. The platform tag is only for collective governance surfaces.
-            {:else}
-              Platform-tagged projects stay open to any signed-in user.
-            {/if}
+            Personal service projects cannot use the platform channel.
           </p>
         {/if}
       </div>
@@ -440,21 +498,32 @@
     gap: 12px;
   }
 
-  .field-label {
-    display: block;
-    margin-bottom: 6px;
+  .overview-row {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--panel) 94%, transparent);
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+  }
+
+  .overview-row span {
+    color: var(--text-soft);
     font-size: 13px;
-    font-weight: 700;
+  }
+
+  .status-note {
+    margin: 0;
+    color: var(--danger, #c0392b);
   }
 
   .type-guidance {
     display: grid;
     gap: 10px;
-  }
-
-  .type-guidance strong {
-    color: var(--text-main);
-    font-size: 14px;
   }
 
   .type-guidance p,

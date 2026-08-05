@@ -28,7 +28,14 @@
       item.kind === 'follow-accepted';
 
     const profileHref = item.actorUsername ? `/profile/${item.actorUsername}` : null;
-    const href = isFollowKind && profileHref ? profileHref : item.href?.trim() ?? '';
+    let href = isFollowKind && profileHref ? profileHref : item.href?.trim() ?? '';
+
+    // Legacy software notifications pointed at the API route `/projects/{slug}/software`.
+    // Rewrite those to the project detail software panel.
+    const legacySoftwareMatch = href.match(/^\/projects\/([^/?#]+)\/software\/?$/);
+    if (legacySoftwareMatch) {
+      href = `/projects/${legacySoftwareMatch[1]}#software-governance-panel`;
+    }
 
     if (!href || href === '#') {
       if (profileHref) {

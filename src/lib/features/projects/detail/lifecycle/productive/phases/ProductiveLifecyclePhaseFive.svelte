@@ -4,7 +4,9 @@
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
   import type {
+    DecisionHistoryEntry,
     ProjectActivityRoleInput,
+    ProjectApprovalVote,
     ProjectPageData,
     ProjectServiceHistoryCompletionChoice,
     ProjectServiceHistoryCompletionRole,
@@ -12,6 +14,14 @@
     ProjectSoftwarePullRequestInput,
     ProjectSoftwareRepositoryReplacementInput
   } from '$lib/types/detail';
+  import { buildActivityLocationQuickPicks } from '$lib/utils/activityLocationQuickPicks';
+
+  const SOFTWARE_GOVERNANCE_HISTORY_KINDS = new Set([
+    'project-pull-request-approval',
+    'project-pull-request-confirmation',
+    'project-merge-capability-change',
+    'project-repository-replacement'
+  ]);
 
   type ActivityForm = {
     title: string;
@@ -42,7 +52,11 @@
   export let requestRepositoryReplacement: (
     input: ProjectSoftwareRepositoryReplacementInput
   ) => void | Promise<void> = () => {};
-  export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
+  export let recordPullRequestMerge: (
+    requestId: string,
+    mergeId: string,
+    mergeUrl: string
+  ) => void | Promise<void> = () => {};
   export let votePullRequest: (
     requestId: string,
     vote: import('$lib/types/detail').ProjectApprovalVote | null
@@ -66,9 +80,12 @@
     comment: string | null
   ) => void | Promise<void> = () => {};
   export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
+  export let softwareWizardRequest: { mode: 'record-merge' | 'vote-pr'; requestId: string } | null = null;
+  export let onSoftwareWizardRequestHandled: () => void = () => {};
 
   let historyOpen = false;
   let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
+  let softwareGovernancePanel: ProjectSoftwareGovernancePanel | null = null;
 
   async function focusHistoryCard(historyId: string) {
     historyOpen = true;
@@ -102,26 +119,88 @@
     showComposer = false;
   }
 
+  function openSoftwarePullRequestWizard() {
+    softwareGovernancePanel?.openCreatePullRequest();
+  }
+
   $: calendarActivities = [
     ...data.lifecycle.phaseFive.activities,
     ...data.lifecycle.phaseFive.history
       .filter((item) => item.historyState !== 'request-only')
       .map((item) => item.activity)
   ];
+  $: winningProductionPlan =
+    data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ??
+    null;
+  $: winningDistributionPlan =
+    data.lifecycle.phaseThree.plans.find((plan) => plan.id === data.lifecycle.phaseThree.winningPlanId) ??
+    null;
+  $: locationQuickPicks = buildActivityLocationQuickPicks([
+    {
+      id: 'project-initial',
+      label: data.locationLabel,
+      locationId: data.locationId,
+      sourceLabel: 'Project location'
+    },
+    {
+      id: 'production-plan',
+      label: winningProductionPlan?.locationLabel,
+      locationId: winningProductionPlan?.locationId,
+      sourceLabel: 'Production plan'
+    },
+    {
+      id: 'distribution-plan',
+      label: winningDistributionPlan?.locationLabel,
+      locationId: winningDistributionPlan?.locationId,
+      sourceLabel: 'Distribution plan'
+    }
+  ]);
+  $: softwareGovernanceHistory = data.history.filter((entry) =>
+    SOFTWARE_GOVERNANCE_HISTORY_KINDS.has(entry.kind)
+  );
+  $: historyDescription =
+    data.lifecycle.currentSubtype === 'software'
+      ? 'Past productive activity, ratings, completion check-in, and software governance decisions.'
+      : 'Past productive activity, ratings, and completion check-in.';
+  $: emptyHistoryMessage =
+    data.lifecycle.currentSubtype === 'software'
+      ? 'No activity or software governance has moved into history yet.'
+      : 'No activity has moved into history yet.';
+  $: canSubmitPullRequest =
+    data.lifecycle.currentSubtype === 'software' &&
+    !!data.lifecycle.phaseFive.softwareGovernance?.viewerCanCreatePullRequests;
+
+  async function handleGovernanceVote(entry: DecisionHistoryEntry, vote: ProjectApprovalVote | null) {
+    switch (entry.kind) {
+      case 'project-pull-request-approval':
+      case 'project-pull-request-confirmation':
+        await votePullRequest(entry.id, vote);
+        break;
+      case 'project-merge-capability-change':
+        await voteMergeCapabilityChange(entry.id, vote);
+        break;
+      case 'project-repository-replacement':
+        await voteRepositoryReplacement(entry.id, vote);
+        break;
+      default:
+        break;
+    }
+  }
 </script>
 
 <section id="participation-activities" class="phase-surface">
   {#if data.lifecycle.currentSubtype === 'software'}
     {#if data.lifecycle.phaseFive.softwareGovernance}
       <ProjectSoftwareGovernancePanel
+        bind:this={softwareGovernancePanel}
         governance={data.lifecycle.phaseFive.softwareGovernance}
         createPullRequest={createPullRequest}
         requestMergeCapabilityChange={requestMergeCapabilityChange}
         requestRepositoryReplacement={requestRepositoryReplacement}
         recordMerge={recordPullRequestMerge}
         {votePullRequest}
-        {voteMergeCapabilityChange}
-        {voteRepositoryReplacement}
+        {softwareWizardRequest}
+        {onSoftwareWizardRequestHandled}
       />
     {:else}
       <div class="software-governance-placeholder">
@@ -135,6 +214,7 @@
     {calendarActivities}
     liveActivities={data.lifecycle.phaseFive.activities}
     historyItems={data.lifecycle.phaseFive.history}
+    governanceHistory={softwareGovernanceHistory}
     canCreate={data.lifecycle.phaseFive.viewerCanCreateActivities}
     {showComposer}
     createActive={showComposer}
@@ -144,19 +224,23 @@
     bind:historyOpen
     {activityForm}
     selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
+    {locationQuickPicks}
     liveTitle="Activity setup"
     liveDescription="Schedule productive work blocks and track which ones have enough committed roles to activate."
-    historyDescription="Past productive activity, ratings, and completion check-in."
+    {historyDescription}
     emptyLiveMessage="No activities scheduled yet."
-    emptyHistoryMessage="No activity has moved into history yet."
+    {emptyHistoryMessage}
     {submitActivity}
     {closeComposer}
     daySelect={openComposerForDay}
     createAction={toggleActivityComposer}
+    canSubmitPullRequest={canSubmitPullRequest}
+    openPullRequestWizard={openSoftwarePullRequestWizard}
     {changecommitment}
     {toggleHistoryCompletion}
     {saveActivityRating}
     {deleteActivityRating}
+    onGovernanceVote={handleGovernanceVote}
     onLiveActivitySelect={focusActivityCard}
     onHistoryActivitySelect={focusHistoryCard}
   />

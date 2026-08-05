@@ -20,54 +20,64 @@
 </script>
 
 <section class="phase-surface">
-  {#if signalSummary}
+  {#if data.governance === 'organizer_controlled'}
     <div class="info-card">
-      <strong>Proposal threshold</strong>
+      <strong>Organizer-managed event</strong>
       <p>
-        {#if signalSummary.usesPlatformVoteContext}
-          Demand must stay above 66% of active signals and reach {signalSummary.requiredDemandCount} demand signals from {signalSummary.voteContextPopulation} weekly active users.
-        {:else}
-          Demand must stay above 66% of active proposal signals before planning can open.
-        {/if}
+        This private event skips signals, values, and proposal votes. Organizers set the plan and
+        schedule; members join and sign up for roles in Activity.
       </p>
     </div>
-  {/if}
-
-  {#if data.lifecycle.phaseOne.viewerCanAddValue}
-    <div class="composer-toggle-row">
-      <RoundPlusButton
-        active={showValueComposer}
-        ariaLabel="Add event value"
-        participationAction="add-value"
-        action={() => (showValueComposer = !showValueComposer)}
-      />
-    </div>
-
-    {#if showValueComposer}
-      <div class="composer-card">
-        <input bind:value={draftValue} maxlength="160" placeholder="Add a value, for example: should welcome first-time neighbors clearly" />
-        <div class="composer-actions">
-          <button class="secondary-button" type="button" on:click={() => (showValueComposer = false)}>Cancel</button>
-          <button class="primary-button" type="button" on:click={submitValue}>Add value</button>
-        </div>
+  {:else}
+    {#if signalSummary}
+      <div class="info-card">
+        <strong>Proposal threshold</strong>
+        <p>
+          {#if signalSummary.usesPlatformVoteContext}
+            Demand must stay above 66% of active signals and reach {signalSummary.requiredDemandCount} demand signals from {signalSummary.voteContextPopulation} weekly active users.
+          {:else}
+            Demand must stay above 66% of active proposal signals before planning can open.
+          {/if}
+        </p>
       </div>
     {/if}
-  {/if}
+
+    {#if data.lifecycle.phaseOne.viewerCanAddValue}
+      <div class="composer-toggle-row">
+        <RoundPlusButton
+          active={showValueComposer}
+          ariaLabel="Add event value"
+          participationAction="add-value"
+          action={() => (showValueComposer = !showValueComposer)}
+        />
+      </div>
+
+      {#if showValueComposer}
+        <div class="composer-card">
+          <input bind:value={draftValue} maxlength="160" placeholder="Add a value, for example: should welcome first-time neighbors clearly" />
+          <div class="composer-actions">
+            <button class="secondary-button" type="button" on:click={() => (showValueComposer = false)}>Cancel</button>
+            <button class="primary-button" type="button" on:click={submitValue}>Add value</button>
+          </div>
+        </div>
+      {/if}
+    {/if}
 
     <div id="participation-values" class="surface-stack compact-stack">
-    {#if data.lifecycle.phaseOne.values.length === 0}
-      <div class="empty-card">No proposal values yet.</div>
-    {:else}
-      {#each data.lifecycle.phaseOne.values as value}
-        <ProjectValueCard
-          canVote={data.lifecycle.phaseOne.viewerCanVoteOnValues}
-          options={importanceOptions}
-          {value}
-          vote={voteOnValue}
-        />
-      {/each}
-    {/if}
-  </div>
+      {#if data.lifecycle.phaseOne.values.length === 0}
+        <div class="empty-card">No proposal values yet.</div>
+      {:else}
+        {#each data.lifecycle.phaseOne.values as value}
+          <ProjectValueCard
+            canVote={data.lifecycle.phaseOne.viewerCanVoteOnValues}
+            options={importanceOptions}
+            {value}
+            vote={voteOnValue}
+          />
+        {/each}
+      {/if}
+    </div>
+  {/if}
 </section>
 
 <style>

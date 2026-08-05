@@ -2,7 +2,9 @@ import { error } from '@sveltejs/kit';
 import { getPost } from '$lib/services/queries/details';
 import type { PageLoad } from './$types';
 
-export const load = (async ({ params }) => {
+export const load = (async ({ params, depends }) => {
+  depends(`app:post:${params.id}`);
+
   const post = await getPost(params.id);
 
   if (!post) {

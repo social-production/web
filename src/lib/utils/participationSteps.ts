@@ -1,4 +1,4 @@
-import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
+import { isPersonalServiceProject, isProductiveProject, skipsDistributionPhase, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
 import type { EventPageData, EventPlan, ProjectPageData, ProjectServiceHistoryItem } from '$lib/types/detail';
 import { canProposeEventActivity } from '$lib/utils/eventSchedule';
 import {
@@ -60,6 +60,287 @@ function isActivityPhase(data: ProjectPageData | EventPageData) {
   return data.lifecycle.currentPhaseId === 'activity';
 }
 
+function viewerHasAdvanceProposal(data: ProjectPageData | EventPageData, viewerUsername: string | null) {
+  if (!viewerUsername) {
+    return false;
+  }
+
+  return data.lifecycle.phaseChangeRequests.some(
+    (request) =>
+      request.authorUsername === viewerUsername &&
+      (request.kind === 'advance' || request.kind === 'close')
+  );
+}
+
+function projectAdvancementGatePasses(data: ProjectPageData) {
+  const phaseId = data.lifecycle.currentPhaseId;
+
+  if (phaseId === 'phase-1') {
+    return data.lifecycle.phaseOne?.signalSummary?.advancementUnlocked ?? false;
+  }
+
+  if (phaseId === 'phase-2') {
+    return (
+      !!data.lifecycle.phaseTwo.winningPlanId ||
+      data.lifecycle.phaseTwo.plans.some(
+        (plan) => plan.leaderStatus === 'leading' || plan.leaderStatus === 'tied'
+      )
+    );
+  }
+
+  if (phaseId === 'phase-3') {
+    if (skipsDistributionPhase(data.projectMode, data.projectSubtype)) {
+      return true;
+    }
+
+    return (
+      !!data.lifecycle.phaseThree.winningPlanId ||
+      data.lifecycle.phaseThree.plans.some(
+        (plan) => plan.leaderStatus === 'leading' || plan.leaderStatus === 'tied'
+      )
+    );
+  }
+
+  return true;
+}
+
+function eventAdvancementGatePasses(data: EventPageData) {
+  const phaseId = data.lifecycle.currentPhaseId;
+
+  if (phaseId === 'proposal') {
+    return data.lifecycle.phaseOne?.signalSummary?.advancementUnlocked ?? false;
+  }
+
+  if (phaseId === 'event-plan') {
+    return (
+      !!data.lifecycle.phaseTwo.winningPlanId ||
+      data.lifecycle.phaseTwo.plans.some(
+        (plan) => plan.leaderStatus === 'leading' || plan.leaderStatus === 'tied'
+      )
+    );
+  }
+
+  return true;
+}
+
+function advancementGatePasses(data: ProjectPageData | EventPageData) {
+  if ('projectMode' in data) {
+    return projectAdvancementGatePasses(data);
+  }
+
+  return eventAdvancementGatePasses(data);
+}
+
+function canShowProposeAdvanceStep(
+  data: ProjectPageData | EventPageData,
+  joined: boolean,
+  viewerUsername: string | null
+) {
+  if (!joined || !data.lifecycle.nextPhaseId) {
+    return false;
+  }
+
+  if ('projectMode' in data && isPersonalServiceProject(data.projectMode)) {
+    return false;
+  }
+
+  // Organizer-controlled events change phases directly; do not nudge "propose advance".
+  if (!('projectMode' in data) && data.governance === 'organizer_controlled') {
+    return false;
+  }
+
+  if (data.lifecycle.phaseChangeRequests.length > 0) {
+    return false;
+  }
+
+  if (!data.lifecycle.viewerCanRequestPhaseChanges) {
+    return false;
+  }
+
+  if (viewerHasAdvanceProposal(data, viewerUsername)) {
+    return false;
+  }
+
+  return true;
+}
+
+function projectClosePhaseId(data: ProjectPageData) {
+  return isPersonalServiceProject(data.projectMode) ? 'phase-2' : 'phase-7';
+}
+
+function isClosingTransition(data: ProjectPageData | EventPageData) {
+  if ('projectMode' in data) {
+    return data.lifecycle.nextPhaseId === projectClosePhaseId(data);
+  }
+
+  return data.lifecycle.nextPhaseId === 'closed';
+}
+
+function canOfferConversionOnClose(data: ProjectPageData) {
+  return isProductiveProject(data.projectMode) && isClosingTransition(data);
+}
+
+function proposePhaseChangeStepLabel(data: ProjectPageData | EventPageData) {
+  if (isClosingTransition(data)) {
+    if ('projectMode' in data && canOfferConversionOnClose(data)) {
+      return 'Close / convert';
+    }
+
+    return 'Close';
+  }
+
+  return 'Advance';
+}
+
+function projectAdvanceGateHelper(data: ProjectPageData): string | null {
+  const phaseId = data.lifecycle.currentPhaseId;
+  const nextLabel = data.lifecycle.nextPhaseLabel ?? 'the next phase';
+
+  if (phaseId === 'phase-1') {
+    if (!(data.lifecycle.phaseOne?.signalSummary?.advancementUnlocked ?? false)) {
+      return 'Proposal demand still needs to meet the required threshold before this project can advance.';
+    }
+  }
+
+  if (phaseId === 'phase-2' && !data.lifecycle.phaseTwo.winningPlanId) {
+    return 'This project needs an approved production or operations plan before it can advance.';
+  }
+
+  if (
+    phaseId === 'phase-3' &&
+    !skipsDistributionPhase(data.projectMode, data.projectSubtype) &&
+    !data.lifecycle.phaseThree.winningPlanId
+  ) {
+    return 'This project needs an approved distribution or access plan before it can advance.';
+  }
+
+  if (phaseId === 'phase-4') {
+    return `When acquisition and inventory for this phase are complete, open the phase-change controls to propose advancing to ${nextLabel}.`;
+  }
+
+  if (phaseId === 'phase-5') {
+    return `When this phase’s work is complete, open the phase-change controls to propose advancing to ${nextLabel}.`;
+  }
+
+  if (phaseId === 'phase-6') {
+    if (isClosingTransition(data)) {
+      if (canOfferConversionOnClose(data)) {
+        return 'When execution is finished, open the phase-change controls to propose closing this project or converting it into a collective service.';
+      }
+      return 'When execution is finished, open the phase-change controls to propose closing this project.';
+    }
+    return `When execution is finished, open the phase-change controls to propose advancing to ${nextLabel}.`;
+  }
+
+  return null;
+}
+
+function eventAdvanceGateHelper(data: EventPageData): string | null {
+  const phaseId = data.lifecycle.currentPhaseId;
+  const nextLabel = data.lifecycle.nextPhaseLabel ?? 'the next phase';
+
+  if (phaseId === 'proposal') {
+    if (!(data.lifecycle.phaseOne?.signalSummary?.advancementUnlocked ?? false)) {
+      return 'Proposal demand still needs to meet the required threshold before this event can advance.';
+    }
+  }
+
+  if (phaseId === 'event-plan' && !data.lifecycle.phaseTwo.winningPlanId) {
+    return 'This event needs an approved plan before it can advance.';
+  }
+
+  if (phaseId === 'activity') {
+    if (isClosingTransition(data)) {
+      return 'When the event is finished, open the phase-change controls to propose closing it.';
+    }
+    return `When this event’s activity is complete, open the phase-change controls to propose advancing to ${nextLabel}.`;
+  }
+
+  return null;
+}
+
+function proposeAdvanceHelper(data: ProjectPageData | EventPageData): string {
+  const blockedHelper =
+    'projectMode' in data ? projectAdvanceGateHelper(data) : eventAdvanceGateHelper(data);
+
+  if (blockedHelper && !advancementGatePasses(data)) {
+    return blockedHelper;
+  }
+
+  if (
+    blockedHelper &&
+    ('projectMode' in data
+      ? data.lifecycle.currentPhaseId === 'phase-4' ||
+        data.lifecycle.currentPhaseId === 'phase-5' ||
+        data.lifecycle.currentPhaseId === 'phase-6'
+      : data.lifecycle.currentPhaseId === 'activity')
+  ) {
+    return blockedHelper;
+  }
+
+  if (isClosingTransition(data)) {
+    if ('projectMode' in data && canOfferConversionOnClose(data)) {
+      return 'Open the phase-change controls to propose closing this project or converting it into a collective service.';
+    }
+
+    return 'projectMode' in data
+      ? 'Open the phase-change controls to propose closing this project.'
+      : 'Open the phase-change controls to propose closing this event.';
+  }
+
+  const nextLabel = data.lifecycle.nextPhaseLabel ?? 'the next phase';
+  return `Open the phase-change controls to propose advancing to ${nextLabel}.`;
+}
+
+function isSoftwareActivityPhase(data: ProjectPageData | EventPageData) {
+  return (
+    'projectMode' in data &&
+    data.lifecycle.currentPhaseId === 'phase-5' &&
+    data.lifecycle.currentSubtype === 'software'
+  );
+}
+
+function viewerCanProposeActivity(data: ProjectPageData | EventPageData) {
+  if ('projectMode' in data) {
+    return true;
+  }
+
+  return (
+    data.lifecycle.activity.viewerCanCreateActivities &&
+    canProposeEventActivity(eventWinningPlan(data))
+  );
+}
+
+function proposeActivityHelper(
+  data: ProjectPageData | EventPageData,
+  joined: boolean,
+  activitiesExist: boolean
+) {
+  if (!joined) {
+    return undefined;
+  }
+
+  if (!('projectMode' in data) && !viewerCanProposeActivity(data)) {
+    return 'Activity proposals open once the event plan has future scheduled days.';
+  }
+
+  return activitiesExist
+    ? 'Add more activity others can sign up for.'
+    : 'Add the first activity others can sign up for.';
+}
+
+function makePullRequestHelper(data: ProjectPageData, joined: boolean) {
+  if (!joined) {
+    return undefined;
+  }
+
+  if (!data.lifecycle.phaseFive.softwareGovernance?.viewerCanCreatePullRequests) {
+    return 'Pull request tools unlock once you can create software changes for this project.';
+  }
+
+  return 'Open software governance to submit a pull request for review.';
+}
+
 function viewerSubmittedPlan(data: ProjectPageData | EventPageData, viewerUsername: string | null) {
   const matchesViewer = (authorUsername: string) =>
     viewerUsername != null && authorUsername === viewerUsername;
@@ -91,30 +372,6 @@ function eventWinningPlan(data: EventPageData): EventPlan | null {
   }
 
   return data.lifecycle.phaseTwo.plans.find((plan) => plan.id === winningPlanId) ?? null;
-}
-
-function viewerCanProposeActivity(data: ProjectPageData | EventPageData) {
-  if ('projectMode' in data) {
-    return true;
-  }
-
-  return canProposeEventActivity(eventWinningPlan(data));
-}
-
-function viewerProposedActivity(data: ProjectPageData | EventPageData, viewerUsername: string | null) {
-  if (!viewerUsername) {
-    return false;
-  }
-
-  if ('projectMode' in data) {
-    return data.lifecycle.phaseFive.activities.some(
-      (activity) => activity.authorUsername === viewerUsername
-    );
-  }
-
-  return data.lifecycle.activity.activities.some(
-    (activity) => activity.authorUsername === viewerUsername
-  );
 }
 
 function viewerHasPendingPlanAssessments(data: ProjectPageData | EventPageData) {
@@ -199,7 +456,9 @@ function buildSignalStep(
   options: ParticipationStepOptions
 ): ParticipationStep | null {
   const supportsSignals =
-    'projectMode' in data ? supportsProjectDemandSignals(data.projectMode) : true;
+    'projectMode' in data
+      ? supportsProjectDemandSignals(data.projectMode)
+      : data.governance !== 'organizer_controlled';
 
   if (!supportsSignals) {
     return null;
@@ -249,7 +508,7 @@ function historyFollowUpHelper(items: ProjectServiceHistoryItem[]) {
 function buildHistoryFollowUpStep(items: ProjectServiceHistoryItem[]): ParticipationStep {
   return {
     id: 'history-follow-up',
-    label: items.length > 1 ? 'Wrap up activities' : 'Wrap up activity',
+    label: 'Wrap up',
     done: false,
     helper: historyFollowUpHelper(items)
   };
@@ -300,15 +559,45 @@ function buildParticipationSteps(
   }
 
   if (data.viewerCanToggleMembership) {
+    const joinHelper = joined
+      ? undefined
+      : !('projectMode' in data) && data.governance === 'organizer_controlled'
+        ? 'Join to attend and sign up for activity roles.'
+        : 'Join to propose and vote on lifecycle decisions.';
     steps.push({
       id: 'join',
       label: 'Join',
       done: joined,
-      helper: joined ? undefined : 'Join to propose and vote on lifecycle decisions.'
+      helper: joinHelper
     });
   }
 
-  if (isProposalPhase(data)) {
+  const hasAssessPlansStep =
+    isPlanPhase(data) && ('projectMode' in data || data.governance !== 'organizer_controlled');
+  const skipVoteForPlanAssess =
+    hasAssessPlansStep && pendingVotesArePlanAssessmentsOnly(pendingVotes);
+
+  if (pendingVotes.length > 0 && !skipVoteForPlanAssess) {
+    const hasSoftwareActions = pendingVotes.some(
+      (item) =>
+        item.voteKind === 'pull_request_merge' ||
+        item.voteKind === 'pull_request' ||
+        item.voteKind === 'merge_capability' ||
+        item.voteKind === 'repository_replacement'
+    );
+    steps.push({
+      id: 'vote',
+      label: 'Vote',
+      done: false,
+      helper: joined
+        ? hasSoftwareActions
+          ? 'Handle open votes, merges, and confirmations — do not start a new one.'
+          : 'Approve or reject open decisions — do not start a new one.'
+        : undefined
+    });
+  }
+
+  if (isProposalPhase(data) && ('projectMode' in data || data.governance !== 'organizer_controlled')) {
     steps.push({
       id: 'rate',
       label: data.lifecycle.phaseOne.values.length === 0 ? 'Add values' : 'Rate values',
@@ -317,10 +606,10 @@ function buildParticipationSteps(
     });
   }
 
-  if (isPlanPhase(data)) {
+  if (isPlanPhase(data) && ('projectMode' in data || data.governance !== 'organizer_controlled')) {
     steps.push({
       id: 'plan',
-      label: 'Submit a plan',
+      label: 'Add plan',
       done: viewerSubmittedPlan(data, viewerUsername),
       helper: joined
         ? 'Contribute your own plan and assess plans from others in this phase.'
@@ -328,7 +617,7 @@ function buildParticipationSteps(
     });
     steps.push({
       id: 'assess-plans',
-      label: 'Assess plans',
+      label: 'Assess',
       done: !viewerHasPendingPlanAssessments(data),
       helper: joined ? 'Rate other members’ plans before casting final approval votes.' : undefined
     });
@@ -339,41 +628,40 @@ function buildParticipationSteps(
     if (activitiesExist) {
       steps.push({
         id: 'activity',
-        label: 'Sign up for a role',
+        label: 'Sign up',
         done: !viewerNeedsActivitySignup(data),
         helper: joined ? 'Take a role on scheduled activity others have proposed.' : undefined
       });
     }
-    if (viewerCanProposeActivity(data)) {
+    steps.push({
+      id: 'propose-activity',
+      label: 'Add activity',
+      done: false,
+      helper: proposeActivityHelper(data, joined, activitiesExist)
+    });
+
+    if (isSoftwareActivityPhase(data) && 'projectMode' in data) {
       steps.push({
-        id: 'propose-activity',
-        label: 'Propose activity',
-        done: viewerProposedActivity(data, viewerUsername),
-        helper: joined
-          ? activitiesExist
-            ? 'Add more activity others can sign up for.'
-            : 'Add the first activity others can sign up for.'
-          : undefined
+        id: 'make-pull-request',
+        label: 'Add PR',
+        done: false,
+        helper: makePullRequestHelper(data, joined)
       });
     }
+  }
+
+  if (canShowProposeAdvanceStep(data, joined, viewerUsername)) {
+    steps.push({
+      id: 'propose-advance',
+      label: proposePhaseChangeStepLabel(data),
+      done: false,
+      helper: joined ? proposeAdvanceHelper(data) : undefined
+    });
   }
 
   const historyPending = getHistoryItemsNeedingFollowUp(data);
   if (historyPending.length > 0) {
     steps.push(buildHistoryFollowUpStep(historyPending));
-  }
-
-  const hasAssessPlansStep = steps.some((step) => step.id === 'assess-plans');
-  const skipVoteForPlanAssess =
-    hasAssessPlansStep && pendingVotesArePlanAssessmentsOnly(pendingVotes);
-
-  if (pendingVotes.length > 0 && !skipVoteForPlanAssess) {
-    steps.push({
-      id: 'vote',
-      label: 'Vote',
-      done: false,
-      helper: joined ? 'Approve or reject open decisions — do not start a new one.' : undefined
-    });
   }
 
   return steps.filter((step) => !step.done);
@@ -403,13 +691,15 @@ export function resolveCurrentParticipationStep(steps: ParticipationStep[]) {
 
   const priority = [
     'join',
+    'vote',
     'rate',
     'plan',
     'assess-plans',
     'activity',
     'propose-activity',
-    'history-follow-up',
-    'vote'
+    'make-pull-request',
+    'propose-advance',
+    'history-follow-up'
   ];
   for (const id of priority) {
     const match = steps.find((step) => step.id === id && !step.done);
@@ -440,6 +730,10 @@ export function getParticipationStepAnchor(stepId: string): string | null {
       return 'participation-plans';
     case 'assess-plans':
       return 'pending-votes-panel';
+    case 'propose-advance':
+      return 'participation-phase-change';
+    case 'make-pull-request':
+      return 'software-governance-panel';
     case 'activity':
     case 'propose-activity':
     case 'history-follow-up':
@@ -483,22 +777,17 @@ export function getParticipationStepActionTarget(
 
       return '#pending-votes-panel [data-participation-action="assess-plan"]';
     }
+    case 'propose-advance':
+      return '[data-participation-action="propose-advance"]';
     case 'activity':
       return '#participation-activities [data-participation-target="activity-signup"]';
     case 'propose-activity':
       return '[data-participation-action="propose-activity"]';
+    case 'make-pull-request':
+      return '[data-participation-action="make-pull-request"]';
     case 'vote': {
-      const voteItem =
-        pendingVotes.find((item) => !(item.voteKind === 'plan' && item.planCriterionId)) ??
-        pendingVotes[0];
-
-      if (voteItem) {
-        return `#${pendingVoteCardId(
-          voteItem.voteKind,
-          voteItem.id,
-          voteItem.planValueId,
-          voteItem.planCriterionId
-        )}`;
+      if (pendingVotes.length > 0) {
+        return '#pending-votes-panel .pending-vote-banner';
       }
 
       return '#pending-votes-panel [data-participation-action="cast-vote"]';

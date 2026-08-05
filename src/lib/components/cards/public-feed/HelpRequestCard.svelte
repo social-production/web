@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import { setVote } from '$lib/services/queries/feeds';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
+  import { castFeedVote } from '$lib/services/queries/feeds';
   import type { PublicHelpRequestItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { describeActivityTime, formatLocalDateTime } from '$lib/utils/time';
@@ -21,16 +21,34 @@
         ? `${item.signupCount} signed up`
         : '';
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await setVote(item.id, event.detail.vote);
-    await invalidateAll();
+  async function handleVote({ vote }: { vote: VoteDirection }) {
+    return castFeedVote(item.id, vote, {
+      activeVote: item.activeVote,
+      voteCount: item.voteCount
+    });
   }
 </script>
 
-<FeedSurface href={item.href} tone="public" accent={surfaceTypeAccent('help-request')}>
+<FeedSurface
+  contentRestricted={item.moderationState === 'hidden'}
+  href={item.href}
+  tone="public"
+  accent={surfaceTypeAccent('help-request')}
+>
   <div class="header-row">
     <div class="chips">
       <SurfaceTypeLabel kind="help-request" />
+      <ReportControl
+        hasActiveReport={item.hasActiveReport}
+        isUnderReview={item.isUnderReview}
+        itemLabel="help request"
+        moderationState={item.moderationState}
+        ownerUsername={item.authorUsername}
+        report={item.report ?? null}
+        subjectId={item.id}
+        targetId={item.id}
+        targetType="help_request"
+      />
     </div>
 
     <div class="tag-stack">
@@ -38,7 +56,7 @@
     </div>
   </div>
 
-  <a class="title" href={item.href}>{item.title}</a>
+  <a class="title" data-sveltekit-preload-data="off" href={item.href}>{item.title}</a>
   <p class="body">{item.body}</p>
   {#if whenLabel || item.locationLabel}
     <p class="location">{[whenLabel, item.locationLabel].filter(Boolean).join(' · ')}</p>
@@ -49,7 +67,7 @@
 
   <div class="footer">
     <div class="engagement-row">
-      <VoteStrip activeVote={item.activeVote} count={item.voteCount} on:vote={handleVote} />
+      <VoteStrip activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
       <a class="comment-link" href={`${item.href}?tab=chat`}>
         <CountPill label={`${item.commentCount} comments`} />
       </a>
@@ -79,7 +97,7 @@
   .chips {
     display: flex;
     gap: 0.5rem;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     flex: 1 1 auto;
     min-width: 0;

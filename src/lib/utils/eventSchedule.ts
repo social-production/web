@@ -72,6 +72,30 @@ export function eventPlanScheduleStartIso(
   }
 }
 
+/** UTC ISO for the plan schedule end, when end date + finish time are known. */
+export function eventPlanScheduleEndIso(
+  schedule: Pick<
+    EventPlanScheduleInput,
+    'mode' | 'startDate' | 'endDate' | 'finishTimeLabel'
+  >
+): string | null {
+  const endDate =
+    schedule.mode === 'range'
+      ? normalizeDateInput(schedule.endDate) || normalizeDateInput(schedule.startDate)
+      : normalizeDateInput(schedule.startDate);
+  const localValue = buildLocalDateTimeValue(endDate, schedule.finishTimeLabel);
+
+  if (!localValue) {
+    return null;
+  }
+
+  try {
+    return localDateTimeInputToIso(localValue);
+  } catch {
+    return null;
+  }
+}
+
 export function formatLocalDateTimeValue(date: Date) {
   const year = `${date.getFullYear()}`;
   const month = `${date.getMonth() + 1}`.padStart(2, '0');

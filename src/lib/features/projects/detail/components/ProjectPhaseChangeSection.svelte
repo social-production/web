@@ -125,6 +125,9 @@
         ? 'This project needs an approved distribution or access plan before it can advance.'
         : '';
   $: phaseGatePasses = signalGatePasses && !planGateMessage;
+  $: if (phaseGatePasses) {
+    nextPhaseMessage = '';
+  }
   $: canDirectAdvance = personalDirectPhaseChange && data.lifecycle.viewerCanAdvancePhase && phaseGatePasses;
   $: showReturnActions = personalDirectPhaseChange
     ? canDirectReturn
@@ -193,13 +196,13 @@
 
     if (isClosingTransition()) {
       if (canOfferConversionOnClose) {
-        return personalDirectPhaseChange ? 'Close or convert' : 'Propose close or convert';
+        return 'Close or convert';
       }
 
-      return personalDirectPhaseChange ? 'Close service' : 'Propose close';
+      return personalDirectPhaseChange ? 'Close service' : 'Close';
     }
 
-    return personalDirectPhaseChange ? 'Advance project' : 'Propose advance';
+    return personalDirectPhaseChange ? 'Advance project' : 'Advance';
   }
 
   function revertActionLabel() {
@@ -207,7 +210,7 @@
       return 'Return to active';
     }
 
-    return 'Propose return';
+    return 'Return';
   }
 
   function revertComposerTitle() {
@@ -416,14 +419,14 @@
 </script>
 
 {#if currentPhaseVisible && (data.lifecycle.phaseChangeRequests.length > 0 || data.lifecycle.viewerCanRequestPhaseChanges || data.lifecycle.viewerCanAdvancePhase || data.lifecycle.viewerCanRevertPhase)}
-  <div class="phase-change-stack">
+  <div id="participation-phase-change" class="phase-change-stack">
     {#if showReturnActions || showNextActions}
       <div class="change-action-row">
         <div class="action-group action-group-left">
           {#if personalDirectPhaseChange ? canDirectReturn : canProposeReturn}
             <button
-              class:active-toggle={showRevertComposer}
-              class="secondary-button action-button"
+              class:highlighted={showRevertComposer}
+              class="detail-action-button"
               type="button"
               on:click={toggleRevertComposer}
             >
@@ -445,8 +448,9 @@
           {/if}
           {#if (personalDirectPhaseChange ? data.lifecycle.viewerCanAdvancePhase : canProposeAdvance) && data.lifecycle.nextPhaseId}
             <button
-              class:active-toggle={showNextPhaseComposer}
-              class="secondary-button action-button"
+              class:highlighted={showNextPhaseComposer}
+              class="detail-action-button"
+              data-participation-action="propose-advance"
               type="button"
               on:click={toggleNextPhaseComposer}
             >
@@ -482,7 +486,7 @@
             ></textarea>
           </label>
           <div class="composer-actions">
-            <button class="secondary-button" type="button" on:click={closeRevertComposer}>Cancel</button>
+            <button class="detail-action-button" type="button" on:click={closeRevertComposer}>Cancel</button>
             <button class="primary-button" type="button" on:click={submitRevertRequest}>
               {revertActionLabel()}
             </button>
@@ -526,7 +530,7 @@
             <textarea bind:value={nextPhaseReason} rows="3" placeholder={nextPhasePlaceholder()}></textarea>
           </label>
           <div class="composer-actions">
-            <button class="secondary-button" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
+            <button class="detail-action-button" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
             <button class="primary-button" type="button" on:click={submitNextPhaseRequest}>
               {nextPhaseActionLabel()}
             </button>
@@ -652,11 +656,6 @@
     justify-content: flex-end;
   }
 
-  .action-button {
-    flex: 1;
-    min-width: 0;
-  }
-
   .change-action-panel {
     scroll-margin-top: 92px;
     padding: 16px;
@@ -705,7 +704,6 @@
   }
 
   .primary-button,
-  .secondary-button,
   .vote-chip {
     padding: 8px 12px;
     border-radius: var(--radius-sm);
@@ -718,18 +716,10 @@
     color: var(--page-bg);
   }
 
-  .secondary-button,
   .vote-chip {
     border: 1px solid var(--panel-border);
     background: var(--panel-strong);
     color: var(--text-soft);
-  }
-
-  .secondary-button.active-toggle {
-    border-color: color-mix(in srgb, var(--brand-strong) 62%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 46%, var(--panel-strong));
-    color: var(--brand-strong);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 24%, transparent);
   }
 
   .notice-chip {

@@ -145,6 +145,38 @@ export function setEventEditVote(
   return currentAdapter.setEventEditVote(eventSlug, requestId, vote);
 }
 
+export function createEventManualLinkRequest(
+  eventSlug: string,
+  targetKind: 'project' | 'event',
+  targetSlug: string,
+  summary: string,
+  relationshipLabel?: string | null
+) {
+  return currentAdapter.createEventManualLinkRequest(
+    eventSlug,
+    targetKind,
+    targetSlug,
+    summary,
+    relationshipLabel
+  );
+}
+
+export function setEventManualLinkVote(
+  eventSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+) {
+  return currentAdapter.setEventManualLinkVote(eventSlug, requestId, vote);
+}
+
+export function createEventManualLinkSeverRequest(
+  eventSlug: string,
+  linkId: string,
+  summary?: string | null
+) {
+  return currentAdapter.createEventManualLinkSeverRequest(eventSlug, linkId, summary);
+}
+
 export function grantEventEditAccess(eventSlug: string, userId: string) {
   return currentAdapter.grantEventEditAccess(eventSlug, userId);
 }

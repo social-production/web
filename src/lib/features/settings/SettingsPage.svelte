@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
+  import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import { extractErrorMessage } from '$lib/api/drivers/fastapi/client';
@@ -19,7 +20,22 @@
   import type { ViewerSummary } from '$lib/types/bootstrap';
   import { applyLocale } from '$lib/i18n/locale';
   import { I18N_ENABLED, LANGUAGE_OPTIONS } from '$lib/i18n/config';
+  import SearchableSelect from '$lib/components/shared/SearchableSelect.svelte';
+  import LocationPicker from '$lib/components/shared/LocationPicker.svelte';
+  import { createLocation, getIpLocationHint } from '$lib/services/queries/locations';
+  import {
+    clearDefaultLocationOnServer,
+    hydrateDefaultLocationFromServer,
+    persistDefaultLocationToServer
+  } from '$lib/location/sync';
+  import {
+    devicePositionErrorMessage,
+    isDeviceGeolocationEnabled,
+    requestDevicePosition,
+    setDeviceGeolocationEnabled
+  } from '$lib/location/geolocation';
   import { listDisplayTimezones, setDisplayTimezone } from '$lib/stores/timezoneStore';
+  import { emptyLocationPickerValue, type LocationPickerValue } from '$lib/types/locationPicker';
   import * as m from '$lib/paraglide/messages';
 
   export let data: SettingsPageData;
@@ -33,12 +49,18 @@
   let profileImageError = '';
   let profilePreviewUrl = '';
   let timezoneDraft = data.displayTimezone ?? '';
+  let locationValue: LocationPickerValue = emptyLocationPickerValue();
+  let regionalMessage = '';
+  let deviceLocationEnabled = false;
+
+  $: timezoneSelectOptions = listDisplayTimezones().map((timezone) => ({
+    value: timezone,
+    label: timezone
+  }));
 
   $: if (pendingKey !== 'timezone' && data.displayTimezone !== timezoneDraft) {
     timezoneDraft = data.displayTimezone ?? '';
   }
-
-  const timezoneOptions = listDisplayTimezones();
 
   $: if (pendingKey !== 'bio' && data.profileBio !== lastLoadedBio) {
     bioDraft = data.profileBio;
@@ -78,12 +100,115 @@
     return applySettings('theme', { appearanceThemeMode: theme });
   }
 
-  function handleTimezoneChange(event: Event) {
-    const value = (event.currentTarget as HTMLSelectElement).value;
+  function handleTimezoneChange(value: string) {
     timezoneDraft = value;
     void applySettings('timezone', { displayTimezone: value || null }).then(() => {
       setDisplayTimezone(value || null);
     });
+  }
+
+  async function handleLocationChange(event: CustomEvent<LocationPickerValue>) {
+    regionalMessage = '';
+    locationValue = event.detail;
+    const viewerId = $page.data.bootstrap?.viewer?.id ?? null;
+    if (!locationValue.displayLabel.trim()) {
+      await clearDefaultLocationOnServer(viewerId);
+      return;
+    }
+
+    try {
+      let locationId = locationValue.locationId;
+      if (
+        !locationId &&
+        !locationValue.isOnline &&
+        locationValue.latitude != null &&
+        locationValue.longitude != null
+      ) {
+        const created = await createLocation({
+          providerPlaceId: locationValue.providerPlaceId,
+          displayLabel: locationValue.displayLabel,
+          latitude: locationValue.latitude,
+          longitude: locationValue.longitude,
+          region: locationValue.region,
+          country: locationValue.country,
+          precision: locationValue.precision,
+          isOnline: false
+        });
+        locationId = created.id ?? null;
+      }
+
+      await persistDefaultLocationToServer(viewerId, {
+        displayLabel: locationValue.displayLabel,
+        latitude: locationValue.latitude,
+        longitude: locationValue.longitude,
+        region: locationValue.region,
+        country: locationValue.country,
+        precision: locationValue.precision,
+        providerPlaceId: locationValue.providerPlaceId,
+        locationId,
+        deviceGeolocationEnabled: deviceLocationEnabled
+      });
+    } catch {
+      regionalMessage = 'Could not save default location.';
+    }
+  }
+
+  async function useIpLocation() {
+    regionalMessage = '';
+    const viewerId = $page.data.bootstrap?.viewer?.id ?? null;
+    try {
+      const [hint] = await getIpLocationHint();
+      if (!hint) {
+        regionalMessage =
+          'IP location is unavailable. On localhost use search or device location; on a deployed site this uses your public IP.';
+        return;
+      }
+      locationValue = {
+        ...emptyLocationPickerValue(),
+        displayLabel: hint.displayLabel,
+        latitude: hint.latitude,
+        longitude: hint.longitude,
+        region: hint.region,
+        country: hint.country,
+        precision: hint.precision,
+        providerPlaceId: hint.providerPlaceId
+      };
+      await handleLocationChange(new CustomEvent('change', { detail: locationValue }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('ip_location_unavailable')) {
+        regionalMessage =
+          'IP location is unavailable on localhost. Use search or device location, or try again from a network address.';
+      } else if (message.includes('429')) {
+        regionalMessage = 'Too many IP location requests. Wait a moment and try again.';
+      } else {
+        regionalMessage = 'IP location is unavailable right now.';
+      }
+    }
+  }
+
+  async function toggleDeviceLocation() {
+    const viewerId = $page.data.bootstrap?.viewer?.id ?? null;
+    deviceLocationEnabled = !deviceLocationEnabled;
+    setDeviceGeolocationEnabled(viewerId, deviceLocationEnabled);
+    if (!deviceLocationEnabled) {
+      return;
+    }
+    const result = await requestDevicePosition(viewerId);
+    if (!result.ok) {
+      regionalMessage = devicePositionErrorMessage(result.error);
+      deviceLocationEnabled = false;
+      setDeviceGeolocationEnabled(viewerId, false);
+      return;
+    }
+    locationValue = {
+      ...emptyLocationPickerValue(),
+      displayLabel: result.label,
+      latitude: result.position.latitude,
+      longitude: result.position.longitude,
+      providerPlaceId: result.providerPlaceId
+    };
+    await handleLocationChange(new CustomEvent('change', { detail: locationValue }));
   }
 
   function toggleTheme() {
@@ -214,6 +339,23 @@
   }
 
   onMount(async () => {
+    const viewerId = $page.data.bootstrap?.viewer?.id ?? null;
+    deviceLocationEnabled = isDeviceGeolocationEnabled(viewerId);
+    const saved = await hydrateDefaultLocationFromServer(viewerId);
+    if (saved?.displayLabel) {
+      locationValue = {
+        ...emptyLocationPickerValue(),
+        displayLabel: saved.displayLabel,
+        latitude: saved.latitude,
+        longitude: saved.longitude,
+        region: saved.region,
+        country: saved.country,
+        precision: saved.precision,
+        providerPlaceId: saved.providerPlaceId,
+        locationId: saved.locationId
+      };
+    }
+
     try {
       pendingFollowRequests = await getFollowRequests();
     } catch {
@@ -329,15 +471,50 @@
         <strong>Display timezone</strong>
         <p>Used for scheduled activity and event times across the app.</p>
       </div>
-      <label class="timezone-field">
-        <span class="sr-only">Display timezone</span>
-        <select disabled={pendingKey === 'timezone'} value={timezoneDraft} on:change={handleTimezoneChange}>
-          <option value="">Use browser timezone</option>
-          {#each timezoneOptions as timezone}
-            <option value={timezone}>{timezone}</option>
-          {/each}
-        </select>
-      </label>
+      <SearchableSelect
+        allowEmpty
+        ariaLabel="Display timezone"
+        disabled={pendingKey === 'timezone'}
+        emptyOptionLabel="Use browser timezone"
+        options={timezoneSelectOptions}
+        placeholder="Filter timezones"
+        bind:value={timezoneDraft}
+        on:change={(event) => handleTimezoneChange(event.detail)}
+      />
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2>Regional</h2>
+    <div class="card stack">
+      <div class="setting-item">
+        <div>
+          <strong>Default location</strong>
+          <p>Used for regional feed and map discovery.</p>
+        </div>
+        <LocationPicker bind:value={locationValue} modes={['physical']} on:change={handleLocationChange} />
+      </div>
+      <div class="setting-item">
+        <div>
+          <strong>Device location</strong>
+          <p>Opt in to use GPS when you choose “Use my location”.</p>
+        </div>
+        <button class="toggle" class:on={deviceLocationEnabled} type="button" on:click={() => void toggleDeviceLocation()}>
+          {deviceLocationEnabled ? 'On' : 'Off'}
+        </button>
+      </div>
+      <div class="setting-item">
+        <div>
+          <strong>Approximate IP location</strong>
+          <p>One-time opt-in. Never applied automatically.</p>
+        </div>
+        <button class="button-secondary" type="button" on:click={() => void useIpLocation()}>
+          Use IP location
+        </button>
+      </div>
+      {#if regionalMessage}
+        <p class="status error" role="alert">{regionalMessage}</p>
+      {/if}
     </div>
   </section>
 

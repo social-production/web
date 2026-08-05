@@ -62,8 +62,14 @@
     emptyCopy="No event chat yet."
     fitViewport={fullscreen}
     {highlightedCommentId}
+    onModerated={async () => {
+      const refreshed = await refreshSubjectDiscussion('event', data.id);
+      serverDiscussion = refreshed;
+      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+    }}
     onSubmitMessage={submitEventMessage}
     placeholder="Message members..."
+    reportTargetType="comment"
     showHeader={!fullscreen}
     subjectId={data.id}
     submitLabel="Send message"

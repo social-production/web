@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import PersonalPostCard from '$lib/components/cards/personal-feed/PersonalPostCard.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
@@ -40,6 +39,10 @@
   $: canSubmit = body.trim().length > 0;
 
   async function handleCreate() {
+    if (!canSubmit || isSubmitting) {
+      return;
+    }
+
     isSubmitting = true;
     statusMessage = '';
 
@@ -59,78 +62,67 @@
       isSubmitting = false;
     }
   }
-
-  function handleDraft() {
-    statusMessage = 'Draft saving is not wired yet, but the Personal create surface is now real.';
-  }
 </script>
 
 <CreateFlowLayout>
   <svelte:fragment slot="primary">
-    <CreatePanel
-      title="Post To Personal"
-      description="Text posts live here directly. Image posts can layer in later without changing the Personal/Public split."
-    >
-      <form class="form-stack" on:submit|preventDefault={handleCreate}>
-        <div class="audience-note">
-          <span class="field-label">Audience</span>
-          <p>Followers only</p>
-        </div>
-
+    <CreatePanel title="New post" description="Share directly with your followers.">
+      <div class="composer">
+        <p class="audience-cue">Followers only</p>
         <label>
-          <RequiredFieldLabel>Post body</RequiredFieldLabel>
-          <textarea bind:value={body} rows="8" placeholder="Share a direct post to your personal timeline..." aria-required="true"></textarea>
+          <RequiredFieldLabel>What's on your mind?</RequiredFieldLabel>
+          <textarea
+            bind:value={body}
+            rows="8"
+            placeholder="Share a direct post to your personal timeline..."
+            aria-required="true"
+          ></textarea>
         </label>
-
-        <div class="button-row">
-          <button class="button-primary" disabled={!canSubmit || isSubmitting} type="submit">
-            {isSubmitting ? 'Posting...' : 'Post'}
-          </button>
-          <button class="button-ghost" type="button" on:click={handleDraft}>Save Draft</button>
-        </div>
-
         {#if statusMessage}
           <p class="status-note">{statusMessage}</p>
         {/if}
-      </form>
+        <div class="actions">
+          <button
+            class="button-primary"
+            type="button"
+            disabled={!canSubmit || isSubmitting}
+            on:click={handleCreate}
+          >
+            {isSubmitting ? 'Posting...' : 'Post'}
+          </button>
+        </div>
+      </div>
     </CreatePanel>
   </svelte:fragment>
 
   <svelte:fragment slot="secondary">
-    <CreatePanel
-      title="Live preview"
-      description="Shows how the new post will read in Personal."
-      surface="transparent"
-    >
+    <CreatePanel title="Live preview" description="How this will read in Personal." surface="transparent">
       {#if previewItem}
         <PersonalPostCard item={previewItem} />
       {/if}
-    </CreatePanel>
-
-    <CreatePanel title="Personal rule" description="Why this surface stays separate.">
-      <p class="helper-text">
-        Personal follows people instead of tags. Direct posts belong here first instead of being forced into the Public stream.
-      </p>
     </CreatePanel>
   </svelte:fragment>
 </CreateFlowLayout>
 
 <style>
-  .form-stack {
+  .composer {
     display: grid;
     gap: 12px;
   }
 
-  .field-label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .audience-note p {
+  .audience-cue {
     margin: 0;
     color: var(--text-soft);
     font-size: 13px;
+  }
+
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .status-note {
+    margin: 0;
+    color: var(--danger, #c0392b);
   }
 </style>

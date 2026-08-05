@@ -1,5 +1,6 @@
 <script lang="ts">
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
+  import AboutExplainer from './AboutExplainer.svelte';
 </script>
 
 <section class="page">
@@ -73,17 +74,7 @@
     </section>
   </div>
 
-  <section class="hero-card community-card">
-    <h2>Community</h2>
-    <ul class="community-links">
-      <li>
-        <a href="https://discord.gg/VvbJ3hhEPb" rel="noreferrer" target="_blank">Discord</a>
-      </li>
-      <li>
-        <a href="https://www.reddit.com/r/SocialProduction/" rel="noreferrer" target="_blank">Reddit</a>
-      </li>
-    </ul>
-  </section>
+  <AboutExplainer />
 </section>
 
 <style>
@@ -105,7 +96,6 @@
     line-height: 1.6;
   }
 
-  .hero-card,
   .phase-card {
     padding: 12px;
     border: 1px solid var(--panel-border);
@@ -173,20 +163,5 @@
   ul {
     margin: 8px 0 0;
     padding-left: 18px;
-  }
-
-  .community-links {
-    list-style: none;
-    padding-left: 0;
-  }
-
-  .community-links a {
-    color: var(--brand-strong);
-    font-weight: 700;
-    text-decoration: none;
-  }
-
-  .community-links a:hover {
-    text-decoration: underline;
   }
 </style>

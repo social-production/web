@@ -7,6 +7,7 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import { preserveScrollDuring } from '$lib/utils/time';
   import { composeActivityLocationLabel, normalizedRoleRequirements } from '$lib/utils/activityCreationSteps';
+  import { softwareLicenseLabelForSubtype } from '$lib/copy/softwareLicensePolicy';
   import ProductiveLifecycleContent from './lifecycle/productive/ProductiveLifecycleContent.svelte';
   import CollectiveServiceLifecycleContent from './lifecycle/collective-service/CollectiveServiceLifecycleContent.svelte';
   import IndividualServiceLifecycleContent from './lifecycle/individual-service/IndividualServiceLifecycleContent.svelte';
@@ -110,6 +111,8 @@
   export let autoAssessCriterionId: string | null = null;
   export let participationAssessPlanId: string | null = null;
   export let participationAssessCriterionId: string | null = null;
+  export let softwareWizardRequest: { mode: 'record-merge' | 'vote-pr'; requestId: string } | null = null;
+  export let onSoftwareWizardRequestHandled: () => void = () => {};
 
   type DraftPlanPhase = {
     title: string;
@@ -122,9 +125,13 @@
     description: string;
     projectSubtype: ProjectSubtype;
     repositoryUrl: string;
+    licenseLabel?: string;
     demandConsiderationNote: string;
     valueConsiderationNotes: Record<string, string>;
     planPhases: DraftPlanPhase[];
+    locationId?: string | null;
+    locationLabel?: string;
+    locationIsOnline?: boolean;
     validationMessages: string[];
   };
 
@@ -134,6 +141,13 @@
     demandConsiderationNote: string;
     valueConsiderationNotes: Record<string, string>;
     planPhases: DraftPlanPhase[];
+    locationId?: string | null;
+    locationLabel?: string;
+    distributionLocationId?: string | null;
+    distributionLocationLabel?: string;
+    sameAsProductionLocation?: boolean;
+    projectLocationId?: string | null;
+    projectLocationLabel?: string;
     requestSystemEnabled: boolean;
     requestMode: 'calendar' | 'direct' | 'both';
     allowOffScheduleRequests: boolean;
@@ -191,10 +205,17 @@
       planPhases: DraftPlanPhase[];
       projectSubtype?: ProjectSubtype;
       repositoryUrl?: string;
+      locationId?: string | null;
+      locationLabel?: string;
+      distributionLocationId?: string | null;
+      distributionLocationLabel?: string;
+      sameAsProductionLocation?: boolean;
     },
     options: {
       requireSoftwareRepository?: boolean;
       distributionLockedToSoftware?: boolean;
+      requireProductionLocation?: boolean;
+      requireDistributionLocation?: boolean;
     } = {}
   ) {
     const validationMessages: string[] = [];
@@ -224,6 +245,21 @@
       );
     }
 
+    if (options.requireProductionLocation && !form.locationId && !form.locationLabel?.trim()) {
+      validationMessages.push('Choose where production or operations will happen.');
+    }
+
+    if (
+      options.requireDistributionLocation &&
+      !form.distributionLocationId &&
+      !form.distributionLocationLabel?.trim() &&
+      !form.locationId &&
+      !form.locationLabel?.trim() &&
+      !form.sameAsProductionLocation
+    ) {
+      validationMessages.push('Choose where distribution or access will happen.');
+    }
+
     if (!hasAnyCompleteStage) {
       validationMessages.push('Add at least one stage with a title and description.');
     } else if (hasPartialStage) {
@@ -239,9 +275,13 @@
       description: '',
       projectSubtype: 'standard',
       repositoryUrl: '',
+      licenseLabel: undefined,
       demandConsiderationNote: '',
       valueConsiderationNotes: {},
       planPhases: [createDraftPlanPhase()],
+      locationId: null,
+      locationLabel: '',
+      locationIsOnline: false,
       validationMessages: []
     };
   }
@@ -253,6 +293,13 @@
       demandConsiderationNote: '',
       valueConsiderationNotes: {},
       planPhases: [createDraftPlanPhase()],
+      locationId: null,
+      locationLabel: '',
+      distributionLocationId: null,
+      distributionLocationLabel: '',
+      sameAsProductionLocation: false,
+      projectLocationId: null,
+      projectLocationLabel: '',
       requestSystemEnabled: false,
       requestMode: 'both',
       allowOffScheduleRequests: false,
@@ -273,6 +320,13 @@
   }
 
   let activePhaseId: ProjectLifecyclePhaseId = resolvedActivePhaseId(data.lifecycle.currentPhaseId);
+
+  $: if (softwareWizardRequest) {
+    activePhaseId = 'phase-5';
+  }
+  $: if ($page.url.hash === '#software-governance-panel') {
+    activePhaseId = 'phase-5';
+  }
   let lastCurrentPhaseId = data.lifecycle.currentPhaseId;
   let lastProjectSlug = data.slug;
   let draftValue = '';
@@ -285,6 +339,7 @@
     endsAt: '',
     isOnline: false,
     locationLabel: '',
+    locationId: null as string | null,
     onlineDetail: '',
     roleRequirements: [createDraftActivityRole()],
     linkedPlanPhaseId: '' as string | null,
@@ -382,6 +437,13 @@
       }
     } else if (voteKind === 'phase_change') {
       activePhaseId = resolvedActivePhaseId(data.lifecycle.currentPhaseId);
+    } else if (
+      voteKind === 'pull_request' ||
+      voteKind === 'pull_request_merge' ||
+      voteKind === 'merge_capability' ||
+      voteKind === 'repository_replacement'
+    ) {
+      activePhaseId = 'phase-5';
     }
 
     await tick();
@@ -659,7 +721,8 @@
 
   async function submitProductionPlan() {
     const validationMessages = validateProjectPlanForm(productionForm, {
-      requireSoftwareRepository: productionForm.projectSubtype === 'software'
+      requireSoftwareRepository: productionForm.projectSubtype === 'software',
+      requireProductionLocation: productionForm.projectSubtype !== 'software'
     });
 
     if (validationMessages.length > 0) {
@@ -684,9 +747,15 @@
       projectSubtype: productionForm.projectSubtype,
       repositoryUrl:
         productionForm.projectSubtype === 'software' ? productionForm.repositoryUrl : undefined,
+      licenseLabel:
+        productionForm.projectSubtype === 'software'
+          ? productionForm.licenseLabel || softwareLicenseLabelForSubtype('software')
+          : undefined,
       demandConsiderationNote: productionForm.demandConsiderationNote,
       valueConsiderationNotes: productionForm.valueConsiderationNotes,
       totalCostLabel: 'Cost moved to acquisition',
+      locationId: productionForm.locationId ?? null,
+      locationLabel: productionForm.locationLabel,
       planPhases
     };
     const created = editingProductionPlanId
@@ -714,7 +783,8 @@
 
   async function submitDistributionPlan() {
     const validationMessages = validateProjectPlanForm(distributionForm, {
-      distributionLockedToSoftware: data.lifecycle.currentSubtype === 'software'
+      distributionLockedToSoftware: data.lifecycle.currentSubtype === 'software',
+      requireDistributionLocation: data.lifecycle.currentSubtype !== 'software'
     });
 
     if (validationMessages.length > 0) {
@@ -741,6 +811,13 @@
         demandConsiderationNote: distributionForm.demandConsiderationNote,
         valueConsiderationNotes: distributionForm.valueConsiderationNotes,
         totalCostLabel: 'Cost moved to acquisition',
+        locationId:
+          distributionForm.distributionLocationId ?? distributionForm.locationId ?? null,
+        locationLabel:
+          distributionForm.distributionLocationLabel ?? distributionForm.locationLabel,
+        projectLocationId: distributionForm.projectLocationId ?? null,
+        projectLocationLabel: distributionForm.projectLocationLabel,
+        sameAsProductionLocation: distributionForm.sameAsProductionLocation ?? false,
         planPhases,
         requestSystemEnabled: distributionForm.requestSystemEnabled,
         requestMode: distributionForm.requestMode,
@@ -791,6 +868,7 @@
         endsAt: '',
         isOnline: false,
         locationLabel: '',
+        locationId: null,
         onlineDetail: '',
         roleRequirements: [createDraftActivityRole()],
         linkedPlanPhaseId: '',
@@ -819,16 +897,17 @@
     activityForm.endsAt = endsAtValue;
 
     await refreshAfter(() =>
-      addProjectActivity(data.slug, {
-        title: activityForm.title,
-        scheduledAt: localDateTimeInputToIso(scheduledAtValue),
-        endsAt: localDateTimeInputToIso(endsAtValue),
-        isOnline: activityForm.isOnline,
-        locationLabel,
-        roleRequirements,
-        linkedPlanPhaseId: activityForm.linkedPlanPhaseId || null,
-        note: activityForm.note
-      })
+        addProjectActivity(data.slug, {
+          title: activityForm.title,
+          scheduledAt: localDateTimeInputToIso(scheduledAtValue),
+          endsAt: localDateTimeInputToIso(endsAtValue),
+          isOnline: activityForm.isOnline,
+          locationLabel,
+          locationId: activityForm.locationId,
+          roleRequirements,
+          linkedPlanPhaseId: activityForm.linkedPlanPhaseId || null,
+          note: activityForm.note
+        })
     );
     activityForm = {
       title: '',
@@ -836,6 +915,7 @@
       endsAt: '',
       isOnline: false,
       locationLabel: '',
+      locationId: null,
       onlineDetail: '',
       roleRequirements: [createDraftActivityRole()],
       linkedPlanPhaseId: '',
@@ -955,8 +1035,8 @@
     await refreshAfter(() => requestProjectRepositoryReplacement(data.slug, input));
   }
 
-  async function recordSoftwarePullRequestMerge(requestId: string, mergeId: string) {
-    await refreshAfter(() => recordProjectPullRequestMerge(data.slug, requestId, mergeId));
+  async function recordSoftwarePullRequestMerge(requestId: string, mergeId: string, mergeUrl: string) {
+    await refreshAfter(() => recordProjectPullRequestMerge(data.slug, requestId, mergeId, mergeUrl));
   }
 
   async function voteSoftwarePullRequest(requestId: string, vote: ProjectApprovalVote | null) {
@@ -992,6 +1072,7 @@
       description: plan.description,
       projectSubtype: plan.projectSubtype,
       repositoryUrl: plan.repositoryUrl ?? '',
+      licenseLabel: softwareLicenseLabelForSubtype(plan.projectSubtype),
       demandConsiderationNote: plan.demandConsiderationNote,
       valueConsiderationNotes: plan.valueConsiderationNotes ?? {},
       planPhases: plan.planPhases.map((phase) => ({
@@ -1148,7 +1229,8 @@
     selectCalendarDay(isoDay);
     activityForm = {
       ...activityForm,
-      locationLabel: ''
+      locationLabel: '',
+      locationId: null
     };
     showCollectiveRequestComposer = false;
     selectedCollectiveRequestActivityId = null;
@@ -1159,7 +1241,8 @@
     setDefaultActivityTimes();
     activityForm = {
       ...activityForm,
-      locationLabel: ''
+      locationLabel: '',
+      locationId: null
     };
     showCollectiveRequestComposer = false;
     selectedCollectiveRequestActivityId = null;
@@ -1423,6 +1506,8 @@
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
         {saveActivityRating}
         {deleteActivityRating}
+        {softwareWizardRequest}
+        {onSoftwareWizardRequestHandled}
       />
     {:else}
       <ProductiveLifecycleContent
@@ -1470,6 +1555,8 @@
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
         {saveActivityRating}
         {deleteActivityRating}
+        {softwareWizardRequest}
+        {onSoftwareWizardRequestHandled}
       />
     {/if}
 

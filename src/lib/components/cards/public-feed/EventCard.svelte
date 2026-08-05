@@ -1,33 +1,48 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { page } from '$app/stores';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import { setVote } from '$lib/services/queries/feeds';
-  import type { PublicEventItem, VoteDirection } from '$lib/types/feed';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
+  import { submitFeedEntitySignal } from '$lib/utils/signalEngagement';
+  import type { PublicEventItem } from '$lib/types/feed';
+  import { requireViewer } from '$lib/utils/requireViewer';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
   import { describeUpdateTime, formatLocalDateTime } from '$lib/utils/time';
 
-  export let item: PublicEventItem;
+  let { item }: { item: PublicEventItem } = $props();
 
-  $: orderedTags = [...item.channelTags, ...item.communityTags];
-  $: scheduleTime = item.scheduledAt
-    ? formatLocalDateTime(item.scheduledAt)
-    : isImplementedScheduleLabel(item.timeLabel)
-      ? item.timeLabel.trim()
-      : '';
-  $: scheduleLocation = isImplementedScheduleLabel(item.locationLabel) ? item.locationLabel.trim() : '';
+  const orderedTags = $derived([...item.channelTags, ...item.communityTags]);
+  const scheduleTime = $derived(
+    item.scheduledAt
+      ? formatLocalDateTime(item.scheduledAt)
+      : isImplementedScheduleLabel(item.timeLabel)
+        ? item.timeLabel.trim()
+        : ''
+  );
+  const scheduleLocation = $derived(
+    isImplementedScheduleLabel(item.locationLabel) ? item.locationLabel.trim() : ''
+  );
+  const signalsDisabled = $derived(Boolean(item.isClosed));
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await setVote(item.id, event.detail.vote);
-    await invalidateAll();
+  async function handleSignal(signal: 'demand' | 'opposition') {
+    if (!requireViewer($page.data.bootstrap?.viewer) || signalsDisabled) {
+      return;
+    }
+
+    return submitFeedEntitySignal('event', item.slug, signal);
   }
 </script>
 
-<FeedSurface href={item.href} tone="public" accent={surfaceTypeAccent('event')}>
+<FeedSurface
+  contentRestricted={item.moderationState === 'hidden'}
+  href={item.href}
+  tone="public"
+  accent={surfaceTypeAccent('event')}
+>
   <div class="header-row">
     <div class="chips">
       <SurfaceTypeLabel kind="event" />
@@ -35,6 +50,17 @@
       {#if item.stage}
         <span class="meta-note">· {item.stage}</span>
       {/if}
+      <ReportControl
+        hasActiveReport={item.hasActiveReport}
+        isUnderReview={item.isUnderReview}
+        itemLabel="event"
+        moderationState={item.moderationState}
+        ownerUsername={item.createdByUsername}
+        report={item.report ?? null}
+        subjectId={item.id}
+        targetId={item.id}
+        targetType="event"
+      />
     </div>
 
     <div class="tag-stack">
@@ -42,7 +68,7 @@
     </div>
   </div>
 
-  <a class="title" href={item.href}>{item.title}</a>
+  <a class="title" data-sveltekit-preload-data="off" href={item.href}>{item.title}</a>
   <p class="body">{item.description}</p>
   {#if item.latestUpdateBody}
     <p class="latest-summary">Latest: {item.latestUpdateBody}</p>
@@ -53,7 +79,16 @@
 
   <div class="footer">
     <div class="engagement-row">
-      <VoteStrip activeVote={item.activeVote} count={item.voteCount} on:vote={handleVote} />
+      <VoteStrip
+        mode="signals"
+        syncKey={item.id}
+        supportCount={item.supportCount}
+        opposeCount={item.opposeCount}
+        favorability={item.favorability}
+        viewerSignal={item.viewerSignal}
+        disabled={signalsDisabled}
+        onsignal={handleSignal}
+      />
       <a class="comment-link" href={`${item.href}?tab=chat`}>
         <CountPill label={`${item.commentCount} comments`} />
       </a>
@@ -84,7 +119,7 @@
   .chips {
     display: flex;
     gap: 0.45rem;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     flex: 1 1 auto;
     min-width: 0;
@@ -129,7 +164,6 @@
     display: -webkit-box;
     overflow: hidden;
     line-clamp: 2;
-    -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     color: var(--text-main);
     opacity: 0.84;

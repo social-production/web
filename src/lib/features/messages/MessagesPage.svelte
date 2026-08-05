@@ -12,6 +12,7 @@
   import { addComment } from '$lib/services/commands/shared';
   import { fetchComments } from '$lib/api/drivers/fastapi/domains/content';
   import { registerEntityType, registerCommentIds } from '$lib/api/drivers/fastapi/typeRegistry';
+  import { mapContentReport, mapModerationState } from '$lib/utils/moderation';
   import {
     ChatSendError,
     createOptimisticComment,
@@ -100,6 +101,7 @@
         createdAt: message.createdAt,
         isOwn: message.isOwn,
         report: message.report ?? null,
+        moderationState: message.moderationState,
         showAuthor: activeConversation?.kind === 'group'
       }))
     : [];
@@ -187,6 +189,9 @@
     created_at: string;
     vote_count: number;
     active_vote?: number;
+    report?: unknown;
+    moderation_state?: string;
+    moderationState?: string;
     replies?: RawLinkedChatComment[];
   };
 
@@ -199,7 +204,8 @@
       createdAt: c.created_at,
       voteCount: c.vote_count,
       activeVote: (c.active_vote ?? 0) as VoteDirection,
-      report: null,
+      report: mapContentReport(c.report),
+      ...(mapModerationState(c) ? { moderationState: mapModerationState(c) } : {}),
       replies: (c.replies ?? []).map((reply) => {
         registerEntityType(reply.id, 'comment');
         return {
@@ -209,6 +215,8 @@
           createdAt: reply.created_at,
           voteCount: reply.vote_count,
           activeVote: (reply.active_vote ?? 0) as VoteDirection,
+          report: mapContentReport(reply.report),
+          ...(mapModerationState(reply) ? { moderationState: mapModerationState(reply) } : {}),
           replies: [],
         };
       }),
@@ -1176,8 +1184,10 @@
           embedded={true}
           emptyCopy={activeConversationMessagesLoading ? 'Loading messages...' : 'No messages yet.'}
           messages={activeConversationMessages}
+          onModerated={refreshActiveThread}
           onSubmitMessage={submitConversationMessage}
           placeholder="Write a message..."
+          reportTargetType="message"
           showHeader={false}
           subjectId={activeConversation.id}
           submitLabel="Send"
@@ -1192,8 +1202,10 @@
               ? 'Loading messages...'
               : linkedChatEmptyCopy(activeLinkedChat)
           }
+          onModerated={refreshActiveThread}
           onSubmitMessage={submitLinkedChatMessage}
           placeholder={linkedChatPlaceholder(activeLinkedChat)}
+          reportTargetType="comment"
           showHeader={false}
           subjectId={activeLinkedChat.subjectId}
           submitLabel="Send"

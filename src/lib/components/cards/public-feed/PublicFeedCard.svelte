@@ -1,6 +1,7 @@
 <script lang="ts">
   import EventCard from '$lib/components/cards/public-feed/EventCard.svelte';
   import HelpRequestCard from '$lib/components/cards/public-feed/HelpRequestCard.svelte';
+  import ProjectActivityCard from '$lib/components/cards/public-feed/ProjectActivityCard.svelte';
   import ProjectCard from '$lib/components/cards/public-feed/ProjectCard.svelte';
   import ThreadCard from '$lib/components/cards/public-feed/ThreadCard.svelte';
   import type { PublicFeedItem } from '$lib/types/feed';
@@ -9,11 +10,13 @@
 </script>
 
 {#if item.kind === 'project'}
-  <ProjectCard item={item} />
+  <ProjectCard {item} />
+{:else if item.kind === 'project-activity'}
+  <ProjectActivityCard {item} />
 {:else if item.kind === 'thread'}
-  <ThreadCard item={item} />
+  <ThreadCard {item} />
 {:else if item.kind === 'help-request'}
-  <HelpRequestCard item={item} />
+  <HelpRequestCard {item} />
 {:else}
-  <EventCard item={item} />
+  <EventCard {item} />
 {/if}

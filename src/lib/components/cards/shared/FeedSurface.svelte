@@ -6,9 +6,14 @@
   export let href: string | null = null;
   export let accent: SurfaceTypeAccent | null = null;
   export let isLast = false;
+  /** Serious-harm restriction: keep card in feed but blur text/media with a warning. */
+  export let contentRestricted = false;
+
+  let revealRestricted = false;
 
   $: skipScrollOnNavigate = href?.includes('comment=') ?? false;
   $: accentColor = accent ? surfaceAccentCssVar(accent) : null;
+  $: blurContent = contentRestricted && !revealRestricted;
 </script>
 
 <article
@@ -17,6 +22,7 @@
   class:clickable={!!href}
   class:last-row={isLast}
   class:has-accent={!!accent}
+  class:content-restricted={contentRestricted}
   class="surface"
   style={accentColor ? `--row-accent: ${accentColor};` : undefined}
 >
@@ -25,11 +31,25 @@
       aria-label="Open item"
       class="surface-link"
       data-sveltekit-noscroll={skipScrollOnNavigate || undefined}
+      data-sveltekit-preload-data="off"
       {href}
     ></a>
   {/if}
 
-  <div class="content">
+  {#if contentRestricted}
+    <div class="restriction-banner">
+      <span>Serious harm report — content blurred until you choose to reveal it.</span>
+      <button
+        class="reveal-btn"
+        type="button"
+        on:click|stopPropagation={() => (revealRestricted = !revealRestricted)}
+      >
+        {revealRestricted ? 'Hide again' : 'Reveal'}
+      </button>
+    </div>
+  {/if}
+
+  <div class:blurred={blurContent} class="content">
     <slot />
   </div>
 </article>
@@ -57,11 +77,45 @@
     border-bottom: none;
   }
 
+  .surface.content-restricted {
+    background: color-mix(in srgb, var(--brand-soft) 35%, var(--panel));
+  }
+
   .surface-link {
     position: absolute;
     inset: 0;
     z-index: 0;
     border-radius: inherit;
+  }
+
+  .restriction-banner {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--brand) 45%, var(--panel-border));
+    border-radius: var(--radius-sm);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    font-size: 12px;
+    font-weight: 700;
+    pointer-events: auto;
+  }
+
+  .reveal-btn {
+    padding: 4px 8px;
+    border: 1px solid color-mix(in srgb, var(--brand) 45%, var(--panel-border));
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--brand-strong);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
   }
 
   .content {
@@ -70,6 +124,11 @@
     min-width: 0;
     max-width: 100%;
     pointer-events: none;
+  }
+
+  .content.blurred {
+    filter: blur(6px);
+    user-select: none;
   }
 
   .content :global(.title),
@@ -118,7 +177,9 @@
   .content :global(textarea),
   .content :global(select),
   .content :global(label),
-  .content :global([role='link']) {
+  .content :global([role='link']),
+  .content :global(.report-control),
+  .content :global(.report-menu-shell) {
     pointer-events: auto;
     cursor: pointer;
   }

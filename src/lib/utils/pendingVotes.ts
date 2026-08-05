@@ -21,7 +21,15 @@ import {
 } from '$lib/utils/phaseChangeVotes';
 import { scrollToPageAnchor } from '$lib/utils/scrollAnchors';
 
-export type PendingVoteKind = 'phase_change' | 'update' | 'edit' | 'plan';
+export type PendingVoteKind =
+  | 'phase_change'
+  | 'update'
+  | 'edit'
+  | 'plan'
+  | 'pull_request'
+  | 'merge_capability'
+  | 'repository_replacement'
+  | 'pull_request_merge';
 
 export interface PendingVoteItem {
   id: string;
@@ -35,12 +43,28 @@ export interface PendingVoteItem {
   planValueId?: string;
   planCriterionId?: string;
   planPhaseId?: 'phase-2' | 'phase-3';
+  actionLabel?: string;
+  softwareStage?: string;
   voteSummary: ProjectPlanVoteSummary;
   approvalThresholdPercent: number;
   authorUsername: string;
   createdAt: string;
   canVote: boolean;
 }
+
+const EMPTY_VOTE_SUMMARY: ProjectPlanVoteSummary = {
+  yesCount: 0,
+  noCount: 0,
+  totalVotes: 0,
+  approvalPercent: 0,
+  activeVote: null,
+  meetsQuorum: false,
+  eligibleVoterCount: 0,
+  quorumThresholdPercent: 66,
+  votesRequired: 0,
+  votesRemaining: 0,
+  remainingEligibleVotes: 0
+};
 
 function isUnvoted(activeVote: ProjectApprovalVote | null | undefined) {
   return activeVote == null;
@@ -240,6 +264,111 @@ function pushPlanVotes(
   }
 }
 
+function pushSoftwareGovernanceActions(items: PendingVoteItem[], data: ProjectPageData) {
+  const governance = data.lifecycle.phaseFive?.softwareGovernance;
+  if (!governance) {
+    return;
+  }
+
+  for (const request of governance.pullRequests) {
+    if (
+      (request.stage === 'approval' || request.stage === 'confirmation') &&
+      request.viewerCanVote &&
+      request.voteSummary &&
+      isUnvoted(request.voteSummary.activeVote) &&
+      request.canStillPass &&
+      !request.passesApprovalThreshold
+    ) {
+      const needsConfirmation = request.stage === 'confirmation';
+      items.push({
+        id: request.id,
+        voteKind: 'pull_request',
+        label: needsConfirmation ? 'Merge confirmation needed' : 'Pull request vote needed',
+        title: request.title,
+        reason: request.summary,
+        description: needsConfirmation
+          ? 'Confirm that the merge was completed correctly.'
+          : 'Review the pull request details, then approve or reject.',
+        voteSummary: request.voteSummary,
+        approvalThresholdPercent: request.approvalThresholdPercent,
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        canVote: false,
+        actionLabel: 'Assess',
+        softwareStage: request.stage
+      });
+    }
+
+    if (request.stage === 'awaiting-merge' && request.viewerCanRecordMerge && !request.mergeId) {
+      items.push({
+        id: request.id,
+        voteKind: 'pull_request_merge',
+        label: 'Merge needed',
+        title: request.title,
+        reason: request.summary,
+        description: 'A merge-capable member needs to record the merge commit or release ID.',
+        voteSummary: request.voteSummary ?? EMPTY_VOTE_SUMMARY,
+        approvalThresholdPercent: request.approvalThresholdPercent,
+        authorUsername: request.authorUsername,
+        createdAt: request.createdAt,
+        canVote: false,
+        actionLabel: 'Record merge',
+        softwareStage: request.stage
+      });
+    }
+  }
+
+  for (const request of governance.mergeCapabilityChangeRequests) {
+    if (
+      !request.viewerCanVote ||
+      !request.voteSummary ||
+      !isUnvoted(request.voteSummary.activeVote) ||
+      !request.canStillPass ||
+      request.passesApprovalThreshold
+    ) {
+      continue;
+    }
+
+    items.push({
+      id: request.id,
+      voteKind: 'merge_capability',
+      label: 'Merge capability vote needed',
+      title: request.actionLabel,
+      reason: `Member: ${request.targetMember.username}`,
+      voteSummary: request.voteSummary,
+      approvalThresholdPercent: request.approvalThresholdPercent,
+      authorUsername: request.authorUsername,
+      createdAt: request.createdAt,
+      canVote: true
+    });
+  }
+
+  for (const request of governance.repositoryReplacementRequests) {
+    if (
+      !request.viewerCanVote ||
+      !request.voteSummary ||
+      !isUnvoted(request.voteSummary.activeVote) ||
+      !request.canStillPass ||
+      request.passesApprovalThreshold
+    ) {
+      continue;
+    }
+
+    items.push({
+      id: request.id,
+      voteKind: 'repository_replacement',
+      label: 'Repository replacement vote needed',
+      title: request.repositoryUrl,
+      reason: request.reason,
+      voteSummary: request.voteSummary,
+      approvalThresholdPercent: request.approvalThresholdPercent,
+      authorUsername: request.authorUsername,
+      createdAt: request.createdAt,
+      canVote: true
+    });
+  }
+}
+
 export function collectProjectPendingVotes(data: ProjectPageData): PendingVoteItem[] {
   const items: PendingVoteItem[] = [];
 
@@ -252,6 +381,8 @@ export function collectProjectPendingVotes(data: ProjectPageData): PendingVoteIt
   } else if (data.lifecycle.currentPhaseId === 'phase-3') {
     pushPlanVotes(items, data.lifecycle.phaseThree.plans, data.lifecycle.phaseThree.viewerCanVoteOnPlans, 'phase-3');
   }
+
+  pushSoftwareGovernanceActions(items, data);
 
   return items;
 }
@@ -294,6 +425,17 @@ export function scrollToPendingVote(
   planCriterionId?: string
 ) {
   if (typeof document === 'undefined') {
+    return;
+  }
+
+  if (voteKind === 'link' || voteKind === 'link_sever') {
+    requestAnimationFrame(() => {
+      const cardId = `link-request-${id}`;
+      scrollToPageAnchor(cardId);
+      const card = document.getElementById(cardId);
+      card?.classList.add('request-highlight');
+      window.setTimeout(() => card?.classList.remove('request-highlight'), 1800);
+    });
     return;
   }
 

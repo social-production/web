@@ -10,6 +10,9 @@ Trusted-beta posture for the SvelteKit PWA. Backend details: [web-backend/docs/S
 | API calls use `credentials: 'include'` | Done |
 | CSRF token sent on mutating requests (`X-CSRF-Token`) | Done |
 | Session recovery via `/auth/refresh` on 401 | Done |
+| Cold-start silent refresh before anonymous bootstrap | Done |
+| Remembered session lifetime (sliding 30-day refresh cookie) | Done |
+| Offline fallback uses public/anonymous cache only | Done |
 | Client route guards are UX-only; API is authoritative | By design |
 
 ## Edge headers (`src/hooks.server.ts`)
@@ -32,3 +35,4 @@ Routes should call `$lib/services/queries` and `$lib/services/commands`, not raw
 - Tighter CSP (remove `unsafe-inline` once feasible)
 - Custom domain + edge WAF
 - Playwright E2E against staging/beta URL in CI
+- Full PWA packaging (installability manifest polish + service worker for offline public cache only). Current policy remains: httpOnly auth, no secrets/private state in browser storage, MapLibre behind an adapter, and offline = cached public UI only (never authenticated identity)

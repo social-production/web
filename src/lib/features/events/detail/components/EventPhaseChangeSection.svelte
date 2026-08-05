@@ -62,6 +62,10 @@
     data.lifecycle.viewerCanRequestPhaseChanges &&
     !!data.lifecycle.nextPhaseId;
 
+  $: if (canAdvanceCurrentPhase) {
+    nextPhaseMessage = '';
+  }
+
   $: if (
     !votesRenderedInHub &&
     currentPhaseVisible &&
@@ -94,6 +98,7 @@
         data.lifecycle.phases
       ) === nextVoteKind
   );
+  $: isOrganizerControlled = data.governance === 'organizer_controlled';
   $: showReturnActions = data.lifecycle.revertablePhaseIds.length > 0 || returnRequests.length > 0;
   $: showNextActions = !!data.lifecycle.nextPhaseId || nextActionRequests.length > 0;
 
@@ -132,14 +137,14 @@
     }
 
     if (data.lifecycle.nextPhaseId === 'closed') {
-      return 'Propose close';
+      return isOrganizerControlled ? 'Close event' : 'Close';
     }
 
-    return 'Propose advance';
+    return isOrganizerControlled ? 'Move to next phase' : 'Advance';
   }
 
   function revertActionLabel() {
-    return 'Propose return';
+    return isOrganizerControlled ? 'Return to earlier phase' : 'Return';
   }
 
   function revertComposerTitle() {
@@ -321,14 +326,14 @@
 </script>
 
 {#if currentPhaseVisible && (data.lifecycle.phaseChangeRequests.length > 0 || data.lifecycle.viewerCanRequestPhaseChanges)}
-  <div class="phase-change-stack">
+  <div id="participation-phase-change" class="phase-change-stack">
     {#if showReturnActions || showNextActions}
       <div class="change-action-row">
         <div class="action-group action-group-left">
           {#if canProposeReturn}
             <button
-              class:active-toggle={showRevertComposer}
-              class="secondary-button action-button"
+              class:highlighted={showRevertComposer}
+              class="detail-action-button"
               type="button"
               on:click={toggleRevertComposer}
             >
@@ -350,8 +355,9 @@
           {/if}
           {#if canProposeAdvance && data.lifecycle.nextPhaseId}
             <button
-              class:active-toggle={showNextPhaseComposer}
-              class="secondary-button action-button"
+              class:highlighted={showNextPhaseComposer}
+              class="detail-action-button"
+              data-participation-action="propose-advance"
               type="button"
               on:click={toggleNextPhaseComposer}
             >
@@ -381,7 +387,7 @@
             <textarea bind:value={revertReason} rows="3" placeholder={revertPhasePlaceholder()}></textarea>
           </label>
           <div class="composer-actions">
-            <button class="secondary-button" type="button" on:click={closeRevertComposer}>Cancel</button>
+            <button class="detail-action-button" type="button" on:click={closeRevertComposer}>Cancel</button>
             <button class="primary-button" type="button" on:click={submitRevertRequest}>
               {revertActionLabel()}
             </button>
@@ -409,7 +415,7 @@
             </div>
           {/if}
           <div class="composer-actions">
-            <button class="secondary-button" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
+            <button class="detail-action-button" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
             <button
               class="primary-button"
               type="button"
@@ -526,11 +532,6 @@
     justify-content: flex-end;
   }
 
-  .action-button {
-    flex: 1;
-    min-width: 0;
-  }
-
   .change-action-panel {
     scroll-margin-top: 92px;
     padding: 16px;
@@ -561,7 +562,6 @@
   }
 
   .primary-button,
-  .secondary-button,
   .vote-chip {
     padding: 8px 12px;
     border-radius: var(--radius-sm);
@@ -574,18 +574,10 @@
     color: var(--page-bg);
   }
 
-  .secondary-button,
   .vote-chip {
     border: 1px solid var(--panel-border);
     background: var(--panel-strong);
     color: var(--text-soft);
-  }
-
-  .secondary-button.active-toggle {
-    border-color: color-mix(in srgb, var(--brand-strong) 62%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 46%, var(--panel-strong));
-    color: var(--brand-strong);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 24%, transparent);
   }
 
   .notice-chip {

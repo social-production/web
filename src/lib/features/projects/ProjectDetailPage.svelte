@@ -9,31 +9,46 @@
   import ProjectMembersPanel from '$lib/features/projects/detail/ProjectMembersPanel.svelte';
   import ProjectOverviewHeader from '$lib/features/projects/detail/ProjectOverviewHeader.svelte';
   import ProjectUpdatesSection from '$lib/features/projects/detail/ProjectUpdatesSection.svelte';
+  import DetailLinksTab from '$lib/features/detail-links/DetailLinksTab.svelte';
+  import DetailTopTabs from '$lib/features/detail/DetailTopTabs.svelte';
+  import type { DetailTabId } from '$lib/features/detail/detailTabs';
   import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
   import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
   import PlanAssessmentWizard from '$lib/components/shared/PlanAssessmentWizard.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
-  import { setProjectEditVote, setProjectPhaseChangeVote, setProjectPlanCriterionRating, setProjectPlanOverallVote, setProjectPlanValueVote, setProjectUpdateVote } from '$lib/services/commands/projects';
+  import { setProjectEditVote, setProjectMergeCapabilityChangeVote, setProjectPhaseChangeVote, setProjectPlanCriterionRating, setProjectPlanOverallVote, setProjectPlanValueVote, setProjectPullRequestVote, setProjectRepositoryReplacementVote, setProjectUpdateVote } from '$lib/services/commands/projects';
   import type { PlanCriterionRating, ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
   import {
     buildProjectParticipationSteps,
     resolveCurrentParticipationStep
   } from '$lib/utils/participationSteps';
   import { collectProjectPendingVotes, scrollToPendingVote, type PendingVoteItem } from '$lib/utils/pendingVotes';
+  import { applySignalToggleToDetailPhaseOneImmutable } from '$lib/utils/feedSignals';
+  import type { SignalToggleResult } from '$lib/types/feed';
 
   export let data: ProjectPageData;
+
+  let pageData = data;
+  let lastLoaderData = data;
+
+  $: if (data !== lastLoaderData) {
+    lastLoaderData = data;
+    pageData = data;
+  }
 
   let highlightedCommentId: string | null = null;
   let highlightedUpdateId: string | null = null;
   let highlightedDecisionId: string | null = null;
   let lastRouteSignature = '';
   let showMembersPanel = false;
-  let activeTab: 'overview' | 'chat' | 'history' = 'overview';
+  let activeTab: DetailTabId = 'overview';
+  let highlightedLinkRequestId: string | null = null;
   let autoExpandVoteCards = false;
   let autoExpandVoteKind: string | null = null;
   let autoExpandVoteTarget: string | null = null;
   let autoAssess = false;
   let autoAssessCriterionId: string | null = null;
+  let softwareWizardRequest: { mode: 'record-merge' | 'vote-pr'; requestId: string } | null = null;
   let participationAssessPlanId: string | null = null;
   let participationAssessCriterionId: string | null = null;
   let pendingAssessmentOpen = false;
@@ -65,6 +80,14 @@
 
     if (voteKind && voteTarget) {
       scrollToPendingVote(voteKind, voteTarget);
+
+      if (voteKind === 'pull_request' || voteKind === 'pull_request_merge') {
+        window.setTimeout(() => {
+          document
+            .getElementById(`software-pr-card-${voteTarget}`)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 180);
+      }
       return;
     }
 
@@ -95,7 +118,7 @@
     return url.searchParams.get('decision');
   }
 
-  function selectTab(tab: 'overview' | 'chat' | 'history') {
+  function selectTab(tab: DetailTabId) {
     activeTab = tab;
 
     if (!browser) {
@@ -109,15 +132,23 @@
       nextUrl.searchParams.delete('comment');
       nextUrl.searchParams.delete('update');
       nextUrl.searchParams.delete('decision');
+      nextUrl.searchParams.delete('linkRequest');
       nextUrl.hash = '';
     } else {
       nextUrl.searchParams.set('tab', tab);
       if (tab === 'history') {
         nextUrl.searchParams.delete('comment');
+        nextUrl.searchParams.delete('linkRequest');
         nextUrl.hash = '';
       } else if (tab === 'chat') {
         nextUrl.searchParams.delete('update');
         nextUrl.searchParams.delete('decision');
+        nextUrl.searchParams.delete('linkRequest');
+      } else if (tab === 'links') {
+        nextUrl.searchParams.delete('comment');
+        nextUrl.searchParams.delete('update');
+        nextUrl.searchParams.delete('decision');
+        nextUrl.hash = '';
       }
     }
 
@@ -166,11 +197,14 @@
       highlightedCommentId = readCommentTarget($page.url);
       highlightedUpdateId = readUpdateTarget($page.url);
       highlightedDecisionId = readDecisionTarget($page.url);
+      highlightedLinkRequestId = $page.url.searchParams.get('linkRequest');
       const requestedTab = $page.url.searchParams.get('tab');
       activeTab = highlightedCommentId
         ? 'chat'
         : highlightedDecisionId
           ? 'history'
+        : highlightedLinkRequestId || requestedTab === 'links'
+          ? 'links'
         : requestedTab === 'history'
           ? 'history'
         : requestedTab === 'chat'
@@ -182,9 +216,27 @@
     autoExpandVoteTarget = autoExpandVoteCards ? ($page.url.searchParams.get('voteTarget') || null) : null;
     autoAssess = $page.url.searchParams.get('assess') === '1';
     autoAssessCriterionId = $page.url.searchParams.get('criterionId') || null;
+    if (
+      autoExpandVoteCards &&
+      autoExpandVoteTarget &&
+      (autoExpandVoteKind === 'pull_request_merge' ||
+        (autoExpandVoteKind === 'pull_request' && autoAssess))
+    ) {
+      softwareWizardRequest = {
+        mode: autoExpandVoteKind === 'pull_request_merge' ? 'record-merge' : 'vote-pr',
+        requestId: autoExpandVoteTarget
+      };
+    }
     if ($page.url.hash === '#pending-votes-panel') {
       activeTab = 'overview';
       void focusVoteTarget(null, null);
+    } else if ($page.url.hash === '#software-governance-panel') {
+      activeTab = 'overview';
+      void tick().then(() => {
+        document
+          .getElementById('software-governance-panel')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     } else if (autoExpandVoteCards) {
       void focusVoteTarget(autoExpandVoteKind, autoExpandVoteTarget);
     }
@@ -212,21 +264,28 @@
     showMembersPanel = false;
   }
 
-  $: pendingVotes = collectProjectPendingVotes(data);
-  $: participationSteps = buildProjectParticipationSteps(data, pendingVotes, {
+  $: pendingVotes = collectProjectPendingVotes(pageData);
+  $: participationSteps = buildProjectParticipationSteps(pageData, pendingVotes, {
     signalRemovalNudge,
     viewerUsername: $page.data.bootstrap?.viewer?.username ?? null
   });
   $: currentParticipationStep = resolveCurrentParticipationStep(participationSteps);
   $: if (
-    data.lifecycle.phaseOne.viewerHasDemandSignal ||
-    data.lifecycle.phaseOne.viewerHasOppositionSignal
+    pageData.lifecycle.phaseOne.viewerHasDemandSignal ||
+    pageData.lifecycle.phaseOne.viewerHasOppositionSignal
   ) {
     signalRemovalNudge = false;
   }
 
-  function handleSignalRemoved() {
-    signalRemovalNudge = true;
+  function handleSignalChange(result: SignalToggleResult) {
+    pageData = applySignalToggleToDetailPhaseOneImmutable(pageData, result);
+    if (result.action === 'removed') {
+      signalRemovalNudge = true;
+    }
+  }
+
+  function handleMembershipChange(next: { viewerIsMember: boolean; memberCount: number }) {
+    pageData = { ...pageData, ...next };
   }
 
   function handleParticipationDismiss() {
@@ -282,6 +341,15 @@
       case 'edit':
         await setProjectEditVote(data.slug, item.id, vote);
         break;
+      case 'pull_request':
+        await setProjectPullRequestVote(data.slug, item.id, vote);
+        break;
+      case 'merge_capability':
+        await setProjectMergeCapabilityChangeVote(data.slug, item.id, vote);
+        break;
+      case 'repository_replacement':
+        await setProjectRepositoryReplacementVote(data.slug, item.id, vote);
+        break;
       case 'plan':
         if (item.planCriterionId) {
           await handlePendingAssess(item);
@@ -293,58 +361,58 @@
           await setProjectPlanOverallVote(data.slug, item.planPhaseId, item.id, vote);
         }
         break;
+      default:
+        return;
     }
 
     await invalidateAll();
+  }
+
+  async function handlePendingAction(item: PendingVoteItem) {
+    if (item.voteKind === 'pull_request_merge') {
+      softwareWizardRequest = { mode: 'record-merge', requestId: item.id };
+      activeTab = 'overview';
+      await tick();
+      scrollToPendingVote(item.voteKind, item.id);
+      return;
+    }
+
+    if (item.voteKind === 'pull_request' && item.softwareStage) {
+      softwareWizardRequest = { mode: 'vote-pr', requestId: item.id };
+      activeTab = 'overview';
+      await tick();
+      scrollToPendingVote(item.voteKind, item.id);
+    }
   }
 </script>
 
 <section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
   <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
-    <div class="top-tab-row" role="tablist" aria-label="Project detail tabs">
-      <button
-        class:active-tab={activeTab === 'overview'}
-        class="top-tab"
-        role="tab"
-        type="button"
-        on:click={() => selectTab('overview')}
-      >
-        Overview
-      </button>
-      <button
-        class:active-tab={activeTab === 'chat'}
-        class="top-tab"
-        role="tab"
-        type="button"
-        on:click={() => selectTab('chat')}
-      >
-        Chat
-      </button>
-      <button
-        class:active-tab={activeTab === 'history'}
-        class="top-tab"
-        role="tab"
-        type="button"
-        on:click={() => selectTab('history')}
-      >
-        History
-      </button>
-    </div>
+    <DetailTopTabs
+      {activeTab}
+      ariaLabel="Project detail tabs"
+      {selectTab}
+    />
 
     {#if activeTab === 'overview'}
       <ParticipationSteps
         steps={participationSteps}
         currentStepId={currentParticipationStep}
         {pendingVotes}
-        pageData={data}
+        pageData={pageData}
         placement="lead"
         on:dismiss={handleParticipationDismiss}
       />
-      <ProjectOverviewHeader {data} onSignalRemoved={handleSignalRemoved} />
+      <ProjectOverviewHeader
+        data={pageData}
+        signalChange={handleSignalChange}
+        onMembershipChange={handleMembershipChange}
+      />
       <PendingVotesPanel
         items={pendingVotes}
         onVote={handlePendingVote}
         onAssess={handlePendingAssess}
+        onAction={handlePendingAction}
       />
       <ProjectUpdatesSection
         {data}
@@ -358,7 +426,7 @@
       {/if}
       <div id="governance">
         <ProjectLifecyclePanel
-          {data}
+          data={pageData}
           {autoExpandVoteCards}
           {autoExpandVoteKind}
           {autoExpandVoteTarget}
@@ -367,10 +435,16 @@
           {participationAssessPlanId}
           {participationAssessCriterionId}
           votesRenderedInHub={pendingVotes.length > 0}
+          softwareWizardRequest={softwareWizardRequest}
+          onSoftwareWizardRequestHandled={() => {
+            softwareWizardRequest = null;
+          }}
         />
       </div>
     {:else if activeTab === 'chat'}
       <ProjectChatTab {data} {highlightedCommentId} fullscreen={isCompact} />
+    {:else if activeTab === 'links'}
+      <DetailLinksTab frame={data.linksFrame} highlightedRequestId={highlightedLinkRequestId} />
     {:else}
       <ProjectHistoryTab {data} highlightedDecisionId={highlightedDecisionId} />
     {/if}
@@ -414,39 +488,6 @@
     overflow: visible;
   }
 
-  .top-tab-row {
-    display: inline-flex;
-    gap: 8px;
-    padding: 2px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-    width: fit-content;
-    position: absolute;
-    top: 0;
-    left: 16px;
-    transform: translateY(-44%);
-    z-index: 1;
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--page-bg) 82%, transparent);
-  }
-
-  .top-tab {
-    min-width: 108px;
-    padding: 9px 14px;
-    border: 1px solid transparent;
-    border-radius: calc(var(--radius-sm) - 2px);
-    background: transparent;
-    color: var(--text-soft);
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .top-tab.active-tab {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
   @media (max-width: 1080px) {
     .page {
       min-width: 0;
@@ -480,7 +521,7 @@
       overflow: hidden;
     }
 
-    .chat-tab-active .top-tab-row {
+    .chat-tab-active :global(.top-tab-row) {
       position: sticky;
       top: 0;
       z-index: 2;
@@ -493,22 +534,6 @@
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
-    }
-
-    .top-tab-row {
-      position: static;
-      width: 100%;
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      transform: none;
-      box-shadow: none;
-      margin-bottom: 12px;
-    }
-
-    .top-tab {
-      min-width: 0;
-      padding: 8px 6px;
-      font-size: 12px;
     }
   }
 </style>

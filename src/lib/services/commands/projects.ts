@@ -146,15 +146,17 @@ export function addProjectServiceRequest(projectSlug: string, input: ProjectServ
 
 export function createProjectManualLinkRequest(
   projectSlug: string,
-  targetProjectSlug: string,
-  relationshipLabel: string,
-  summary: string
+  targetKind: 'project' | 'event',
+  targetSlug: string,
+  summary: string,
+  relationshipLabel?: string | null
 ) {
   return currentAdapter.createProjectManualLinkRequest(
     projectSlug,
-    targetProjectSlug,
-    relationshipLabel,
-    summary
+    targetKind,
+    targetSlug,
+    summary,
+    relationshipLabel
   );
 }
 
@@ -164,6 +166,14 @@ export function setProjectManualLinkVote(
   vote: ProjectApprovalVote | null
 ) {
   return currentAdapter.setProjectManualLinkVote(projectSlug, requestId, vote);
+}
+
+export function createProjectManualLinkSeverRequest(
+  projectSlug: string,
+  linkId: string,
+  summary?: string | null
+) {
+  return currentAdapter.createProjectManualLinkSeverRequest(projectSlug, linkId, summary);
 }
 
 export function planProjectServiceRequest(
@@ -286,9 +296,10 @@ export function setProjectRepositoryReplacementVote(
 export function recordProjectPullRequestMerge(
   projectSlug: string,
   requestId: string,
-  mergeId: string
+  mergeId: string,
+  mergeUrl: string
 ) {
-  return currentAdapter.recordProjectPullRequestMerge(projectSlug, requestId, mergeId);
+  return currentAdapter.recordProjectPullRequestMerge(projectSlug, requestId, mergeId, mergeUrl);
 }
 
 export function advanceProjectPhase(projectSlug: string, closeNote?: string) {

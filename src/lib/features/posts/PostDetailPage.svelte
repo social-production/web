@@ -1,21 +1,37 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { invalidateAll } from '$app/navigation';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import DiscussionPanel from '$lib/components/discussion/DiscussionPanel.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import LinkedPostBody from '$lib/components/shared/LinkedPostBody.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
+  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
+  import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { setVote } from '$lib/services/queries/feeds';
   import type { PostPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
+  import { applyVoteTarget } from '$lib/utils/feedSignals';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let data: PostPageData;
+
+  type CommentSort = 'oldest' | 'newest' | 'top';
+
+  const sortOptions = [
+    { value: 'oldest', label: 'Oldest first' },
+    { value: 'newest', label: 'Newest first' },
+    { value: 'top', label: 'Top voted' }
+  ];
+
+  let sortMode: CommentSort = 'oldest';
+  let localActiveVote = data.activeVote;
+  let localVoteCount = data.voteCount;
+  let lastVoteSyncKey = data.id;
 
   function readCommentTarget(url: URL) {
     if (url.hash.startsWith('#comment-')) {
@@ -27,10 +43,17 @@
 
   $: highlightedCommentId = readCommentTarget($page.url);
   $: feedTone = (data.audience === 'followers' ? 'personal' : 'public') as 'public' | 'personal';
+  $: if (data.id !== lastVoteSyncKey) {
+    lastVoteSyncKey = data.id;
+    localActiveVote = data.activeVote;
+    localVoteCount = data.voteCount;
+  }
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await setVote(data.id, event.detail.vote);
-    await invalidateAll();
+  async function handleVote({ vote }: { vote: VoteDirection }) {
+    const next = applyVoteTarget(localActiveVote, localVoteCount, vote);
+    localActiveVote = next.activeVote;
+    localVoteCount = next.voteCount;
+    await setVote(data.id, vote);
   }
 </script>
 
@@ -43,32 +66,40 @@
           <div class="name-line">
             <a class="inline-link" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>
             <SurfaceTypeLabel kind="post" />
+            <ReportControl
+              hasActiveReport={Boolean(data.report)}
+              isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
+              itemLabel="post"
+              moderationState={data.moderationState}
+              report={data.report}
+              ownerUsername={data.authorUsername}
+              subjectId={data.id}
+              targetId={data.id}
+              targetType="post"
+            />
           </div>
         </div>
       </div>
-
-      <ReportControl
-        itemLabel="post"
-        report={data.report}
-        ownerUsername={data.authorUsername}
-        subjectId={data.id}
-        targetId={data.id}
-      />
     </div>
 
-    <LinkedPostBody body={data.body} links={data.linkedSubjects ?? []} variant="detail" />
+    <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
+      <LinkedPostBody body={data.body} links={data.linkedSubjects ?? []} variant="detail" />
+    </ModerationRestrictionNotice>
 
     <div class="engagement-row">
       <div class="engagement-actions">
-        <VoteStrip activeVote={data.activeVote} count={data.voteCount} on:vote={handleVote} />
+        <VoteStrip activeVote={localActiveVote} count={localVoteCount} syncKey={data.id} onvote={handleVote} />
         <CountPill label={`${data.commentCount} comments`} />
+        <IconMenuButton bind:value={sortMode} ariaLabel="Sort comments" defaultValue="oldest" options={sortOptions}>
+          <FeedToolbarIcon name="sort" />
+        </IconMenuButton>
       </div>
       <span>{formatRelativeTime(data.createdAt)}</span>
     </div>
 
     <div class="comments-divider" aria-hidden="true"></div>
 
-    <DiscussionPanel {data} {highlightedCommentId} embedded />
+    <DiscussionPanel {data} {highlightedCommentId} bind:sortMode embedded />
   </FeedSurface>
 </section>
 

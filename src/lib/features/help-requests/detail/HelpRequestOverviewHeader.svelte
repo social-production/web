@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
+  import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import { setVote } from '$lib/services/queries/feeds';
   import type { HelpRequestPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
@@ -14,17 +15,27 @@
   $: combinedTags = [...data.channelTags, ...data.communityTags];
   $: signedUp = data.roles.reduce((total, role) => total + role.filledCount, 0);
   $: needed = data.roles.reduce((total, role) => total + role.slots, 0);
-  $: whenLabel = formatLocalDateTime(data.neededAt);
+  $: whenLabel = data.scheduleLabel?.trim() || formatLocalDateTime(data.neededAt);
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await setVote(data.id, event.detail.vote);
-    await invalidateAll();
+  async function handleVote({ vote }: { vote: VoteDirection }) {
+    await setVote(data.id, vote);
   }
 </script>
 
 <div class="header-row">
   <div class="chips">
     <SurfaceTypeLabel kind="help-request" />
+    <ReportControl
+      hasActiveReport={Boolean(data.report)}
+      isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
+      itemLabel="help request"
+      moderationState={data.moderationState}
+      report={data.report}
+      ownerUsername={data.authorUsername}
+      subjectId={data.id}
+      targetId={data.id}
+      targetType="help_request"
+    />
   </div>
 
   <div class="header-actions">
@@ -32,8 +43,10 @@
   </div>
 </div>
 
-<h1>{data.title}</h1>
-<p class="overview-copy">{data.body}</p>
+<ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
+  <h1>{data.title}</h1>
+  <p class="overview-copy">{data.body}</p>
+</ModerationRestrictionNotice>
 
 <section class="meta-block" aria-label="Help request overview details">
   <ul class="meta-list">
@@ -59,7 +72,7 @@
 </section>
 
 <div class="overview-footer-row">
-  <VoteStrip activeVote={data.activeVote} count={data.voteCount} on:vote={handleVote} />
+  <VoteStrip activeVote={data.activeVote} count={data.voteCount} syncKey={data.id} onvote={handleVote} />
   <a class="comment-link" href={`/help-requests/${data.id}?tab=chat`}>
     <CountPill label={`${data.commentCount} comments`} />
   </a>
@@ -98,6 +111,10 @@
 
   .header-actions :global(.tag-list) {
     justify-content: flex-end;
+  }
+
+  :global(.report-control) {
+    flex: 0 0 auto;
   }
 
   h1 {

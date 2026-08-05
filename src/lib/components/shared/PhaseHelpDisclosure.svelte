@@ -18,7 +18,7 @@
   <p class="phase-subtitle">{inlineSubtitle}</p>
 
   {#if hasDetails}
-    <details class="phase-details">
+    <details class="phase-details" data-participation-target="phase-help">
       <summary>How this phase works</summary>
       <div class="phase-details-body">
         {#if mechanics.length > 0}

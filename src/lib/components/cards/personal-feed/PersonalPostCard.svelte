@@ -5,6 +5,7 @@
   import LinkedPostBody from '$lib/components/shared/LinkedPostBody.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import { castFeedVote } from '$lib/services/queries/feeds';
   import type { PersonalPostItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
@@ -21,12 +22,20 @@
 
   $: commentHref = buildCommentHref(item.href);
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await castFeedVote(item.voteTargetId, event.detail.vote);
+  async function handleVote({ vote }: { vote: VoteDirection }) {
+    return castFeedVote(item.voteTargetId, vote, {
+      activeVote: item.activeVote,
+      voteCount: item.voteCount
+    });
   }
 </script>
 
-<FeedSurface href={item.href} tone="personal" accent={surfaceTypeAccent('post')}>
+<FeedSurface
+  contentRestricted={item.moderationState === 'hidden'}
+  href={item.href}
+  tone="personal"
+  accent={surfaceTypeAccent('post')}
+>
   <div class="header-row">
     <div class="identity-row">
       <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
@@ -34,6 +43,17 @@
         <div class="name-line">
           <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
           <SurfaceTypeLabel kind="post" />
+          <ReportControl
+            hasActiveReport={item.hasActiveReport}
+            isUnderReview={item.isUnderReview}
+            itemLabel="post"
+            moderationState={item.moderationState}
+            ownerUsername={item.author.username}
+            report={item.report ?? null}
+            subjectId={item.id}
+        targetId={item.id}
+        targetType="post"
+      />
         </div>
       </div>
     </div>
@@ -43,7 +63,7 @@
 
   <div class="footer">
     <div class="engagement-row">
-      <VoteStrip activeVote={item.activeVote} count={item.voteCount} on:vote={handleVote} />
+      <VoteStrip activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
       <a class="comment-link" href={commentHref}>
         <CountPill label={`${item.commentCount} comments`} />
       </a>
@@ -64,12 +84,19 @@
     flex-wrap: wrap;
   }
 
-  .identity-row,
-  .name-line {
+  .identity-row {
     display: flex;
     gap: 0.6rem;
     align-items: center;
     flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .name-line {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    flex-wrap: wrap;
     min-width: 0;
   }
 

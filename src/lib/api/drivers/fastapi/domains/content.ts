@@ -1,14 +1,13 @@
 import { apiClient, extractErrorMessage } from '../client';
-import { registerEntityType, resolveEntityType, tryResolveEntityType } from '../typeRegistry';
-import type { PostPageData, ThreadPageData } from '$lib/types/detail';
+import { registerEntityType, registerCommentIds, resolveEntityType, tryResolveEntityType } from '../typeRegistry';
+import type { ContentReportSummary, ContentReportVote, PostPageData, ThreadPageData } from '$lib/types/detail';
 import type { CreatePostInput, CreateResult, CreateThreadInput } from '$lib/types/feed';
-import type { ContentReportVote } from '$lib/types/detail';
 import type { VoteDirection } from '$lib/types/feed';
 import type { DetailComment } from '$lib/types/detail';
-
-function slugify(s: string): string {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
+import {
+  mapContentReport,
+  mapModerationState
+} from '$lib/utils/moderation';
 
 const VOTE_DIR: Record<number, 'up' | 'down' | 'neutral'> = { 1: 'up', [-1]: 'down', 0: 'neutral' };
 
@@ -20,6 +19,11 @@ interface BackendThread {
   channel_tags: Array<{ slug: string; label: string; kind: 'channel' | 'community' }>;
   community_tags: Array<{ slug: string; label: string; kind: 'channel' | 'community' }>;
   discussion: BackendComment[];
+  report?: unknown;
+  is_removed_by_report?: boolean;
+  isRemovedByReport?: boolean;
+  moderation_state?: string;
+  moderationState?: string;
 }
 
 interface BackendPost {
@@ -29,6 +33,11 @@ interface BackendPost {
   vote_count: number; comment_count: number; created_at: string;
   active_vote: number;
   discussion: BackendComment[];
+  report?: unknown;
+  is_removed_by_report?: boolean;
+  isRemovedByReport?: boolean;
+  moderation_state?: string;
+  moderationState?: string;
 }
 
 export interface BackendComment {
@@ -41,10 +50,27 @@ export interface BackendComment {
   active_vote?: number;
   parent_id?: string | null;
   replies?: BackendComment[];
+  report?: unknown;
+  moderation_state?: string;
+  moderationState?: string;
+}
+
+function mapRemovedByReport(
+  raw: { is_removed_by_report?: boolean; isRemovedByReport?: boolean; moderation_state?: string; moderationState?: string },
+  report: ReturnType<typeof mapContentReport>
+): boolean {
+  const moderationState = mapModerationState(raw);
+  return (
+    Boolean(raw.isRemovedByReport ?? raw.is_removed_by_report) ||
+    moderationState === 'removed' ||
+    report?.resolution === 'removed'
+  );
 }
 
 export function mapComment(c: BackendComment): DetailComment {
   registerEntityType(c.id, 'comment');
+  const report = mapContentReport(c.report);
+  const moderationState = mapModerationState(c);
   return {
     id: c.id,
     authorUsername: c.author_username ?? '',
@@ -52,7 +78,8 @@ export function mapComment(c: BackendComment): DetailComment {
     createdAt: c.created_at,
     voteCount: c.vote_count,
     activeVote: (c.active_vote ?? 0) as VoteDirection,
-    report: null,
+    report,
+    ...(moderationState ? { moderationState } : {}),
     replies: (c.replies ?? []).map(mapComment),
   };
 }
@@ -62,6 +89,10 @@ export async function fetchThread(slug: string): Promise<ThreadPageData | null> 
     const res = await apiClient.get<{ thread: BackendThread }>(`/content/threads/${slug}`);
     const t = res.thread;
     registerEntityType(t.id, 'thread');
+    const discussion = (t.discussion ?? []).map(mapComment);
+    registerCommentIds(discussion);
+    const report = mapContentReport(t.report);
+    const moderationState = mapModerationState(t);
     return {
       id: t.id, slug: t.slug, title: t.title, body: t.body,
       authorUsername: t.author_username,
@@ -69,8 +100,11 @@ export async function fetchThread(slug: string): Promise<ThreadPageData | null> 
       communityTags: t.community_tags ?? [],
       voteCount: t.vote_count, activeVote: (t.active_vote ?? 0) as VoteDirection,
       commentCount: t.comment_count, lastActivityAt: t.last_activity_at,
-      report: null, isRemovedByReport: false, discussionNote: '',
-      discussion: (t.discussion ?? []).map(mapComment),
+      report,
+      isRemovedByReport: mapRemovedByReport(t, report),
+      ...(moderationState ? { moderationState } : {}),
+      discussionNote: '',
+      discussion,
     };
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
@@ -83,6 +117,10 @@ export async function fetchPost(id: string): Promise<PostPageData | null> {
     const res = await apiClient.get<{ post: BackendPost }>(`/content/posts/${id}`);
     const p = res.post;
     registerEntityType(p.id, 'post');
+    const discussion = (p.discussion ?? []).map(mapComment);
+    registerCommentIds(discussion);
+    const report = mapContentReport(p.report);
+    const moderationState = mapModerationState(p);
     return {
       id: p.id,
       authorUsername: p.author_username,
@@ -91,8 +129,11 @@ export async function fetchPost(id: string): Promise<PostPageData | null> {
       audience: p.audience as 'followers' | 'public',
       voteCount: p.vote_count, activeVote: (p.active_vote ?? 0) as VoteDirection,
       commentCount: p.comment_count, createdAt: p.created_at,
-      report: null, isRemovedByReport: false, discussionNote: '',
-      discussion: (p.discussion ?? []).map(mapComment),
+      report,
+      isRemovedByReport: mapRemovedByReport(p, report),
+      ...(moderationState ? { moderationState } : {}),
+      discussionNote: '',
+      discussion,
     };
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
@@ -103,7 +144,6 @@ export async function fetchPost(id: string): Promise<PostPageData | null> {
 export async function fetchCreateThread(input: CreateThreadInput): Promise<CreateResult> {
   try {
     const res = await apiClient.post<{ thread: BackendThread }>('/content/threads', {
-      slug: slugify(input.title),
       title: input.title,
       body: input.body,
       channel_slugs: input.channelTags.map(t => t.slug),
@@ -158,21 +198,43 @@ export async function fetchComments(subjectType: string, subjectId: string): Pro
   return res.items;
 }
 
+export type ReportTargetType =
+  | 'thread'
+  | 'post'
+  | 'comment'
+  | 'event'
+  | 'project'
+  | 'help_request'
+  | 'message';
+
 export async function fetchSubmitReport(
   subjectId: string,
   targetId: string,
   reason: string,
-  details: string
-): Promise<void> {
-  const targetType = tryResolveEntityType(targetId) ?? resolveEntityType(subjectId);
-  await apiClient.post('/governance/reports', {
-    target_type: targetType,
+  details: string,
+  targetType?: ReportTargetType
+): Promise<ContentReportSummary | null> {
+  const resolvedType =
+    targetType ?? tryResolveEntityType(targetId) ?? resolveEntityType(subjectId);
+  if (targetType) {
+    registerEntityType(targetId, targetType);
+  }
+  const payload = await apiClient.post<{ report?: unknown }>('/governance/reports', {
+    target_type: resolvedType,
     target_id: targetId,
     reason,
     description: details
   });
+  return mapContentReport(payload?.report ?? payload);
 }
 
-export async function fetchSetReportVote(targetId: string, vote: ContentReportVote): Promise<void> {
-  await apiClient.post(`/governance/reports/${targetId}/vote`, { vote });
+export async function fetchSetReportVote(
+  targetId: string,
+  vote: ContentReportVote
+): Promise<ContentReportSummary | null> {
+  const payload = await apiClient.post<{ report?: unknown }>(
+    `/governance/reports/${targetId}/vote`,
+    { vote }
+  );
+  return mapContentReport(payload?.report ?? payload);
 }

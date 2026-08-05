@@ -1,4 +1,5 @@
 import type { BootstrapPayload, ScopeDirectoryItem, ViewerSummary } from '$lib/types/bootstrap';
+import type { FeedPageResult } from '$lib/features/feed/feedPagination';
 import type {
   AuthResult,
   OnboardingPageData,
@@ -13,6 +14,7 @@ import type {
   EventPlanInput,
   GovernanceSignalType,
   PostPageData,
+  ContentReportSummary,
   ContentReportVote,
   ProjectActivityInput,
   ProjectServiceHistoryCompletionChoice,
@@ -54,18 +56,139 @@ import type {
   CreateThreadInput,
   PersonalFeedItem,
   PublicFeedItem,
+  SignalToggleResult,
   VoteDirection
 } from '$lib/types/feed';
 import type { SearchPageData } from '$lib/types/search';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
+import type { LocationPrecision, LocationRecord } from '$lib/types/location';
 
 export interface AppAdapter {
   getBootstrap(): Promise<BootstrapPayload>;
   getBootstrapSummary(): Promise<Pick<BootstrapPayload, 'unreadCounts'>>;
   hydrateClientState?(): Promise<boolean>;
-  getPublicFeed(): Promise<PublicFeedItem[]>;
-  getHomeFeed(): Promise<PublicFeedItem[]>;
-  getPersonalFeed(options?: { scope?: 'following' | 'popular'; sort?: 'popular' | 'recent' }): Promise<PersonalFeedItem[]>;
+  getPublicFeed(options?: {
+    sort?: 'trending' | 'recent' | 'popular';
+    window?: string;
+    filter?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<PublicFeedItem[]>;
+  getPublicFeedPage(options?: {
+    sort?: 'trending' | 'recent' | 'popular';
+    window?: string;
+    filter?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<FeedPageResult<PublicFeedItem>>;
+  getHomeFeed(options?: {
+    sort?: 'trending' | 'recent' | 'popular';
+    window?: string;
+    filter?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<PublicFeedItem[]>;
+  getHomeFeedPage(options?: {
+    sort?: 'trending' | 'recent' | 'popular';
+    window?: string;
+    filter?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<FeedPageResult<PublicFeedItem>>;
+  getRegionFeed(options: {
+    lat: number;
+    lon: number;
+    radiusKm?: number;
+    sort?: 'trending' | 'recent' | 'popular';
+    window?: string;
+    filter?: string;
+    includeOnline?: boolean;
+    tz?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<PublicFeedItem[]>;
+  getRegionFeedPage(options: {
+    lat: number;
+    lon: number;
+    radiusKm?: number;
+    sort?: 'trending' | 'recent' | 'popular';
+    window?: string;
+    filter?: string;
+    includeOnline?: boolean;
+    tz?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<FeedPageResult<PublicFeedItem>>;
+  getMapMarkers(options: {
+    lat: number;
+    lon: number;
+    radiusKm?: number;
+    distanceFromLat?: number;
+    distanceFromLon?: number;
+    window?: string;
+    filter?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    upcomingOnly?: boolean;
+    tz?: string | null;
+  }): Promise<
+    Array<{
+      id: string;
+      entityType: 'event' | 'project' | 'help_request' | 'activity';
+      activitySource?: 'event' | 'project' | null;
+      projectMode?: string | null;
+      slug: string | null;
+      title: string;
+      parentId?: string | null;
+      parentTitle?: string | null;
+      subtitle?: string | null;
+      href: string;
+      latitude: number;
+      longitude: number;
+      precision: string;
+      displayLabel: string;
+      distanceKm: number;
+      scheduledAt?: string | null;
+      endsAt?: string | null;
+      signupCount?: number | null;
+      slotsNeeded?: number | null;
+      committedCount?: number | null;
+      minimumParticipants?: number | null;
+    }>
+  >;
+  getPersonalFeed(options?: {
+    scope?: 'following' | 'popular';
+    sort?: 'trending' | 'recent' | 'popular';
+    window?: string;
+    filter?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<PersonalFeedItem[]>;
+  getPersonalFeedPage(options?: {
+    scope?: 'following' | 'popular';
+    sort?: 'trending' | 'recent' | 'popular';
+    window?: string;
+    filter?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<FeedPageResult<PersonalFeedItem>>;
+  getScopeFeedPage(options: {
+    kind: 'channel' | 'community';
+    slug: string;
+    sort?: 'trending' | 'recent' | 'popular';
+    window?: string;
+    filter?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<FeedPageResult<PublicFeedItem>>;
+  getUserFeedPage(options: {
+    username: string;
+  sort?: 'trending' | 'recent' | 'popular' | 'oldest' | 'top';
+  window?: string;
+  filter?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<FeedPageResult<PersonalFeedItem>>;
   getChannel(slug: string): Promise<ScopePageData | null>;
   getCommunity(slug: string): Promise<ScopePageData | null>;
   getPlatform(): Promise<ScopePageData | null>;
@@ -88,6 +211,24 @@ export interface AppAdapter {
     description: string;
     pageUrl?: string;
   }): Promise<{ issueNumber: number; issueUrl: string }>;
+  searchLocations(
+    query: string,
+    limit?: number,
+    options?: { countryCodes?: string | null; viewbox?: string | null }
+  ): Promise<LocationRecord[]>;
+  reverseGeocodeLocation(latitude: number, longitude: number): Promise<LocationRecord[]>;
+  getIpLocationHint(): Promise<LocationRecord[]>;
+  createLocation(input: {
+    providerPlaceId?: string | null;
+    displayLabel: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    region?: string | null;
+    country?: string | null;
+    precision?: LocationPrecision;
+    isOnline?: boolean;
+  }): Promise<LocationRecord>;
+  getLocation(locationId: string): Promise<LocationRecord | null>;
   getNotifications(): Promise<NotificationsPageData | null>;
   getMessages(): Promise<MessagesPageData | null>;
   getConversationMessages(
@@ -96,7 +237,10 @@ export interface AppAdapter {
     participants: ViewerSummary[]
   ): Promise<DirectMessage[]>;
   getMessageContacts(query: string, limit?: number): Promise<ViewerSummary[]>;
-  getSearch(query: string): Promise<SearchPageData>;
+  getSearch(
+    query: string,
+    options?: { entityTypes?: Array<'project' | 'event' | 'thread' | 'channel' | 'community' | 'user'>; limit?: number }
+  ): Promise<SearchPageData>;
   getProject(slug: string): Promise<ProjectPageData | null>;
   getThread(slug: string): Promise<ThreadPageData | null>;
   createProject(input: CreateProjectInput): Promise<CreateResult>;
@@ -119,7 +263,7 @@ export interface AppAdapter {
   toggleEventMembership(eventSlug: string): Promise<void>;
   toggleProjectMembership(projectSlug: string): Promise<void>;
   toggleProjectDemandSignal(projectSlug: string): Promise<void>;
-  setProjectSignal(projectSlug: string, signal: GovernanceSignalType): Promise<void>;
+  setProjectSignal(projectSlug: string, signal: GovernanceSignalType): Promise<SignalToggleResult>;
   addProjectValue(projectSlug: string, label: string): Promise<void>;
   setProjectValueImportance(
     projectSlug: string,
@@ -188,14 +332,37 @@ export interface AppAdapter {
   ): Promise<{ conversationId?: string }>;
   createProjectManualLinkRequest(
     projectSlug: string,
-    targetProjectSlug: string,
-    relationshipLabel: string,
-    summary: string
+    targetKind: 'project' | 'event',
+    targetSlug: string,
+    summary: string,
+    relationshipLabel?: string | null
   ): Promise<void>;
   setProjectManualLinkVote(
     projectSlug: string,
     requestId: string,
     vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  createProjectManualLinkSeverRequest(
+    projectSlug: string,
+    linkId: string,
+    summary?: string | null
+  ): Promise<void>;
+  createEventManualLinkRequest(
+    eventSlug: string,
+    targetKind: 'project' | 'event',
+    targetSlug: string,
+    summary: string,
+    relationshipLabel?: string | null
+  ): Promise<void>;
+  setEventManualLinkVote(
+    eventSlug: string,
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ): Promise<void>;
+  createEventManualLinkSeverRequest(
+    eventSlug: string,
+    linkId: string,
+    summary?: string | null
   ): Promise<void>;
   planProjectServiceRequest(
     projectSlug: string,
@@ -272,7 +439,8 @@ export interface AppAdapter {
   recordProjectPullRequestMerge(
     projectSlug: string,
     requestId: string,
-    mergeId: string
+    mergeId: string,
+    mergeUrl: string
   ): Promise<void>;
   advanceProjectPhase(projectSlug: string, closeNote?: string): Promise<void>;
   revertProjectPhase(
@@ -304,10 +472,23 @@ export interface AppAdapter {
     parentId?: string,
     subjectType?: 'thread' | 'post' | 'event' | 'project' | 'help_request'
   ): Promise<void>;
-  submitReport(subjectId: string, targetId: string, reason: string, details: string): Promise<void>;
-  setReportVote(targetId: string, vote: ContentReportVote): Promise<void>;
+  submitReport(
+    subjectId: string,
+    targetId: string,
+    reason: string,
+    details: string,
+    targetType?:
+      | 'thread'
+      | 'post'
+      | 'comment'
+      | 'event'
+      | 'project'
+      | 'help_request'
+      | 'message'
+  ): Promise<ContentReportSummary | null | void>;
+  setReportVote(targetId: string, vote: ContentReportVote): Promise<ContentReportSummary | null | void>;
   addProjectUpdate(projectSlug: string, title: string, body: string): Promise<void>;
-  setEventSignal(eventSlug: string, signal: GovernanceSignalType): Promise<void>;
+  setEventSignal(eventSlug: string, signal: GovernanceSignalType): Promise<SignalToggleResult>;
   addEventValue(eventSlug: string, label: string): Promise<void>;
   setEventValueImportance(
     eventSlug: string,

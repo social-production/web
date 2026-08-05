@@ -53,12 +53,12 @@ export interface ProfilePageData {
 export type AppearanceThemeMode = 'dark' | 'light';
 export type PreferredLanguage = 'en' | 'nl';
 export type DefaultFeedMode = 'public' | 'personal';
-export type FeedSortPreference = 'popular' | 'recent';
-export type FeedWindowPreference = '12h' | '1d' | '7d' | '1m' | '1y' | 'all';
-export type PublicFeedScopePreference = 'home' | 'global';
-export type PublicFeedFilterPreference = 'all' | 'projects' | 'threads' | 'events';
+export type FeedSortPreference = 'trending' | 'recent';
+export type FeedWindowPreference = 'today' | 'week' | 'month' | 'all';
+export type PublicFeedScopePreference = 'home' | 'global' | 'region';
+export type PublicFeedFilterPreference = 'all' | 'projects' | 'threads' | 'events' | 'help_requests';
 export type PersonalFeedScopePreference = 'following' | 'popular';
-export type PersonalFeedFilterPreference = 'all' | 'activity' | 'posts' | 'events';
+export type PersonalFeedFilterPreference = 'all' | 'activity' | 'posts' | 'events' | 'help_requests';
 
 export interface PublicFeedPreferences {
   scope: PublicFeedScopePreference;
@@ -88,6 +88,7 @@ export interface SettingsPageData {
   requireFollowApproval: boolean;
   preferredLanguage: PreferredLanguage;
   displayTimezone: string | null;
+  defaultLocationId: string | null;
 }
 
 export interface SettingsUpdateInput {
@@ -103,4 +104,5 @@ export interface SettingsUpdateInput {
   requireFollowApproval?: boolean;
   preferredLanguage?: PreferredLanguage;
   displayTimezone?: string | null;
+  defaultLocationId?: string | null;
 }

@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import { setVote } from '$lib/services/queries/feeds';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
+  import { castFeedVote } from '$lib/services/queries/feeds';
   import type { PublicThreadItem, VoteDirection } from '$lib/types/feed';
+  import { invalidateThreadCache } from '$lib/utils/feedSignals';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { describeActivityTime } from '$lib/utils/time';
 
@@ -14,16 +15,36 @@
 
   $: orderedTags = [...item.channelTags, ...item.communityTags];
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await setVote(item.id, event.detail.vote);
-    await invalidateAll();
+  async function handleVote({ vote }: { vote: VoteDirection }) {
+    const confirmed = await castFeedVote(item.id, vote, {
+      activeVote: item.activeVote,
+      voteCount: item.voteCount
+    });
+    void invalidateThreadCache(item.slug);
+    return confirmed;
   }
 </script>
 
-<FeedSurface href={item.href} tone="public" accent={surfaceTypeAccent('thread')}>
+<FeedSurface
+  contentRestricted={item.moderationState === 'hidden'}
+  href={item.href}
+  tone="public"
+  accent={surfaceTypeAccent('thread')}
+>
   <div class="header-row">
     <div class="chips">
       <SurfaceTypeLabel kind="thread" />
+      <ReportControl
+        hasActiveReport={item.hasActiveReport}
+        isUnderReview={item.isUnderReview}
+        itemLabel="thread"
+        moderationState={item.moderationState}
+        ownerUsername={item.authorUsername}
+        report={item.report ?? null}
+        subjectId={item.id}
+        targetId={item.id}
+        targetType="thread"
+      />
     </div>
 
     {#if orderedTags.length > 0}
@@ -33,12 +54,12 @@
     {/if}
   </div>
 
-  <a class="title" href={item.href}>{item.title}</a>
+  <a class="title" data-sveltekit-preload-data="off" href={item.href}>{item.title}</a>
   <p class="body">{item.body}</p>
 
   <div class="footer">
     <div class="engagement-row">
-      <VoteStrip activeVote={item.activeVote} count={item.voteCount} on:vote={handleVote} />
+      <VoteStrip activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
       <a class="comment-link" href={item.href}>
         <CountPill label={`${item.commentCount} comments`} />
       </a>
@@ -65,6 +86,7 @@
   .chips {
     display: flex;
     gap: 0.45rem;
+    flex-wrap: wrap;
     align-items: center;
     flex: 1 1 auto;
     min-width: 0;
@@ -108,7 +130,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .comment-link {
@@ -118,6 +140,7 @@
   }
 
   .footer-meta {
+    margin-left: auto;
     text-align: right;
   }
 
@@ -135,6 +158,7 @@
     }
 
     .footer-meta {
+      margin-left: 0;
       text-align: left;
     }
   }

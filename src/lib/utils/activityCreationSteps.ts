@@ -6,6 +6,7 @@ export interface ActivityCreationForm {
   endsAt: string;
   isOnline: boolean;
   locationLabel: string;
+  locationId?: string | null;
   onlineDetail: string;
   roleRequirements: ProjectActivityRoleInput[];
   linkedPlanPhaseId: string | null;
@@ -43,6 +44,7 @@ export function createActivityCreationForm(
     endsAt: '',
     isOnline: false,
     locationLabel,
+    locationId: null,
     onlineDetail: '',
     roleRequirements: [{ label: '', requiredCount: 1 }],
     linkedPlanPhaseId,
@@ -101,7 +103,7 @@ export function buildActivityCreationSteps(hasPlanStages: boolean): ActivityCrea
       id: 'location',
       type: 'location',
       question: 'Where does it happen?',
-      helper: 'Mark it online or enter a place name. Location data will support maps and calendars later.'
+      helper: 'Search for a place or mark it online, like help requests and plans.'
     }
   ];
 

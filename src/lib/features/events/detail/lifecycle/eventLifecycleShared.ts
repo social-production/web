@@ -7,7 +7,7 @@ import type {
   ProjectApprovalVote,
   ProjectImportanceVoteValue
 } from '$lib/types/detail';
-import { eventPlanScheduleStartIso, suggestedEventActivityWindow } from '$lib/utils/eventSchedule';
+import { eventPlanScheduleEndIso, eventPlanScheduleStartIso, suggestedEventActivityWindow } from '$lib/utils/eventSchedule';
 import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
 
 export type DraftPlanPhase = {
@@ -27,6 +27,8 @@ export type EventPlanForm = {
   startTimeLabel: string;
   finishTimeLabel: string;
   locationLabel: string;
+  locationId?: string | null;
+  locationIsOnline?: boolean;
   planPhases: DraftPlanPhase[];
   validationMessages?: string[];
 };
@@ -37,6 +39,7 @@ export type EventActivityForm = {
   endsAt: string;
   isOnline: boolean;
   locationLabel: string;
+  locationId?: string | null;
   onlineDetail: string;
   roleRequirements: ProjectActivityRoleInput[];
   linkedPlanPhaseId: string | null;
@@ -124,8 +127,21 @@ export function eventPlanScheduleFromForm(form: EventPlanForm): EventPlanSchedul
     startDate: schedule.startDate ?? null,
     startTimeLabel: schedule.startTimeLabel ?? null
   });
+  const endAtUtc = eventPlanScheduleEndIso({
+    mode: schedule.mode,
+    startDate: schedule.startDate ?? null,
+    endDate: schedule.endDate ?? null,
+    finishTimeLabel: schedule.finishTimeLabel ?? null
+  });
 
-  return startAtUtc ? { ...schedule, startAtUtc } : schedule;
+  if (startAtUtc) {
+    schedule = { ...schedule, startAtUtc };
+  }
+  if (endAtUtc) {
+    schedule = { ...schedule, endAtUtc };
+  }
+
+  return schedule;
 }
 
 export function createEventActivityForm(
@@ -138,6 +154,7 @@ export function createEventActivityForm(
     endsAt: '',
     isOnline: false,
     locationLabel,
+    locationId: null,
     onlineDetail: '',
     roleRequirements: [createDraftActivityRole()],
     linkedPlanPhaseId,

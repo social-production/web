@@ -34,6 +34,7 @@ export type PlanCreationForm = {
   validationMessages?: string[];
   projectSubtype?: string;
   repositoryUrl?: string;
+  licenseLabel?: string;
   scheduleMode?: string;
   scheduledDate?: string;
   rangeStartDate?: string;
@@ -41,6 +42,14 @@ export type PlanCreationForm = {
   startTimeLabel?: string;
   finishTimeLabel?: string;
   locationLabel?: string;
+  locationId?: string | null;
+  locationIsOnline?: boolean;
+  distributionLocationLabel?: string;
+  distributionLocationId?: string | null;
+  distributionLocationIsOnline?: boolean;
+  sameAsProductionLocation?: boolean;
+  projectLocationId?: string | null;
+  projectLocationLabel?: string;
   requestSystemEnabled?: boolean;
   requestMode?: 'calendar' | 'direct' | 'both';
   allowOffScheduleRequests?: boolean;
@@ -83,6 +92,7 @@ export type PlanCreationStepType =
   | 'schedule-range'
   | 'schedule-time'
   | 'location'
+  | 'distribution-location'
   | 'subtype'
   | 'repository'
   | 'request-settings'
@@ -315,7 +325,7 @@ export function buildEventPlanCreationSteps(
 export function buildProjectProductionCreationSteps(
   prominentValues: ProjectValueItem[],
   stageCount: number,
-  options: { includeSubtype?: boolean; includeRepository?: boolean } = {}
+  options: { includeSubtype?: boolean; includeRepository?: boolean; includeLocation?: boolean } = {}
 ): PlanCreationStep[] {
   const steps: PlanCreationStep[] = [
     {
@@ -338,8 +348,18 @@ export function buildProjectProductionCreationSteps(
     steps.push({
       id: 'repository',
       question: 'What is the official repository URL?',
-      helper: 'Software plans need a repository link assessors can verify.',
+      helper:
+        'Link a public repository under AGPL v3. Assessors need a place they can verify, and the license keeps the software in the commons.',
       type: 'repository'
+    });
+  }
+
+  if (options.includeLocation) {
+    steps.push({
+      id: 'location',
+      question: 'Where will production or operations happen?',
+      helper: 'Choose the primary project or production site.',
+      type: 'location'
     });
   }
 
@@ -374,7 +394,8 @@ export function buildProjectProductionCreationSteps(
 
 export function buildProjectDistributionCreationSteps(
   prominentValues: ProjectValueItem[],
-  stageCount: number
+  stageCount: number,
+  options: { includeRequestSettings?: boolean; includeDistributionLocation?: boolean } = {}
 ): PlanCreationStep[] {
   const steps: PlanCreationStep[] = [
     {
@@ -382,20 +403,33 @@ export function buildProjectDistributionCreationSteps(
       question: 'What is this plan called, and what does it deliver?',
       helper: 'Use a clear title and explain how people will access or receive what is produced.',
       type: 'plan-overview'
-    },
-    {
+    }
+  ];
+
+  if (options.includeRequestSettings) {
+    steps.push({
       id: 'request-settings',
       question: 'How should requests work for this plan?',
       helper: 'Choose calendar, direct, or both, and whether off-schedule requests are allowed.',
       type: 'request-settings'
-    },
-    {
-      id: 'demand-note',
-      question: 'How does this plan respond to current demand signals?',
-      helper: 'State whether this plan meets demand and explain any gap.',
-      type: 'demand-note'
-    }
-  ];
+    });
+  }
+
+  if (options.includeDistributionLocation) {
+    steps.push({
+      id: 'distribution-location',
+      question: 'Where will distribution or access happen?',
+      helper: 'This can be the same address as the production plan location.',
+      type: 'distribution-location'
+    });
+  }
+
+  steps.push({
+    id: 'demand-note',
+    question: 'How does this plan respond to current demand signals?',
+    helper: 'State whether this plan meets demand and explain any gap.',
+    type: 'demand-note'
+  });
 
   for (const value of prominentValues) {
     steps.push({

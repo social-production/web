@@ -2,7 +2,9 @@ import { error } from '@sveltejs/kit';
 import { getHelpRequest } from '$lib/services/queries/details';
 import type { PageLoad } from './$types';
 
-export const load = (async ({ params }) => {
+export const load = (async ({ params, depends }) => {
+  depends(`app:help_request:${params.id}`);
+
   const helpRequest = await getHelpRequest(params.id);
 
   if (!helpRequest) {

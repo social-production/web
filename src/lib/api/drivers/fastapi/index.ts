@@ -16,7 +16,19 @@ import {
   fetchUnfollowUser,
   fetchUpdateSettings
 } from './domains/users';
-import { fetchPublicFeed, fetchHomeFeed, fetchPersonalFeed } from './domains/feeds';
+import {
+  fetchPublicFeed,
+  fetchPublicFeedPage,
+  fetchHomeFeed,
+  fetchHomeFeedPage,
+  fetchPersonalFeed,
+  fetchPersonalFeedPage,
+  fetchRegionFeed,
+  fetchRegionFeedPage,
+  fetchMapMarkers,
+  fetchScopeFeedPage,
+  fetchUserFeedPage
+} from './domains/feeds';
 import { fetchCreateHelpRequest, fetchHelpRequest, fetchCommitHelpRequestRole, fetchUncommitHelpRequestRole } from './domains/helpRequests';
 import {
   fetchThread,
@@ -46,6 +58,13 @@ import {
 import { fetchSearch } from './domains/search';
 import { fetchNotifications, fetchMarkNotificationRead, fetchMarkAllNotificationsRead } from './domains/notifications';
 import { fetchSubmitFeedback } from './domains/feedback';
+import {
+  fetchCreateLocation,
+  fetchIpLocationHint,
+  fetchLocation,
+  fetchLocationReverse,
+  fetchLocationSearch
+} from './domains/locations';
 import {
   fetchMessages,
   fetchConversationMessages,
@@ -78,6 +97,7 @@ import {
   fetchUpdateProjectDetails, fetchRequestProjectEdit, fetchSetProjectEditVote,
   fetchAddProjectUpdate,
   fetchCreateProjectManualLinkRequest, fetchSetProjectManualLinkVote,
+  fetchCreateProjectManualLinkSeverRequest,
   fetchShareProjectWithUser,
 } from './domains/projects';
 import {
@@ -88,6 +108,8 @@ import {
   fetchRequestEventPhaseChange, fetchSetEventPhaseChangeVote,
   fetchRequestEventUpdate, fetchSetEventUpdateVote,
   fetchRequestEventEdit, fetchSetEventEditVote,
+  fetchCreateEventManualLinkRequest, fetchSetEventManualLinkVote,
+  fetchCreateEventManualLinkSeverRequest,
   fetchGrantEventEditAccess, fetchRevokeEventEditAccess,
   fetchShareEventWithUser,
 } from './domains/events';
@@ -190,8 +212,8 @@ export function createFastApiDriver(): AppAdapter {
       return fetchAddComment(subjectId, body, parentId, subjectType);
     },
 
-    async submitReport(subjectId, targetId, reason, details) {
-      return fetchSubmitReport(subjectId, targetId, reason, details);
+    async submitReport(subjectId, targetId, reason, details, targetType) {
+      return fetchSubmitReport(subjectId, targetId, reason, details, targetType);
     },
 
     async setReportVote(targetId, vote) {
@@ -270,6 +292,9 @@ export function createFastApiDriver(): AppAdapter {
     async setEventUpdateVote(slug, requestId, vote) { return fetchSetEventUpdateVote(slug, requestId, vote); },
     async requestEventEdit(slug, title, description) { return fetchRequestEventEdit(slug, title, description); },
     async setEventEditVote(slug, requestId, vote) { return fetchSetEventEditVote(slug, requestId, vote); },
+    async createEventManualLinkRequest(slug, targetKind, targetSlug, summary, label) { return fetchCreateEventManualLinkRequest(slug, targetKind, targetSlug, summary, label); },
+    async setEventManualLinkVote(slug, requestId, vote) { return fetchSetEventManualLinkVote(slug, requestId, vote); },
+    async createEventManualLinkSeverRequest(slug, linkId, summary) { return fetchCreateEventManualLinkSeverRequest(slug, linkId, summary); },
     async grantEventEditAccess(slug, userId) { return fetchGrantEventEditAccess(slug, userId); },
     async revokeEventEditAccess(slug, userId) { return fetchRevokeEventEditAccess(slug, userId); },
     async shareEventWithUser(slug, username) { return fetchShareEventWithUser(slug, username); },
@@ -297,7 +322,7 @@ export function createFastApiDriver(): AppAdapter {
     async deleteProjectActivityRating(slug, activityId) { return fetchDeleteProjectActivityRating(slug, activityId); },
     async addProjectPullRequest(slug, input) { return fetchAddProjectPullRequest(slug, input); },
     async setProjectPullRequestVote(slug, decisionId, vote) { return fetchSetProjectPullRequestVote(slug, decisionId, vote); },
-    async recordProjectPullRequestMerge(slug, requestId, mergeId) { return fetchRecordProjectPullRequestMerge(slug, requestId, mergeId); },
+    async recordProjectPullRequestMerge(slug, requestId, mergeId, mergeUrl) { return fetchRecordProjectPullRequestMerge(slug, requestId, mergeId, mergeUrl); },
     async requestProjectMergeCapabilityChange(slug, input) { return fetchRequestProjectMergeCapabilityChange(slug, input); },
     async setProjectMergeCapabilityChangeVote(slug, decisionId, vote) { return fetchSetProjectMergeCapabilityChangeVote(slug, decisionId, vote); },
     async requestProjectRepositoryReplacement(slug, input) { return fetchRequestProjectRepositoryReplacement(slug, input); },
@@ -318,12 +343,13 @@ export function createFastApiDriver(): AppAdapter {
     async requestProjectEdit(slug, title, description) { return fetchRequestProjectEdit(slug, title, description); },
     async setProjectEditVote(slug, requestId, vote) { return fetchSetProjectEditVote(slug, requestId, vote); },
     async addProjectUpdate(slug, title, body) { return fetchAddProjectUpdate(slug, title, body); },
-    async createProjectManualLinkRequest(slug, targetSlug, label, summary) { return fetchCreateProjectManualLinkRequest(slug, targetSlug, label, summary); },
+    async createProjectManualLinkRequest(slug, targetKind, targetSlug, summary, label) { return fetchCreateProjectManualLinkRequest(slug, targetKind, targetSlug, summary, label); },
     async setProjectManualLinkVote(slug, requestId, vote) { return fetchSetProjectManualLinkVote(slug, requestId, vote); },
+    async createProjectManualLinkSeverRequest(slug, linkId, summary) { return fetchCreateProjectManualLinkSeverRequest(slug, linkId, summary); },
     async shareProjectWithUser(slug, username) { return fetchShareProjectWithUser(slug, username); },
 
-    async getSearch(query) {
-      return fetchSearch(query);
+    async getSearch(query, options) {
+      return fetchSearch(query, options);
     },
 
     async getNotifications() {
@@ -382,16 +408,48 @@ export function createFastApiDriver(): AppAdapter {
       return fetchMarkLinkedChatRead(subjectType, subjectId);
     },
 
-    async getPublicFeed() {
-      return fetchPublicFeed();
+    async getPublicFeed(options) {
+      return fetchPublicFeed(options);
     },
 
-    async getHomeFeed() {
-      return fetchHomeFeed();
+    async getPublicFeedPage(options) {
+      return fetchPublicFeedPage(options);
+    },
+
+    async getHomeFeed(options) {
+      return fetchHomeFeed(options);
+    },
+
+    async getHomeFeedPage(options) {
+      return fetchHomeFeedPage(options);
+    },
+
+    async getRegionFeed(options) {
+      return fetchRegionFeed(options);
+    },
+
+    async getRegionFeedPage(options) {
+      return fetchRegionFeedPage(options);
+    },
+
+    async getMapMarkers(options) {
+      return fetchMapMarkers(options);
     },
 
     async getPersonalFeed(options) {
       return fetchPersonalFeed(options);
+    },
+
+    async getPersonalFeedPage(options) {
+      return fetchPersonalFeedPage(options);
+    },
+
+    async getScopeFeedPage(options) {
+      return fetchScopeFeedPage(options);
+    },
+
+    async getUserFeedPage(options) {
+      return fetchUserFeedPage(options);
     },
 
     async getSettings() {
@@ -428,6 +486,26 @@ export function createFastApiDriver(): AppAdapter {
 
     async submitFeedback(input) {
       return fetchSubmitFeedback(input);
+    },
+
+    async searchLocations(query, limit = 5, options = {}) {
+      return fetchLocationSearch(query, limit, options);
+    },
+
+    async reverseGeocodeLocation(latitude, longitude) {
+      return fetchLocationReverse(latitude, longitude);
+    },
+
+    async getIpLocationHint() {
+      return fetchIpLocationHint();
+    },
+
+    async createLocation(input) {
+      return fetchCreateLocation(input);
+    },
+
+    async getLocation(locationId) {
+      return fetchLocation(locationId);
     },
 
     async signIn(input) {

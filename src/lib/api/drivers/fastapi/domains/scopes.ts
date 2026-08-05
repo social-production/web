@@ -1,9 +1,10 @@
 import { apiClient, extractErrorMessage } from '../client';
-import { mapPublicItem } from './feeds';
+import { fetchScopeFeed } from './feeds';
 import { parseInviteToken } from '$lib/utils/invite-token';
+import { validateHandle } from '$lib/utils/handles';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
 import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
-import type { CreateChannelInput, CreateCommunityInput, CreateResult, PublicFeedItem } from '$lib/types/feed';
+import type { CreateChannelInput, CreateCommunityInput, CreateResult } from '$lib/types/feed';
 
 // In-memory membership cache for toggle direction
 const membershipCache = new Set<string>();
@@ -25,10 +26,6 @@ function setScopeMembershipCache(kind: ScopeKind, slug: string, isMember: boolea
     if (isMember) membershipCache.add(key);
     else membershipCache.delete(key);
   }
-}
-
-function slugify(name: string): string {
-  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 interface BackendChannel {
@@ -110,22 +107,6 @@ export async function fetchTaggableScopes(
     channels: res.channels.map(mapTaggableScope),
     communities: res.communities.map(mapTaggableScope)
   };
-}
-
-async function fetchScopeFeed(kind: 'channel' | 'community', slug: string): Promise<PublicFeedItem[]> {
-  try {
-    const res = await apiClient.get<{
-      items: Parameters<typeof mapPublicItem>[0][];
-    }>(`/feeds/scope?kind=${kind}&slug=${encodeURIComponent(slug)}`);
-
-    return res.items.flatMap((item) => {
-      const mapped = mapPublicItem(item);
-      return mapped ? [mapped] : [];
-    });
-  } catch (err) {
-    if ((err as { status?: number }).status === 404) return [];
-    throw err;
-  }
 }
 
 export async function fetchChannel(slug: string): Promise<ScopePageData | null> {
@@ -362,10 +343,15 @@ export async function fetchCastModeratorVote(targetUserId: string, vote: string)
 }
 
 export async function fetchCreateChannel(input: CreateChannelInput): Promise<CreateResult> {
+  const handle = validateHandle(input.name, 'Channel name');
+  if (!handle.ok) {
+    return { ok: false, error: handle.error };
+  }
+
   try {
     const res = await apiClient.post<{ channel: BackendChannel }>('/scopes/channels', {
-      slug: slugify(input.name),
-      name: input.name,
+      slug: handle.canonical,
+      name: handle.display,
       description: input.description
     });
     return { ok: true, slug: res.channel.slug };
@@ -376,10 +362,15 @@ export async function fetchCreateChannel(input: CreateChannelInput): Promise<Cre
 }
 
 export async function fetchCreateCommunity(input: CreateCommunityInput): Promise<CreateResult> {
+  const handle = validateHandle(input.name, 'Community name');
+  if (!handle.ok) {
+    return { ok: false, error: handle.error };
+  }
+
   try {
     const res = await apiClient.post<{ community: BackendCommunity }>('/scopes/communities', {
-      slug: slugify(input.name),
-      name: input.name,
+      slug: handle.canonical,
+      name: handle.display,
       description: input.description,
       join_policy: input.joinPolicy === 'invite_only' ? 'closed' : 'open'
     });

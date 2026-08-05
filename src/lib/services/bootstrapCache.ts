@@ -34,6 +34,24 @@ export function readBootstrapCache(): BootstrapPayload | null {
   }
 }
 
+/** Offline fallback must never claim an authenticated identity. */
+export function readPublicBootstrapCache(): BootstrapPayload | null {
+  if (!browser) {
+    return null;
+  }
+
+  try {
+    const raw = sessionStorage.getItem(`${CACHE_PREFIX}anon`);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as BootstrapPayload;
+    return { ...parsed, viewer: null };
+  } catch {
+    return null;
+  }
+}
+
 export function writeBootstrapCache(payload: BootstrapPayload) {
   if (!browser) {
     return;

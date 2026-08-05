@@ -9,8 +9,23 @@ export function addComment(
   return currentAdapter.addComment(subjectId, body, parentId, subjectType);
 }
 
-export function submitReport(subjectId: string, targetId: string, reason: string, details: string) {
-  return currentAdapter.submitReport(subjectId, targetId, reason, details);
+export type ReportTargetType =
+  | 'thread'
+  | 'post'
+  | 'comment'
+  | 'event'
+  | 'project'
+  | 'help_request'
+  | 'message';
+
+export function submitReport(
+  subjectId: string,
+  targetId: string,
+  reason: string,
+  details: string,
+  targetType?: ReportTargetType
+) {
+  return currentAdapter.submitReport(subjectId, targetId, reason, details, targetType);
 }
 
 export function setReportVote(targetId: string, vote: 'yes' | 'no') {

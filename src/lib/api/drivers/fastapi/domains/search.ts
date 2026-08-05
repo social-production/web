@@ -46,7 +46,10 @@ function mapSearchItem(item: BackendSearchItem) {
   };
 }
 
-export async function fetchSearch(query: string): Promise<SearchPageData> {
+export async function fetchSearch(
+  query: string,
+  options?: { entityTypes?: Array<'project' | 'event' | 'thread' | 'channel' | 'community' | 'user'>; limit?: number }
+): Promise<SearchPageData> {
   const trimmed = query.trim();
 
   if (!trimmed) {
@@ -57,9 +60,15 @@ export async function fetchSearch(query: string): Promise<SearchPageData> {
     };
   }
 
-  const res = await apiClient.get<BackendSearchResponse>(
-    `/search?q=${encodeURIComponent(trimmed)}`
-  );
+  const params = new URLSearchParams({ q: trimmed });
+  if (options?.limit) {
+    params.set('limit', String(options.limit));
+  }
+  for (const entityType of options?.entityTypes ?? []) {
+    params.append('entity_types', entityType);
+  }
+
+  const res = await apiClient.get<BackendSearchResponse>(`/search?${params.toString()}`);
   return {
     query: trimmed,
     suggestedQueries: [],

@@ -16,16 +16,27 @@ Trusted-tester beta on a **single** Railway project (backend + frontend + Postgr
 ```bash
 # Backend
 cd web-backend
-docker compose -f docker-compose.prod.yml up --build
-export APP_ENV=development DATABASE_URL=... REDIS_URL=... JWT_SECRET=... MESSAGE_ENCRYPTION_KEY=...
+docker compose up -d postgres redis
+source .venv/bin/activate
+alembic upgrade head
+PIPAPI_PYTHON_LOCATION="$(pwd)/.venv/bin/python" pip-audit
+ruff check app tests
 python -m pytest tests/ -q
-ruff check app tests && ruff format --check app tests
 
 # Frontend
 cd web
+bash scripts/check-route-boundary.sh
+npm audit --audit-level=high
+npm run check
 npm run smoke
-# or: bash scripts/check-route-boundary.sh && npm run check
 ```
+
+### Release verification notes (pre-deployment roadmap)
+
+- Migration head should be `0021_project_conversion` (after location foundation `0020`).
+- Confirm empty-database `alembic upgrade head` and upgrade-from-current both succeed before deploy.
+- Manual security matrix: anonymous/private event access, session restart/logout, CSRF, invite leakage, location precision redaction, closed/conversion history lineage.
+- Mobile viewport review for Public Region controls and `/map` list fallback; installable-app packaging remains deferred (see SECURITY.md).
 
 ## 1. Create Railway project
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import PlanWizardShell from '$lib/components/shared/PlanWizardShell.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
+  import LocationPicker from '$lib/components/shared/LocationPicker.svelte';
   import {
     buildActivityCreationSteps,
     composeActivityLocationLabel,
@@ -14,17 +15,55 @@
   } from '$lib/utils/activityCreationSteps';
   import { formatScheduleLabel } from '$lib/utils/time';
   import { localDateTimeInputToIso } from '$lib/utils/eventSchedule';
+  import {
+    emptyLocationPickerValue,
+    onlineLocationPickerValue,
+    type LocationPickerValue,
+    type LocationQuickPick
+  } from '$lib/types/locationPicker';
 
   export let open = false;
   export let title = 'Create activity';
   export let form: ActivityCreationForm;
   export let selectablePlanPhases: Array<{ id: string; label: string }> = [];
   export let scheduleBounds: ActivityScheduleBounds | null = null;
+  export let locationQuickPicks: LocationQuickPick[] = [];
   export let submitLabel = 'Create activity';
   export let onSubmit: () => void | Promise<void> = () => {};
   export let onCancel: () => void = () => {};
 
   let stepIndex = 0;
+  let locationValue: LocationPickerValue = emptyLocationPickerValue();
+  let wizardWasOpen = false;
+
+  function locationValueFromForm(current: ActivityCreationForm): LocationPickerValue {
+    if (current.isOnline) {
+      return onlineLocationPickerValue(current.onlineDetail || current.locationLabel || 'Online');
+    }
+
+    return {
+      ...emptyLocationPickerValue(),
+      displayLabel: current.locationLabel,
+      locationId: current.locationId ?? null
+    };
+  }
+
+  function syncFormFromLocationValue(value: LocationPickerValue) {
+    form.isOnline = value.isOnline;
+    form.locationLabel = value.displayLabel;
+    form.locationId = value.locationId;
+    form.onlineDetail = value.isOnline ? value.displayLabel : '';
+  }
+
+  function handleLocationChange(event: CustomEvent<LocationPickerValue>) {
+    locationValue = event.detail;
+    syncFormFromLocationValue(locationValue);
+  }
+
+  $: if (open && !wizardWasOpen) {
+    locationValue = locationValueFromForm(form);
+  }
+  $: wizardWasOpen = open;
 
   $: steps = buildActivityCreationSteps(selectablePlanPhases.length > 0);
   $: currentStep = steps[stepIndex] ?? null;
@@ -131,27 +170,13 @@
           <p class="validation-copy">{scheduleValidationMessage}</p>
         {/if}
       {:else if currentStep.type === 'location'}
-        <div class="location-stack">
-          <label class="checkbox-row">
-            <input bind:checked={form.isOnline} type="checkbox" />
-            <span>This activity is online</span>
-          </label>
-          {#if form.isOnline}
-            <label>
-              <span>Room or link name (optional)</span>
-              <input
-                bind:value={form.onlineDetail}
-                maxlength="120"
-                placeholder="e.g. Zoom, Discord, or meeting room name"
-              />
-            </label>
-          {:else}
-            <label>
-              <span>Place name</span>
-              <input bind:value={form.locationLabel} maxlength="120" placeholder="Where will this happen?" />
-            </label>
-          {/if}
-        </div>
+        <LocationPicker
+          bind:value={locationValue}
+          portaled
+          modes={['physical', 'online']}
+          quickPicks={locationQuickPicks}
+          on:change={handleLocationChange}
+        />
       {:else if currentStep.type === 'plan-stage'}
         <select bind:value={form.linkedPlanPhaseId}>
           <option value="" disabled>Choose stage</option>
@@ -248,7 +273,6 @@
   }
 
   .field-grid,
-  .location-stack,
   .review-stack {
     display: grid;
     gap: 12px;
@@ -263,16 +287,6 @@
     gap: 6px;
     font-size: 13px;
     color: var(--text-soft);
-  }
-
-  .checkbox-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .checkbox-row input {
-    width: auto;
   }
 
   .count-readout {

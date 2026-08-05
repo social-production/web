@@ -10,6 +10,7 @@
   export let onVote: (item: PendingVoteItem, vote: ProjectApprovalVote) => void | Promise<void> =
     () => {};
   export let onAssess: (item: PendingVoteItem) => void | Promise<void> = () => {};
+  export let onAction: (item: PendingVoteItem) => void | Promise<void> = () => {};
 
   let highlightedCardId = '';
   let highlightResetHandle: ReturnType<typeof setTimeout> | null = null;
@@ -28,6 +29,10 @@
   }
 
   function voteMeta(item: PendingVoteItem) {
+    if (item.actionLabel) {
+      return [item.authorUsername, formatRelativeTime(item.createdAt)].join(' · ');
+    }
+
     const parts = [formatCompactVoteStatus(item.voteSummary, item.approvalThresholdPercent)];
 
     if (item.criteriaTotalCount != null && item.criteriaRatedCount != null) {
@@ -38,17 +43,21 @@
 
     return parts.join(' · ');
   }
+
+  $: hasActionItems = items.some((item) => Boolean(item.actionLabel));
+  $: panelTitle = hasActionItems ? 'Action needed' : 'Your vote is needed';
+  $: panelCountLabel = `${items.length} open ${items.length === 1 ? 'item' : 'items'}`;
 </script>
 
 {#if items.length > 0}
   <section id="pending-votes-panel" class="pending-votes-panel" aria-live="polite">
     <div class="panel-header">
-      <strong>Your vote is needed</strong>
-      <span>{items.length} open {items.length === 1 ? 'decision' : 'decisions'}</span>
+      <strong>{panelTitle}</strong>
+      <span>{panelCountLabel}</span>
     </div>
 
     <div class="vote-stack">
-      {#each items as item (item.id + item.voteKind + (item.planValueId ?? '') + (item.planCriterionId ?? ''))}
+      {#each items as item (item.id + item.voteKind + (item.planValueId ?? '') + (item.planCriterionId ?? '') + (item.actionLabel ?? ''))}
         {@const cardId = pendingVoteCardId(item.voteKind, item.id, item.planValueId, item.planCriterionId)}
         <div
           id={cardId}
@@ -69,7 +78,18 @@
             {/if}
             <span class="vote-meta">{voteMeta(item)}</span>
           </button>
-          {#if item.planCriterionId}
+          {#if item.actionLabel}
+            <div class="banner-actions">
+              <button
+                class="approve-button"
+                type="button"
+                data-participation-action="software-action"
+                on:click|stopPropagation={() => onAction(item)}
+              >
+                {item.actionLabel}
+              </button>
+            </div>
+          {:else if item.planCriterionId}
             <div class="banner-actions">
               <button
                 class="approve-button"
@@ -139,7 +159,7 @@
 
   .vote-stack {
     display: grid;
-    gap: 10px;
+    gap: 0;
   }
 
   .pending-vote-banner {
@@ -150,10 +170,25 @@
     flex-wrap: wrap;
     padding: 14px;
     border: 1px solid color-mix(in srgb, var(--brand) 20%, var(--panel-border));
-    border-radius: var(--radius-sm);
+    border-bottom-width: 0;
+    border-radius: 0;
     background: color-mix(in srgb, var(--panel) 88%, var(--panel-strong));
     scroll-margin-top: 120px;
     transition: box-shadow 0.15s ease;
+  }
+
+  .pending-vote-banner:first-child {
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  }
+
+  .pending-vote-banner:last-child {
+    border-bottom-width: 1px;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  }
+
+  .pending-vote-banner:only-child {
+    border-bottom-width: 1px;
+    border-radius: var(--radius-sm);
   }
 
   .pending-vote-banner.vote-card-highlight {

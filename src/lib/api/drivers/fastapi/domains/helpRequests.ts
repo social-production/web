@@ -3,6 +3,7 @@ import { mapComment, type BackendComment } from './content';
 import { registerCommentIds, registerEntityType } from '../typeRegistry';
 import type { CreateHelpRequestInput, CreateResult, VoteDirection } from '$lib/types/feed';
 import type { HelpRequestPageData } from '$lib/types/detail';
+import { mapContentReport, mapModerationState } from '$lib/utils/moderation';
 
 interface BackendHelpRequestRole {
   role_id: string;
@@ -22,6 +23,7 @@ interface BackendHelpRequest {
   location_label: string;
   schedule_label: string;
   needed_at: string;
+  ends_at?: string | null;
   roles: BackendHelpRequestRole[];
   vote_count: number;
   comment_count: number;
@@ -30,6 +32,11 @@ interface BackendHelpRequest {
   channel_tags: Array<{ slug: string; label: string; kind: 'channel' | 'community' }>;
   community_tags: Array<{ slug: string; label: string; kind: 'channel' | 'community' }>;
   created_at: string;
+  report?: unknown;
+  is_removed_by_report?: boolean;
+  isRemovedByReport?: boolean;
+  moderation_state?: string;
+  moderationState?: string;
 }
 
 function mapHelpRequest(request: BackendHelpRequest): HelpRequestPageData {
@@ -39,6 +46,9 @@ function mapHelpRequest(request: BackendHelpRequest): HelpRequestPageData {
     registerCommentIds(mappedDiscussion);
   }
 
+  const report = mapContentReport(request.report);
+  const moderationState = mapModerationState(request);
+
   return {
     id: request.id,
     authorUsername: request.author_username,
@@ -47,6 +57,7 @@ function mapHelpRequest(request: BackendHelpRequest): HelpRequestPageData {
     locationLabel: request.location_label,
     scheduleLabel: request.schedule_label ?? '',
     neededAt: request.needed_at ?? request.schedule_label,
+    endsAt: request.ends_at ?? null,
     roles: (request.roles ?? []).map((role) => ({
       roleId: role.role_id,
       title: role.title,
@@ -61,7 +72,13 @@ function mapHelpRequest(request: BackendHelpRequest): HelpRequestPageData {
     discussion: mappedDiscussion,
     channelTags: request.channel_tags ?? [],
     communityTags: request.community_tags ?? [],
-    createdAt: request.created_at
+    createdAt: request.created_at,
+    report,
+    isRemovedByReport:
+      Boolean(request.isRemovedByReport ?? request.is_removed_by_report) ||
+      moderationState === 'removed' ||
+      report?.resolution === 'removed',
+    ...(moderationState ? { moderationState } : {})
   };
 }
 
@@ -105,7 +122,9 @@ export async function fetchCreateHelpRequest(input: CreateHelpRequestInput): Pro
       title: input.title,
       body: input.body,
       location_label: input.locationLabel,
+      location_id: input.locationId ?? null,
       needed_at: input.neededAt,
+      ends_at: input.endsAt ?? null,
       roles: input.roles.map((role) => ({
         title: role.title,
         description: role.description,

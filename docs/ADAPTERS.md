@@ -35,7 +35,7 @@ It is not a separate product or repo, and it is not the backend itself.
 | FastAPI driver | [`src/lib/api/drivers/fastapi/index.ts`](../src/lib/api/drivers/fastapi/index.ts) |
 | HTTP client | [`src/lib/api/drivers/fastapi/client.ts`](../src/lib/api/drivers/fastapi/client.ts) |
 
-Auth: httpOnly cookies (`credentials: 'include'`), CSRF double-submit (`X-CSRF-Token` ↔ `sp_csrf`), refresh on 401. Tests may use `Authorization: Bearer` with `X-Include-Tokens: true` on login.
+Auth: httpOnly cookies (`credentials: 'include'`), CSRF double-submit (`X-CSRF-Token` ↔ `sp_csrf`), silent cold-start `/auth/refresh` when a remembered CSRF cookie is present, then refresh on 401. `sessionStorage` `sp_session` is a same-tab UX hint only — never the refresh gate. Tests may use `Authorization: Bearer` with `X-Include-Tokens: true` on login.
 
 ### Method catalog (subset)
 

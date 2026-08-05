@@ -1,11 +1,13 @@
 <script lang="ts">
   import CollapsiblePlanCard from '$lib/components/cards/project-detail/CollapsiblePlanCard.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
+  import SoftwareLicenseNotice from '$lib/components/shared/SoftwareLicenseNotice.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import {
     isCollectiveServiceProject,
     projectSubtypeOptions
   } from '$lib/features/projects/projectMode';
+  import { softwareLicenseLabelForSubtype } from '$lib/copy/softwareLicensePolicy';
   import type { ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
   import type { ProjectSubtype } from '$lib/types/feed';
 
@@ -20,6 +22,7 @@
     description: string;
     projectSubtype?: ProjectSubtype;
     repositoryUrl?: string;
+    licenseLabel?: string;
     demandConsiderationNote: string;
     valueConsiderationNotes?: Record<string, string>;
     planPhases: DraftPlanPhase[];
@@ -61,6 +64,14 @@
     : data.lifecycle.phaseThree.winningPlanId;
   $: subtypeOptions = projectSubtypeOptions(data.projectMode);
   $: selectedSubtype = form.projectSubtype ?? data.lifecycle.currentSubtype ?? 'standard';
+  $: if (selectedSubtype === 'software') {
+    const nextLabel = softwareLicenseLabelForSubtype('software');
+    if (form.licenseLabel !== nextLabel) {
+      form.licenseLabel = nextLabel;
+    }
+  } else if (form.licenseLabel) {
+    form.licenseLabel = undefined;
+  }
   $: prominentValues = data.lifecycle.phaseOne.values.filter((value) => value.importanceScore >= 5);
 
   function emptyCopy() {
@@ -173,6 +184,7 @@
             </select>
           </label>
           {#if selectedSubtype === 'software'}
+            <SoftwareLicenseNotice compact={true} />
             <input bind:value={form.repositoryUrl} maxlength="240" placeholder="Official repository URL" />
           {/if}
         {/if}

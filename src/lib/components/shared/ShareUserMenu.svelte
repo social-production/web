@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import type { DetailMember, ShareTargetResult } from '$lib/types/detail';
 
   export let buttonLabel = 'Share +';
@@ -8,6 +9,7 @@
   export let createPostLabel = 'Create post';
   export let createPost: (() => void | Promise<void>) | null = null;
   export let contacts: DetailMember[] = [];
+  export let searchContacts: ((query: string) => Promise<DetailMember[]>) | null = null;
   export let submitShare: (username: string) => Promise<ShareTargetResult> = async () => ({
     ok: false,
     error: 'Sharing is unavailable.'
@@ -17,11 +19,39 @@
   let query = '';
   let pending = false;
   let feedback = '';
+  let liveContacts: DetailMember[] = [];
+  let searchRequestId = 0;
+  let buttonEl: HTMLButtonElement | null = null;
+  let popoverEl: HTMLDivElement | null = null;
+  let popoverStyle = 'visibility:hidden;';
 
   $: normalizedQuery = query.trim().toLowerCase();
+  $: sourceContacts = liveContacts.length > 0 ? liveContacts : contacts;
   $: filteredContacts = normalizedQuery
-    ? contacts.filter((contact) => contact.username.toLowerCase().includes(normalizedQuery)).slice(0, 6)
-    : [];
+    ? sourceContacts
+        .filter((contact) => contact.username.toLowerCase().includes(normalizedQuery))
+        .slice(0, 6)
+    : sourceContacts.slice(0, 6);
+
+  async function handleQueryInput() {
+    if (!searchContacts) {
+      liveContacts = [];
+      return;
+    }
+
+    const requestId = ++searchRequestId;
+    const nextQuery = query.trim();
+    try {
+      const results = await searchContacts(nextQuery);
+      if (requestId === searchRequestId) {
+        liveContacts = results;
+      }
+    } catch {
+      if (requestId === searchRequestId) {
+        liveContacts = [];
+      }
+    }
+  }
 
   async function handleSubmit() {
     const username = query.trim();
@@ -42,6 +72,7 @@
       }
 
       query = '';
+      liveContacts = [];
       open = false;
     } finally {
       pending = false;
@@ -55,24 +86,95 @@
     }
   }
 
+  async function toggleOpen() {
+    open = !open;
+    feedback = '';
+    if (!open) {
+      popoverStyle = 'visibility:hidden;';
+      return;
+    }
+
+    popoverStyle = 'visibility:hidden;';
+    void handleQueryInput();
+    await tick();
+    positionPopover();
+  }
+
+  function positionPopover() {
+    if (!buttonEl || !popoverEl || typeof window === 'undefined') {
+      return;
+    }
+
+    const buttonRect = buttonEl.getBoundingClientRect();
+    const popoverWidth = Math.min(320, window.innerWidth * 0.76);
+    // Measure after forcing the intended width so flips stay accurate.
+    popoverEl.style.width = `${popoverWidth}px`;
+    const popoverRect = popoverEl.getBoundingClientRect();
+    const gap = 8;
+    const margin = 8;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const spaceAbove = buttonRect.top - margin;
+    const spaceBelow = viewportHeight - buttonRect.bottom - margin;
+    const preferUp = spaceAbove >= popoverRect.height || spaceAbove >= spaceBelow;
+
+    let top = preferUp
+      ? buttonRect.top - popoverRect.height - gap
+      : buttonRect.bottom + gap;
+
+    if (top < margin) {
+      top = margin;
+    }
+    if (top + popoverRect.height > viewportHeight - margin) {
+      top = Math.max(margin, viewportHeight - margin - popoverRect.height);
+    }
+
+    // Prefer rightward placement: align popover's left edge near the button when possible,
+    // otherwise fall back to right-aligned so it stays on-screen.
+    let left = buttonRect.left;
+    if (left + popoverWidth > viewportWidth - margin) {
+      left = buttonRect.right - popoverWidth;
+    }
+    if (left < margin) {
+      left = margin;
+    }
+    if (left + popoverWidth > viewportWidth - margin) {
+      left = Math.max(margin, viewportWidth - margin - popoverWidth);
+    }
+
+    popoverStyle = `top:${Math.round(top)}px;left:${Math.round(left)}px;width:${Math.round(popoverWidth)}px;visibility:visible;`;
+  }
+
+  function handleWindowChange() {
+    if (open) {
+      positionPopover();
+    }
+  }
 </script>
+
+<svelte:window on:resize={handleWindowChange} on:scroll={handleWindowChange} />
 
 <div class="share-shell">
   <button
+    bind:this={buttonEl}
     aria-expanded={open}
     class:active-toggle={open}
     class="share-button"
     type="button"
-    on:click={() => {
-      open = !open;
-      feedback = '';
-    }}
+    on:click={() => void toggleOpen()}
   >
     {buttonLabel}
   </button>
 
   {#if open}
-    <div class="share-popover">
+    <div
+      bind:this={popoverEl}
+      class="share-popover"
+      style={popoverStyle}
+      role="dialog"
+      aria-label={menuTitle}
+    >
       <div class="share-inline-row">
         <input
           aria-label={menuTitle}
@@ -80,6 +182,7 @@
           maxlength="64"
           placeholder={placeholder}
           type="text"
+          on:input={handleQueryInput}
           on:keydown={handleKeydown}
         />
         <button class="primary-button" disabled={!query.trim() || pending} type="button" on:click={handleSubmit}>
@@ -102,7 +205,9 @@
       {/if}
 
       {#if createPost}
-        <button class="create-post-link" type="button" on:click={createPost}>{createPostLabel}</button>
+        <button class="create-post-link" type="button" on:click={() => void createPost?.()}>
+          {createPostLabel}
+        </button>
       {/if}
     </div>
   {/if}
@@ -111,6 +216,7 @@
 <style>
   .share-shell {
     position: relative;
+    display: inline-flex;
   }
 
   .contact-list,
@@ -127,6 +233,8 @@
     border-radius: var(--radius-sm);
     font-size: 12px;
     font-weight: 700;
+    font: inherit;
+    cursor: pointer;
   }
 
   .share-button,
@@ -151,23 +259,19 @@
   }
 
   .share-popover {
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 0;
+    position: fixed;
+    z-index: 80;
     width: min(320px, 76vw);
     padding: 14px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
     box-shadow: 0 14px 32px color-mix(in srgb, black 22%, transparent);
-    z-index: 10;
   }
 
   .feedback {
+    margin: 0;
     line-height: 1.45;
-  }
-
-  .feedback {
     color: var(--text-soft);
     font-size: 12px;
   }
@@ -188,6 +292,7 @@
     border-radius: var(--radius-sm);
     background: var(--panel);
     color: var(--text-main);
+    font: inherit;
   }
 
   .contact-list {
@@ -207,5 +312,6 @@
     font-size: 12px;
     font-weight: 700;
     text-decoration: underline;
+    cursor: pointer;
   }
 </style>

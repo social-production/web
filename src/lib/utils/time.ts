@@ -182,6 +182,45 @@ export function formatLocalDateTimeRange(startValue: string | null | undefined, 
   return `${formatLocalDateTime(start)} – ${formatLocalDateTime(end)}`;
 }
 
+const DEFAULT_MARKER_DURATION_MS = 2 * 60 * 60 * 1000;
+
+/** Effective end time for map markers when `ends_at` is missing (+2h default). */
+export function effectiveEndsAt(
+  scheduledAt: string | null | undefined,
+  endsAt: string | null | undefined
+): string | null {
+  const start = scheduledAt?.trim() ?? '';
+  if (!start) {
+    return null;
+  }
+
+  const end = endsAt?.trim() ?? '';
+  if (end) {
+    const endDate = new Date(end);
+    if (!Number.isNaN(endDate.getTime())) {
+      return end;
+    }
+  }
+
+  const startDate = new Date(start);
+  if (Number.isNaN(startDate.getTime())) {
+    return null;
+  }
+
+  return new Date(startDate.getTime() + DEFAULT_MARKER_DURATION_MS).toISOString();
+}
+
+/** Format scheduled range for map pins/cards, inferring +2h end when needed. */
+export function formatMarkerScheduleRange(
+  scheduledAt: string | null | undefined,
+  endsAt: string | null | undefined
+): string {
+  if (!scheduledAt?.trim()) {
+    return '';
+  }
+  return formatLocalDateTimeRange(scheduledAt, effectiveEndsAt(scheduledAt, endsAt));
+}
+
 export function formatCalendarTime(value: string): string {
   const date = new Date(value);
 

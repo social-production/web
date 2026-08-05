@@ -1,4 +1,5 @@
 import { apiClient, extractErrorMessage } from '../client';
+import { registerEntityType } from '../typeRegistry';
 import type {
   CreateGroupMessageInput,
   DirectMessage,
@@ -6,6 +7,7 @@ import type {
   MessagesPageData
 } from '$lib/types/inbox';
 import type { ViewerSummary } from '$lib/types/bootstrap';
+import { mapContentReport, mapModerationState } from '$lib/utils/moderation';
 
 interface BackendUser {
   id: string;
@@ -50,6 +52,9 @@ interface BackendMessage {
   body: string;
   created_at: string;
   updated_at: string;
+  report?: unknown;
+  moderation_state?: string;
+  moderationState?: string;
 }
 
 interface BackendConversationMessagesResponse {
@@ -125,6 +130,7 @@ function mapMessage(
   const participantById = new Map(participants.map((participant) => [participant.id, participant]));
   const senderId = message.sender_id ?? '';
   const sender = participantById.get(senderId) ?? { id: senderId, username: 'unknown' };
+  registerEntityType(message.id, 'message');
 
   return {
     id: message.id,
@@ -132,7 +138,8 @@ function mapMessage(
     body: message.body,
     createdAt: message.created_at,
     isOwn: senderId === viewerId,
-    report: null
+    report: mapContentReport(message.report),
+    moderationState: mapModerationState(message)
   };
 }
 

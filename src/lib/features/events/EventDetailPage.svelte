@@ -9,6 +9,9 @@
   import EventMembersPanel from '$lib/features/events/detail/EventMembersPanel.svelte';
   import EventOverviewHeader from '$lib/features/events/detail/EventOverviewHeader.svelte';
   import EventUpdatesSection from '$lib/features/events/detail/EventUpdatesSection.svelte';
+  import DetailLinksTab from '$lib/features/detail-links/DetailLinksTab.svelte';
+  import DetailTopTabs from '$lib/features/detail/DetailTopTabs.svelte';
+  import type { DetailTabId } from '$lib/features/detail/detailTabs';
   import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
   import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
   import PlanAssessmentWizard from '$lib/components/shared/PlanAssessmentWizard.svelte';
@@ -19,15 +22,26 @@
     resolveCurrentParticipationStep
   } from '$lib/utils/participationSteps';
   import { collectEventPendingVotes, scrollToPendingVote, type PendingVoteItem } from '$lib/utils/pendingVotes';
+  import { applySignalToggleToDetailPhaseOneImmutable } from '$lib/utils/feedSignals';
+  import type { SignalToggleResult } from '$lib/types/feed';
 
   export let data: EventPageData;
+
+  let pageData = data;
+  let lastLoaderData = data;
+
+  $: if (data !== lastLoaderData) {
+    lastLoaderData = data;
+    pageData = data;
+  }
 
   let highlightedCommentId: string | null = null;
   let highlightedUpdateId: string | null = null;
   let highlightedDecisionId: string | null = null;
   let lastRouteSignature = '';
   let showMembersPanel = false;
-  let activeTab: 'overview' | 'chat' | 'history' = 'overview';
+  let activeTab: DetailTabId = 'overview';
+  let highlightedLinkRequestId: string | null = null;
   let autoExpandVoteCards = false;
   let autoExpandVoteKind: string | null = null;
   let autoExpandVoteTarget: string | null = null;
@@ -93,7 +107,7 @@
     return url.searchParams.get('decision');
   }
 
-  function selectTab(tab: 'overview' | 'chat' | 'history') {
+  function selectTab(tab: DetailTabId) {
     activeTab = tab;
 
     if (!browser) {
@@ -107,15 +121,23 @@
       nextUrl.searchParams.delete('comment');
       nextUrl.searchParams.delete('update');
       nextUrl.searchParams.delete('decision');
+      nextUrl.searchParams.delete('linkRequest');
       nextUrl.hash = '';
     } else {
       nextUrl.searchParams.set('tab', tab);
       if (tab === 'history') {
         nextUrl.searchParams.delete('comment');
+        nextUrl.searchParams.delete('linkRequest');
         nextUrl.hash = '';
       } else if (tab === 'chat') {
         nextUrl.searchParams.delete('update');
         nextUrl.searchParams.delete('decision');
+        nextUrl.searchParams.delete('linkRequest');
+      } else if (tab === 'links') {
+        nextUrl.searchParams.delete('comment');
+        nextUrl.searchParams.delete('update');
+        nextUrl.searchParams.delete('decision');
+        nextUrl.hash = '';
       }
     }
 
@@ -160,11 +182,14 @@
       highlightedCommentId = readCommentTarget($page.url);
       highlightedUpdateId = readUpdateTarget($page.url);
       highlightedDecisionId = readDecisionTarget($page.url);
+      highlightedLinkRequestId = $page.url.searchParams.get('linkRequest');
       const requestedTab = $page.url.searchParams.get('tab');
       activeTab = highlightedCommentId
         ? 'chat'
         : highlightedDecisionId
           ? 'history'
+        : highlightedLinkRequestId || requestedTab === 'links'
+          ? 'links'
         : requestedTab === 'history'
           ? 'history'
         : requestedTab === 'chat'
@@ -189,21 +214,28 @@
       ? null
       : data.lifecycle.phaseTwo.plans.find((plan) => plan.id === pendingAssessmentPlanId) ?? null;
 
-  $: pendingVotes = collectEventPendingVotes(data);
-  $: participationSteps = buildEventParticipationSteps(data, pendingVotes, {
+  $: pendingVotes = collectEventPendingVotes(pageData);
+  $: participationSteps = buildEventParticipationSteps(pageData, pendingVotes, {
     signalRemovalNudge,
     viewerUsername: $page.data.bootstrap?.viewer?.username ?? null
   });
   $: currentParticipationStep = resolveCurrentParticipationStep(participationSteps);
   $: if (
-    data.lifecycle.phaseOne.viewerHasDemandSignal ||
-    data.lifecycle.phaseOne.viewerHasOppositionSignal
+    pageData.lifecycle.phaseOne.viewerHasDemandSignal ||
+    pageData.lifecycle.phaseOne.viewerHasOppositionSignal
   ) {
     signalRemovalNudge = false;
   }
 
-  function handleSignalRemoved() {
-    signalRemovalNudge = true;
+  function handleSignalChange(result: SignalToggleResult) {
+    pageData = applySignalToggleToDetailPhaseOneImmutable(pageData, result);
+    if (result.action === 'removed') {
+      signalRemovalNudge = true;
+    }
+  }
+
+  function handleMembershipChange(next: { viewerIsMember: boolean; memberCount: number }) {
+    pageData = { ...pageData, ...next };
   }
 
   function handleParticipationDismiss() {
@@ -271,46 +303,26 @@
 
 <section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
   <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
-    <div class="top-tab-row" role="tablist" aria-label="Event detail tabs">
-      <button
-        class:active-tab={activeTab === 'overview'}
-        class="top-tab"
-        role="tab"
-        type="button"
-        on:click={() => selectTab('overview')}
-      >
-        Overview
-      </button>
-      <button
-        class:active-tab={activeTab === 'chat'}
-        class="top-tab"
-        role="tab"
-        type="button"
-        on:click={() => selectTab('chat')}
-      >
-        Chat
-      </button>
-      <button
-        class:active-tab={activeTab === 'history'}
-        class="top-tab"
-        role="tab"
-        type="button"
-        on:click={() => selectTab('history')}
-      >
-        History
-      </button>
-    </div>
+    <DetailTopTabs
+      {activeTab}
+      ariaLabel="Event detail tabs"
+      {selectTab}
+    />
 
     {#if activeTab === 'overview'}
       <ParticipationSteps
         steps={participationSteps}
         currentStepId={currentParticipationStep}
         {pendingVotes}
-        pageData={data}
+        pageData={pageData}
         placement="lead"
         on:dismiss={handleParticipationDismiss}
       />
-      <EventOverviewHeader {data} onSignalRemoved={handleSignalRemoved} />
+      <EventOverviewHeader
+        data={pageData}
+        signalChange={handleSignalChange}
+        onMembershipChange={handleMembershipChange}
+      />
       <PendingVotesPanel items={pendingVotes} onVote={handlePendingVote} onAssess={handlePendingAssess} />
       <EventUpdatesSection
         {data}
@@ -324,7 +336,7 @@
       {/if}
       <div id="governance">
         <EventLifecyclePanel
-          {data}
+          data={pageData}
           {autoExpandVoteCards}
           {autoExpandVoteKind}
           {autoExpandVoteTarget}
@@ -337,6 +349,8 @@
       </div>
     {:else if activeTab === 'chat'}
       <EventChatTab {data} highlightedCommentId={highlightedCommentId} fullscreen={isCompact} />
+    {:else if activeTab === 'links'}
+      <DetailLinksTab frame={data.linksFrame} highlightedRequestId={highlightedLinkRequestId} />
     {:else}
       <EventHistoryTab {data} highlightedDecisionId={highlightedDecisionId} />
     {/if}
@@ -376,39 +390,6 @@
     overflow: visible;
   }
 
-  .top-tab-row {
-    display: inline-flex;
-    gap: 8px;
-    padding: 2px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-    width: fit-content;
-    position: absolute;
-    top: 0;
-    left: 16px;
-    transform: translateY(-44%);
-    z-index: 1;
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--page-bg) 82%, transparent);
-  }
-
-  .top-tab {
-    min-width: 108px;
-    padding: 9px 14px;
-    border: 1px solid transparent;
-    border-radius: calc(var(--radius-sm) - 2px);
-    background: transparent;
-    color: var(--text-soft);
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .top-tab.active-tab {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
   @media (max-width: 1080px) {
     .page {
       min-width: 0;
@@ -442,7 +423,7 @@
       overflow: hidden;
     }
 
-    .chat-tab-active .top-tab-row {
+    .chat-tab-active :global(.top-tab-row) {
       position: sticky;
       top: 0;
       z-index: 2;
@@ -455,22 +436,6 @@
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
-    }
-
-    .top-tab-row {
-      position: static;
-      width: 100%;
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      transform: none;
-      box-shadow: none;
-      margin-bottom: 12px;
-    }
-
-    .top-tab {
-      min-width: 0;
-      padding: 8px 6px;
-      font-size: 12px;
     }
   }
 </style>

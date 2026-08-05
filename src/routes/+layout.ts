@@ -6,12 +6,14 @@ import { getBootstrap } from '$lib/services/queries/bootstrap';
 import {
   clearBootstrapCache,
   isBootstrapCacheUsable,
-  readBootstrapCache,
+  readPublicBootstrapCache,
   writeBootstrapCache
 } from '$lib/services/bootstrapCache';
 import {
   clearAuthenticatedSession,
-  hasAuthenticatedSession
+  hasRememberedAuthCookie,
+  tryRestoreAuthenticatedSession,
+  type SessionRestoreResult
 } from '$lib/services/session';
 import { syncUnreadCountsFromBootstrap } from '$lib/services/queries/inbox';
 import { isNetworkLoadError, toLoadError } from '$lib/services/errors';
@@ -24,12 +26,53 @@ import {
 } from '$lib/i18n/locale';
 import { I18N_ENABLED } from '$lib/i18n/config';
 import { setDisplayTimezone } from '$lib/stores/timezoneStore';
+import type { BootstrapPayload } from '$lib/types/bootstrap';
 import type { LayoutLoad } from './$types';
 
 export const ssr = false;
 
 const protectedPrefixes = ['/personal', '/messages', '/notifications', '/settings', '/create'];
 let didHydrateClientState = false;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+async function loadBootstrapWithRetry(): Promise<BootstrapPayload> {
+  const maxAttempts = browser ? 3 : 1;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      return await getBootstrap();
+    } catch (err) {
+      lastError = err;
+      if (!isNetworkLoadError(err) || attempt === maxAttempts - 1) {
+        throw err;
+      }
+      await sleep(500);
+    }
+  }
+
+  throw lastError;
+}
+
+function shouldClearSessionAfterBootstrap(
+  restoreResult: SessionRestoreResult,
+  bootstrap: BootstrapPayload
+): boolean {
+  if (bootstrap.viewer) {
+    return false;
+  }
+
+  if (restoreResult === 'auth-failed') {
+    return true;
+  }
+
+  return !hasRememberedAuthCookie();
+}
 
 export const load = (async ({ url, depends }) => {
   depends('app:bootstrap');
@@ -39,17 +82,27 @@ export const load = (async ({ url, depends }) => {
     didHydrateClientState = true;
   }
 
-  let bootstrap;
+  let restoreResult: SessionRestoreResult = 'skipped';
+  if (browser) {
+    restoreResult = await tryRestoreAuthenticatedSession();
+  }
+
+  let bootstrap: BootstrapPayload;
   try {
-    bootstrap = await getBootstrap();
-    if (browser && hasAuthenticatedSession() && !bootstrap.viewer) {
+    bootstrap = await loadBootstrapWithRetry();
+    if (browser && shouldClearSessionAfterBootstrap(restoreResult, bootstrap)) {
       clearAuthenticatedSession();
-      clearBootstrapCache();
+      if (!hasRememberedAuthCookie()) {
+        clearBootstrapCache();
+      }
     }
     writeBootstrapCache(bootstrap);
   } catch (err) {
-    const cached = readBootstrapCache();
+    const cached = readPublicBootstrapCache();
     if (cached && isBootstrapCacheUsable(cached)) {
+      if (shouldClearSessionAfterBootstrap(restoreResult, { ...cached, viewer: null })) {
+        clearAuthenticatedSession();
+      }
       bootstrap = cached;
     } else {
       toLoadError(err, 'Could not reach the server. Check your connection and try again.');

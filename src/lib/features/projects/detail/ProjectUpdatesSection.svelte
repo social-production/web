@@ -7,15 +7,12 @@
   import DetailUpdateCard from '$lib/components/cards/details/DetailUpdateCard.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
-  import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { addProjectUpdate, requestProjectEdit, requestProjectUpdate, setProjectEditVote, updateProjectDetails, setProjectUpdateVote } from '$lib/services/commands/projects';
-  import { setVote } from '$lib/services/queries/feeds';
   import {
     formatProjectVoteRequirement,
     formatProjectVoteSummary
   } from '$lib/utils/projectVotes';
   import type { ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
-  import type { VoteDirection } from '$lib/types/feed';
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let data: ProjectPageData;
@@ -111,11 +108,6 @@
       top: Math.max(nextTop, 0),
       behavior: 'smooth'
     });
-  }
-
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await setVote(data.id, event.detail.vote);
-    await invalidateAll();
   }
 
   async function submitUpdate() {
@@ -226,7 +218,7 @@
     : 'Propose update';
   $: editActionLabel = isPersonalServiceProject(data.projectMode)
     ? 'Save details'
-    : 'Propose edit';
+    : 'Propose Edit';
 </script>
 
 <section class="updates-shell" id="updates">
@@ -334,12 +326,11 @@
   {/if}
 
   <div class="overview-footer-row">
-    <VoteStrip activeVote={data.activeVote} count={data.voteCount} on:vote={handleVote} />
     {#if showMembershipButton}
       <button
         aria-expanded={showMembersPanel}
-        class:active-toggle={showMembersPanel}
-        class="secondary-button member-toggle-button"
+        class:highlighted={showMembersPanel}
+        class="detail-action-button"
         type="button"
         on:click={toggleMembersPanel}
       >
@@ -349,12 +340,12 @@
     {#if canProposeEdit}
       <button
         aria-expanded={showEditComposer}
-        class:active-toggle={showEditComposer}
-        class="secondary-button member-toggle-button"
+        class:highlighted={showEditComposer}
+        class="detail-action-button"
         type="button"
         on:click={toggleEditComposer}
       >
-        Propose edit
+        Propose Edit
       </button>
     {/if}
     {#if showGovernanceVotes && data.editRequests.length > 0}
@@ -473,11 +464,6 @@
     color: var(--text-main);
     font-size: 12px;
     font-weight: 700;
-  }
-
-  .member-toggle-button.active-toggle {
-    border-color: var(--brand);
-    color: var(--brand-strong);
   }
 
   .composer-card,

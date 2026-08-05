@@ -1,13 +1,16 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import { browser } from '$app/environment';
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import ReportComposerModal from '$lib/components/shared/ReportComposerModal.svelte';
   import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
   import { addComment, setReportVote, submitReport } from '$lib/services/commands/shared';
-  import type { ContentReportSummary, DetailComment } from '$lib/types/detail';
+  import type { ContentReportSummary, DetailComment, ModerationState } from '$lib/types/detail';
   import { linkifyMessageBody } from '$lib/utils/linkifyMessageBody';
   import { ChatSendError } from '$lib/utils/discussionState';
+  import { moderatedPlaceholder, shouldHideModeratedBody } from '$lib/utils/moderation';
+  import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
   import { scrollCenteredInContainer } from '$lib/utils/comment-scroll';
   import { tick } from 'svelte';
 
@@ -18,6 +21,7 @@
     createdAt: string;
     isOwn?: boolean;
     report?: ContentReportSummary | null;
+    moderationState?: ModerationState;
     showAuthor?: boolean;
   };
 
@@ -34,7 +38,11 @@
   export let embedded = false;
   export let fitViewport = false;
   export let variant: 'chat' | 'message' = 'chat';
+  export let reportTargetType: 'message' | 'comment' | undefined = undefined;
   export let onSubmitMessage: ((body: string) => Promise<void> | void) | null = null;
+  export let onModerated: (() => Promise<void> | void) | null = null;
+
+  const dispatch = createEventDispatcher<{ moderated: void }>();
 
   type ReportReason = 'spam' | 'serious-harm';
 
@@ -99,8 +107,29 @@
     reportDetails = '';
   }
 
+  function isModeratedAway(message: ChatMessage) {
+    return shouldHideModeratedBody({
+      body: message.body,
+      report: message.report,
+      moderationState: message.moderationState
+    });
+  }
+
+  function messageDisplayBody(message: ChatMessage) {
+    if (isModeratedAway(message)) {
+      return moderatedPlaceholder(message.report, message.body);
+    }
+
+    return message.body;
+  }
+
   function supportsHiddenToggle(message: ChatMessage) {
-    return message.report?.reason === 'serious-harm' || message.report?.resolution === 'hidden';
+    return (
+      !isModeratedAway(message) &&
+      (message.report?.reason === 'serious-harm' ||
+        message.report?.resolution === 'hidden' ||
+        message.moderationState === 'hidden')
+    );
   }
 
   function messageBodyIsHidden(message: ChatMessage) {
@@ -125,11 +154,15 @@
     }
 
     reportPending = true;
+    const targetType =
+      reportTargetType ?? (messages.length > 0 || comments.length === 0 ? 'message' : 'comment');
 
     try {
-      await submitReport(subjectId, reportTargetMessage.id, reportReason, reportDetails);
+      await submitReport(subjectId, reportTargetMessage.id, reportReason, reportDetails, targetType);
       closeReportComposer();
-      await invalidateAll();
+      await invalidateAfterReport($page.url.pathname);
+      dispatch('moderated');
+      await onModerated?.();
     } finally {
       reportPending = false;
     }
@@ -144,7 +177,9 @@
 
     try {
       await setReportVote(reportId, vote);
-      await invalidateAll();
+      await invalidateAfterReport($page.url.pathname);
+      dispatch('moderated');
+      await onModerated?.();
     } finally {
       reportPending = false;
     }
@@ -225,7 +260,8 @@
         authorUsername: item.authorUsername,
         body: item.body,
         createdAt: item.createdAt,
-        report: item.report ?? null
+        report: item.report ?? null,
+        moderationState: item.moderationState
       });
       flattened.push(...flattenComments(item.replies));
     }
@@ -394,11 +430,14 @@
                 {#if message.showAuthor ?? true}
                   <a class="author-link" href={`/profile/${message.authorUsername}`}>{message.authorUsername}</a>
                 {/if}
-                {#if subjectId && variant !== 'message'}
+                {#if subjectId}
                   <div class="message-actions" aria-label="Message actions">
                     <ReportMenu
                       blockedMessage={viewerUsername === message.authorUsername ? "You can't report yourself" : ''}
-                      itemLabel="comment"
+                      hasActiveReport={Boolean(message.report)}
+                      isUnderReview={message.report?.resolution === 'under_review' || message.report?.resolution === 'open' || message.moderationState === 'under_review'}
+                      itemLabel={variant === 'message' ? 'message' : 'comment'}
+                      moderationState={message.moderationState}
                       pending={reportPending}
                       report={message.report ?? null}
                       on:compose={() => openReportComposer(message)}
@@ -415,17 +454,23 @@
                   on:click={() => revealMessageBody(message.id)}
                 >
                   <span class="hidden-plus">{revealedMessageIds.has(message.id) ? '−' : '+'}</span>
-                  <span>{revealedMessageIds.has(message.id) ? 'Hide' : 'Hidden'}</span>
+                  <span
+                    >{revealedMessageIds.has(message.id)
+                      ? 'Hide again'
+                      : 'Hidden for serious harm report — reveal to read'}</span
+                  >
                 </button>
               {/if}
 
-              <p class:hidden-message-body={supportsHiddenToggle(message) && messageBodyIsHidden(message)}>
-                {#if variant === 'message'}
-                  {@html linkifyMessageBody(message.body)}
-                {:else}
-                  {message.body}
-                {/if}
-              </p>
+              {#if !messageBodyIsHidden(message)}
+                <p class:moderated={isModeratedAway(message)}>
+                  {#if variant === 'message' && !isModeratedAway(message)}
+                    {@html linkifyMessageBody(messageDisplayBody(message))}
+                  {:else}
+                    {messageDisplayBody(message)}
+                  {/if}
+                </p>
+              {/if}
             </div>
             <span class="message-time">{formatMessageTime(message.createdAt)}</span>
           </article>
@@ -591,6 +636,11 @@
     white-space: pre-wrap;
   }
 
+  .message-copy p.moderated {
+    color: var(--text-soft);
+    font-style: italic;
+  }
+
   .message-copy p :global(a) {
     color: var(--brand-strong);
     font-weight: 700;
@@ -600,10 +650,6 @@
 
   .message-copy p :global(a:hover) {
     color: var(--brand);
-  }
-
-  .hidden-message-body {
-    display: none;
   }
 
   .message-top-row,

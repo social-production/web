@@ -105,7 +105,11 @@
   export let requestRepositoryReplacement: (
     input: import('$lib/types/detail').ProjectSoftwareRepositoryReplacementInput
   ) => void | Promise<void> = () => {};
-  export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
+  export let recordPullRequestMerge: (
+    requestId: string,
+    mergeId: string,
+    mergeUrl: string
+  ) => void | Promise<void> = () => {};
   export let votePullRequest: (
     requestId: string,
     vote: import('$lib/types/detail').ProjectApprovalVote | null
@@ -129,6 +133,8 @@
     comment: string | null
   ) => void | Promise<void> = () => {};
   export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
+  export let softwareWizardRequest: { mode: 'record-merge' | 'vote-pr'; requestId: string } | null = null;
+  export let onSoftwareWizardRequestHandled: () => void = () => {};
 </script>
 
 {#if activePhaseId === 'phase-1'}
@@ -191,6 +197,8 @@
     {toggleHistoryCompletion}
     {saveActivityRating}
     {deleteActivityRating}
+    {softwareWizardRequest}
+    {onSoftwareWizardRequestHandled}
   />
 {:else if activePhaseId === 'phase-7' || activePhaseId === 'phase-6' || activePhaseId === 'phase-4'}
   <ProductiveLifecyclePhaseSix
@@ -200,7 +208,7 @@
     {requestRepositoryReplacement}
     recordPullRequestMerge={recordPullRequestMerge}
     {votePullRequest}
-    {voteMergeCapabilityChange}
-    {voteRepositoryReplacement}
+    {softwareWizardRequest}
+    {onSoftwareWizardRequestHandled}
   />
 {/if}

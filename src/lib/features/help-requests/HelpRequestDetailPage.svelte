@@ -151,8 +151,14 @@
           emptyCopy="No help request chat yet."
           fitViewport={activeTab === 'chat' && isCompact}
           highlightedCommentId={highlightedCommentId}
+          onModerated={async () => {
+            const refreshed = await refreshSubjectDiscussion('help_request', data.id);
+            serverDiscussion = refreshed;
+            optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+          }}
           onSubmitMessage={submitHelpRequestMessage}
           placeholder="Write a message..."
+          reportTargetType="comment"
           showHeader={!(activeTab === 'chat' && isCompact)}
           subjectId={data.id}
           submitLabel="Send message"

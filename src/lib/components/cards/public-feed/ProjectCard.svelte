@@ -1,33 +1,55 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { page } from '$app/stores';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import { setVote } from '$lib/services/queries/feeds';
-  import type { PublicProjectItem, VoteDirection } from '$lib/types/feed';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
+  import { submitFeedEntitySignal } from '$lib/utils/signalEngagement';
+  import type { PublicProjectItem } from '$lib/types/feed';
+  import { requireViewer } from '$lib/utils/requireViewer';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { describeUpdateTime } from '$lib/utils/time';
 
-  export let item: PublicProjectItem;
+  let { item }: { item: PublicProjectItem } = $props();
 
-  $: orderedTags = [...item.channelTags, ...item.communityTags];
-  $: participantLabel = item.memberCount === 1 ? 'member' : 'members';
+  const orderedTags = $derived([...item.channelTags, ...item.communityTags]);
+  const participantLabel = $derived(item.memberCount === 1 ? 'member' : 'members');
+  const signalsDisabled = $derived(Boolean(item.isClosed) || item.projectMode === 'personal-service');
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await setVote(item.id, event.detail.vote);
-    await invalidateAll();
+  async function handleSignal(signal: 'demand' | 'opposition') {
+    if (!requireViewer($page.data.bootstrap?.viewer) || signalsDisabled) {
+      return;
+    }
+
+    return submitFeedEntitySignal('project', item.slug, signal);
   }
 </script>
 
-<FeedSurface href={item.href} tone="public" accent={surfaceTypeAccent('project', item.projectMode)}>
+<FeedSurface
+  contentRestricted={item.moderationState === 'hidden'}
+  href={item.href}
+  tone="public"
+  accent={surfaceTypeAccent('project', item.projectMode)}
+>
   <div class="header-row">
     <div class="chips">
       <SurfaceTypeLabel kind="project" projectMode={item.projectMode} />
       {#if item.stage}
         <span class="meta-note">· {item.stage}</span>
       {/if}
+      <ReportControl
+        hasActiveReport={item.hasActiveReport}
+        isUnderReview={item.isUnderReview}
+        itemLabel="project"
+        moderationState={item.moderationState}
+        ownerUsername={item.authorUsername}
+        report={item.report ?? null}
+        subjectId={item.id}
+        targetId={item.id}
+        targetType="project"
+      />
     </div>
 
     <div class="tag-stack">
@@ -35,7 +57,7 @@
     </div>
   </div>
 
-  <a class="title" href={item.href}>{item.title}</a>
+  <a class="title" data-sveltekit-preload-data="off" href={item.href}>{item.title}</a>
   <p class="summary">{item.summary}</p>
 
   {#if item.latestDescription}
@@ -57,7 +79,16 @@
 
   <div class="footer">
     <div class="engagement-row">
-      <VoteStrip activeVote={item.activeVote} count={item.voteCount} on:vote={handleVote} />
+      <VoteStrip
+        mode="signals"
+        syncKey={item.id}
+        supportCount={item.supportCount}
+        opposeCount={item.opposeCount}
+        favorability={item.favorability}
+        viewerSignal={item.viewerSignal}
+        disabled={signalsDisabled}
+        onsignal={handleSignal}
+      />
       <a class="comment-link" href={`${item.href}?tab=chat`}>
         <CountPill label={`${item.commentCount} comments`} />
       </a>
@@ -73,23 +104,31 @@
 </FeedSurface>
 
 <style>
-  .header-row,
-  .footer {
+  .header-row {
     display: flex;
     gap: 0.75rem;
     align-items: center;
     flex-wrap: wrap;
+    justify-content: space-between;
   }
 
-  .header-row,
   .footer {
+    display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--panel-border);
+    color: var(--text-soft);
+    font-size: 13px;
   }
 
   .chips {
     display: flex;
     gap: 0.45rem;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     flex: 1 1 auto;
     min-width: 0;
@@ -172,19 +211,11 @@
     min-width: 0;
   }
 
-  .footer {
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid var(--panel-border);
-    color: var(--text-soft);
-    font-size: 13px;
-  }
-
   .engagement-row {
     display: flex;
     gap: 8px;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .comment-link {
@@ -199,6 +230,7 @@
   }
 
   .footer-meta {
+    margin-left: auto;
     text-align: right;
   }
 
@@ -213,6 +245,7 @@
 
   @media (max-width: 760px) {
     .footer-meta {
+      margin-left: 0;
       text-align: left;
     }
   }

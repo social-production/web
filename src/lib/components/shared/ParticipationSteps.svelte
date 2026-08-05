@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount, tick } from 'svelte';
   import { page } from '$app/stores';
   import {
     activateParticipationActivityPhase,
@@ -8,7 +8,7 @@
     getParticipationStepActionTarget,
     getParticipationStepAnchor
   } from '$lib/utils/participationSteps';
-  import { focusParticipationActionTarget, highlightParticipationTarget } from '$lib/utils/participationHighlight';
+  import { focusParticipationActionTarget, focusPhaseHelpThenAction, highlightParticipationTarget } from '$lib/utils/participationHighlight';
   import { scrollToPageAnchor } from '$lib/utils/scrollAnchors';
   import { requireViewer } from '$lib/utils/requireViewer';
   import type { PendingVoteItem } from '$lib/utils/pendingVotes';
@@ -22,13 +22,21 @@
 
   const dispatch = createEventDispatcher<{ dismiss: void; stepAction: { stepId: string } }>();
 
-  const plusActionSteps = new Set(['rate', 'plan', 'propose-activity']);
+  const plusActionSteps = new Set([
+    'rate',
+    'plan',
+    'propose-activity',
+    'make-pull-request',
+    'propose-advance'
+  ]);
+  const phaseHelpFirstSteps = new Set(['rate', 'plan', 'propose-activity', 'make-pull-request']);
   const authGatedSteps = new Set([
     'signal',
     'join',
     'rate',
     'plan',
     'propose-activity',
+    'make-pull-request',
     'activity',
     'history-follow-up',
     'vote',
@@ -37,20 +45,73 @@
 
   let dismissed = false;
   let lastStepSignature = '';
+  let selectedStepId: string | null = null;
+  let hasManualSelection = false;
+  let stepListEl: HTMLOListElement | null = null;
+  let compactLabels = false;
+  let resizeObserver: ResizeObserver | null = null;
+  let measureQueued = false;
 
   $: visibleSteps = steps.filter((step) => step.label);
-  $: currentStep = visibleSteps.find((step) => step.id === currentStepId) ?? null;
   $: stepSignature = visibleSteps.map((step) => `${step.id}:${step.helper ?? ''}`).join('|');
+  $: visibleStepIds = new Set(visibleSteps.map((step) => step.id));
 
   $: if (stepSignature !== lastStepSignature) {
     lastStepSignature = stepSignature;
     dismissed = false;
   }
 
+  // Follow the auto-resolved current step until the user clicks a different one.
+  $: if (!hasManualSelection) {
+    selectedStepId = currentStepId;
+  }
+
+  // If the manually selected step disappears, fall back to the auto-resolved step.
+  $: if (selectedStepId && !visibleStepIds.has(selectedStepId)) {
+    hasManualSelection = false;
+    selectedStepId = currentStepId && visibleStepIds.has(currentStepId) ? currentStepId : null;
+  }
+
+  $: currentStep =
+    visibleSteps.find((step) => step.id === selectedStepId) ??
+    visibleSteps.find((step) => step.id === currentStepId) ??
+    null;
+
+  $: if (stepListEl && visibleSteps.length > 0) {
+    queueCompactLabelMeasure();
+  }
+
+  function queueCompactLabelMeasure() {
+    if (measureQueued || typeof window === 'undefined') return;
+    measureQueued = true;
+    void tick().then(() => {
+      measureQueued = false;
+      void updateCompactLabels();
+    });
+  }
+
+  async function updateCompactLabels() {
+    if (!stepListEl) return;
+
+    // Measure with full labels first so we can restore them when space returns.
+    if (compactLabels) {
+      compactLabels = false;
+      await tick();
+      if (!stepListEl) return;
+    }
+
+    const overflow = stepListEl.scrollWidth - stepListEl.clientWidth;
+    // Require meaningful overflow before collapsing so labels stay readable longer.
+    compactLabels = overflow > 12;
+  }
+
   function activateStep(stepId: string) {
     if (authGatedSteps.has(stepId) && !requireViewer($page.data.bootstrap?.viewer)) {
       return;
     }
+
+    selectedStepId = stepId;
+    hasManualSelection = true;
 
     if (stepId === 'activity' && pageData) {
       focusActivitySignupTargets(pageData);
@@ -66,6 +127,12 @@
 
     const anchorId = getParticipationStepAnchor(stepId);
     const actionTarget = getParticipationStepActionTarget(stepId, pendingVotes, pageData);
+
+    if (phaseHelpFirstSteps.has(stepId) && actionTarget) {
+      focusPhaseHelpThenAction(actionTarget);
+      dispatch('stepAction', { stepId });
+      return;
+    }
 
     if (plusActionSteps.has(stepId) && actionTarget) {
       focusParticipationActionTarget(actionTarget);
@@ -103,15 +170,38 @@
     dismissed = true;
     dispatch('dismiss');
   }
+
+  onMount(() => {
+    if (!stepListEl || typeof ResizeObserver === 'undefined') {
+      void updateCompactLabels();
+      return;
+    }
+
+    resizeObserver = new ResizeObserver(() => {
+      queueCompactLabelMeasure();
+    });
+    resizeObserver.observe(stepListEl);
+    void updateCompactLabels();
+  });
+
+  onDestroy(() => {
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+  });
 </script>
 
 {#if visibleSteps.length > 0 && !dismissed}
   <section class="participation-steps" class:lead={placement === 'lead'} aria-label="Participation steps">
     <div class="steps-toolbar">
-      <ol class="step-list">
+      <ol class="step-list" class:compact-labels={compactLabels} bind:this={stepListEl}>
         {#each visibleSteps as step, index}
-          <li class:current={step.id === currentStepId} class="step-item">
-            <button class="step-button" type="button" on:click={() => activateStep(step.id)}>
+          <li class:current={step.id === (selectedStepId ?? currentStepId)} class="step-item">
+            <button
+              class="step-button"
+              type="button"
+              aria-label={`Step ${index + 1}: ${step.label}`}
+              on:click={() => activateStep(step.id)}
+            >
               <span class="step-marker">{index + 1}</span>
               <span class="step-label">{step.label}</span>
             </button>
@@ -183,19 +273,14 @@
 
   .step-list {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex: 1 1 auto;
     flex-wrap: nowrap;
-    overflow-x: auto;
+    overflow-x: hidden;
     min-width: 0;
     margin: 0;
     padding: 0;
     list-style: none;
-    scrollbar-width: none;
-  }
-
-  .step-list::-webkit-scrollbar {
-    display: none;
   }
 
   .step-item {
@@ -205,10 +290,10 @@
 
   .step-button {
     display: inline-flex;
-    gap: 6px;
+    gap: 5px;
     align-items: center;
     min-height: 32px;
-    padding: 6px 10px;
+    padding: 5px 9px;
     border: 1px solid color-mix(in srgb, var(--brand) 16%, var(--panel-border));
     border-radius: 999px;
     background: color-mix(in srgb, var(--panel) 82%, var(--panel-strong));
@@ -217,6 +302,11 @@
     font-weight: 700;
     cursor: pointer;
     white-space: nowrap;
+  }
+
+  .step-list.compact-labels .step-button {
+    gap: 0;
+    padding: 6px 8px;
   }
 
   .step-button:hover {
@@ -242,10 +332,26 @@
     font-size: 11px;
   }
 
+  .step-label {
+    min-width: 0;
+  }
+
+  .step-list.compact-labels .step-label {
+    display: none;
+  }
+
   .step-helper {
     margin: 0;
     color: var(--text-soft);
     font-size: 13px;
     line-height: 1.45;
+  }
+
+  @media (max-width: 420px) {
+    .step-list:not(.compact-labels) .step-button {
+      padding: 5px 7px;
+      font-size: 11px;
+      gap: 4px;
+    }
   }
 </style>

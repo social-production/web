@@ -1,5 +1,5 @@
 import type { PostBodyLink, ProjectMode, ProjectSubtype, TagRef, VoteDirection } from '$lib/types/feed';
-import type { ContentReportSummary, DecisionHistoryEntry, DetailComment, DetailMember, DetailUpdate, EventEditRequest, EventLifecycleData, EventRoleMember, EventUpdateRequest, GovernanceSignalSummary, ProjectEditRequest, ProjectInventoryFrameData, ProjectLifecycleData, ProjectLinksFrameData, ProjectRoleMember, ProjectUpdateRequest } from './shared';
+import type { ContentReportSummary, DecisionHistoryEntry, DetailComment, DetailLinksFrameData, DetailMember, DetailUpdate, EventEditRequest, EventLifecycleData, EventRoleMember, EventUpdateRequest, GovernanceSignalSummary, ModerationState, ProjectEditRequest, ProjectInventoryFrameData, ProjectLifecycleData, ProjectLinksFrameData, ProjectRoleMember, ProjectUpdateRequest } from './shared';
 
 export interface ProjectPageData {
   id: string;
@@ -14,6 +14,7 @@ export interface ProjectPageData {
   communityTags: TagRef[];
   stage: string;
   locationLabel: string;
+  locationId?: string | null;
   voteCount: number;
   activeVote: VoteDirection;
   signalCount: number;
@@ -38,6 +39,7 @@ export interface ProjectPageData {
   shareContacts: DetailMember[];
   report: ContentReportSummary | null;
   isRemovedByReport: boolean;
+  moderationState?: ModerationState;
   discussionNote: string;
   discussion: DetailComment[];
 }
@@ -56,6 +58,7 @@ export interface ThreadPageData {
   lastActivityAt: string;
   report: ContentReportSummary | null;
   isRemovedByReport: boolean;
+  moderationState?: ModerationState;
   discussionNote: string;
   discussion: DetailComment[];
 }
@@ -73,6 +76,7 @@ export interface PostPageData {
   createdAt: string;
   report: ContentReportSummary | null;
   isRemovedByReport: boolean;
+  moderationState?: ModerationState;
   discussionNote: string;
   discussion: DetailComment[];
 }
@@ -94,6 +98,7 @@ export interface HelpRequestPageData {
   locationLabel: string;
   scheduleLabel: string;
   neededAt: string;
+  endsAt?: string | null;
   roles: HelpRequestRoleData[];
   voteCount: number;
   activeVote: VoteDirection;
@@ -102,6 +107,9 @@ export interface HelpRequestPageData {
   channelTags: TagRef[];
   communityTags: TagRef[];
   createdAt: string;
+  report: ContentReportSummary | null;
+  isRemovedByReport: boolean;
+  moderationState?: ModerationState;
 }
 
 export interface EventPageData {
@@ -111,12 +119,16 @@ export interface EventPageData {
   title: string;
   description: string;
   isPrivate: boolean;
+  audience: 'public' | 'private_community' | 'invite_only';
+  governance: 'collaborative' | 'organizer_controlled';
+  homeCommunity: { slug: string; name: string } | null;
   scheduledAt?: string;
   channelTags: TagRef[];
   communityTags: TagRef[];
   createdByUsername: string;
   timeLabel: string;
   locationLabel: string;
+  locationId?: string | null;
   voteCount: number;
   activeVote: VoteDirection;
   commentCount: number;
@@ -133,6 +145,7 @@ export interface EventPageData {
   editRequests: EventEditRequest[];
   viewerCanRequestEdit: boolean;
   viewerCanVoteOnEditRequests: boolean;
+  linksFrame: DetailLinksFrameData;
   history: DecisionHistoryEntry[];
   attendees: string[];
   invitedUsernames: string[];
@@ -147,6 +160,7 @@ export interface EventPageData {
   shareContacts: DetailMember[];
   report: ContentReportSummary | null;
   isRemovedByReport: boolean;
+  moderationState?: ModerationState;
   discussionNote: string;
   discussion: DetailComment[];
 }

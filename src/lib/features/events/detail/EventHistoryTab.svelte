@@ -1,11 +1,16 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import DecisionHistoryList from '$lib/components/shared/DecisionHistoryList.svelte';
-  import { setEventEditVote, setEventPhaseChangeVote, setEventUpdateVote } from '$lib/services/commands/events';
+  import {
+    setEventEditVote,
+    setEventManualLinkVote,
+    setEventPhaseChangeVote,
+    setEventUpdateVote
+  } from '$lib/services/commands/events';
   import type { DecisionHistoryEntry, EventPageData, ProjectApprovalVote } from '$lib/types/detail';
 
   export let data: EventPageData;
-    export let highlightedDecisionId: string | null = null;
+  export let highlightedDecisionId: string | null = null;
 
   async function handleVote(entry: DecisionHistoryEntry, vote: ProjectApprovalVote | null) {
     switch (entry.kind) {
@@ -17,6 +22,11 @@
         break;
       case 'event-edit':
         await setEventEditVote(data.slug, entry.id, vote);
+        break;
+      case 'event-link-create':
+      case 'event-link-sever':
+        if (!vote) return;
+        await setEventManualLinkVote(data.slug, entry.id, vote);
         break;
       default:
         return;

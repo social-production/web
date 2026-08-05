@@ -5,6 +5,7 @@
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import CreateScopeTagSelector from '$lib/features/create/shared/CreateScopeTagSelector.svelte';
+  import CreateWizard from '$lib/features/create/shared/CreateWizard.svelte';
   import { commitSingleSuggestion, mergeScopeOptions } from '$lib/features/create/shared/createFormActions';
   import { loadTaggableScopeOptions } from '$lib/features/create/shared/taggableScopes';
   import { createThread } from '$lib/services/queries/create';
@@ -16,7 +17,10 @@
   } from '$lib/utils/createScopePrefill';
   import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 
-  const platformTagSlug = 'platform';
+  const wizardSteps = [
+    { id: 'basics', title: 'Basics' },
+    { id: 'scope', title: 'Tags' }
+  ];
 
   let title = '';
   let body = '';
@@ -26,6 +30,7 @@
   let primaryQuery = '';
   let additionalChannelQuery = '';
   let communityQuery = '';
+  let stepIndex = 0;
   let statusMessage = '';
   let isSubmitting = false;
   let channelSuggestionPool: ScopeDirectoryItem[] = [];
@@ -110,15 +115,18 @@
     : [];
   $: primaryItems =
     primaryTagType === 'channel'
-      ? selectedChannelIds.slice(0, 1)
+      ? selectedChannelIds
+          .slice(0, 1)
           .map((slug) => allChannelOptions.find((option) => option.slug === slug))
           .filter((option): option is ScopeDirectoryItem => !!option)
           .map((option) => ({ key: option.slug, label: option.label }))
-      : selectedCommunityIds.slice(0, 1)
+      : selectedCommunityIds
+          .slice(0, 1)
           .map((slug) => allCommunityOptions.find((option) => option.slug === slug))
           .filter((option): option is ScopeDirectoryItem => !!option)
           .map((option) => ({ key: option.slug, label: option.label }));
-  $: additionalChannelItems = selectedChannelIds.slice(1)
+  $: additionalChannelItems = selectedChannelIds
+    .slice(1)
     .map((slug) => allChannelOptions.find((option) => option.slug === slug))
     .filter((option): option is ScopeDirectoryItem => !!option)
     .map((option) => ({ key: option.slug, label: option.label }));
@@ -164,8 +172,15 @@
 
   $: hasPrimaryTag =
     primaryTagType === 'channel' ? selectedChannelIds.length > 0 : selectedCommunityIds.length > 0;
-  $: canSubmit = title.trim().length > 0 && body.trim().length > 0 && hasPrimaryTag;
-  $: usesPlatformTag = selectedChannelIds.includes(platformTagSlug);
+  $: canContinueBasics = title.trim().length > 0 && body.trim().length > 0;
+  $: canContinueScope = hasPrimaryTag;
+  $: canContinue =
+    wizardSteps[stepIndex]?.id === 'basics'
+      ? canContinueBasics
+      : wizardSteps[stepIndex]?.id === 'scope'
+        ? canContinueScope
+        : true;
+  $: canSubmit = canContinueBasics && canContinueScope;
 
   async function updateTaggableScopes(
     primaryKind: 'channel' | 'community',
@@ -183,9 +198,10 @@
     const requestId = ++taggableRequestId;
 
     try {
-      const channelLookup = [primaryKind === 'channel' ? primaryText : '', additionalChannelText]
-        .filter((value) => value.trim())
-        .at(-1) ?? '';
+      const channelLookup =
+        [primaryKind === 'channel' ? primaryText : '', additionalChannelText]
+          .filter((value) => value.trim())
+          .at(-1) ?? '';
       const communityLookup = primaryKind === 'community' ? primaryText : communityText;
       const results = await loadTaggableScopeOptions(channelLookup, communityLookup);
 
@@ -290,104 +306,95 @@
       isSubmitting = false;
     }
   }
-
-  function handleDraft() {
-    statusMessage = 'Draft saving is not wired yet, but the route and preview are now real.';
-  }
 </script>
 
 <CreateFlowLayout>
   <svelte:fragment slot="primary">
-    <CreatePanel
-      title="Thread proposal"
-      description="Start the discussion, choose a primary discovery tag, and add optional tags for wider reach."
-    >
-      <form class="form-stack" on:submit|preventDefault={handleCreate}>
-        <label>
-          <RequiredFieldLabel>Thread title</RequiredFieldLabel>
-          <input bind:value={title} aria-required="true" />
-        </label>
-
-        <label>
-          <span class="field-label">Primary tag type</span>
-          <select bind:value={primaryTagType}>
-            <option value="channel">Channel</option>
-            <option value="community">Community</option>
-          </select>
-        </label>
-
-        <CreateScopeTagSelector
-          label={primaryTagType === 'community' ? 'Primary community tag' : 'Primary channel tag'}
-          placeholder={primaryTagType === 'community' ? 'Type to search communities' : 'Type to search channels'}
-          helperText="Required. Suggestions only include the selected tag type."
-          bind:query={primaryQuery}
-          selectedItems={primaryItems}
-          suggestionItems={primaryTagType === 'community' ? primaryCommunitySuggestionItems : primaryChannelSuggestionItems}
-          onAdd={addPrimaryTag}
-          onRemove={removePrimaryTag}
-          onCommitSingleSuggestion={commitSingleSuggestion}
-        />
-
-        <CreateScopeTagSelector
-          label="Additional channel tags"
-          placeholder="Type to add another channel"
-          helperText="Optional. Only channel matches appear here."
-          bind:query={additionalChannelQuery}
-          selectedItems={additionalChannelItems}
-          suggestionItems={additionalChannelSuggestionItems}
-          onAdd={addAdditionalChannelTag}
-          onRemove={removeAdditionalChannelTag}
-          onCommitSingleSuggestion={commitSingleSuggestion}
-        />
-
-        <CreateScopeTagSelector
-          label="Community tags"
-          placeholder="Type to search communities"
-          helperText="Optional. Only community matches appear here."
-          bind:query={communityQuery}
-          selectedItems={communityItems}
-          suggestionItems={extraCommunitySuggestionItems}
-          onAdd={addCommunityTag}
-          onRemove={removeCommunityTag}
-          onCommitSingleSuggestion={commitSingleSuggestion}
-        />
-
-        <label>
-          <RequiredFieldLabel>Opening post</RequiredFieldLabel>
-          <textarea bind:value={body} rows="5" aria-required="true"></textarea>
-        </label>
-
-        <div class="button-row">
-          <button class="button-primary" disabled={!canSubmit || isSubmitting} type="submit">
-            {isSubmitting ? 'Creating...' : 'Create Thread'}
-          </button>
-          <button class="button-ghost" type="button" on:click={handleDraft}>Save Draft</button>
-        </div>
-
-        {#if statusMessage}
-          <p class="status-note">{statusMessage}</p>
-        {/if}
-      </form>
+    <CreatePanel title="Create thread" description="Write the opening post, add a discovery tag, then publish.">
+      <CreateWizard
+        steps={wizardSteps}
+        bind:stepIndex
+        {canContinue}
+        {canSubmit}
+        {isSubmitting}
+        submitLabel="Create Thread"
+        on:submit={handleCreate}
+      >
+        <svelte:fragment slot="step" let:currentStep>
+          {#if currentStep?.id === 'basics'}
+            <div class="form-stack">
+              <label>
+                <RequiredFieldLabel>Thread title</RequiredFieldLabel>
+                <input bind:value={title} aria-required="true" />
+              </label>
+              <label>
+                <RequiredFieldLabel>Opening post</RequiredFieldLabel>
+                <textarea bind:value={body} rows="5" aria-required="true"></textarea>
+              </label>
+            </div>
+          {:else}
+            <div class="form-stack">
+              <p class="helper-text">Choose one primary tag so people can discover this thread.</p>
+              <label>
+                <span class="field-label">Primary tag type</span>
+                <select bind:value={primaryTagType}>
+                  <option value="channel">Channel</option>
+                  <option value="community">Community</option>
+                </select>
+              </label>
+              <CreateScopeTagSelector
+                label={primaryTagType === 'community' ? 'Primary community tag' : 'Primary channel tag'}
+                placeholder={primaryTagType === 'community'
+                  ? 'Type to search communities'
+                  : 'Type to search channels'}
+                helperText="Required."
+                bind:query={primaryQuery}
+                selectedItems={primaryItems}
+                suggestionItems={primaryTagType === 'community'
+                  ? primaryCommunitySuggestionItems
+                  : primaryChannelSuggestionItems}
+                onAdd={addPrimaryTag}
+                onRemove={removePrimaryTag}
+                onCommitSingleSuggestion={commitSingleSuggestion}
+              />
+              <CreateScopeTagSelector
+                label="Additional channel tags"
+                placeholder="Optional"
+                bind:query={additionalChannelQuery}
+                selectedItems={additionalChannelItems}
+                suggestionItems={additionalChannelSuggestionItems}
+                onAdd={addAdditionalChannelTag}
+                onRemove={removeAdditionalChannelTag}
+                onCommitSingleSuggestion={commitSingleSuggestion}
+              />
+              <CreateScopeTagSelector
+                label="Additional community tags"
+                placeholder="Optional"
+                bind:query={communityQuery}
+                selectedItems={communityItems}
+                suggestionItems={extraCommunitySuggestionItems}
+                onAdd={addCommunityTag}
+                onRemove={removeCommunityTag}
+                onCommitSingleSuggestion={commitSingleSuggestion}
+              />
+              {#if !hasPrimaryTag}
+                <p class="status-note">Add one primary channel or community tag.</p>
+              {/if}
+              {#if statusMessage}
+                <p class="status-note">{statusMessage}</p>
+              {/if}
+            </div>
+          {/if}
+        </svelte:fragment>
+      </CreateWizard>
     </CreatePanel>
   </svelte:fragment>
 
   <svelte:fragment slot="secondary">
-    <CreatePanel
-      title="Live preview"
-      description="Threads sit on the same surface as the feed background."
-      surface="transparent"
-    >
+    <CreatePanel title="Live preview" description="How the thread will look in the feed." surface="transparent">
       {#if previewItem}
         <ThreadCard item={previewItem} />
       {/if}
-    </CreatePanel>
-
-    <CreatePanel title="Discussion note" description="How the tag choice affects discovery.">
-      <p class="helper-text">
-        {usesPlatformTag
-          ? 'Platform keeps public discussion open to regular users, and platform-tagged projects can also be proposed by any signed-in user.'
-          : 'Threads keep lightweight public discussion and idea comparison outside the project logistics view.'}
-      </p>
     </CreatePanel>
   </svelte:fragment>
 </CreateFlowLayout>
@@ -403,5 +410,19 @@
     margin-bottom: 6px;
     font-size: 13px;
     font-weight: 700;
+  }
+
+  .helper-text,
+  .status-note {
+    margin: 0;
+  }
+
+  .helper-text {
+    color: var(--text-soft);
+    line-height: 1.45;
+  }
+
+  .status-note {
+    color: var(--danger, #c0392b);
   }
 </style>

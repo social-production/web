@@ -114,8 +114,40 @@ export function syncIncomingDiscussion(
     return next;
   }
 
-  const incomingIds = new Set(incomingFlat.map((comment) => comment.id));
-  const hasLocalOnlyComments = localFlat.some((comment) => !incomingIds.has(comment.id));
+  const incomingById = new Map(incomingFlat.map((comment) => [comment.id, comment]));
+  const hasLocalOnlyComments = localFlat.some((comment) => !incomingById.has(comment.id));
 
-  return hasLocalOnlyComments ? local : next;
+  if (!hasLocalOnlyComments) {
+    return next;
+  }
+
+  // Keep optimistic-only rows, but refresh moderation/report fields from server rows.
+  return mapComments(local, (comment) => {
+    const fresh = incomingById.get(comment.id);
+    if (!fresh) {
+      return comment;
+    }
+
+    return {
+      ...comment,
+      body: fresh.body,
+      voteCount: fresh.voteCount,
+      activeVote: fresh.activeVote,
+      report: fresh.report,
+      moderationState: fresh.moderationState
+    };
+  });
+}
+
+function mapComments(
+  comments: DetailComment[],
+  mapper: (comment: DetailComment) => DetailComment
+): DetailComment[] {
+  return comments.map((comment) => {
+    const mapped = mapper(comment);
+    return {
+      ...mapped,
+      replies: mapComments(mapped.replies ?? [], mapper)
+    };
+  });
 }

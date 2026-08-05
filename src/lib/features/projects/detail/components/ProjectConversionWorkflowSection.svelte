@@ -86,21 +86,25 @@
 <style>
   .workflow-stack,
   .workflow-list,
-  .workflow-card,
   .workflow-copy,
-  .detail-grid,
-  .detail-card {
+  .detail-grid {
     display: grid;
-    gap: 12px;
+    gap: 10px;
   }
 
   .workflow-card,
   .empty-card,
   .detail-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
+    display: grid;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+    background: transparent;
+  }
+
+  .workflow-card:last-child,
+  .detail-card:last-child {
+    border-bottom: none;
   }
 
   .workflow-head,
@@ -138,30 +142,28 @@
   }
 
   .inventory-note {
-    padding: 12px 14px;
-    border-radius: var(--radius-sm);
-    background: var(--panel);
+    padding: 8px 0;
+    color: var(--text-soft);
   }
 
   .status-pill,
   .relationship-pill {
-    padding: 6px 10px;
-    border: 1px solid var(--panel-border);
+    padding: 4px 9px;
     border-radius: 999px;
-    background: var(--panel);
+    background: color-mix(in srgb, var(--panel-border) 22%, transparent);
     color: var(--text-soft);
     font-size: 11px;
     font-weight: 700;
   }
 
   .status-pill.approved {
-    border-color: var(--brand-strong);
     color: var(--brand-strong);
+    background: color-mix(in srgb, var(--brand-strong) 14%, transparent);
   }
 
   .status-pill.blocked {
-    border-color: var(--accent-warm);
     color: var(--accent-warm-strong);
+    background: color-mix(in srgb, var(--accent-warm) 14%, transparent);
   }
 
   .open-link {

@@ -1,5 +1,5 @@
 import type { ViewerSummary } from '$lib/types/bootstrap';
-import type { ContentReportSummary, DetailComment } from '$lib/types/detail';
+import type { ContentReportSummary, DetailComment, ModerationState } from '$lib/types/detail';
 import type { ProjectMode, SubjectKind, TagRef } from '$lib/types/feed';
 
 export interface NotificationItem {
@@ -31,6 +31,7 @@ export interface DirectMessage {
   createdAt: string;
   isOwn: boolean;
   report?: ContentReportSummary | null;
+  moderationState?: ModerationState;
 }
 
 export interface MessageConversationResult {

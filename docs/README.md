@@ -11,6 +11,7 @@ Implementation docs for the web frontend and API contract live in this directory
 | [`UI_BUILD_RULES.md`](./UI_BUILD_RULES.md) | UI construction rules |
 | [`governance-rules.md`](./governance-rules.md) | Product governance rules |
 | [`MODERATION_RULES.md`](./MODERATION_RULES.md) | Moderation policy |
+| [`../../planning/WEB/docs/MODERATION_REDESIGN.md`](../../planning/WEB/docs/MODERATION_REDESIGN.md) | Audience-governed moderation redesign and implementation map |
 | [`SECURITY.md`](./SECURITY.md) | Frontend security checklist |
 | [`DEPLOYMENT.md`](./DEPLOYMENT.md) | Railway deploy + beta runbook |
 

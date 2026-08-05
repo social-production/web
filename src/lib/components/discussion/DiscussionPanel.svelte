@@ -2,28 +2,34 @@
   import { invalidateAll } from '$app/navigation';
   import DiscussionComment from '$lib/components/discussion/DiscussionComment.svelte';
   import CommentComposer from '$lib/components/shared/CommentComposer.svelte';
-  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
-  import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import { addComment } from '$lib/services/commands/shared';
-  import type { PostPageData, ThreadPageData } from '$lib/types/detail';
+  import type { DetailComment, PostPageData, ThreadPageData } from '$lib/types/detail';
+  import type { VoteDirection } from '$lib/types/feed';
+  import { applyVoteTarget } from '$lib/utils/feedSignals';
 
   export let data: Pick<PostPageData | ThreadPageData, 'id' | 'discussion'>;
   export let highlightedCommentId: string | null = null;
   export let embedded = false;
+  export let sortMode: CommentSort = 'oldest';
 
   type CommentSort = 'oldest' | 'newest' | 'top';
 
-  const sortOptions = [
-    { value: 'oldest', label: 'Oldest first' },
-    { value: 'newest', label: 'Newest first' },
-    { value: 'top', label: 'Top voted' }
-  ];
-
   let draftComment = '';
-  let sortMode: CommentSort = 'oldest';
   let composer: CommentComposer;
+  let voteOverrides: Record<string, { activeVote: VoteDirection; voteCount: number }> = {};
+  let lastDiscussionRef: DetailComment[] | null = null;
 
-  $: sortedDiscussion = [...data.discussion].sort((left, right) => {
+  $: if (data.discussion !== lastDiscussionRef) {
+    lastDiscussionRef = data.discussion;
+    voteOverrides = {};
+  }
+
+  $: displayDiscussion = data.discussion.map((comment) => {
+    const override = voteOverrides[comment.id];
+    return override ? { ...comment, ...override } : comment;
+  });
+
+  $: sortedDiscussion = [...displayDiscussion].sort((left, right) => {
     if (sortMode === 'top') {
       return right.voteCount - left.voteCount || right.createdAt.localeCompare(left.createdAt);
     }
@@ -45,15 +51,24 @@
     await composer?.resetHeight();
     await invalidateAll();
   }
+
+  function handleCommentVote(commentId: string, vote: VoteDirection) {
+    const current =
+      displayDiscussion.find((comment) => comment.id === commentId) ??
+      data.discussion.find((comment) => comment.id === commentId);
+    if (!current) {
+      return;
+    }
+
+    const next = applyVoteTarget(current.activeVote, current.voteCount, vote);
+    voteOverrides = {
+      ...voteOverrides,
+      [commentId]: next
+    };
+  }
 </script>
 
 <section class:embedded class="discussion-shell" id="comments">
-  <div class="discussion-toolbar">
-    <IconMenuButton bind:value={sortMode} ariaLabel="Sort comments" options={sortOptions}>
-      <FeedToolbarIcon name="sort" />
-    </IconMenuButton>
-  </div>
-
   <div class="composer-card">
     <CommentComposer
       bind:this={composer}
@@ -70,8 +85,14 @@
         <p>No comments yet.</p>
       </div>
     {:else}
-      {#each sortedDiscussion as comment}
-        <DiscussionComment {comment} subjectId={data.id} {highlightedCommentId} {embedded} />
+      {#each sortedDiscussion as comment (comment.id)}
+        <DiscussionComment
+          {comment}
+          subjectId={data.id}
+          {highlightedCommentId}
+          {embedded}
+          onVote={(vote) => handleCommentVote(comment.id, vote)}
+        />
       {/each}
     {/if}
   </div>
@@ -92,12 +113,6 @@
 
   .discussion-shell.embedded {
     padding-top: 0;
-  }
-
-  .discussion-toolbar {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 4px;
   }
 
   .composer-card,

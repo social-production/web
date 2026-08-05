@@ -22,8 +22,11 @@
   $: commentHref = buildCommentHref(item.href);
   $: replyLabel = item.commentCount === 1 ? '1 reply' : `${item.commentCount} replies`;
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await castFeedVote(item.voteTargetId, event.detail.vote);
+  async function handleVote({ vote }: { vote: VoteDirection }) {
+    return castFeedVote(item.voteTargetId, vote, {
+      activeVote: item.activeVote,
+      voteCount: item.voteCount
+    });
   }
 </script>
 
@@ -41,12 +44,12 @@
     </div>
   </div>
 
-  <a class="subject-title" data-sveltekit-noscroll href={item.href}>{item.subjectTitle}</a>
+  <a class="subject-title" data-sveltekit-noscroll data-sveltekit-preload-data="off" href={item.href}>{item.subjectTitle}</a>
   <p class="comment-excerpt">{item.commentExcerpt}</p>
 
   <div class="footer">
     <div class="engagement-row">
-      <VoteStrip activeVote={item.activeVote} count={item.voteCount} on:vote={handleVote} />
+      <VoteStrip activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
       <a class="comment-link" href={commentHref}>
         <CountPill label={replyLabel} />
       </a>

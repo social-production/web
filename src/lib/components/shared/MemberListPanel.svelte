@@ -52,6 +52,9 @@
         <p>{description}</p>
       {/if}
     </div>
+    <div class="header-actions">
+      <slot name="actions" />
+    </div>
   </div>
 
   <div class:scrollable class="members-scroll-shell">
@@ -124,6 +127,18 @@
     padding: 18px 0 24px;
     margin-bottom: 24px;
     border-bottom: 1px solid var(--panel-border);
+  }
+
+  .members-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .header-actions {
+    flex: 0 0 auto;
   }
 
   .members-scroll-shell {

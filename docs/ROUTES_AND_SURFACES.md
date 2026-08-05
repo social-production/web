@@ -20,6 +20,12 @@ It is not the final implementation, but it is the route and page ownership contr
 - purpose: follow-based feed plus native posts
 - content: personal posts and followed-user activity
 
+### Map
+
+- route: `/map` (also available as a top-bar overlay toggle)
+- purpose: discover nearby physical events, help requests, and scheduled activity on a map
+- content: map markers with distance-ranked list; filters for radius, time window, entity type, and optional custom date range
+
 ### Assets
 
 - route: `/assets`

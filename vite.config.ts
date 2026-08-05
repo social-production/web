@@ -1,36 +1,43 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig, loadEnv } from 'vite';
+import { backendProxyPaths } from './src/lib/dev/backendProxyPaths';
 import { I18N_ENABLED } from './src/lib/i18n/config';
 
 const BACKEND_TARGET = 'http://127.0.0.1:8000';
 
-const backendProxyPaths = [
-  '/auth',
-  '/bootstrap',
-  '/onboarding',
-  '/feeds',
-  '/content',
+const htmlBypassPaths = new Set([
   '/projects',
   '/events',
-  '/governance',
+  '/platform',
   '/messages',
   '/notifications',
-  '/users',
-  '/search',
-  '/scopes',
-  '/platform',
-  '/board',
-  '/feedback',
-  '/healthz',
-  '/readyz'
-];
+  '/search'
+]);
+
+function bypassHtmlNavigation(req: { headers?: { accept?: string }; url?: string }) {
+  const accept = req.headers?.accept ?? '';
+  if (accept.includes('text/html')) {
+    return req.url;
+  }
+}
 
 function createBackendProxy() {
-  const proxy: Record<string, { target: string; changeOrigin: boolean }> = {};
+  const proxy: Record<
+    string,
+    {
+      target: string;
+      changeOrigin: boolean;
+      bypass?: (req: { headers?: { accept?: string }; url?: string }) => string | undefined;
+    }
+  > = {};
 
   for (const path of backendProxyPaths) {
-    proxy[path] = { target: BACKEND_TARGET, changeOrigin: true };
+    proxy[path] = {
+      target: BACKEND_TARGET,
+      changeOrigin: true,
+      ...(htmlBypassPaths.has(path) ? { bypass: bypassHtmlNavigation } : {})
+    };
   }
 
   return proxy;

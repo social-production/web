@@ -1,12 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import PersonalFeedCard from '$lib/components/cards/personal-feed/PersonalFeedCard.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
-  import { getPersonalFeed } from '$lib/services/queries/feeds';
+  import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
+  import { getPersonalFeedPage } from '$lib/services/queries/feeds';
   import { getSettings, updateSettings } from '$lib/services/queries/account';
+  import {
+    DEFAULT_FEED_PAGE_SIZE,
+    appendUniqueById
+  } from '$lib/features/feed/feedPagination';
   import type {
     FeedSortPreference,
     FeedWindowPreference,
@@ -15,6 +20,13 @@
     PersonalFeedScopePreference
   } from '$lib/types/account';
   import type { PersonalFeedItem } from '$lib/types/feed';
+  import { mergeFeedEngagement } from '$lib/utils/feedSignals';
+  import {
+    normalizeFeedWindow,
+    resolveFeedCorePreferences,
+    resolveLoaderFeedSync,
+    toFeedSortPreference
+  } from '$lib/utils/feedQuery';
 
   export let items: PersonalFeedItem[];
 
@@ -26,7 +38,7 @@
   const defaultPreferences: PersonalFeedPreferences = {
     scope: 'popular',
     filter: 'all',
-    sort: 'popular',
+    sort: 'trending',
     window: 'all'
   };
 
@@ -39,25 +51,27 @@
     { value: 'all', label: 'All items' },
     { value: 'activity', label: 'Public activity' },
     { value: 'posts', label: 'Posts', icon: 'post' as const },
-    { value: 'events', label: 'Events', icon: 'event' as const }
+    { value: 'events', label: 'Events', icon: 'event' as const },
+    { value: 'help_requests', label: 'Help requests', icon: 'help-request' as const }
   ];
 
   const sortOptions = [
-    { value: 'popular', label: 'Most popular' },
+    { value: 'trending', label: 'Trending' },
     { value: 'recent', label: 'Most recent' }
   ];
 
   const windowOptions = [
-    { value: '12h', label: 'Last 12 hours' },
-    { value: '1d', label: '1 day' },
-    { value: '7d', label: '7 days' },
-    { value: '1m', label: '1 month' },
-    { value: '1y', label: '1 year' },
+    { value: 'today', label: 'Today' },
+    { value: 'week', label: 'This week' },
+    { value: 'month', label: 'This month' },
     { value: 'all', label: 'All time' }
   ];
 
   let feedItems: PersonalFeedItem[] = items;
   let feedItemsLoading = false;
+  let feedItemsLoadingMore = false;
+  let feedHasMore = items.length >= DEFAULT_FEED_PAGE_SIZE;
+  let feedOffset = items.length;
   let feedItemsRequestId = 0;
   let lastLoadedQuery = '';
   let lastSyncedItems = items;
@@ -84,6 +98,19 @@
     };
   }
 
+  function normalizePersonalFilter(value: string | null | undefined): PersonalFilter {
+    const normalized = (value ?? '').trim().toLowerCase();
+    if (
+      normalized === 'activity' ||
+      normalized === 'posts' ||
+      normalized === 'events' ||
+      normalized === 'help_requests'
+    ) {
+      return normalized;
+    }
+    return 'all';
+  }
+
   function applyPreferences(preferences?: Partial<PersonalFeedPreferences> | null) {
     const next: PersonalFeedPreferences = {
       ...defaultPreferences,
@@ -91,18 +118,38 @@
     };
 
     isHydratingPreferences = true;
-    activeScope = next.scope;
-    activeFilter = next.filter;
-    activeSort = next.sort;
-    activeWindow = next.window;
-    lastPersistedPreferences = preferenceSignature(next);
+    activeScope = next.scope === 'following' ? 'following' : 'popular';
+    activeFilter = normalizePersonalFilter(next.filter);
+    activeSort = toFeedSortPreference(next.sort);
+    activeWindow = normalizeFeedWindow(next.window);
+    lastPersistedPreferences = preferenceSignature({
+      scope: activeScope,
+      filter: activeFilter,
+      sort: activeSort,
+      window: activeWindow
+    });
     isHydratingPreferences = false;
   }
 
   async function hydratePreferences() {
-    const settings = await getSettings();
-    applyPreferences(settings?.personalFeedPreferences);
-    preferencesReady = true;
+    const settings = $page.data.settings ?? (await getSettings());
+    if (!settings?.personalFeedPreferences) {
+      return;
+    }
+    const signature = preferenceSignature({
+      ...defaultPreferences,
+      ...settings.personalFeedPreferences
+    });
+    if (signature === preferenceSignature(currentPreferences())) {
+      return;
+    }
+    applyPreferences(settings.personalFeedPreferences);
+  }
+
+  function feedQuerySignature() {
+    const apiFilter =
+      activeFilter === 'events' || activeFilter === 'help_requests' ? activeFilter : 'all';
+    return `${activeScope}:${activeSort}:${activeWindow}:${apiFilter}:${activeFilter}`;
   }
 
   async function persistPreferences() {
@@ -123,37 +170,91 @@
 
   function handlePreferencesChange() {
     void persistPreferences();
+    syncFeedQueryToUrl();
+    lastLoadedQuery = '';
+    feedItems = [];
+    void loadFeedItems();
   }
 
   function handleFeedQueryChange() {
     lastLoadedQuery = '';
     void persistPreferences();
+    syncFeedQueryToUrl();
+    feedItems = [];
     void loadFeedItems();
   }
 
   async function loadFeedItems() {
     if (!$page.data.bootstrap?.viewer) {
       feedItems = [];
+      feedHasMore = false;
+      feedOffset = 0;
       return;
     }
 
-    const query = `${activeScope}:${activeSort}`;
-    if (query === lastLoadedQuery) {
+    const apiFilter =
+      activeFilter === 'events' || activeFilter === 'help_requests' ? activeFilter : 'all';
+    const query = feedQuerySignature();
+    if (query === lastLoadedQuery && feedItems.length > 0) {
       return;
     }
 
     const requestId = ++feedItemsRequestId;
     feedItemsLoading = true;
+    feedItemsLoadingMore = false;
+    feedHasMore = true;
+    feedOffset = 0;
 
     try {
-      const nextItems = await getPersonalFeed({ scope: activeScope, sort: activeSort });
+      const pageResult = await getPersonalFeedPage({
+        scope: activeScope,
+        sort: activeSort,
+        window: activeWindow,
+        filter: apiFilter,
+        limit: DEFAULT_FEED_PAGE_SIZE,
+        offset: 0
+      });
       if (requestId === feedItemsRequestId) {
-        feedItems = nextItems;
+        feedItems = pageResult.items;
+        feedOffset = pageResult.items.length;
+        feedHasMore = pageResult.hasMore;
         lastLoadedQuery = query;
       }
     } finally {
       if (requestId === feedItemsRequestId) {
         feedItemsLoading = false;
+      }
+    }
+  }
+
+  async function loadMoreFeedItems() {
+    if (!$page.data.bootstrap?.viewer || feedItemsLoading || feedItemsLoadingMore || !feedHasMore) {
+      return;
+    }
+
+    const apiFilter =
+      activeFilter === 'events' || activeFilter === 'help_requests' ? activeFilter : 'all';
+    const requestId = ++feedItemsRequestId;
+    feedItemsLoadingMore = true;
+
+    try {
+      const pageResult = await getPersonalFeedPage({
+        scope: activeScope,
+        sort: activeSort,
+        window: activeWindow,
+        filter: apiFilter,
+        limit: DEFAULT_FEED_PAGE_SIZE,
+        offset: feedOffset
+      });
+      if (requestId !== feedItemsRequestId) {
+        return;
+      }
+      feedItems = appendUniqueById(feedItems, pageResult.items);
+      feedOffset += pageResult.items.length;
+      feedHasMore = pageResult.hasMore;
+    } finally {
+      if (requestId === feedItemsRequestId) {
+        feedItemsLoadingMore = false;
       }
     }
   }
@@ -167,7 +268,7 @@
   }
 
   function matchesFilter(item: PersonalFeedItem, filter: PersonalFilter) {
-    if (filter === 'all') {
+    if (filter === 'all' || filter === 'events' || filter === 'help_requests') {
       return true;
     }
 
@@ -176,75 +277,51 @@
     }
 
     if (filter === 'posts') {
-      return item.kind === 'post' || item.kind === 'help-request';
+      return item.kind === 'post';
     }
 
-    return item.kind === 'activity' && item.subjectKind === 'event';
-  }
-
-  function itemVoteCount(item: PersonalFeedItem) {
-    if (item.kind === 'post' || item.kind === 'activity') {
-      return item.voteCount;
-    }
-
-    return 0;
+    return true;
   }
 
   function itemTimestamp(item: PersonalFeedItem) {
     return +(new Date(item.createdAt));
   }
 
-  function timeWindowMs(window: FeedWindow) {
-    switch (window) {
-      case '12h':
-        return 12 * 60 * 60 * 1000;
-      case '1d':
-        return 24 * 60 * 60 * 1000;
-      case '7d':
-        return 7 * 24 * 60 * 60 * 1000;
-      case '1m':
-        return 30 * 24 * 60 * 60 * 1000;
-      case '1y':
-        return 365 * 24 * 60 * 60 * 1000;
-      default:
-        return Number.POSITIVE_INFINITY;
-    }
+  function matchesWindow(_item: PersonalFeedItem, _window: FeedWindow, _referenceTime: number) {
+    return true;
   }
 
-  function matchesWindow(item: PersonalFeedItem, window: FeedWindow, referenceTime: number) {
-    if (window === 'all') {
-      return true;
-    }
-
-    return referenceTime - itemTimestamp(item) <= timeWindowMs(window);
-  }
-
-  function compareItems(left: PersonalFeedItem, right: PersonalFeedItem, sort: FeedSort) {
-    if (sort === 'popular') {
-      return itemVoteCount(right) - itemVoteCount(left) || itemTimestamp(right) - itemTimestamp(left);
-    }
-
-    return itemTimestamp(right) - itemTimestamp(left);
+  function compareItems(_left: PersonalFeedItem, _right: PersonalFeedItem, _sort: FeedSort) {
+    return 0;
   }
 
   $: if (items !== lastSyncedItems && !feedItemsLoading) {
     lastSyncedItems = items;
-    const query = `${activeScope}:${activeSort}`;
-    if (query === 'popular:popular') {
+    const syncMode = resolveLoaderFeedSync({
+      surface: 'personal',
+      activeScope,
+      activeSort,
+      activeFilter,
+      activeWindow,
+      hasClientQuery: Boolean(lastLoadedQuery),
+      hasClientItems: feedItems.length > 0
+    });
+    if (syncMode === 'merge') {
+      feedItems = mergeFeedEngagement(feedItems, items);
+    } else if (syncMode === 'replace') {
       feedItems = items;
-      lastLoadedQuery = query;
-    } else {
-      lastLoadedQuery = '';
-      void loadFeedItems();
     }
   }
 
   $: viewerId = $page.data.bootstrap?.viewer?.id ?? '';
   $: if (viewerId !== lastHydratedViewerId) {
     lastHydratedViewerId = viewerId;
-    preferencesReady = false;
-    applyPreferences($page.data.settings?.personalFeedPreferences);
-    preferencesReady = true;
+    if (!preferencesReady) {
+      applyPreferences($page.data.settings?.personalFeedPreferences);
+    }
+    if (!preferencesReady) {
+      preferencesReady = true;
+    }
   }
 
   $: referenceTime = Date.now();
@@ -255,20 +332,100 @@
     .slice()
     .sort((left, right) => compareItems(left, right, activeSort));
 
+  let lastHydratedUrl = '';
+  let isSyncingFeedUrl = false;
+
+  async function syncFeedQueryToUrl() {
+    const params = new URLSearchParams($page.url.searchParams);
+
+    if (activeScope === 'popular') {
+      params.delete('scope');
+    } else {
+      params.set('scope', activeScope);
+    }
+
+    if (activeFilter === 'all') {
+      params.delete('filter');
+    } else {
+      params.set('filter', activeFilter);
+    }
+
+    if (activeSort === 'trending') {
+      params.delete('sort');
+    } else {
+      params.set('sort', activeSort);
+    }
+
+    if (activeWindow === 'all') {
+      params.delete('window');
+    } else {
+      params.set('window', activeWindow);
+    }
+
+    const nextSearch = params.toString();
+    const nextUrlSearch = nextSearch ? `?${nextSearch}` : '';
+    if (nextUrlSearch === $page.url.search) {
+      lastHydratedUrl = $page.url.search;
+      return;
+    }
+
+    // Use goto+replaceState so SvelteKit's page URL is updated. Shallow replaceState
+    // leaves sveltekit:pageurl stale, so browser Back would restore an unfiltered feed.
+    isSyncingFeedUrl = true;
+    lastHydratedUrl = nextUrlSearch;
+    try {
+      await goto(`${$page.url.pathname}${nextUrlSearch}`, {
+        replaceState: true,
+        noScroll: true,
+        keepFocus: true
+      });
+    } finally {
+      lastHydratedUrl = $page.url.search;
+      isSyncingFeedUrl = false;
+    }
+  }
+
+  function normalizePersonalScope(value: string | null | undefined): PersonalScope {
+    const normalized = (value ?? '').trim().toLowerCase();
+    return normalized === 'following' || normalized === 'popular' ? normalized : defaultPreferences.scope;
+  }
+
+  function hydrateFromUrl(saved = $page.data.settings?.personalFeedPreferences) {
+    const params = $page.url.searchParams;
+    const core = resolveFeedCorePreferences({
+      params,
+      saved,
+      defaults: defaultPreferences,
+      normalizeScope: normalizePersonalScope,
+      normalizeFilter: normalizePersonalFilter
+    });
+    activeScope = core.scope as PersonalScope;
+    activeFilter = core.filter as PersonalFilter;
+    activeSort = core.sort as FeedSort;
+    activeWindow = core.window as FeedWindow;
+  }
+
+  $: if (preferencesReady && !isSyncingFeedUrl && $page.url.search !== lastHydratedUrl) {
+    lastHydratedUrl = $page.url.search;
+    hydrateFromUrl($page.data.settings?.personalFeedPreferences);
+    lastLoadedQuery = '';
+    void loadFeedItems();
+  }
+
   onMount(() => {
     void (async () => {
-      await hydratePreferences();
+      applyPreferences($page.data.settings?.personalFeedPreferences);
+      lastHydratedUrl = $page.url.search;
+      hydrateFromUrl($page.data.settings?.personalFeedPreferences);
+      preferencesReady = true;
+      syncFeedQueryToUrl();
+      lastLoadedQuery = '';
       await loadFeedItems();
     })();
   });
 </script>
 
 <section class="feed-page">
-  <PageHeader
-    title="Personal"
-    description="This timeline follows people instead of tags. Use it for direct social posting and followed-user public activity."
-  />
-
   <section class="toolbar-card">
     <div class="controls-row">
       <IconMenuButton
@@ -323,9 +480,17 @@
         <p>{activeScope === 'following' ? 'No posts or activity from people you follow match this filter yet.' : 'No followed activity or popular public posts match this filter yet.'}</p>
       </section>
     {:else}
-      {#each visibleItems as item}
+      {#each visibleItems as item (item.id)}
         <PersonalFeedCard item={item} />
       {/each}
+      <InfiniteFeedSentinel
+        disabled={!feedHasMore || feedItemsLoading}
+        loading={feedItemsLoadingMore}
+        on:loadMore={loadMoreFeedItems}
+      />
+      {#if !feedHasMore && visibleItems.length > 0}
+        <p class="end-copy">You're caught up.</p>
+      {/if}
     {/if}
   </div>
 </section>
@@ -348,6 +513,14 @@
 
   .stack :global(.surface:last-child) {
     border-bottom: none;
+  }
+
+  .end-copy {
+    margin: 0;
+    padding: 12px 4px 4px;
+    color: var(--text-soft);
+    font-size: 13px;
+    text-align: center;
   }
 
   .toolbar-card {

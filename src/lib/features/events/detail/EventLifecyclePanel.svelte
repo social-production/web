@@ -286,11 +286,13 @@
   $: plannedDayIsos = eventPlanScheduledDayIsos(selectedPlan);
   $: futurePlannedDayIsos = eventPlanFutureDayIsos(selectedPlan);
   $: canAdvanceCurrentPhase =
-    data.lifecycle.currentPhaseId === 'proposal'
-      ? (signalSummary?.advancementUnlocked ?? false)
-      : data.lifecycle.currentPhaseId === 'event-plan'
-        ? !!data.lifecycle.phaseTwo.winningPlanId
-        : data.lifecycle.currentPhaseId === 'activity';
+    data.governance === 'organizer_controlled'
+      ? data.lifecycle.currentPhaseId !== 'closed'
+      : data.lifecycle.currentPhaseId === 'proposal'
+        ? (signalSummary?.advancementUnlocked ?? false)
+        : data.lifecycle.currentPhaseId === 'event-plan'
+          ? !!data.lifecycle.phaseTwo.winningPlanId
+          : data.lifecycle.currentPhaseId === 'activity';
   $: if (
     activePhaseId === 'activity' &&
     futurePlannedDayIsos.length > 0 &&
@@ -455,6 +457,8 @@
       demandConsiderationNote: planForm.demandConsiderationNote,
       valueConsiderationNotes: planForm.valueConsiderationNotes,
       locationLabel,
+      locationId: planForm.locationId ?? null,
+      isOnline: planForm.locationIsOnline ?? false,
       schedule,
       planPhases: planForm.planPhases
     });
@@ -551,6 +555,7 @@
       endsAt: localDateTimeInputToIso(activityForm.endsAt),
       isOnline: activityForm.isOnline,
       locationLabel,
+      locationId: activityForm.locationId,
       roleRequirements,
       linkedPlanPhaseId: activityForm.linkedPlanPhaseId,
       note: activityForm.note

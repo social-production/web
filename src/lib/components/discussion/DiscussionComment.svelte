@@ -1,6 +1,5 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import CommentComposer from '$lib/components/shared/CommentComposer.svelte';
@@ -11,12 +10,15 @@
   import type { DetailComment } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
   import { scrollCommentIntoView } from '$lib/utils/comment-scroll';
+  import { moderatedPlaceholder, shouldHideModeratedBody } from '$lib/utils/moderation';
+  import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let comment: DetailComment;
   export let subjectId: string;
   export let highlightedCommentId: string | null = null;
   export let embedded = false;
+  export let onVote: ((vote: VoteDirection) => void) | null = null;
 
   let draftReply = '';
   let replyOpen = false;
@@ -32,8 +34,19 @@
 
   $: isHighlighted = highlightedCommentId === comment.id;
   $: viewerUsername = $page.data.bootstrap?.viewer?.username ?? null;
+  $: isModeratedAway = shouldHideModeratedBody({
+    body: comment.body,
+    report: comment.report,
+    moderationState: comment.moderationState
+  });
+  $: displayBody = isModeratedAway
+    ? moderatedPlaceholder(comment.report, comment.body)
+    : comment.body;
   $: supportsHiddenToggle =
-    comment.report?.reason === 'serious-harm' || comment.report?.resolution === 'hidden';
+    !isModeratedAway &&
+    (comment.report?.reason === 'serious-harm' ||
+      comment.report?.resolution === 'hidden' ||
+      comment.moderationState === 'hidden');
   $: bodyIsHidden = supportsHiddenToggle && !revealHiddenBody;
   $: if (highlightedCommentId !== lastHighlightedCommentId) {
     lastHighlightedCommentId = highlightedCommentId;
@@ -47,9 +60,9 @@
     void scrollCommentIntoView(() => cardElement);
   }
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await setVote(comment.id, event.detail.vote);
-    await invalidateAll();
+  async function handleVote({ vote }: { vote: VoteDirection }) {
+    onVote?.(vote);
+    await setVote(comment.id, vote);
   }
 
   async function submitReply() {
@@ -61,16 +74,16 @@
     draftReply = '';
     replyOpen = false;
     await replyComposer?.resetHeight();
-    await invalidateAll();
+    await invalidateAfterReport($page.url.pathname);
   }
 
   async function submitCommentReport() {
     reportPending = true;
 
     try {
-      await submitReport(subjectId, comment.id, reportReason, reportDescription);
+      await submitReport(subjectId, comment.id, reportReason, reportDescription, 'comment');
       closeReportComposer();
-      await invalidateAll();
+      await invalidateAfterReport($page.url.pathname);
     } finally {
       reportPending = false;
     }
@@ -85,7 +98,7 @@
 
     try {
       await setReportVote(comment.report.id, vote);
-      await invalidateAll();
+      await invalidateAfterReport($page.url.pathname);
     } finally {
       reportPending = false;
     }
@@ -122,22 +135,25 @@
       on:click={() => (revealHiddenBody = !revealHiddenBody)}
     >
       <span class="hidden-plus">{revealHiddenBody ? '−' : '+'}</span>
-      <span>{revealHiddenBody ? 'Hide' : 'Hidden'}</span>
+      <span>{revealHiddenBody ? 'Hide again' : 'Hidden for serious harm report — reveal to read'}</span>
     </button>
   {/if}
 
   {#if !bodyIsHidden}
-    <p class="body">{comment.body}</p>
+    <p class:moderated={isModeratedAway} class="body">{displayBody}</p>
   {/if}
 
   <div class="actions-row">
-    <VoteStrip activeVote={comment.activeVote} count={comment.voteCount} on:vote={handleVote} />
+    <VoteStrip activeVote={comment.activeVote} count={comment.voteCount} syncKey={comment.id} onvote={handleVote} />
     <button class="reply-button" type="button" on:click={() => (replyOpen = !replyOpen)}>
       {replyOpen ? 'Cancel reply' : 'Reply'}
     </button>
     <ReportMenu
       blockedMessage={viewerUsername === comment.authorUsername ? "You can't report yourself" : ''}
+      hasActiveReport={Boolean(comment.report)}
+      isUnderReview={comment.report?.resolution === 'under_review'}
       itemLabel="comment"
+      moderationState={comment.moderationState}
       report={comment.report ?? null}
       pending={reportPending}
       on:compose={openReportComposer}
@@ -237,6 +253,10 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  .body.moderated {
+    font-style: italic;
   }
 
   .reply-stack {

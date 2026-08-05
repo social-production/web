@@ -28,23 +28,23 @@ export const projectCreateTypeOptions: ProjectCreateTypeOption[] = [
   {
     value: 'productive',
     label: 'Productive project',
-    summary: 'Collective production of goods, materials, software, or infrastructure for direct community use.',
+    summary: 'Build or produce something new — e.g. construction, materials, tools, or software from scratch.',
     bestFor: [
-      'Building, growing, or making things together',
-      'Software or tools released for shared use',
-      'Projects that move through demand signals and planning phases'
+      'Creating shared capacity, goods, or tools',
+      'Designing and building something that does not exist yet',
+      'Work that needs demand and planning before production'
     ],
     lifecycleNote:
-      'Starts in Proposal so members can signal demand before production and distribution plans are chosen.'
+      'Starts in Proposal, then moves through production and distribution planning before activity.'
   },
   {
     value: 'collective-service',
     label: 'Collective service',
-    summary: 'A group-run ongoing service such as care, maintenance, mutual aid operations, or shared facilities.',
+    summary: 'Maintain, update, or operate something already in use — e.g. keep software running, dinner service, shared care.',
     bestFor: [
-      'Services operated by the whole group',
-      'Operations and access planning before activity begins',
-      'Recurring community support rather than one-off help'
+      'Ongoing services delivered directly to people',
+      'Maintaining and improving existing tools or systems',
+      'Recurring operations rather than one-off production'
     ],
     lifecycleNote:
       'Starts in Proposal, then moves through operations and access planning before the service opens for activity.'
@@ -52,7 +52,7 @@ export const projectCreateTypeOptions: ProjectCreateTypeOption[] = [
   {
     value: 'personal-service',
     label: 'Personal service',
-    summary: 'One person offering time or skill directly through calendar slots and/or written requests.',
+    summary: 'One person offering time or skill through calendar slots and/or written requests.',
     bestFor: [
       'Individual help you can schedule or request directly',
       'Skills offered without collective planning phases',
@@ -146,19 +146,40 @@ export function projectFeedPhaseLabel(mode: ProjectMode, phaseId: ProjectLifecyc
     }
   }
 
+  if (mode === 'collective-service') {
+    switch (phaseId) {
+      case 'phase-1':
+        return 'Proposal';
+      case 'phase-2':
+        return 'Operations Plan';
+      case 'phase-3':
+        return 'Access Plan';
+      case 'phase-5':
+        return 'Activity';
+      case 'phase-7':
+        return 'Closed';
+      default:
+        return 'Planning';
+    }
+  }
+
   switch (phaseId) {
     case 'phase-1':
       return 'Proposal';
     case 'phase-2':
-      return 'Planning';
+      return 'Production Plan';
     case 'phase-3':
-      return 'Planning';
+      return 'Distribution Plan';
     case 'phase-4':
       return 'Acquisition';
     case 'phase-5':
       return 'Activity';
     case 'phase-6':
       return 'Activity';
+    case 'phase-7':
+      return 'Closed';
+    default:
+      return 'Proposal';
   }
 }
 

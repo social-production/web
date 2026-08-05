@@ -22,8 +22,28 @@ export interface ContentReportVoteSummary {
   noCount: number;
   activeVote: ContentReportVote | null;
   eligibleVoterCount: number;
+  /** Weekly-active hybrid audience used as quorum denominator N. */
+  audienceSize: number;
+  totalVotes: number;
+  /** Alias for deleteQuorum kept for older callers. */
   votesRequired: number;
+  /** Nominal delete yes-share among votes cast (never below 0.66). */
+  requiredYesShare: number;
+  deleteYesShare: number;
+  hideYesShare: number;
+  /** Minimum total votes cast before deletion can pass. */
+  deleteQuorum: number;
+  /** Minimum total votes cast before serious-harm blur/hide. */
+  hideQuorum: number;
+  /** Alias for deleteQuorum. */
+  removalQuorum: number;
+  /** Alias for hideQuorum. */
+  restrictionQuorum: number;
+  restrictionVotesRequired: number;
 }
+
+export type ContentReportResolution = 'open' | 'under_review' | 'hidden' | 'removed' | 'dismissed';
+export type ModerationState = 'visible' | 'under_review' | 'hidden' | 'removed';
 
 export interface ContentReportSummary {
   id: string;
@@ -33,7 +53,7 @@ export interface ContentReportSummary {
   description: string;
   createdAt: string;
   authorUsername: string;
-  resolution: 'open' | 'hidden' | 'removed';
+  resolution: ContentReportResolution;
   voteSummary: ContentReportVoteSummary;
 }
 
@@ -75,6 +95,7 @@ export interface DetailComment {
   voteCount: number;
   activeVote: VoteDirection;
   report?: ContentReportSummary | null;
+  moderationState?: ModerationState;
   replies: DetailComment[];
 }
 
@@ -142,6 +163,8 @@ export interface EventPlanScheduleInput {
   finishTimeLabel?: string | null;
   /** UTC ISO derived from submitter-local start date/time. */
   startAtUtc?: string | null;
+  /** UTC ISO derived from submitter-local finish date/time. */
+  endAtUtc?: string | null;
 }
 
 export interface EventPlanSchedule extends EventPlanScheduleInput {
@@ -201,10 +224,13 @@ export interface ProjectProductionPlanInput {
   description: string;
   projectSubtype: ProjectSubtype;
   repositoryUrl?: string;
+  licenseLabel?: string;
   demandConsiderationNote: string;
   valueConsiderationNotes?: Record<string, string>;
   totalCostLabel: string;
   planPhases: ProjectPlanPhaseInput[];
+  locationId?: string | null;
+  locationLabel?: string;
   outputSummary?: string;
   materialsSummary?: string;
   acquisitionsSummary?: string;
@@ -244,6 +270,11 @@ export interface ProjectDistributionPlanInput {
   valueConsiderationNotes?: Record<string, string>;
   totalCostLabel: string;
   planPhases: ProjectPlanPhaseInput[];
+  locationId?: string | null;
+  locationLabel?: string;
+  projectLocationId?: string | null;
+  projectLocationLabel?: string;
+  sameAsProductionLocation?: boolean;
   distributionSummary?: string;
   accessSummary?: string;
   reserveSummary?: string;
@@ -258,6 +289,8 @@ export interface EventPlanInput {
   demandConsiderationNote: string;
   valueConsiderationNotes?: Record<string, string>;
   locationLabel: string;
+  locationId?: string | null;
+  isOnline?: boolean;
   schedule?: EventPlanScheduleInput;
   planPhases: EventPlanPhaseInput[];
 }
@@ -293,6 +326,8 @@ export interface ProjectProductionPlan {
   isLeading: boolean;
   leaderStatus?: PlanLeaderStatus;
   viewerCanEdit: boolean;
+  locationId?: string | null;
+  locationLabel?: string;
 }
 
 export interface ProjectAcquisitionPlanBundle {
@@ -338,6 +373,10 @@ export interface ProjectDistributionPlan {
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
   leaderStatus?: PlanLeaderStatus;
+  locationId?: string | null;
+  locationLabel?: string;
+  projectLocationId?: string | null;
+  projectLocationLabel?: string;
 }
 
 export interface EventPlan {
@@ -350,6 +389,7 @@ export interface EventPlan {
   demandConsiderationNote: string;
   valueConsiderationNotes?: Record<string, string>;
   locationLabel: string;
+  locationId?: string | null;
   schedule: EventPlanSchedule;
   planPhases: EventPlanPhaseItem[];
   valueAssessments: ProjectPlanValueAssessment[];
@@ -365,6 +405,7 @@ export interface ProjectActivityInput {
   endsAt: string;
   isOnline?: boolean;
   locationLabel: string;
+  locationId?: string | null;
   roleRequirements: ProjectActivityRoleInput[];
   linkedPlanPhaseId?: string | null;
   note: string;
@@ -507,6 +548,7 @@ export interface ProjectSoftwarePullRequest {
   stage: 'approval' | 'awaiting-merge' | 'confirmation' | 'confirmed' | 'rejected' | 'replaced';
   stageLabel: string;
   mergeId: string | null;
+  mergeUrl: string | null;
   mergedByUsername: string | null;
   approvalThresholdPercent: number;
   voteSummary: ProjectPlanVoteSummary | null;
@@ -869,14 +911,47 @@ export interface ProjectPhaseFourData {
   placeholderSections: ProjectPlaceholderSection[];
 }
 
-export interface ProjectLinksFrameItem {
+export type DetailLinkSubjectKind = 'project' | 'event';
+export type DetailLinkRequestType = 'create' | 'sever';
+
+export interface DetailLinkTargetDetail {
+  kind: DetailLinkSubjectKind;
+  slug: string;
+  title: string;
+  description: string;
+  href: string;
+  memberCount: number;
+  locationLabel: string;
+  projectMode?: string | null;
+  stageLabel?: string | null;
+  timeLabel?: string | null;
+  scheduledAt?: string | null;
+}
+
+export interface DetailLinkGovernanceTally {
+  yesCount: number;
+  noCount: number;
+  approvalPercent: number;
+  label: string;
+}
+
+export interface DetailLinksFrameItem {
   id: string;
   title: string;
   relationshipLabel: string;
   summary: string;
   href?: string | null;
+  subjectKind: DetailLinkSubjectKind;
+  subjectLabel: string;
+  linkKind?: string;
+  targetDetail?: DetailLinkTargetDetail | null;
+  governanceTally?: DetailLinkGovernanceTally | null;
+  openSeverRequest?: DetailLinkRequest | null;
+  viewerCanProposeSever?: boolean;
   publicItem?: PublicProjectItem | null;
 }
+
+export type ProjectLinksFrameItem = DetailLinksFrameItem;
 
 export interface ProjectConversionLineageFrame {
   title: string;
@@ -917,41 +992,71 @@ export interface ProjectManualLinkVoteState {
   resultNote: string;
   viewerCanVote?: boolean;
   viewerVote?: ProjectApprovalVote | null;
+  voteScope?: 'source' | 'target';
+  subjectKind?: DetailLinkSubjectKind;
+  subjectSlug?: string;
 }
 
-export interface ProjectManualLinkRequest {
+export interface DetailLinkRequest {
   id: string;
+  requestType?: DetailLinkRequestType;
+  linkId?: string | null;
   title: string;
   relationshipLabel: string;
   summary: string;
   statusLabel: string;
   proposedByUsername: string;
   createdAtLabel: string;
+  targetHref?: string | null;
+  targetTitle: string;
+  targetKind: DetailLinkSubjectKind;
+  targetDetail?: DetailLinkTargetDetail | null;
+  governanceTally?: DetailLinkGovernanceTally | null;
+  sourceTitle?: string;
+  sourceVoteLabel?: string;
+  targetVoteLabel?: string;
+  thisRecordVote: ProjectManualLinkVoteState;
+  otherRecordVote: ProjectManualLinkVoteState;
   targetProjectHref?: string | null;
-  thisProjectVote: ProjectManualLinkVoteState;
-  otherProjectVote: ProjectManualLinkVoteState;
+  thisProjectVote?: ProjectManualLinkVoteState;
+  otherProjectVote?: ProjectManualLinkVoteState;
 }
 
-export interface ProjectLinkCandidate {
+export type ProjectManualLinkRequest = DetailLinkRequest;
+
+export interface DetailLinkCandidate {
+  kind: DetailLinkSubjectKind;
   slug: string;
   title: string;
+  label: string;
   href: string;
 }
 
-export interface ProjectLinksFrameData {
-  projectSlug: string;
+export type ProjectLinkCandidate = DetailLinkCandidate;
+
+export interface DetailLinksFrameData {
+  ownerKind: DetailLinkSubjectKind;
+  ownerSlug: string;
   intro: string;
-  autoLinks: ProjectLinksFrameItem[];
-  manualLinks: ProjectLinksFrameItem[];
-  manualLinkRequests: ProjectManualLinkRequest[];
-  linkableProjects: ProjectLinkCandidate[];
+  activeLinks: DetailLinksFrameItem[];
+  pendingLinkRequests: DetailLinkRequest[];
+  historicalLinks: DetailLinksFrameItem[];
+  historicalLinkRequests: DetailLinkRequest[];
+  linkableRecords: DetailLinkCandidate[];
   viewerCanProposeLinks: boolean;
   conversionNote: string;
   conversionWorkflow: ProjectConversionWorkflowItem[];
   conversionLineage: ProjectConversionLineageFrame | null;
-  requestFrames: ProjectRequestFrame[];
-  placeholderSections: ProjectPlaceholderSection[];
+  projectSlug?: string;
+  autoLinks?: DetailLinksFrameItem[];
+  manualLinks?: DetailLinksFrameItem[];
+  manualLinkRequests?: DetailLinkRequest[];
+  linkableProjects?: DetailLinkCandidate[];
+  requestFrames?: ProjectRequestFrame[];
+  placeholderSections?: ProjectPlaceholderSection[];
 }
+
+export type ProjectLinksFrameData = DetailLinksFrameData;
 
 export interface ProjectInventoryAssetFrameItem {
   id: string;
@@ -998,9 +1103,13 @@ export type DecisionHistoryEntryKind =
   | 'project-pull-request-confirmation'
   | 'project-merge-capability-change'
   | 'project-repository-replacement'
+  | 'project-link-create'
+  | 'project-link-sever'
   | 'event-phase-change'
   | 'event-update'
-  | 'event-edit';
+  | 'event-edit'
+  | 'event-link-create'
+  | 'event-link-sever';
 
 export interface DecisionHistoryFieldChange {
   label: string;
@@ -1045,7 +1154,9 @@ export interface DecisionHistoryPullRequestPayload {
   pullRequestId: string;
   pullRequestUrl: string;
   mergeId: string | null;
+  mergeUrl: string | null;
   repositoryUrl: string | null;
+  stage?: string;
 }
 
 export interface DecisionHistoryMergeCapabilityPayload {
@@ -1063,6 +1174,22 @@ export interface DecisionHistoryRepositoryReplacementPayload {
   relatedPullRequestId: string | null;
 }
 
+export interface DecisionHistoryLinkPayload {
+  type: 'link';
+  requestType: DetailLinkRequestType;
+  counterpartTitle: string;
+  counterpartKind: DetailLinkSubjectKind;
+  counterpartHref: string | null;
+  relationshipLabel: string;
+  summary: string;
+  sourceTitle: string;
+  targetTitle: string;
+  sourceVoteLabel: string;
+  targetVoteLabel: string;
+  thisSideLabel: string;
+  otherSideLabel: string;
+}
+
 export type DecisionHistoryPayload =
   | DecisionHistoryPhaseChangePayload
   | DecisionHistoryUpdatePayload
@@ -1070,7 +1197,8 @@ export type DecisionHistoryPayload =
   | DecisionHistorySettingsChangePayload
   | DecisionHistoryPullRequestPayload
   | DecisionHistoryMergeCapabilityPayload
-  | DecisionHistoryRepositoryReplacementPayload;
+  | DecisionHistoryRepositoryReplacementPayload
+  | DecisionHistoryLinkPayload;
 
 export interface DecisionHistoryEntry {
   id: string;
@@ -1086,6 +1214,10 @@ export interface DecisionHistoryEntry {
   canStillPass: boolean;
   canVote: boolean;
   payload: DecisionHistoryPayload;
+  isInherited?: boolean;
+  originPredecessorSlug?: string;
+  originPredecessorTitle?: string;
+  originLabel?: string;
 }
 
 export interface ProjectPhaseOneData {

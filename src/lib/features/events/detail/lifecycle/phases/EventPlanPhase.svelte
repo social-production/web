@@ -63,6 +63,13 @@
 </script>
 
 <section class="phase-surface">
+  {#if data.governance === 'organizer_controlled' && !data.lifecycle.phaseTwo.viewerCanSubmitPlans}
+    <div class="empty-card">
+      Organizers manage the event plan. Members can join and sign up for roles once activities are
+      posted.
+    </div>
+  {/if}
+
   {#if data.lifecycle.phaseTwo.viewerCanSubmitPlans}
     <div class="composer-toggle-row">
       <RoundPlusButton
@@ -80,6 +87,7 @@
       steps={creationSteps}
       bind:form={planForm}
       submitLabel="Submit event plan"
+      signalSummary={data.lifecycle.phaseOne.signalSummary}
       {addPlanPhase}
       onSubmit={submitPlan}
       onCancel={() => (showPlanComposer = false)}

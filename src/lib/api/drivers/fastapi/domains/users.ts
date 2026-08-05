@@ -1,7 +1,14 @@
 import { apiClient } from '../client';
 import { mapPersonalItem, registerFeedEntity } from './feeds';
+import { DEFAULT_FEED_PAGE_SIZE } from '$lib/features/feed/feedPagination';
 import type { ProfilePageData, SettingsPageData, SettingsUpdateInput } from '$lib/types/account';
 import type { ViewerSummary } from '$lib/types/bootstrap';
+import {
+  buildFeedQueryString,
+  normalizeFeedFilter,
+  normalizeFeedWindow,
+  toFeedSortPreference
+} from '$lib/utils/feedQuery';
 
 interface BackendUser {
   id: string;
@@ -28,6 +35,7 @@ interface BackendSettings {
   require_follow_approval: boolean;
   preferred_language: string;
   display_timezone?: string | null;
+  default_location_id?: string | null;
 }
 
 interface BackendFollowItem extends BackendUser {
@@ -71,16 +79,22 @@ function mapSettings(user: BackendUser, s: BackendSettings): SettingsPageData {
     appearanceThemeMode: s.appearance_theme_mode as SettingsPageData['appearanceThemeMode'],
     defaultFeed: s.default_feed as SettingsPageData['defaultFeed'],
     publicFeedPreferences: {
-      scope: s.public_feed_scope as never,
-      filter: s.public_feed_filter as never,
-      sort: s.public_feed_sort as never,
-      window: s.public_feed_window as never,
+      scope: s.public_feed_scope as SettingsPageData['publicFeedPreferences']['scope'],
+      filter: normalizeFeedFilter(s.public_feed_filter) as SettingsPageData['publicFeedPreferences']['filter'],
+      sort: toFeedSortPreference(s.public_feed_sort),
+      window: normalizeFeedWindow(s.public_feed_window)
     },
     personalFeedPreferences: {
-      scope: s.personal_feed_scope as never,
-      filter: s.personal_feed_filter as never,
-      sort: s.personal_feed_sort as never,
-      window: s.personal_feed_window as never,
+      scope: s.personal_feed_scope as SettingsPageData['personalFeedPreferences']['scope'],
+      filter: (s.personal_feed_filter === 'help_requests'
+        ? 'help_requests'
+        : s.personal_feed_filter === 'activity' ||
+            s.personal_feed_filter === 'posts' ||
+            s.personal_feed_filter === 'events'
+          ? s.personal_feed_filter
+          : 'all') as SettingsPageData['personalFeedPreferences']['filter'],
+      sort: toFeedSortPreference(s.personal_feed_sort),
+      window: normalizeFeedWindow(s.personal_feed_window)
     },
     hidePublicActivityFromPersonalFeeds: s.hide_public_activity_from_personal_feeds,
     hidePersonalFeedFromNonFollowers: s.hide_personal_feed_from_non_followers,
@@ -88,6 +102,7 @@ function mapSettings(user: BackendUser, s: BackendSettings): SettingsPageData {
     requireFollowApproval: s.require_follow_approval,
     preferredLanguage: (s.preferred_language === 'nl' ? 'nl' : 'en') as SettingsPageData['preferredLanguage'],
     displayTimezone: s.display_timezone ?? null,
+    defaultLocationId: s.default_location_id ?? null,
   };
 }
 
@@ -134,6 +149,8 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
     body.preferred_language = input.preferredLanguage;
   if (input.displayTimezone !== undefined)
     body.display_timezone = input.displayTimezone;
+  if (input.defaultLocationId !== undefined)
+    body.default_location_id = input.defaultLocationId;
   await apiClient.patch('/users/me/settings', body);
 }
 
@@ -143,7 +160,13 @@ export async function fetchProfile(username: string): Promise<ProfilePageData | 
     const [followersRes, followingRes, feedRes, followRequestsRes] = await Promise.all([
       apiClient.get<BackendFollowList>(`/users/${username}/followers`),
       apiClient.get<BackendFollowList>(`/users/${username}/following`),
-      apiClient.get<{ items: Parameters<typeof mapPersonalItem>[0][] }>(`/feeds/user/${encodeURIComponent(username)}`),
+      apiClient.get<{ items: Parameters<typeof mapPersonalItem>[0][] }>(
+        `/feeds/user/${encodeURIComponent(username)}${buildFeedQueryString({
+          sort: 'recent',
+          limit: DEFAULT_FEED_PAGE_SIZE,
+          offset: 0
+        })}`
+      ),
       profileRes.is_own_profile
         ? apiClient.get<BackendFollowRequestList>('/users/me/follow-requests')
         : Promise.resolve({ total: 0, items: [] }),

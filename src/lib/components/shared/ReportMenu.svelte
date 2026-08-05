@@ -1,11 +1,18 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { ContentReportSummary, ContentReportVote } from '$lib/types/detail';
+  import type { ContentReportSummary, ContentReportVote, ModerationState } from '$lib/types/detail';
+  import { formatReportThresholdLines, moderationStatusLabel } from '$lib/utils/moderation';
+  import { portal } from '$lib/utils/portal';
 
   export let itemLabel = 'item';
   export let report: ContentReportSummary | null = null;
   export let pending = false;
   export let blockedMessage = '';
+  export let moderationState: ModerationState | null | undefined = undefined;
+  export let isUnderReview = false;
+  export let hasActiveReport = false;
+  /** When false, only the status trigger is shown (no compose/vote actions). */
+  export let interactive = true;
 
   const dispatch = createEventDispatcher<{
     compose: void;
@@ -15,12 +22,32 @@
   let menuOpen = false;
   let showingBlockedMessage = false;
 
+  $: statusLabel = moderationStatusLabel({
+    moderationState,
+    report,
+    isUnderReview,
+    hasActiveReport: hasActiveReport || !!report
+  });
+  $: canVote = !!report && report.resolution !== 'removed' && report.resolution !== 'dismissed';
+  $: triggerLabel = statusLabel
+    ? `${statusLabel} · ${report ? `View ${itemLabel} report` : `Report ${itemLabel}`}`
+    : report
+      ? `View ${itemLabel} report`
+      : `Report ${itemLabel}`;
+  $: thresholdLines = report ? formatReportThresholdLines(report) : [];
+  $: voteCountCopy = report
+    ? `Current: ${report.voteSummary.yesCount} yes · ${report.voteSummary.noCount} no · ${report.voteSummary.totalVotes} total`
+    : null;
+
   function closeMenu() {
     menuOpen = false;
     showingBlockedMessage = false;
   }
 
   function toggleMenu() {
+    if (!interactive) {
+      return;
+    }
     if (menuOpen) {
       closeMenu();
       return;
@@ -28,6 +55,12 @@
 
     menuOpen = true;
     showingBlockedMessage = false;
+  }
+
+  function handleTriggerClick(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleMenu();
   }
 
   function openComposer() {
@@ -47,6 +80,22 @@
 
   function reasonLabel(reasonValue: ContentReportSummary['reason']) {
     return reasonValue === 'spam' ? 'Spam' : 'Serious harm';
+  }
+
+  function resolutionLabel(resolution: ContentReportSummary['resolution']) {
+    switch (resolution) {
+      case 'open':
+      case 'under_review':
+        return 'Under review';
+      case 'hidden':
+        return 'Hidden';
+      case 'removed':
+        return 'Removed';
+      case 'dismissed':
+        return 'Dismissed';
+      default:
+        return 'Under review';
+    }
   }
 
   function handleBackdropClick(event: MouseEvent) {
@@ -73,37 +122,61 @@
 
 <div class="report-menu-shell">
   <button
-    aria-expanded={menuOpen}
-    aria-label={report ? `View ${itemLabel} report` : `Report ${itemLabel}`}
-    class:active-report={!!report}
+    aria-expanded={interactive ? menuOpen : undefined}
+    aria-label={triggerLabel}
+    class:active-report={!!report || !!statusLabel}
+    class:under-review={statusLabel === 'Under review'}
+    class:hidden-state={statusLabel === 'Hidden'}
+    class:read-only={!interactive}
     class="report-trigger"
     type="button"
-    on:click={toggleMenu}
+    on:click={handleTriggerClick}
   >
-    <span aria-hidden="true" class="menu-dots"></span>
-    {#if report}
+    {#if statusLabel}
+      <span class="status-token">{statusLabel}</span>
+    {/if}
+    {#if interactive}
+      <span aria-hidden="true" class="menu-dots"></span>
+    {/if}
+    {#if report && !statusLabel}
       <span aria-hidden="true" class="report-indicator"></span>
     {/if}
   </button>
 </div>
 
-{#if menuOpen}
+{#if interactive && menuOpen}
   <div
     aria-hidden="true"
     class="report-menu-backdrop"
     on:click={handleBackdropClick}
     on:keydown={handleBackdropKeydown}
     role="presentation"
+    style="position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:24px;background:color-mix(in srgb, var(--text-main) 20%, transparent);"
     tabindex="-1"
+    use:portal={'body'}
   >
-    <div aria-modal="true" class="report-menu" role="dialog">
+    <div
+      aria-modal="true"
+      class="report-menu"
+      on:click|stopPropagation
+      on:keydown|stopPropagation
+      role="dialog"
+      style="position:relative;z-index:1;width:min(340px, calc(100vw - 40px));"
+      tabindex="-1"
+    >
       {#if report}
-        <p class="menu-label">Active report - {reasonLabel(report.reason)}</p>
-        {#if report.description}
-          <p class="menu-copy">{report.description}</p>
+        <p class="menu-label">{resolutionLabel(report.resolution)} - {reasonLabel(report.reason)}</p>
+        <p class="menu-copy report-message">
+          {report.description?.trim() ? report.description : 'No additional message was provided.'}
+        </p>
+        {#each thresholdLines as line}
+          <p class="menu-copy threshold-copy">{line}</p>
+        {/each}
+        {#if voteCountCopy}
+          <p class="menu-copy vote-summary">{voteCountCopy}</p>
         {/if}
 
-        {#if report.resolution !== 'removed'}
+        {#if canVote}
           <div class="menu-actions">
             <button
               class:active-vote={report.voteSummary.activeVote === 'yes'}
@@ -142,23 +215,66 @@
 <style>
   .report-menu-shell {
     display: inline-grid;
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 5;
+    pointer-events: auto;
   }
 
   .report-trigger {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 6px;
-    border: none;
+    padding: 4px 8px;
+    border: 1px solid transparent;
     border-radius: 999px;
     background: transparent;
     color: var(--text-soft);
-    transition: background-color 120ms ease, color 120ms ease;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
+
+  .report-trigger:not(.read-only):hover,
+  .report-trigger:not(.read-only):focus-visible {
+    background: color-mix(in srgb, var(--panel-border) 42%, transparent);
+    color: var(--text-main);
+    border-color: color-mix(in srgb, var(--panel-border) 70%, transparent);
   }
 
   .report-trigger.active-report {
-    background: color-mix(in srgb, var(--brand-soft) 78%, transparent);
+    background: var(--brand-soft);
     color: var(--brand-strong);
+    border: 1px solid color-mix(in srgb, var(--brand) 45%, var(--panel-border));
+  }
+
+  .report-trigger.active-report:not(.read-only):hover,
+  .report-trigger.active-report:not(.read-only):focus-visible {
+    background: color-mix(in srgb, var(--brand-soft) 70%, var(--panel));
+    border-color: var(--brand);
+  }
+
+  .report-trigger.under-review {
+    border: 1px solid var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .report-trigger.hidden-state {
+    border: 1px solid color-mix(in srgb, var(--brand) 55%, var(--panel-border));
+    background: var(--brand-badge);
+    color: var(--brand-strong);
+  }
+
+  .report-trigger.read-only {
+    cursor: default;
+  }
+
+  .status-token {
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: nowrap;
   }
 
   .menu-dots {
@@ -177,21 +293,15 @@
     background: var(--brand);
   }
 
+  /* Position/z-index also set inline so they survive portal out of scoped CSS trees. */
   .report-menu-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 80;
-    display: grid;
-    place-items: center;
-    padding: 24px;
-    background: color-mix(in srgb, var(--text-main) 20%, transparent);
+    isolation: isolate;
   }
 
   .report-menu {
-    width: min(320px, calc(100vw - 40px));
     padding: 12px;
     display: grid;
-    gap: 10px;
+    gap: 8px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-soft);
@@ -211,7 +321,25 @@
 
   .menu-copy {
     color: var(--text-soft);
-    line-height: 1.45;
+    line-height: 1.4;
+  }
+
+  .report-message {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    color: var(--text-main);
+    font-size: 13px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .threshold-copy,
+  .vote-summary {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
   }
 
   .menu-actions {
@@ -237,7 +365,7 @@
 
   .vote-chip.active-vote {
     border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand-soft) 78%, white 22%);
+    background: var(--brand-soft);
     color: var(--brand-strong);
   }
 
@@ -249,6 +377,11 @@
     background: transparent;
     color: var(--text-main);
     text-align: left;
+  }
+
+  .menu-item:hover,
+  .menu-item:focus-visible {
+    color: var(--brand-strong);
   }
 
   .menu-dismiss {

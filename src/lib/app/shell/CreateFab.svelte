@@ -1,7 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { page } from '$app/stores';
   import CreateMenuIcon from '$lib/app/shell/CreateMenuIcon.svelte';
   import { createContentLinks, createSurfaceLinks } from '$lib/app/shell/createMenuItems';
+  import { captureCreateReturnState } from '$lib/stores/createReturnState';
 
   export let open = false;
   export let viewerLoggedIn = false;
@@ -21,6 +23,7 @@
   }
 
   function handleNavigate() {
+    captureCreateReturnState($page.url, typeof window !== 'undefined' ? window.scrollY : 0);
     closeMenu();
   }
 

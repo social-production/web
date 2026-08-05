@@ -53,6 +53,8 @@
         return entry.payload.repositoryUrl;
       case 'settings-change':
         return entry.payload.proposedSettings.summary;
+      case 'link':
+        return `${entry.payload.requestType === 'sever' ? 'Sever' : 'Link'} · ${entry.payload.counterpartTitle}`;
       default:
         return null;
     }
@@ -108,6 +110,13 @@
         <span class={`status-pill ${entry.status}`}>{statusLabel(entry.status)}</span>
       </div>
       <span class="history-requirement">{requirementLabel(entry)}</span>
+    </div>
+    {#if entry.originLabel}
+      <p class="origin-label">{entry.originLabel}</p>
+    {/if}
+    <div class="history-meta-row">
+      <span class="history-meta-left">{historyVoteSummary(entry)}</span>
+      <span class="history-meta-right">{entry.authorUsername} · {formatRelativeTime(entry.createdAt)}</span>
     </div>
   </button>
 
@@ -184,7 +193,7 @@
                 {entry.payload.repositoryUrl}
               </a>
             {:else}
-              <strong>Not recorded</strong>
+              <strong>Not linked yet</strong>
             {/if}
           </div>
         </div>
@@ -202,10 +211,28 @@
           <span class="detail-section-title">Summary</span>
           <p>{entry.payload.summary}</p>
         </div>
-        {#if entry.payload.mergeId}
-          <div class="detail-card">
-            <span>Merged commit</span>
-            <strong>{entry.payload.mergeId}</strong>
+        {#if entry.payload.mergeId || entry.payload.mergeUrl}
+          <div class="detail-grid two-up">
+            {#if entry.payload.mergeId}
+              <div class="detail-card">
+                <span>Merge ID</span>
+                {#if entry.payload.mergeUrl}
+                  <a href={normalizeExternalUrl(entry.payload.mergeUrl)} rel="noreferrer" target="_blank">
+                    {entry.payload.mergeId}
+                  </a>
+                {:else}
+                  <strong>{entry.payload.mergeId}</strong>
+                {/if}
+              </div>
+            {/if}
+            {#if entry.payload.mergeUrl}
+              <div class="detail-card">
+                <span>Merge link</span>
+                <a href={normalizeExternalUrl(entry.payload.mergeUrl)} rel="noreferrer" target="_blank">
+                  {entry.payload.mergeUrl}
+                </a>
+              </div>
+            {/if}
           </div>
         {/if}
       {:else if entry.payload.type === 'merge-capability'}
@@ -234,7 +261,7 @@
                 {entry.payload.previousRepositoryUrl}
               </a>
             {:else}
-              <strong>Not recorded</strong>
+              <strong>Not linked yet</strong>
             {/if}
           </div>
         </div>
@@ -247,6 +274,35 @@
         <div class="detail-copy">
           <span class="detail-section-title">Reason</span>
           <p>{entry.payload.reason}</p>
+        </div>
+      {:else if entry.payload.type === 'link'}
+        <div class="detail-grid two-up">
+          <div class="detail-card">
+            <span>Request</span>
+            <strong>{entry.payload.requestType === 'sever' ? 'Sever link' : 'Create link'}</strong>
+          </div>
+          <div class="detail-card">
+            <span>Counterpart</span>
+            {#if entry.payload.counterpartHref}
+              <a href={entry.payload.counterpartHref}>{entry.payload.counterpartTitle}</a>
+            {:else}
+              <strong>{entry.payload.counterpartTitle}</strong>
+            {/if}
+          </div>
+        </div>
+        <div class="detail-copy">
+          <span class="detail-section-title">Why</span>
+          <p>{entry.payload.summary}</p>
+        </div>
+        <div class="detail-grid two-up">
+          <div class="detail-card">
+            <span>This side</span>
+            <strong>{entry.payload.thisSideLabel}</strong>
+          </div>
+          <div class="detail-card">
+            <span>Other side</span>
+            <strong>{entry.payload.otherSideLabel}</strong>
+          </div>
         </div>
       {:else}
         <div class="detail-copy">
@@ -277,19 +333,6 @@
       {/if}
     </div>
   {/if}
-
-  <button
-    aria-controls={`history-details-${entry.id}`}
-    aria-expanded={open}
-    class="history-toggle history-toggle-footer"
-    type="button"
-    on:click={toggleOpen}
-  >
-    <div class="history-meta-row">
-      <span class="history-meta-left">{historyVoteSummary(entry)}</span>
-      <span class="history-meta-right">{entry.authorUsername} · {formatRelativeTime(entry.createdAt)}</span>
-    </div>
-  </button>
 </article>
 
 <style>
@@ -317,7 +360,8 @@
   }
 
   .history-toggle {
-    display: block;
+    display: grid;
+    gap: 10px;
     width: 100%;
     padding: 14px 16px;
     border: 0;
@@ -325,10 +369,6 @@
     color: inherit;
     cursor: pointer;
     text-align: left;
-  }
-
-  .history-toggle-footer {
-    padding-top: 12px;
   }
 
   .history-status-row,
@@ -346,9 +386,15 @@
   .detail-note,
   .history-meta-left,
   .history-meta-right,
-  .history-requirement {
+  .history-requirement,
+  .origin-label {
     color: var(--text-soft);
     font-size: 12px;
+  }
+
+  .origin-label {
+    margin: 0;
+    text-align: left;
   }
 
   .history-details-head strong,
@@ -404,15 +450,11 @@
   }
 
   .history-details {
-    padding: 0 16px 12px;
-  }
-
-  .history-toggle-footer {
-    padding-top: 12px;
+    padding: 0 16px 16px;
   }
 
   .history-details-head {
-    padding-top: 12px;
+    padding-top: 4px;
   }
 
   .detail-grid.two-up,

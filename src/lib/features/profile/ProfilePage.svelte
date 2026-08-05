@@ -6,6 +6,11 @@
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
+  import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
+  import {
+    DEFAULT_FEED_PAGE_SIZE,
+    appendUniqueById
+  } from '$lib/features/feed/feedPagination';
   import {
     acceptFollowRequest,
     followUser,
@@ -13,25 +18,37 @@
     rejectFollowRequest,
     unfollowUser
   } from '$lib/services/queries/account';
+  import { getUserFeedPage } from '$lib/services/queries/feeds';
   import type { FollowStatus, ProfilePageData } from '$lib/types/account';
   import type { PersonalFeedItem } from '$lib/types/feed';
   import type { ViewerSummary } from '$lib/types/bootstrap';
+  import { profileSortToApiSort, type FeedSortQuery } from '$lib/utils/feedQuery';
+  import { mergeFeedEngagement } from '$lib/utils/feedSignals';
 
   export let data: ProfilePageData;
 
   type FeedFilter = 'all' | 'public' | 'personal';
   type PeopleListMode = 'followers' | 'following' | null;
-  type SortMode = 'newest' | 'top';
+  type SortMode = 'newest' | 'top' | 'oldest';
 
   const sortOptions = [
     { value: 'newest', label: 'Newest' },
-    { value: 'top', label: 'Top' }
+    { value: 'top', label: 'Top' },
+    { value: 'oldest', label: 'Oldest' }
   ];
 
   let activeFilter: FeedFilter = 'all';
   let viewedUsername = data.username;
   let activePeopleList: PeopleListMode = null;
   let sortMode: SortMode = 'newest';
+  let feedItems: PersonalFeedItem[] = data.feed;
+  let feedLoading = false;
+  let feedLoadingMore = false;
+  let feedHasMore = data.feed.length >= DEFAULT_FEED_PAGE_SIZE;
+  let feedOffset = data.feed.length;
+  let feedRequestId = 0;
+  let lastLoadedQuery = `${data.username}:recent`;
+  let appliedFeedRef = data.feed;
   let followPending = false;
   let followMessage = '';
   let requestActionPending = '';
@@ -61,6 +78,13 @@
     viewedUsername = data.username;
     activeFilter = 'all';
     activePeopleList = null;
+    sortMode = 'newest';
+    feedItems = data.feed;
+    feedOffset = data.feed.length;
+    feedHasMore = data.feed.length >= DEFAULT_FEED_PAGE_SIZE;
+    // Profile loader always requests recent (Newest).
+    lastLoadedQuery = `${data.username}:recent`;
+    appliedFeedRef = data.feed;
   }
 
   $: if (!followPending) {
@@ -76,21 +100,126 @@
         ? 'Request sent'
         : 'Follow';
 
-  onMount(async () => {
+  let apiSort: FeedSortQuery = 'recent';
+  // Newest = chronological newest-first, Top = highest rated (raw score), Oldest = chronological oldest-first.
+  $: apiSort = profileSortToApiSort(sortMode);
+  $: feedQueryKey = `${data.username}:${apiSort}`;
+
+  async function loadFeedItems(sortOverride?: FeedSortQuery) {
+    const requestedSort = sortOverride ?? apiSort;
+    const queryKey = `${data.username}:${requestedSort}`;
+    if (queryKey === lastLoadedQuery && feedItems.length > 0) {
+      return;
+    }
+
+    const requestId = ++feedRequestId;
+    feedLoading = true;
+    feedLoadingMore = false;
+    feedHasMore = true;
+    feedOffset = 0;
+
+    try {
+      const pageResult = await getUserFeedPage({
+        username: data.username,
+        sort: requestedSort,
+        limit: DEFAULT_FEED_PAGE_SIZE,
+        offset: 0
+      });
+      if (requestId === feedRequestId) {
+        feedItems = pageResult.items;
+        feedOffset = pageResult.items.length;
+        feedHasMore = pageResult.hasMore;
+        lastLoadedQuery = queryKey;
+      }
+    } finally {
+      if (requestId === feedRequestId) {
+        feedLoading = false;
+      }
+    }
+  }
+
+  async function loadMoreFeedItems() {
+    if (feedLoading || feedLoadingMore || !feedHasMore) {
+      return;
+    }
+
+    const requestId = ++feedRequestId;
+    feedLoadingMore = true;
+    try {
+      const pageResult = await getUserFeedPage({
+        username: data.username,
+        sort: apiSort,
+        limit: DEFAULT_FEED_PAGE_SIZE,
+        offset: feedOffset
+      });
+      if (requestId !== feedRequestId) {
+        return;
+      }
+      feedItems = appendUniqueById(feedItems, pageResult.items);
+      feedOffset += pageResult.items.length;
+      feedHasMore = pageResult.hasMore;
+    } finally {
+      if (requestId === feedRequestId) {
+        feedLoadingMore = false;
+      }
+    }
+  }
+
+  function handleSortChange(event: CustomEvent<{ value: string }>) {
+    const nextSort = profileSortToApiSort(event.detail.value as SortMode);
+    sortMode = event.detail.value as SortMode;
+    lastLoadedQuery = '';
+    void loadFeedItems(nextSort);
+  }
+
+  // After report/vote invalidation, profile loader data refreshes. Keep the local
+  // feed list in sync so emblems/dismissals appear without a manual reload.
+  $: if (data.feed !== appliedFeedRef) {
+    appliedFeedRef = data.feed;
+    if (apiSort === 'recent' && lastLoadedQuery === `${data.username}:recent`) {
+      // Merge engagement onto the client list instead of replacing it wholesale,
+      // so live votes on paginated rows are not wiped by the recent loader snapshot.
+      feedItems =
+        feedItems.length > 0 ? mergeFeedEngagement(feedItems, data.feed) : data.feed;
+      feedOffset = Math.max(feedOffset, data.feed.length);
+      feedHasMore = data.feed.length >= DEFAULT_FEED_PAGE_SIZE || feedHasMore;
+    } else if (apiSort !== 'recent') {
+      // Loader always seeds newest/recent; ignore it while a different sort is active
+      // and refresh from the matching client query instead of snapping back.
+      if (!feedLoading) {
+        lastLoadedQuery = '';
+        void loadFeedItems();
+      }
+    } else if (!feedLoading && feedItems.length === 0) {
+      feedItems = data.feed;
+      feedOffset = data.feed.length;
+      feedHasMore = data.feed.length >= DEFAULT_FEED_PAGE_SIZE;
+      lastLoadedQuery = `${data.username}:recent`;
+    }
+  }
+
+  onMount(() => {
+    // Loader seeds Newest/recent; mark query so infinite scroll stays on the same sort.
+    if (!lastLoadedQuery) {
+      lastLoadedQuery = `${data.username}:recent`;
+    }
+
     if (!data.isOwnProfile) {
       return;
     }
 
-    try {
-      pendingFollowRequests = await getFollowRequests();
-    } catch {
-      pendingFollowRequests = data.pendingFollowRequests;
-    }
+    void (async () => {
+      try {
+        pendingFollowRequests = await getFollowRequests();
+      } catch {
+        pendingFollowRequests = data.pendingFollowRequests;
+      }
 
-    if ($page.url.searchParams.get('followRequests') === '1') {
-      const section = document.getElementById('follow-requests');
-      section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+      if ($page.url.searchParams.get('followRequests') === '1') {
+        const section = document.getElementById('follow-requests');
+        section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    })();
   });
 
 
@@ -129,18 +258,6 @@
     return item.kind === 'post';
   }
 
-  function score(item: PersonalFeedItem) {
-    if (item.kind === 'comment-activity') {
-      return 0;
-    }
-
-    if (item.kind === 'help-request') {
-      return item.voteCount + item.commentCount + (item.signupCount ?? 0);
-    }
-
-    return item.voteCount + item.commentCount;
-  }
-
   async function toggleFollow() {
     if (data.isOwnProfile || followPending) {
       return;
@@ -168,20 +285,7 @@
     }
   }
 
-  $: visibleFeed = data.feed
-    .filter((item) => matchesFilter(item, activeFilter))
-    .slice()
-    .sort((left, right) => {
-      if (sortMode === 'top') {
-        const difference = score(right) - score(left);
-
-        if (difference !== 0) {
-          return difference;
-        }
-      }
-
-      return +new Date(right.createdAt) - +new Date(left.createdAt);
-    });
+  $: visibleFeed = feedItems.filter((item) => matchesFilter(item, activeFilter));
   $: peopleItems = activePeopleList === 'followers' ? data.followers : data.following;
   $: if (!data.canViewPersonalFeed && activeFilter === 'personal') {
     activeFilter = 'all';
@@ -314,6 +418,7 @@
         ariaLabel="Sort profile feed"
         defaultValue="newest"
         options={sortOptions}
+        on:change={handleSortChange}
       >
         <FeedToolbarIcon name="sort" />
       </IconMenuButton>
@@ -321,7 +426,11 @@
   </section>
 
   <section class="feed-stack">
-    {#if visibleFeed.length === 0}
+    {#if feedLoading && visibleFeed.length === 0}
+      <section class="empty-card">
+        <p>Loading activity…</p>
+      </section>
+    {:else if visibleFeed.length === 0}
       <section class="empty-card">
         <p>
           {#if !data.canViewPublicProfileActivity}
@@ -334,9 +443,17 @@
         </p>
       </section>
     {:else}
-      {#each visibleFeed as item}
+      {#each visibleFeed as item (item.id)}
         <PersonalFeedCard {item} />
       {/each}
+      <InfiniteFeedSentinel
+        disabled={!feedHasMore || feedLoading}
+        loading={feedLoadingMore}
+        on:loadMore={loadMoreFeedItems}
+      />
+      {#if !feedHasMore && visibleFeed.length > 0}
+        <p class="end-copy">You're caught up.</p>
+      {/if}
     {/if}
   </section>
 </section>
@@ -361,6 +478,14 @@
 
   .feed-stack :global(.surface:last-child) {
     border-bottom: none;
+  }
+
+  .end-copy {
+    margin: 0;
+    padding: 12px 4px 4px;
+    color: var(--text-soft);
+    font-size: 13px;
+    text-align: center;
   }
 
   .hero-section {

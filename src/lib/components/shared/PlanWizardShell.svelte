@@ -66,18 +66,13 @@
     >
       <header class="wizard-header" class:compact>
         <div class="wizard-header-main">
+          <span class="wizard-step-number">{stepIndex + 1}/{stepCount}</span>
           <span class="wizard-title">{title}</span>
-          {#if !compact}
-            <span class="wizard-step-label">Step {stepIndex + 1} of {stepCount}</span>
-          {/if}
         </div>
         <button class="cancel-button" type="button" on:click={() => dispatch('close')}>Cancel</button>
         <div class="progress-track" aria-hidden="true">
           <span class="progress-fill" style={`width: ${progressPercent}%`}></span>
         </div>
-        {#if !compact}
-          <span class="wizard-step-label">Step {stepIndex + 1} of {stepCount}</span>
-        {/if}
       </header>
 
       <div class="wizard-body" bind:this={bodyEl}>
@@ -109,6 +104,7 @@
     place-items: center;
     padding: 24px;
     background: color-mix(in srgb, var(--backdrop, #0f172a) 48%, transparent);
+    isolation: isolate;
   }
 
   .wizard-backdrop.compact {
@@ -128,6 +124,8 @@
     background: var(--panel);
     box-shadow: 0 24px 80px color-mix(in srgb, #000 24%, transparent);
     overflow: hidden;
+    position: relative;
+    z-index: 1;
   }
 
   .wizard-shell.compact {
@@ -150,23 +148,21 @@
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'title cancel'
-      'progress progress'
-      'step step';
+      'progress progress';
   }
 
   .wizard-header.compact {
     padding: 6px 10px 4px;
     gap: 4px;
-    grid-template-areas:
-      'title cancel'
-      'progress progress';
   }
 
   .wizard-header-main {
     grid-area: title;
-    display: grid;
-    gap: 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
+    container-type: inline-size;
   }
 
   .cancel-button {
@@ -188,7 +184,22 @@
     font-size: 12px;
   }
 
+  .wizard-step-number {
+    flex: 0 0 auto;
+    min-width: 2.25rem;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--brand-soft) 70%, var(--panel));
+    color: var(--brand-strong);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.3;
+    text-align: center;
+  }
+
   .wizard-title {
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: 14px;
     font-weight: 700;
     color: var(--text-main);
@@ -201,9 +212,10 @@
     font-size: 13px;
   }
 
-  .wizard-step-label {
-    font-size: 11px;
-    color: var(--text-soft);
+  @container (max-width: 180px) {
+    .wizard-title {
+      display: none;
+    }
   }
 
   .progress-track {

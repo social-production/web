@@ -15,7 +15,9 @@
     <button type="button" on:click={reloadPage}>Retry</button>
   </section>
 {:else}
-  <EventDetailPage data={data.event} />
+  {#key data.event.slug}
+    <EventDetailPage data={data.event} />
+  {/key}
 {/if}
 
 <style>

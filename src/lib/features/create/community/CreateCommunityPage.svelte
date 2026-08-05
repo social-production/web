@@ -5,6 +5,7 @@
   import PreviewTile from '$lib/features/create/shared/PreviewTile.svelte';
   import { createCommunity } from '$lib/services/queries/create';
   import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
+  import { canonicalizeHandle, validateHandle } from '$lib/utils/handles';
 
   let name = '';
   let openness: 'open' | 'invite_only' = 'open';
@@ -12,15 +13,26 @@
   let statusMessage = '';
   let isSubmitting = false;
 
-  $: canSubmit = name.trim().length > 0 && description.trim().length > 0;
+  $: handleCheck = validateHandle(name, 'Community name');
+  $: canSubmit = handleCheck.ok && description.trim().length > 0;
+  $: urlPreview = handleCheck.ok
+    ? `/communities/${handleCheck.canonical}`
+    : name.trim()
+      ? `/communities/${canonicalizeHandle(name)}`
+      : '';
 
   async function handleCreate() {
     isSubmitting = true;
     statusMessage = '';
 
     try {
+      if (!handleCheck.ok) {
+        statusMessage = handleCheck.error;
+        return;
+      }
+
       const result = await createCommunity({
-        name,
+        name: handleCheck.display,
         description,
         joinPolicy: openness
       });
@@ -49,9 +61,16 @@
     >
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
         <label>
-          <RequiredFieldLabel>Community name</RequiredFieldLabel>
-          <input bind:value={name} aria-required="true" />
+          <RequiredFieldLabel>Community handle</RequiredFieldLabel>
+          <input bind:value={name} aria-required="true" placeholder="e.g. Dog-Man" />
         </label>
+        {#if name.trim()}
+          {#if !handleCheck.ok}
+            <p class="status-note">{handleCheck.error}</p>
+          {:else}
+            <p class="helper-text">URL: <code>{urlPreview}</code></p>
+          {/if}
+        {/if}
 
         <label>
           <span class="field-label">Openness</span>
@@ -87,7 +106,7 @@
       surface="transparent"
     >
       <PreviewTile
-        title={name.trim() || 'Untitled community'}
+        title={handleCheck.ok ? handleCheck.display : name.trim() || 'Untitled community'}
         body={description.trim() || 'Describe who this community is for and why people gather here.'}
         meta={openness === 'invite_only' ? 'Invite-only community' : 'Open community'}
       />
@@ -112,5 +131,17 @@
     margin-bottom: 6px;
     font-size: 13px;
     font-weight: 700;
+  }
+
+  .helper-text {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
+  }
+
+  .status-note {
+    margin: 0;
+    color: var(--danger, #b42318);
+    font-size: 13px;
   }
 </style>

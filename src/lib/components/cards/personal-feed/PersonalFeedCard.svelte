@@ -9,11 +9,11 @@
 </script>
 
 {#if item.kind === 'post'}
-  <PersonalPostCard item={item} />
+  <PersonalPostCard {item} />
+{:else if item.kind === 'activity'}
+  <PersonalActivityCard {item} />
 {:else if item.kind === 'help-request'}
-  <PersonalHelpRequestCard item={item} />
-{:else if item.kind === 'comment-activity'}
-  <PersonalCommentActivityCard item={item} />
+  <PersonalHelpRequestCard {item} />
 {:else}
-  <PersonalActivityCard item={item} />
+  <PersonalCommentActivityCard {item} />
 {/if}

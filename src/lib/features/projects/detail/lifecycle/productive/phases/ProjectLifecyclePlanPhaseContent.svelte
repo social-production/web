@@ -69,12 +69,28 @@
   $: selectedSubtype = form.projectSubtype ?? data.lifecycle.currentSubtype ?? 'standard';
   $: prominentValues = data.lifecycle.phaseOne.values.filter((value) => value.importanceScore >= 5);
   $: wizardSubtypeOptions = subtypeOptions.map((option) => ({ value: option.value, label: option.label }));
+  $: winningProductionPlan = isPhaseTwo
+    ? null
+    : data.lifecycle.phaseTwo.plans.find((entry) => entry.id === data.lifecycle.phaseTwo.winningPlanId) ??
+      data.lifecycle.phaseTwo.plans.find((entry) => entry.leaderStatus === 'leading') ??
+      null;
+  $: productionPlanLocation = winningProductionPlan
+    ? {
+        locationId: winningProductionPlan.locationId ?? null,
+        locationLabel: winningProductionPlan.locationLabel ?? ''
+      }
+    : null;
+  $: includePhysicalLocation = selectedSubtype !== 'software';
   $: creationSteps = isPhaseTwo
     ? buildProjectProductionCreationSteps(prominentValues, form.planPhases.length, {
         includeSubtype: true,
-        includeRepository: selectedSubtype === 'software'
+        includeRepository: selectedSubtype === 'software',
+        includeLocation: includePhysicalLocation
       })
-    : buildProjectDistributionCreationSteps(prominentValues, form.planPhases.length);
+    : buildProjectDistributionCreationSteps(prominentValues, form.planPhases.length, {
+        includeRequestSettings: collectiveService,
+        includeDistributionLocation: includePhysicalLocation
+      });
 
   function emptyCopy() {
     if (isPhaseTwo) {
@@ -182,6 +198,9 @@
       bind:form
       {submitLabel}
       subtypeOptions={wizardSubtypeOptions}
+      {productionPlanLocation}
+      signalSummary={data.lifecycle.phaseOne.signalSummary}
+      signalCount={data.signalCount}
       {addPlanPhase}
       {addMaterial}
       {removeMaterial}

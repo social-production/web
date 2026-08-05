@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import { signIn, signUp } from '$lib/services/queries/account';
   import type { OnboardingPageData } from '$lib/types/account';
+  import { canonicalizeHandle, validateHandle } from '$lib/utils/handles';
 
   export let data: OnboardingPageData;
 
@@ -13,17 +14,30 @@
   let isSubmitting = false;
 
   $: viewer = $page.data.bootstrap?.viewer ?? null;
+  $: handleCheck = mode === 'signup' ? validateHandle(username, 'Username') : null;
+  $: canonicalPreview =
+    handleCheck && handleCheck.ok ? `/profile/${handleCheck.canonical}` : username.trim()
+      ? `/profile/${canonicalizeHandle(username)}`
+      : '';
 
   async function handleSubmit() {
     isSubmitting = true;
     statusMessage = '';
 
     try {
+      if (mode === 'signup') {
+        const handle = validateHandle(username, 'Username');
+        if (!handle.ok) {
+          statusMessage = handle.error;
+          return;
+        }
+      }
+
       const result =
         mode === 'login'
           ? await signIn({ username, password })
           : await signUp({
-              username,
+              username: username.trim(),
               password
             });
 
@@ -69,16 +83,27 @@
     <form class="stack" on:submit|preventDefault={handleSubmit}>
       <label>
         <span class="field-label">Username</span>
-        <input bind:value={username} placeholder="Enter username" />
+        <input bind:value={username} autocomplete="username" />
       </label>
+      {#if mode === 'signup' && username.trim()}
+        {#if handleCheck && !handleCheck.ok}
+          <p class="status-note">{handleCheck.error}</p>
+        {:else if canonicalPreview}
+          <p class="helper-text">Profile URL: <code>{canonicalPreview}</code></p>
+        {/if}
+      {/if}
 
       <label>
         <span class="field-label">Password</span>
-        <input bind:value={password} type="password" placeholder="••••••••" />
+        <input bind:value={password} type="password" autocomplete="current-password" />
       </label>
 
       <div class="button-row">
-        <button class="button-primary" disabled={isSubmitting} type="submit">
+        <button
+          class="button-primary"
+          disabled={isSubmitting || (mode === 'signup' && Boolean(handleCheck && !handleCheck.ok))}
+          type="submit"
+        >
           {#if isSubmitting}
             Working...
           {:else if mode === 'login'}
@@ -176,5 +201,11 @@
   .status-note {
     margin: 0;
     color: var(--accent-warm-strong);
+  }
+
+  .helper-text {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
   }
 </style>

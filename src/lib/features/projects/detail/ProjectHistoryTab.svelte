@@ -1,11 +1,20 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import DecisionHistoryList from '$lib/components/shared/DecisionHistoryList.svelte';
-  import { setProjectEditVote, setProjectMergeCapabilityChangeVote, setProjectPhaseChangeVote, setProjectPullRequestVote, setProjectRepositoryReplacementVote, setProjectServiceRequestSettingsChangeVote, setProjectUpdateVote } from '$lib/services/commands/projects';
+  import {
+    setProjectEditVote,
+    setProjectManualLinkVote,
+    setProjectMergeCapabilityChangeVote,
+    setProjectPhaseChangeVote,
+    setProjectPullRequestVote,
+    setProjectRepositoryReplacementVote,
+    setProjectServiceRequestSettingsChangeVote,
+    setProjectUpdateVote
+  } from '$lib/services/commands/projects';
   import type { DecisionHistoryEntry, ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
 
   export let data: ProjectPageData;
-    export let highlightedDecisionId: string | null = null;
+  export let highlightedDecisionId: string | null = null;
 
   async function handleVote(entry: DecisionHistoryEntry, vote: ProjectApprovalVote | null) {
     switch (entry.kind) {
@@ -30,6 +39,11 @@
         break;
       case 'project-repository-replacement':
         await setProjectRepositoryReplacementVote(data.slug, entry.id, vote);
+        break;
+      case 'project-link-create':
+      case 'project-link-sever':
+        if (!vote) return;
+        await setProjectManualLinkVote(data.slug, entry.id, vote);
         break;
       default:
         return;

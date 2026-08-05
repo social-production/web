@@ -11,6 +11,7 @@
   } from '$lib/types/detail';
   import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
   import { formatEventPlanSchedule } from '$lib/utils/time';
+  import { buildActivityLocationQuickPicks } from '$lib/utils/activityLocationQuickPicks';
 
   export let data: EventPageData;
   export let selectedPlan: EventPlan | null = null;
@@ -58,6 +59,20 @@
     ...data.lifecycle.activity.activities,
     ...(data.lifecycle.activity.history ?? []).map((item) => item.activity)
   ];
+  $: locationQuickPicks = buildActivityLocationQuickPicks([
+    {
+      id: 'event-initial',
+      label: data.locationLabel,
+      locationId: data.locationId,
+      sourceLabel: 'Event location'
+    },
+    {
+      id: 'event-plan',
+      label: selectedPlan?.locationLabel,
+      locationId: selectedPlan?.locationId,
+      sourceLabel: 'Plan location'
+    }
+  ]);
 
   async function focusActivityCard(activityId: string) {
     highlightedActivityId = activityId;
@@ -131,6 +146,7 @@
     {activityForm}
     selectablePlanPhases={data.lifecycle.activity.selectablePlanPhases}
     scheduleBounds={activityWindowBounds}
+    {locationQuickPicks}
     liveTitle="Activity"
     liveDescription="Schedule event activities and sign up for open roles."
     historyDescription="Past event activity, ratings, and completion check-in."

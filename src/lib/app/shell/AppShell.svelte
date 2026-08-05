@@ -6,16 +6,18 @@
   import AuthActionNotice from '$lib/components/shared/AuthActionNotice.svelte';
   import LeftRailPanel from '$lib/features/left-rail/LeftRailPanel.svelte';
   import RightRailPanel from '$lib/features/right-rail/RightRailPanel.svelte';
+  import MapPanel from '$lib/features/map/MapPanel.svelte';
   import MobileBottomNav from '$lib/app/shell/MobileBottomNav.svelte';
   import MobileMoreSheet from '$lib/app/shell/MobileMoreSheet.svelte';
   import CreateFab from '$lib/app/shell/CreateFab.svelte';
   import GroupsIcon from '$lib/components/shared/GroupsIcon.svelte';
+  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import { createLiveSearchScheduler } from '$lib/features/search/liveSearch';
   import SearchSuggestionsList from '$lib/features/search/SearchSuggestionsList.svelte';
   import { unreadCounts } from '$lib/stores/unreadCounts';
   import { refreshUnreadCounts, syncUnreadCountsFromBootstrap } from '$lib/services/queries/inbox';
   import * as m from '$lib/paraglide/messages';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import type { BootstrapPayload } from '$lib/types/bootstrap';
   import type { SearchResultItem } from '$lib/types/search';
   import { countActionableRailItems } from '$lib/utils/activityRailCounts';
@@ -26,12 +28,20 @@
     readSeenRailIds,
     seenRailStorageKey
   } from '$lib/utils/dismissedRailItems';
+  import {
+    consumeCreateReturnScroll,
+    isCreateEntrySurface,
+    isFeedDiscoveryPath
+  } from '$lib/stores/createReturnState';
+  import { feedReturnHref, rememberFeedReturnState } from '$lib/stores/feedReturnState';
 
   export let bootstrap: BootstrapPayload;
 
   let isCompact = true;
   let leftRailOpen = false;
   let rightRailOpen = false;
+  let mapPanelOpen = false;
+  let railsBeforeMap = { left: false, right: false };
   let toolbarQuery = '';
   let topbarElement: HTMLElement | null = null;
   let contentGridElement: HTMLDivElement | null = null;
@@ -45,18 +55,134 @@
   let moreSheetOpen = false;
   let createFabOpen = false;
   let searchInputElement: HTMLInputElement | null = null;
+  let mapPanel: MapPanel | null = null;
+  let feedChromeHidden = false;
+  let lastFeedScrollY = 0;
 
   const toolbarLiveSearch = createLiveSearchScheduler();
 
-  afterNavigate(() => {
-    if (bootstrap.viewer) {
+  function isCreateFabRoute(pathname: string): boolean {
+    if (pathname === '/' || pathname === '/personal') {
+      return true;
+    }
+    return /^\/channels\/[^/]+$/.test(pathname) || /^\/communities\/[^/]+$/.test(pathname);
+  }
+
+  $: feedChromeActive = isCompact && isFeedDiscoveryPath($page.url.pathname);
+  $: dedicatedMapPage = $page.url.pathname === '/map';
+  $: mapSurfaceActive = mapPanelOpen || dedicatedMapPage;
+  $: if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded) {
+    feedChromeHidden = false;
+  }
+  $: shellBottomNavOffset =
+    isCompact && !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
+      ? 'var(--shell-bottom-nav-height)'
+      : '0px';
+  $: shellTopbarHeight =
+    mapSurfaceActive || !(feedChromeActive && feedChromeHidden) ? topbarHeight : 0;
+  $: topbarCollapsed = feedChromeActive && feedChromeHidden && !mapSurfaceActive;
+
+  $: if (typeof document !== 'undefined') {
+    document.documentElement.style.overflow = mapSurfaceActive ? 'hidden' : '';
+    document.body.style.overflow = mapSurfaceActive ? 'hidden' : '';
+  }
+
+
+  function deferUnreadRefresh() {
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(() => {
+        void refreshUnreadCounts();
+      }, { timeout: 2000 });
+      return;
+    }
+
+    window.setTimeout(() => {
       void refreshUnreadCounts();
+    }, 120);
+  }
+
+  function handleFeedChromeScroll() {
+    if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded || createFabOpen) {
+      if (mapSurfaceActive) {
+        feedChromeHidden = false;
+      }
+      lastFeedScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+      return;
+    }
+
+    const y = window.scrollY;
+    const delta = y - lastFeedScrollY;
+    if (y < 24) {
+      feedChromeHidden = false;
+    } else if (delta > 10) {
+      feedChromeHidden = true;
+    } else if (delta < -10) {
+      feedChromeHidden = false;
+    }
+    lastFeedScrollY = y;
+  }
+
+  function updateLayoutMetrics() {
+    if (topbarElement && (mapSurfaceActive || !(feedChromeActive && feedChromeHidden))) {
+      const measured = topbarElement.getBoundingClientRect().height;
+      topbarHeight = measured > 0 ? measured : isCompact ? 52 : 53;
+      return;
+    }
+
+    if (mapSurfaceActive || !(feedChromeActive && feedChromeHidden)) {
+      topbarHeight = isCompact ? 52 : 53;
+    }
+    compactContentOffset = 0;
+  }
+
+  afterNavigate(({ from, to }) => {
+    const fromPath = from?.url?.pathname ?? null;
+    const toPath = to?.url?.pathname ?? null;
+
+    if (fromPath && toPath && fromPath !== toPath && mapPanelOpen) {
+      closeMapPanel();
+    }
+    if (bootstrap.viewer) {
+      deferUnreadRefresh();
     }
     if (isCompact) {
       searchExpanded = false;
       moreSheetOpen = false;
     }
+    feedChromeHidden = false;
+    lastFeedScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+    if (to?.url) {
+      rememberFeedReturnState(to.url);
+    }
+    if (toPath && isCreateEntrySurface(toPath)) {
+      const scrollY = consumeCreateReturnScroll(toPath);
+      if (scrollY !== null) {
+        void tick().then(() => {
+          window.requestAnimationFrame(() => {
+            window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior });
+            lastFeedScrollY = scrollY;
+          });
+        });
+      }
+    }
   });
+
+  $: if (typeof window !== 'undefined') {
+    rememberFeedReturnState($page.url);
+  }
+
+  function handleBrandClick(event: MouseEvent) {
+    if (isCreateEntrySurface($page.url.pathname)) {
+      return;
+    }
+
+    event.preventDefault();
+    const target = feedReturnHref('/');
+    if (`${$page.url.pathname}${$page.url.search}` === target) {
+      return;
+    }
+    void goto(target);
+  }
 
   $: displayUnreadCounts = $unreadCounts ?? bootstrap.unreadCounts;
   $: dismissedStorageKey = dismissedRailStorageKey(bootstrap.viewer?.id ?? null);
@@ -66,21 +192,13 @@
   $: rightRailActionCount = countActionableRailItems(bootstrap.activityRail, dismissedRailIds, seenRailIds);
   $: showCreateFab =
     Boolean(bootstrap.viewer) &&
+    isCreateFabRoute($page.url.pathname) &&
     !$page.url.pathname.startsWith('/create/') &&
-    $page.url.pathname !== '/onboarding';
+    $page.url.pathname !== '/onboarding' &&
+    !mapPanelOpen;
 
   $: if ($page.url.pathname === '/search') {
     toolbarQuery = $page.url.searchParams.get('q') ?? '';
-  }
-
-  function updateLayoutMetrics() {
-    if (topbarElement) {
-      topbarHeight = topbarElement.getBoundingClientRect().height;
-      return;
-    }
-
-    topbarHeight = isCompact ? 52 : 53;
-    compactContentOffset = 0;
   }
 
   onMount(() => {
@@ -101,6 +219,7 @@
 
     window.addEventListener('focus', refreshBadgeCounts);
     document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('scroll', handleFeedChromeScroll, { passive: true });
 
     const badgePoll = window.setInterval(refreshBadgeCounts, 30_000);
 
@@ -115,6 +234,7 @@
         rightRailOpen = true;
         searchExpanded = false;
         moreSheetOpen = false;
+        feedChromeHidden = false;
       }
 
       requestAnimationFrame(updateLayoutMetrics);
@@ -148,6 +268,7 @@
       window.removeEventListener('focus', refreshBadgeCounts);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       document.removeEventListener('keydown', handleDocumentKeydown);
+      window.removeEventListener('scroll', handleFeedChromeScroll);
       window.clearInterval(badgePoll);
       resizeObserver.disconnect();
       media.removeEventListener('change', syncLayout);
@@ -168,6 +289,7 @@
     leftRailOpen = !leftRailOpen;
     if (isCompact && leftRailOpen) {
       rightRailOpen = false;
+      mapPanelOpen = false;
       moreSheetOpen = false;
       createFabOpen = false;
     }
@@ -177,8 +299,42 @@
     rightRailOpen = !rightRailOpen;
     if (isCompact && rightRailOpen) {
       leftRailOpen = false;
+      mapPanelOpen = false;
       moreSheetOpen = false;
       createFabOpen = false;
+    }
+  }
+
+  async function toggleMapPanel() {
+    const opening = !mapPanelOpen;
+    if (opening && !isCompact) {
+      railsBeforeMap = { left: leftRailOpen, right: rightRailOpen };
+    }
+    mapPanelOpen = opening;
+    if (mapPanelOpen) {
+      leftRailOpen = false;
+      rightRailOpen = false;
+      moreSheetOpen = false;
+      createFabOpen = false;
+      feedChromeHidden = false;
+      lastFeedScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+      await tick();
+      updateLayoutMetrics();
+      requestAnimationFrame(() => {
+        updateLayoutMetrics();
+      });
+      await mapPanel?.refreshMap();
+    } else if (!isCompact) {
+      leftRailOpen = railsBeforeMap.left;
+      rightRailOpen = railsBeforeMap.right;
+    }
+  }
+
+  function closeMapPanel() {
+    mapPanelOpen = false;
+    if (!isCompact) {
+      leftRailOpen = railsBeforeMap.left;
+      rightRailOpen = railsBeforeMap.right;
     }
   }
 
@@ -186,6 +342,7 @@
     if (isCompact) {
       leftRailOpen = false;
       rightRailOpen = false;
+      mapPanelOpen = false;
     }
   }
 
@@ -208,6 +365,7 @@
     if (moreSheetOpen) {
       leftRailOpen = false;
       rightRailOpen = false;
+      mapPanelOpen = false;
       createFabOpen = false;
     }
   }
@@ -272,13 +430,21 @@
 <div
   class="shell"
   class:shell-compact={isCompact}
-  style={`--left-width: ${leftRailOpen && !isCompact ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact ? '292px' : '0px'}; --topbar-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --main-frame-max-width: ${!isCompact && !leftRailOpen && !rightRailOpen ? '1280px' : !isCompact && (!leftRailOpen || !rightRailOpen) ? '1480px' : 'none'};`}
+  class:shell-map-open={mapSurfaceActive}
+  class:shell-map-page={dedicatedMapPage}
+  class:feed-chrome-collapsed={topbarCollapsed}
+  style={`--left-width: ${leftRailOpen && !isCompact ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --main-frame-max-width: ${!isCompact && !leftRailOpen && !rightRailOpen ? '1280px' : !isCompact && (!leftRailOpen || !rightRailOpen) ? '1480px' : 'none'};`}
 >
+  {#if mapSurfaceActive}
+    <div class="topbar-flow-spacer" style={`height: ${topbarHeight}px`} aria-hidden="true"></div>
+  {/if}
   <header
     bind:this={topbarElement}
     class="topbar"
     class:search-expanded={isCompact && searchExpanded}
     class:topbar-compact={isCompact}
+    class:chrome-collapsed={topbarCollapsed}
+    class:topbar-map-pinned={mapSurfaceActive}
   >
     {#if isCompact && searchExpanded}
       <form class="toolbar-search toolbar-search-expanded" role="search" on:submit={submitToolbarSearch}>
@@ -310,7 +476,12 @@
         </div>
       </form>
     {:else}
-      <a class="brand" href="/">
+      <a
+        class="brand"
+        href={isCreateEntrySurface($page.url.pathname) ? '/' : feedReturnHref('/')}
+        aria-label={isCreateEntrySurface($page.url.pathname) ? 'Social Production home' : 'Back to feed'}
+        on:click={handleBrandClick}
+      >
         <span class="brand-mark">
           <img alt="" class="brand-icon" src={brandIcon} />
         </span>
@@ -329,6 +500,25 @@
           on:click={toggleLeftRail}
         >
           <GroupsIcon className="panel-toggle-icon groups-icon" />
+        </button>
+        <button
+          aria-label="Open map"
+          aria-expanded={mapPanelOpen}
+          class="panel-toggle panel-toggle-map"
+          data-active={mapPanelOpen}
+          type="button"
+          on:click={toggleMapPanel}
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" class="panel-toggle-icon">
+            <path
+              d="M5 6.5 9 4.5l5 2.5 5-2.5v13l-5 2.5-5-2.5-4 2V6.5Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"
+            />
+            <path d="M9 4.5v13M14 7v13" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none" />
+          </svg>
         </button>
         <button
           aria-label="Open schedule and votes"
@@ -393,30 +583,40 @@
 
         {#if !isCompact}
           <nav class="primary-nav" aria-label="Primary">
-            <a class:active-link={isActive('/')} class="nav-link" href="/">{m.shell_nav_public()}</a>
             <a
-              class:active-link={isActive('/personal')}
-              class="nav-link"
-              href={bootstrap.viewer ? '/personal' : '/onboarding'}
+              aria-label={m.shell_nav_public()}
+              class:active-link={isActive('/')}
+              class="nav-link nav-link-icon"
+              href="/"
             >
-              {m.shell_nav_personal()}
+              <FeedToolbarIcon name="globe" />
             </a>
             <a
+              aria-label={m.shell_nav_personal()}
+              class:active-link={isActive('/personal')}
+              class="nav-link nav-link-icon"
+              href={bootstrap.viewer ? '/personal' : '/onboarding'}
+            >
+              <FeedToolbarIcon name="user" />
+            </a>
+            <a
+              aria-label={m.shell_nav_notifications()}
               class:active-link={isActive('/notifications')}
-              class="nav-link"
+              class="nav-link nav-link-icon"
               href={bootstrap.viewer ? '/notifications' : '/onboarding'}
             >
-              {m.shell_nav_notifications()}
+              <FeedToolbarIcon name="bell" />
               {#if displayUnreadCounts.notifications > 0}
                 <CountBadge count={displayUnreadCounts.notifications} />
               {/if}
             </a>
             <a
+              aria-label={m.shell_nav_messages()}
               class:active-link={isActive('/messages')}
-              class="nav-link"
+              class="nav-link nav-link-icon"
               href={bootstrap.viewer ? '/messages' : '/onboarding'}
             >
-              {m.shell_nav_messages()}
+              <FeedToolbarIcon name="message" />
               {#if displayUnreadCounts.messages > 0}
                 <CountBadge count={displayUnreadCounts.messages} />
               {/if}
@@ -468,7 +668,17 @@
     <button aria-label="Close side panels" class="rail-backdrop" on:click={closeCompactPanels}></button>
   {/if}
 
-  <div bind:this={contentGridElement} class="content-grid">
+  <section class="map-overlay" class:map-overlay--open={mapPanelOpen} aria-hidden={!mapPanelOpen}>
+    {#if mapPanelOpen}
+      <MapPanel bind:this={mapPanel} active embedded on:close={closeMapPanel} />
+    {/if}
+  </section>
+
+  <div
+    bind:this={contentGridElement}
+    class="content-grid"
+    class:content-grid--map-open={mapSurfaceActive}
+  >
     <aside class="rail left-rail" data-open={leftRailOpen}>
       <LeftRailPanel
         {bootstrap}
@@ -503,6 +713,7 @@
       notificationCount={displayUnreadCounts.notifications}
       messageCount={displayUnreadCounts.messages}
       moreActive={moreSheetOpen}
+      collapsed={topbarCollapsed}
       {isActive}
       onMore={toggleMoreSheet}
     />
@@ -534,13 +745,39 @@
     flex-wrap: nowrap;
     align-items: center;
     gap: 8px;
-    height: var(--topbar-height, 53px);
-    min-height: var(--topbar-height, 53px);
-    max-height: var(--topbar-height, 53px);
+    height: var(--topbar-natural-height, var(--topbar-height, 53px));
+    min-height: var(--topbar-natural-height, var(--topbar-height, 53px));
+    max-height: var(--topbar-natural-height, var(--topbar-height, 53px));
     padding: calc(8px + var(--shell-safe-top)) 12px 8px;
     border-bottom: 1px solid var(--panel-border);
     background: var(--toolbar-background);
     overflow: visible;
+    transition: transform 0.22s ease, margin-top 0.22s ease;
+    will-change: transform, margin-top;
+  }
+
+  .topbar.chrome-collapsed {
+    transform: translateY(-100%);
+    margin-top: calc(-1 * var(--topbar-natural-height, var(--topbar-height, 53px)));
+    pointer-events: none;
+  }
+
+  .topbar.topbar-map-pinned {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    transform: none;
+    margin-top: 0;
+    pointer-events: auto;
+    z-index: 70;
+  }
+
+  .topbar-flow-spacer {
+    flex-shrink: 0;
+    width: 100%;
+    pointer-events: none;
   }
 
   .topbar.search-expanded {
@@ -638,6 +875,40 @@
   .panel-toggle[data-active='true'] {
     background: var(--panel-strong);
     color: var(--brand);
+  }
+
+  .panel-toggle-map[data-active='true'] {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand-soft) 65%, var(--panel-strong));
+    color: var(--brand-strong);
+  }
+
+  .map-overlay {
+    position: fixed;
+    inset: var(--topbar-height) 0 var(--shell-bottom-nav-offset, 0px) 0;
+    z-index: 35;
+    padding: 12px;
+    background: var(--page-background);
+    overflow: hidden;
+    overscroll-behavior: none;
+    display: none;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .map-overlay--open {
+    display: flex;
+  }
+
+  .map-overlay :global(.map-panel) {
+    flex: 1;
+    min-height: 0;
+  }
+
+  @media (max-width: 760px) {
+    .map-overlay {
+      padding: 0;
+    }
   }
 
   .toolbar-center {
@@ -744,6 +1015,25 @@
     transition: background-color 0.18s ease, color 0.18s ease;
   }
 
+  .nav-link-icon {
+    position: relative;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+
+  .nav-link-icon :global(.toolbar-icon) {
+    width: 20px;
+    height: 20px;
+  }
+
+  .nav-link-icon :global(.count-badge) {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+  }
+
   .active-link,
   .nav-link:hover,
   .utility-link:hover {
@@ -832,6 +1122,29 @@
     display: grid;
     grid-template-columns: var(--left-width) minmax(0, 1fr) var(--right-width);
     min-height: calc(100vh - var(--topbar-height));
+  }
+
+  .shell.shell-map-open .content-grid {
+    min-height: calc(100dvh - var(--topbar-height) - var(--shell-bottom-nav-offset, 0px));
+    height: calc(100dvh - var(--topbar-height) - var(--shell-bottom-nav-offset, 0px));
+    max-height: calc(100dvh - var(--topbar-height) - var(--shell-bottom-nav-offset, 0px));
+  }
+
+  .content-grid--map-open {
+    overflow: hidden;
+  }
+
+  .shell.shell-map-page .main-content {
+    padding: 0;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .shell.shell-map-page .main-frame {
+    height: 100%;
+    max-width: none;
+    overflow: hidden;
   }
 
   .rail {

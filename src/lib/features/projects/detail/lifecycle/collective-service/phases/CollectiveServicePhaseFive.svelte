@@ -4,6 +4,7 @@
   import ActivityCreationWizard from '$lib/components/shared/ActivityCreationWizard.svelte';
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
+  import DecisionHistoryCard from '$lib/components/shared/DecisionHistoryCard.svelte';
   import ActivityHistorySection from '$lib/features/projects/detail/components/ActivityHistorySection.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
@@ -28,6 +29,7 @@
     type SpecializedRequestForm
   } from '$lib/features/projects/detail/lifecycle/collective-service/collectiveServiceRequestForms';
   import type {
+    DecisionHistoryEntry,
     ProjectActivityRoleInput,
     ProjectApprovalVote,
     ProjectPageData,
@@ -41,6 +43,14 @@
     ProjectSoftwareMergeCapabilityChangeInput,
     ProjectSoftwareRepositoryReplacementInput
   } from '$lib/types/detail';
+  import { buildActivityLocationQuickPicks } from '$lib/utils/activityLocationQuickPicks';
+
+  const SOFTWARE_GOVERNANCE_HISTORY_KINDS = new Set([
+    'project-pull-request-approval',
+    'project-pull-request-confirmation',
+    'project-merge-capability-change',
+    'project-repository-replacement'
+  ]);
 
   type ActivityForm = {
     title: string;
@@ -119,7 +129,11 @@
   export let requestRepositoryReplacement: (
     input: ProjectSoftwareRepositoryReplacementInput
   ) => void | Promise<void> = () => {};
-  export let recordPullRequestMerge: (requestId: string, mergeId: string) => void | Promise<void> = () => {};
+  export let recordPullRequestMerge: (
+    requestId: string,
+    mergeId: string,
+    mergeUrl: string
+  ) => void | Promise<void> = () => {};
   export let votePullRequest: (
     requestId: string,
     vote: ProjectApprovalVote | null
@@ -143,6 +157,8 @@
     comment: string | null
   ) => void | Promise<void> = () => {};
   export let deleteActivityRating: (activityId: string) => void | Promise<void> = () => {};
+  export let softwareWizardRequest: { mode: 'record-merge' | 'vote-pr'; requestId: string } | null = null;
+  export let onSoftwareWizardRequestHandled: () => void = () => {};
 
   let historyOpen = false;
 
@@ -436,6 +452,11 @@
     await openComposerForDay(target.isoDay);
   }
 
+  function chooseSubmitPullRequest() {
+    closeCalendarActionTarget();
+    softwareGovernancePanel?.openCreatePullRequest();
+  }
+
   async function chooseRequestServiceForDay() {
     const target = calendarActionTarget;
 
@@ -534,6 +555,7 @@
   let calendarActionTarget: CalendarActionTarget = null;
   let calendarActionAnchor: CalendarActionAnchor | null = null;
   let actionPickerElement: HTMLDivElement | null = null;
+  let softwareGovernancePanel: ProjectSoftwareGovernancePanel | null = null;
   let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let planningRequestId: string | null = null;
   let requestPlanningForm: RequestPlanningForm = createRequestPlanningForm(data);
@@ -553,6 +575,32 @@
     (left, right) => +new Date(right.createdAt) - +new Date(left.createdAt)
   );
   $: canCreateActivities = data.lifecycle.phaseFive.viewerCanCreateActivities;
+  $: winningProductionPlan =
+    data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ??
+    null;
+  $: winningDistributionPlan =
+    data.lifecycle.phaseThree.plans.find((plan) => plan.id === data.lifecycle.phaseThree.winningPlanId) ??
+    null;
+  $: locationQuickPicks = buildActivityLocationQuickPicks([
+    {
+      id: 'project-initial',
+      label: data.locationLabel,
+      locationId: data.locationId,
+      sourceLabel: 'Project location'
+    },
+    {
+      id: 'production-plan',
+      label: winningProductionPlan?.locationLabel,
+      locationId: winningProductionPlan?.locationId,
+      sourceLabel: 'Plan location'
+    },
+    {
+      id: 'distribution-plan',
+      label: winningDistributionPlan?.locationLabel,
+      locationId: winningDistributionPlan?.locationId,
+      sourceLabel: 'Distribution plan'
+    }
+  ]);
   $: canSubmitRequests = data.lifecycle.requestSystem?.viewerCanSubmitRequests ?? false;
   $: hasQuickAction = canCreateActivities || canSubmitRequests;
   $: calendarSelectedDayIso = showRequestComposer ? serviceRequestForm.scheduledAt : activityForm.scheduledAt;
@@ -569,6 +617,45 @@
   $: selfPlannedHistory = data.lifecycle.phaseFive.history.filter(
     (item) => item.source === 'self-planned'
   );
+  $: softwareGovernanceHistory = data.history.filter((entry) =>
+    SOFTWARE_GOVERNANCE_HISTORY_KINDS.has(entry.kind)
+  );
+  $: calendarHistoryCount =
+    data.lifecycle.phaseFive.history.length + softwareGovernanceHistory.length;
+  $: unifiedCalendarHistory = (
+    [
+      ...data.lifecycle.phaseFive.history.map((item) => ({
+        kind: 'activity' as const,
+        at: item.activity.endAt || item.activity.scheduledAt || item.activity.startAt || '',
+        item
+      })),
+      ...softwareGovernanceHistory.map((item) => ({
+        kind: 'governance' as const,
+        at: item.createdAt,
+        item
+      }))
+    ] as Array<
+      | { kind: 'activity'; at: string; item: (typeof data.lifecycle.phaseFive.history)[number] }
+      | { kind: 'governance'; at: string; item: DecisionHistoryEntry }
+    >
+  ).sort((left, right) => new Date(right.at).getTime() - new Date(left.at).getTime());
+
+  async function handleGovernanceVote(entry: DecisionHistoryEntry, vote: ProjectApprovalVote | null) {
+    switch (entry.kind) {
+      case 'project-pull-request-approval':
+      case 'project-pull-request-confirmation':
+        await votePullRequest(entry.id, vote);
+        break;
+      case 'project-merge-capability-change':
+        await voteMergeCapabilityChange(entry.id, vote);
+        break;
+      case 'project-repository-replacement':
+        await voteRepositoryReplacement(entry.id, vote);
+        break;
+      default:
+        break;
+    }
+  }
   $: requestFormSubtype = currentCollectiveSubtype(data);
   $: requestFormCopy = requestComposerCopy(requestFormSubtype);
   $: calendarActivities = [
@@ -593,20 +680,24 @@
   $: if (highlightedActivityId || highlightedRequestId) {
     activeTab = 'live';
   }
+  $: canSubmitPullRequest =
+    data.lifecycle.currentSubtype === 'software' &&
+    !!data.lifecycle.phaseFive.softwareGovernance?.viewerCanCreatePullRequests;
 </script>
 
 <section id="participation-activities" class="phase-surface">
   {#if data.lifecycle.currentSubtype === 'software'}
     {#if data.lifecycle.phaseFive.softwareGovernance}
       <ProjectSoftwareGovernancePanel
+        bind:this={softwareGovernancePanel}
         governance={data.lifecycle.phaseFive.softwareGovernance}
         createPullRequest={createPullRequest}
         requestMergeCapabilityChange={requestMergeCapabilityChange}
         requestRepositoryReplacement={requestRepositoryReplacement}
         recordMerge={recordPullRequestMerge}
         {votePullRequest}
-        {voteMergeCapabilityChange}
-        {voteRepositoryReplacement}
+        {softwareWizardRequest}
+        {onSoftwareWizardRequestHandled}
       />
     {:else}
       <div class="software-governance-placeholder">
@@ -631,11 +722,11 @@
           </h3>
           <p>
             {#if calendarActionTarget.kind === 'general'}
-              Start a new scheduled activity or open a new {requestFormCopy.actionLabel.toLowerCase()} form.
+              Start a scheduled activity{canSubmitPullRequest ? ', submit a pull request,' : ''} or open a new {requestFormCopy.actionLabel.toLowerCase()} form.
             {:else if calendarActionTarget.kind === 'activity'}
               Open the scheduled activity to sign up, or use its time window to place a {requestFormCopy.actionLabel.toLowerCase()} request.
             {:else}
-              Choose whether this time should become a new activity or a {requestFormCopy.actionLabel.toLowerCase()} request.
+              Choose whether this time should become a new activity{canSubmitPullRequest ? ', a pull request,' : ''} or a {requestFormCopy.actionLabel.toLowerCase()} request.
             {/if}
           </p>
         </div>
@@ -651,6 +742,12 @@
                   ? 'Open the activity planner with this day prefilled.'
                   : 'Open the activity planner.'}
               </span>
+            </button>
+          {/if}
+          {#if canSubmitPullRequest && calendarActionTarget.kind === 'general'}
+            <button class="action-choice" type="button" on:click={chooseSubmitPullRequest}>
+              <strong>Submit pull request</strong>
+              <span>Open the existing software governance wizard when the change itself needs approval.</span>
             </button>
           {/if}
           {#if canSubmitRequests}
@@ -1016,6 +1113,7 @@
             open={showComposer}
             form={activityForm}
             selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
+            {locationQuickPicks}
             onSubmit={submitActivity}
             onCancel={closeComposer}
           />
@@ -1042,30 +1140,59 @@
   <details class="history-section" bind:open={historyOpen}>
     <summary class="history-summary">
       <span>History</span>
-      <span class="history-count">{data.lifecycle.phaseFive.history.length}</span>
+      <span class="history-count">{calendarHistoryCount}</span>
     </summary>
     <div class="history-stack">
-      <ActivityHistorySection
-        title="Request history"
-        description="Requests that moved into past activity."
-        items={requestHistory}
-        emptyMessage="No request-based activity has moved into history yet."
-        {highlightedHistoryId}
-        {toggleHistoryCompletion}
-        {saveActivityRating}
-        {deleteActivityRating}
-      />
+      {#if softwareGovernanceHistory.length > 0}
+        <p class="unified-history-copy">
+          Past requests, self-planned activity, and software governance decisions in one timeline. They also stay in the History tab.
+        </p>
+        <div class="unified-history">
+          {#each unifiedCalendarHistory as entry (entry.kind === 'activity' ? entry.item.id : `gov-${entry.item.id}`)}
+            {#if entry.kind === 'activity'}
+              <ActivityHistorySection
+                hideHeader={true}
+                title=""
+                description=""
+                items={[entry.item]}
+                emptyMessage=""
+                {highlightedHistoryId}
+                {toggleHistoryCompletion}
+                {saveActivityRating}
+                {deleteActivityRating}
+              />
+            {:else}
+              <DecisionHistoryCard
+                entry={entry.item}
+                highlighted={highlightedHistoryId === entry.item.id}
+                onVote={handleGovernanceVote}
+              />
+            {/if}
+          {/each}
+        </div>
+      {:else}
+        <ActivityHistorySection
+          title="Request history"
+          description="Requests that moved into past activity."
+          items={requestHistory}
+          emptyMessage="No request-based activity has moved into history yet."
+          {highlightedHistoryId}
+          {toggleHistoryCompletion}
+          {saveActivityRating}
+          {deleteActivityRating}
+        />
 
-      <ActivityHistorySection
-        title="Self planned history"
-        description="Past activity the collective created directly."
-        items={selfPlannedHistory}
-        emptyMessage="No self-planned activity has moved into history yet."
-        {highlightedHistoryId}
-        {toggleHistoryCompletion}
-        {saveActivityRating}
-        {deleteActivityRating}
-      />
+        <ActivityHistorySection
+          title="Self planned history"
+          description="Past activity the collective created directly."
+          items={selfPlannedHistory}
+          emptyMessage="No self-planned activity has moved into history yet."
+          {highlightedHistoryId}
+          {toggleHistoryCompletion}
+          {saveActivityRating}
+          {deleteActivityRating}
+        />
+      {/if}
     </div>
   </details>
 </section>
@@ -1105,12 +1232,20 @@
   .phase-surface,
   .card-rail-section,
   .history-stack,
+  .unified-history,
   .composer-card,
   .mechanics-card,
   .surface-stack,
   .number-grid {
     display: grid;
     gap: 12px;
+  }
+
+  .unified-history-copy {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .request-header-row,

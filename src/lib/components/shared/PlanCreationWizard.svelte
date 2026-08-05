@@ -1,8 +1,16 @@
 <script lang="ts">
   import PlanWizardShell from '$lib/components/shared/PlanWizardShell.svelte';
+  import LocationPicker from '$lib/components/shared/LocationPicker.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
+  import SoftwareLicenseNotice from '$lib/components/shared/SoftwareLicenseNotice.svelte';
+  import { softwareLicenseLabelForSubtype } from '$lib/copy/softwareLicensePolicy';
   import type { PlanCreationStep, PlanCreationForm } from '$lib/utils/planRubric';
   import type { ProjectSubtype } from '$lib/types/feed';
+  import type { GovernanceSignalSummary } from '$lib/types/detail';
+  import { emptyLocationPickerValue, type LocationPickerValue } from '$lib/types/locationPicker';
+
+  let locationPickerValue: LocationPickerValue = emptyLocationPickerValue();
+  let distributionLocationPickerValue: LocationPickerValue = emptyLocationPickerValue();
 
   export let open = false;
   export let title = 'Create plan';
@@ -11,6 +19,9 @@
   export let form: PlanCreationForm;
   export let submitLabel = 'Submit plan';
   export let subtypeOptions: Array<{ value: ProjectSubtype; label: string }> = [];
+  export let productionPlanLocation: { locationId: string | null; locationLabel: string } | null = null;
+  export let signalSummary: GovernanceSignalSummary | null = null;
+  export let signalCount: number | null = null;
   export let addPlanPhase: () => void = () => {};
   export let addMaterial: (phaseIndex: number) => void = () => {};
   export let removeMaterial: (phaseIndex: number, materialIndex: number) => void = () => {};
@@ -18,6 +29,15 @@
   export let onCancel: () => void = () => {};
 
   let stepIndex = 0;
+
+  $: if (form.projectSubtype === 'software') {
+    const nextLabel = softwareLicenseLabelForSubtype(form.projectSubtype);
+    if (form.licenseLabel !== nextLabel) {
+      form.licenseLabel = nextLabel;
+    }
+  } else if (form.licenseLabel) {
+    form.licenseLabel = undefined;
+  }
 
   $: visibleSteps = steps.filter((step) => {
     if (step.type === 'schedule-date') {
@@ -36,6 +56,64 @@
   $: nextLabel = isReviewStep ? submitLabel : 'Next';
   $: canGoBack = stepIndex > 0;
   $: canGoNext = currentStep ? validateStep(currentStep, form) : false;
+
+  function handleLocationChange(event: CustomEvent<LocationPickerValue>) {
+    locationPickerValue = event.detail;
+    form = {
+      ...form,
+      locationLabel: locationPickerValue.displayLabel,
+      locationId: locationPickerValue.locationId,
+      locationIsOnline: locationPickerValue.isOnline
+    };
+  }
+
+  function handleDistributionLocationChange(event: CustomEvent<LocationPickerValue>) {
+    distributionLocationPickerValue = event.detail;
+    form = {
+      ...form,
+      distributionLocationLabel: distributionLocationPickerValue.displayLabel,
+      distributionLocationId: distributionLocationPickerValue.locationId,
+      distributionLocationIsOnline: distributionLocationPickerValue.isOnline,
+      locationLabel: distributionLocationPickerValue.displayLabel,
+      locationId: distributionLocationPickerValue.locationId,
+      locationIsOnline: distributionLocationPickerValue.isOnline
+    };
+  }
+
+  function applySameAsProductionLocation() {
+    if (!productionPlanLocation?.locationId && !productionPlanLocation?.locationLabel) {
+      return;
+    }
+
+    form = {
+      ...form,
+      sameAsProductionLocation: true,
+      projectLocationId: productionPlanLocation.locationId,
+      projectLocationLabel: productionPlanLocation.locationLabel,
+      distributionLocationId: productionPlanLocation.locationId,
+      distributionLocationLabel: productionPlanLocation.locationLabel,
+      locationId: productionPlanLocation.locationId,
+      locationLabel: productionPlanLocation.locationLabel
+    };
+    distributionLocationPickerValue = {
+      ...emptyLocationPickerValue(),
+      locationId: productionPlanLocation.locationId,
+      displayLabel: productionPlanLocation.locationLabel,
+      mode: 'physical'
+    };
+  }
+
+  function clearSameAsProductionLocation() {
+    form = {
+      ...form,
+      sameAsProductionLocation: false,
+      distributionLocationId: null,
+      distributionLocationLabel: '',
+      locationId: null,
+      locationLabel: ''
+    };
+    distributionLocationPickerValue = emptyLocationPickerValue();
+  }
 
   function valueNote(valueId: string) {
     return form.valueConsiderationNotes?.[valueId] ?? '';
@@ -62,7 +140,25 @@
       case 'demand-note':
         return !!target.demandConsiderationNote.trim();
       case 'location':
-        return !!target.locationLabel?.trim();
+        if (locationPickerValue.mode === 'online') {
+          return true;
+        }
+        return Boolean(target.locationLabel?.trim() || locationPickerValue.locationId);
+      case 'distribution-location':
+        if (target.sameAsProductionLocation) {
+          return Boolean(
+            target.distributionLocationId ||
+              target.distributionLocationLabel?.trim() ||
+              productionPlanLocation?.locationId ||
+              productionPlanLocation?.locationLabel?.trim()
+          );
+        }
+        if (distributionLocationPickerValue.mode === 'online') {
+          return true;
+        }
+        return Boolean(
+          target.distributionLocationLabel?.trim() || distributionLocationPickerValue.locationId
+        );
       case 'repository':
         return !!target.repositoryUrl?.trim();
       case 'schedule-mode':
@@ -96,14 +192,40 @@
     }
   }
 
+  function flushLocationIntoForm() {
+    form = {
+      ...form,
+      locationLabel: locationPickerValue.displayLabel,
+      locationId: locationPickerValue.locationId,
+      locationIsOnline: locationPickerValue.isOnline,
+      distributionLocationLabel: distributionLocationPickerValue.displayLabel,
+      distributionLocationId: distributionLocationPickerValue.locationId,
+      distributionLocationIsOnline: distributionLocationPickerValue.isOnline
+    };
+    if (form.sameAsProductionLocation && productionPlanLocation) {
+      form = {
+        ...form,
+        distributionLocationId: productionPlanLocation.locationId,
+        distributionLocationLabel: productionPlanLocation.locationLabel,
+        locationId: productionPlanLocation.locationId,
+        locationLabel: productionPlanLocation.locationLabel
+      };
+    }
+  }
+
   async function handleNext() {
     if (!currentStep) {
       return;
     }
 
     if (isReviewStep) {
+      flushLocationIntoForm();
       await onSubmit();
       return;
+    }
+
+    if (currentStep.type === 'location' || currentStep.type === 'distribution-location') {
+      flushLocationIntoForm();
     }
 
     if (stepIndex < visibleSteps.length - 1) {
@@ -143,6 +265,7 @@
     return `${mode} · ${form.allowOffScheduleRequests ? 'Off-schedule allowed' : 'Slot-bound only'}`;
   }
 
+  $: includesRequestSettingsStep = steps.some((step) => step.type === 'request-settings');
   $: prominentValuesFromSteps = steps
     .filter((step) => step.type === 'value-note' && step.valueId)
     .map((step) => ({ id: step.valueId as string, label: step.valueLabel ?? 'Shared value' }));
@@ -224,6 +347,25 @@
       {:else if currentStep.type === 'description'}
         <textarea bind:value={form.description} rows="5" placeholder="Describe the plan"></textarea>
       {:else if currentStep.type === 'demand-note'}
+        {#if signalSummary || signalCount != null}
+          <div class="signal-card" aria-label="Current demand signals">
+            <span class="signal-label">Current demand signals</span>
+            {#if signalSummary}
+              <strong>
+                {signalSummary.demandCount} demand · {signalSummary.oppositionCount} opposition
+                ({signalSummary.totalCount} total)
+              </strong>
+              <p class="helper-copy">
+                Support share: {Math.round(signalSummary.signalRatioPercent)}%
+                {#if signalSummary.usesPlatformVoteContext}
+                  · sized from {signalSummary.voteContextPopulation} {signalSummary.voteContextLabel.toLowerCase()}
+                {/if}
+              </p>
+            {:else}
+              <strong>{signalCount} demand signals are active right now.</strong>
+            {/if}
+          </div>
+        {/if}
         <textarea bind:value={form.demandConsiderationNote} rows="5" placeholder="Explain how this plan responds to demand"></textarea>
       {:else if currentStep.type === 'value-note' && currentStep.valueId}
         <textarea
@@ -262,7 +404,37 @@
           </label>
         </div>
       {:else if currentStep.type === 'location'}
-        <input bind:value={form.locationLabel} maxlength="120" placeholder="Location" />
+        <LocationPicker
+          bind:value={locationPickerValue}
+          modes={['physical', 'online']}
+          on:change={handleLocationChange}
+        />
+      {:else if currentStep.type === 'distribution-location'}
+        <div class="settings-stack">
+          {#if productionPlanLocation?.locationId || productionPlanLocation?.locationLabel}
+            <label class="checkbox-row">
+              <input
+                checked={form.sameAsProductionLocation ?? false}
+                type="checkbox"
+                on:change={(event) => {
+                  if ((event.currentTarget as HTMLInputElement).checked) {
+                    applySameAsProductionLocation();
+                  } else {
+                    clearSameAsProductionLocation();
+                  }
+                }}
+              />
+              <span>Same as production plan location ({productionPlanLocation.locationLabel || 'selected plan'})</span>
+            </label>
+          {/if}
+          {#if !form.sameAsProductionLocation}
+            <LocationPicker
+              bind:value={distributionLocationPickerValue}
+              modes={['physical', 'online']}
+              on:change={handleDistributionLocationChange}
+            />
+          {/if}
+        </div>
       {:else if currentStep.type === 'subtype'}
         <select bind:value={form.projectSubtype}>
           {#each subtypeOptions as option}
@@ -270,6 +442,7 @@
           {/each}
         </select>
       {:else if currentStep.type === 'repository'}
+        <SoftwareLicenseNotice />
         <input bind:value={form.repositoryUrl} placeholder="https://github.com/org/repo" />
       {:else if currentStep.type === 'request-settings'}
         <div class="settings-stack">
@@ -327,6 +500,19 @@
               <button class="text-button" type="button" on:click={() => goToStep('location')}>Edit</button>
             </div>
           {/if}
+          {#if form.distributionLocationLabel || form.sameAsProductionLocation}
+            <div class="review-row">
+              <div class="review-copy">
+                <strong>Distribution location</strong>
+                <span>
+                  {form.sameAsProductionLocation
+                    ? `Same as production (${form.distributionLocationLabel || productionPlanLocation?.locationLabel || 'selected plan'})`
+                    : form.distributionLocationLabel}
+                </span>
+              </div>
+              <button class="text-button" type="button" on:click={() => goToStep('distribution-location')}>Edit</button>
+            </div>
+          {/if}
           {#if form.scheduleMode}
             <div class="review-row">
               <div class="review-copy">
@@ -345,7 +531,16 @@
               <button class="text-button" type="button" on:click={() => goToStep('repository')}>Edit</button>
             </div>
           {/if}
-          {#if form.requestSystemEnabled != null}
+          {#if form.licenseLabel}
+            <div class="review-row">
+              <div class="review-copy">
+                <strong>License</strong>
+                <span>{form.licenseLabel}</span>
+              </div>
+              <button class="text-button" type="button" on:click={() => goToStep('repository')}>Edit</button>
+            </div>
+          {/if}
+          {#if includesRequestSettingsStep}
             <div class="review-row">
               <div class="review-copy">
                 <strong>Request settings</strong>
@@ -408,6 +603,28 @@
     margin: 0;
     color: var(--text-soft);
     line-height: 1.5;
+  }
+
+  .signal-card {
+    display: grid;
+    gap: 6px;
+    padding: 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--brand-soft) 40%, var(--panel-strong));
+  }
+
+  .signal-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--brand-strong);
+  }
+
+  .signal-card strong {
+    color: var(--text-main);
+    font-size: 15px;
   }
 
   input,

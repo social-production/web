@@ -1,48 +1,69 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
+  import { onMount } from 'svelte';
   import PublicFeedCard from '$lib/components/cards/public-feed/PublicFeedCard.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
+  import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
   import PlatformBoardPanel from '$lib/features/platform/board/PlatformBoardPanel.svelte';
   import ScopeDirectoryHeader from '$lib/features/shared-directory/ScopeDirectoryHeader.svelte';
+  import {
+    DEFAULT_FEED_PAGE_SIZE,
+    appendUniqueById
+  } from '$lib/features/feed/feedPagination';
   import { refreshBootstrap } from '$lib/services/queries/bootstrap';
-  import { setVote } from '$lib/services/queries/feeds';
+  import { getScopeFeedPage } from '$lib/services/queries/feeds';
   import { redeemScopeInvite, toggleScopeMembership, castModeratorVote } from '$lib/services/queries/scopes';
   import { parseInviteToken } from '$lib/utils/invite-token';
-  import type { PublicFeedItem, VoteDirection } from '$lib/types/feed';
+  import type { VoteDirection } from '$lib/types/feed';
   import type { ScopeMemberSummary, ScopePageData } from '$lib/types/scope';
+  import {
+    normalizeFeedFilter,
+    normalizeFeedSort,
+    normalizeFeedWindow
+  } from '$lib/utils/feedQuery';
 
   export let pageData: ScopePageData;
 
-  type DirectoryFilter = 'all' | 'projects' | 'threads' | 'events';
-  type FeedSort = 'popular' | 'recent';
-  type FeedWindow = '12h' | '1d' | '7d' | '1m' | '1y' | 'all';
+  type DirectoryFilter = 'all' | 'projects' | 'threads' | 'events' | 'help_requests';
+  type FeedSort = 'trending' | 'recent';
+  type FeedWindow = 'today' | 'week' | 'month' | 'all';
 
   const filterOptions = [
     { value: 'all', label: 'All items' },
     { value: 'projects', label: 'Projects', icon: 'project' as const },
     { value: 'threads', label: 'Threads', icon: 'thread' as const },
-    { value: 'events', label: 'Events', icon: 'event' as const }
+    { value: 'events', label: 'Events', icon: 'event' as const },
+    { value: 'help_requests', label: 'Help requests', icon: 'help-request' as const }
   ];
 
   const sortOptions = [
-    { value: 'popular', label: 'Most popular' },
+    { value: 'trending', label: 'Trending' },
     { value: 'recent', label: 'Most recent' }
   ];
 
   const windowOptions = [
-    { value: '12h', label: 'Last 12 hours' },
-    { value: '1d', label: '1 day' },
-    { value: '7d', label: '7 days' },
-    { value: '1m', label: '1 month' },
-    { value: '1y', label: '1 year' },
+    { value: 'today', label: 'Today' },
+    { value: 'week', label: 'This week' },
+    { value: 'month', label: 'This month' },
     { value: 'all', label: 'All time' }
   ];
 
   let activeFilter: DirectoryFilter = 'all';
-  let activeSort: FeedSort = 'popular';
+  let activeSort: FeedSort = 'trending';
   let activeWindow: FeedWindow = 'all';
+  let feedItems = pageData.feed;
+  let feedLoading = false;
+  let feedLoadingMore = false;
+  let feedHasMore = pageData.feed.length >= DEFAULT_FEED_PAGE_SIZE;
+  let feedOffset = pageData.feed.length;
+  let feedRequestId = 0;
+  let lastLoadedQuery = '';
+  let lastPageSlug = pageData.slug;
+  let lastHydratedUrl = '';
+  let isSyncingFeedUrl = false;
+  let preferencesReady = false;
   let showBoardPanel = false;
   let showInvitePanel = false;
   let membershipPending = false;
@@ -57,12 +78,18 @@
   $: if (!showRolePanel && showBoardPanel) {
     showBoardPanel = false;
   }
-  $: referenceTime = pageData.feed.reduce((max, item) => Math.max(max, itemTimestamp(item)), 0);
-  $: filteredFeed = pageData.feed
-    .filter((item) => matchesFilter(item, activeFilter))
-    .filter((item) => matchesWindow(item, activeWindow, referenceTime))
-    .slice()
-    .sort((left, right) => compareItems(left, right, activeSort));
+  let scopeKind: 'channel' | 'community' = 'channel';
+  $: scopeKind = pageData.kind === 'community' ? 'community' : 'channel';
+  $: if (pageData.slug !== lastPageSlug) {
+    lastPageSlug = pageData.slug;
+    feedItems = pageData.feed;
+    feedOffset = pageData.feed.length;
+    feedHasMore = pageData.feed.length >= DEFAULT_FEED_PAGE_SIZE;
+    lastLoadedQuery = '';
+    hydrateFromUrl();
+    lastHydratedUrl = $page.url.search;
+    void loadFeedItems();
+  }
   $: {
     const inviteParam = $page.url.searchParams.get('invite') ?? '';
 
@@ -85,58 +112,164 @@
     lastInviteParam = inviteParam;
   }
 
-  function matchesFilter(item: PublicFeedItem, filter: DirectoryFilter) {
-    if (filter === 'all') {
-      return true;
-    }
-
-    if (filter === 'projects') {
-      return item.kind === 'project';
-    }
-
-    if (filter === 'threads') {
-      return item.kind === 'thread';
-    }
-
-    return item.kind === 'event';
+  function normalizeDirectoryFilter(value: string | null | undefined): DirectoryFilter {
+    const normalized = normalizeFeedFilter(value);
+    return normalized;
   }
 
-  function itemTimestamp(item: PublicFeedItem) {
-    return +(new Date(item.lastActivityAt));
+  function normalizeDirectorySort(value: string | null | undefined): FeedSort {
+    const normalized = normalizeFeedSort(value);
+    return normalized === 'recent' ? 'recent' : 'trending';
   }
 
-  function timeWindowMs(window: FeedWindow) {
-    switch (window) {
-      case '12h':
-        return 12 * 60 * 60 * 1000;
-      case '1d':
-        return 24 * 60 * 60 * 1000;
-      case '7d':
-        return 7 * 24 * 60 * 60 * 1000;
-      case '1m':
-        return 30 * 24 * 60 * 60 * 1000;
-      case '1y':
-        return 365 * 24 * 60 * 60 * 1000;
-      default:
-        return Number.POSITIVE_INFINITY;
+  function hydrateFromUrl() {
+    const params = $page.url.searchParams;
+    activeFilter = normalizeDirectoryFilter(params.get('filter'));
+    activeSort = normalizeDirectorySort(params.get('sort'));
+    activeWindow = normalizeFeedWindow(params.get('window')) as FeedWindow;
+  }
+
+  async function syncFeedQueryToUrl() {
+    const params = new URLSearchParams($page.url.searchParams);
+
+    if (activeFilter === 'all') {
+      params.delete('filter');
+    } else {
+      params.set('filter', activeFilter);
+    }
+
+    if (activeSort === 'trending') {
+      params.delete('sort');
+    } else {
+      params.set('sort', activeSort);
+    }
+
+    if (activeWindow === 'all') {
+      params.delete('window');
+    } else {
+      params.set('window', activeWindow);
+    }
+
+    const nextSearch = params.toString();
+    const nextUrlSearch = nextSearch ? `?${nextSearch}` : '';
+    if (nextUrlSearch === $page.url.search) {
+      lastHydratedUrl = $page.url.search;
+      return;
+    }
+
+    isSyncingFeedUrl = true;
+    lastHydratedUrl = nextUrlSearch;
+    try {
+      await goto(`${$page.url.pathname}${nextUrlSearch}`, {
+        replaceState: true,
+        noScroll: true,
+        keepFocus: true
+      });
+    } finally {
+      lastHydratedUrl = $page.url.search;
+      isSyncingFeedUrl = false;
     }
   }
 
-  function matchesWindow(item: PublicFeedItem, window: FeedWindow, referenceTime: number) {
-    if (window === 'all') {
-      return true;
-    }
-
-    return referenceTime - itemTimestamp(item) <= timeWindowMs(window);
+  function currentFeedQueryKey() {
+    return `${pageData.kind}:${pageData.slug}:${activeFilter}:${activeSort}:${activeWindow}`;
   }
 
-  function compareItems(left: PublicFeedItem, right: PublicFeedItem, sort: FeedSort) {
-    if (sort === 'popular') {
-      return right.voteCount - left.voteCount || itemTimestamp(right) - itemTimestamp(left);
+  async function loadFeedItems() {
+    if (!pageData.membership.viewerCanSeeFeed) {
+      feedItems = [];
+      feedHasMore = false;
+      feedOffset = 0;
+      return;
     }
 
-    return itemTimestamp(right) - itemTimestamp(left);
+    const feedQueryKey = currentFeedQueryKey();
+    if (feedQueryKey === lastLoadedQuery && feedItems.length > 0) {
+      return;
+    }
+
+    const requestId = ++feedRequestId;
+    feedLoading = true;
+    feedLoadingMore = false;
+    feedHasMore = true;
+    feedOffset = 0;
+
+    try {
+      const pageResult = await getScopeFeedPage({
+        kind: scopeKind,
+        slug: pageData.slug,
+        sort: activeSort,
+        window: activeWindow,
+        filter: activeFilter,
+        limit: DEFAULT_FEED_PAGE_SIZE,
+        offset: 0
+      });
+      if (requestId === feedRequestId) {
+        feedItems = pageResult.items;
+        feedOffset = pageResult.items.length;
+        feedHasMore = pageResult.hasMore;
+        lastLoadedQuery = feedQueryKey;
+      }
+    } finally {
+      if (requestId === feedRequestId) {
+        feedLoading = false;
+      }
+    }
   }
+
+  async function loadMoreFeedItems() {
+    if (!pageData.membership.viewerCanSeeFeed || feedLoading || feedLoadingMore || !feedHasMore) {
+      return;
+    }
+
+    const requestId = ++feedRequestId;
+    feedLoadingMore = true;
+    try {
+      const pageResult = await getScopeFeedPage({
+        kind: scopeKind,
+        slug: pageData.slug,
+        sort: activeSort,
+        window: activeWindow,
+        filter: activeFilter,
+        limit: DEFAULT_FEED_PAGE_SIZE,
+        offset: feedOffset
+      });
+      if (requestId !== feedRequestId) {
+        return;
+      }
+      feedItems = appendUniqueById(feedItems, pageResult.items);
+      feedOffset += pageResult.items.length;
+      feedHasMore = pageResult.hasMore;
+    } finally {
+      if (requestId === feedRequestId) {
+        feedLoadingMore = false;
+      }
+    }
+  }
+
+  function handleFeedQueryChange() {
+    lastLoadedQuery = '';
+    feedItems = [];
+    void syncFeedQueryToUrl();
+    void loadFeedItems();
+  }
+
+  $: if (preferencesReady && !isSyncingFeedUrl && $page.url.search !== lastHydratedUrl) {
+    lastHydratedUrl = $page.url.search;
+    hydrateFromUrl();
+    lastLoadedQuery = '';
+    feedItems = [];
+    void loadFeedItems();
+  }
+
+  onMount(() => {
+    hydrateFromUrl();
+    lastHydratedUrl = $page.url.search;
+    preferencesReady = true;
+    void syncFeedQueryToUrl();
+    lastLoadedQuery = '';
+    void loadFeedItems();
+  });
 
   function meetsConfidenceThreshold(member: ScopeMemberSummary) {
     return (
@@ -256,11 +389,17 @@
           defaultValue="all"
           options={filterOptions}
           showOptionIcons
+          on:change={handleFeedQueryChange}
         >
           <FeedToolbarIcon name="filter" />
         </IconMenuButton>
 
-        <IconMenuButton bind:value={activeSort} ariaLabel={`Sort ${pageData.title} feed by`} options={sortOptions}>
+        <IconMenuButton
+          bind:value={activeSort}
+          ariaLabel={`Sort ${pageData.title} feed by`}
+          options={sortOptions}
+          on:change={handleFeedQueryChange}
+        >
           <FeedToolbarIcon name="sort" />
         </IconMenuButton>
 
@@ -269,6 +408,7 @@
           ariaLabel={`${pageData.title} feed time window`}
           defaultValue="all"
           options={windowOptions}
+          on:change={handleFeedQueryChange}
         >
           <FeedToolbarIcon name="clock" />
         </IconMenuButton>
@@ -281,14 +421,26 @@
       <section class="info-card">
         <p>{pageData.membership.hiddenFeedCopy ?? 'This feed is only visible to members.'}</p>
       </section>
-    {:else if filteredFeed.length === 0}
+    {:else if feedLoading && feedItems.length === 0}
+      <section class="info-card">
+        <p>Loading feed…</p>
+      </section>
+    {:else if feedItems.length === 0}
       <section class="info-card">
         <p>{pageData.emptyFeedText}</p>
       </section>
     {:else}
-      {#each filteredFeed as item}
+      {#each feedItems as item (item.id)}
         <PublicFeedCard item={item} />
       {/each}
+      <InfiniteFeedSentinel
+        disabled={!feedHasMore || feedLoading}
+        loading={feedLoadingMore}
+        on:loadMore={loadMoreFeedItems}
+      />
+      {#if !feedHasMore && feedItems.length > 0}
+        <p class="end-copy">You're caught up.</p>
+      {/if}
     {/if}
   </div>
 </section>
@@ -311,6 +463,14 @@
 
   .stack :global(.surface:last-child) {
     border-bottom: none;
+  }
+
+  .end-copy {
+    margin: 0;
+    padding: 12px 4px 4px;
+    color: var(--text-soft);
+    font-size: 13px;
+    text-align: center;
   }
 
   .toolbar-card,

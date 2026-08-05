@@ -2,7 +2,7 @@
   import { browser } from '$app/environment';
   import { invalidate } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { hasAuthenticatedSession } from '$lib/services/session';
+  import { hasRememberedAuthCookie } from '$lib/services/session';
   import '../app.css';
   import AppShell from '$lib/app/shell/AppShell.svelte';
   import { detectShellMode } from '$lib/platform/shellMode';
@@ -26,7 +26,8 @@
 
   onMount(() => {
     function recoverStaleAuthState() {
-      if (!hasAuthenticatedSession() && data.bootstrap.viewer) {
+      // Cookies cleared while bootstrap still shows a viewer (or the reverse).
+      if (!hasRememberedAuthCookie() && data.bootstrap.viewer) {
         void invalidate('app:bootstrap');
       }
     }

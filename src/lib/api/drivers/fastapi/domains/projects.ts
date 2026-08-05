@@ -22,14 +22,10 @@ import type {
   GovernanceSignalType,
   ShareTargetResult,
 } from '$lib/types/detail';
-import type { CreateProjectInput, CreateResult } from '$lib/types/feed';
+import type { CreateProjectInput, CreateResult, SignalToggleResult } from '$lib/types/feed';
 
 // Membership cache for toggle direction (populated from getProject viewerIsMember)
 const membershipCache = new Map<string, boolean>();
-
-function slugify(s: string): string {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
 
 // -- Read -------------------------------------------------------------------
 
@@ -102,11 +98,11 @@ export async function fetchProject(slug: string): Promise<ProjectPageData | null
 export async function fetchCreateProject(input: CreateProjectInput): Promise<CreateResult> {
   try {
     const res = await apiClient.post<{ project: { slug: string } }>('/projects', {
-      slug: slugify(input.title),
       title: input.title,
       description: input.description,
       project_mode: input.projectMode,
       location_label: input.locationLabel,
+      location_id: input.locationId ?? null,
       channel_slugs: input.channelTags.map(t => t.slug),
       community_slugs: input.communityTags.map(t => t.slug),
       request_mode: input.serviceRequestMode,
@@ -136,8 +132,28 @@ export async function fetchToggleProjectDemandSignal(projectSlug: string): Promi
   await apiClient.post(`/projects/${projectSlug}/signals`, { signal_type: 'demand' });
 }
 
-export async function fetchSetProjectSignal(projectSlug: string, signal: GovernanceSignalType): Promise<void> {
-  await apiClient.post(`/projects/${projectSlug}/signals`, { signal_type: signal });
+type ProjectSignalToggleResponse = {
+  ok: boolean;
+  slug: string;
+  action: 'added' | 'removed' | 'switched';
+  signal_type: 'demand' | 'opposition';
+  signals: { demand: number; opposition: number; total: number };
+};
+
+export async function fetchSetProjectSignal(
+  projectSlug: string,
+  signal: GovernanceSignalType
+): Promise<SignalToggleResult> {
+  const response = await apiClient.post<ProjectSignalToggleResponse>(`/projects/${projectSlug}/signals`, {
+    signal_type: signal
+  });
+  return {
+    ok: response.ok,
+    slug: response.slug,
+    action: response.action,
+    signalType: response.signal_type,
+    signals: response.signals
+  };
 }
 
 // -- Values -----------------------------------------------------------------
@@ -171,15 +187,20 @@ export async function fetchAddProjectProductionPlan(
       demand_consideration_note: input.demandConsiderationNote,
       total_cost_label: input.totalCostLabel,
       repository_url: input.repositoryUrl ?? null,
+      location_id: input.locationId ?? null,
       plan_payload: {
         projectSubtype: input.projectSubtype,
         planPhases: input.planPhases,
         valueConsiderationNotes: input.valueConsiderationNotes ?? {},
+        locationLabel: input.locationLabel ?? '',
         outputSummary: input.outputSummary ?? '',
         materialsSummary: input.materialsSummary ?? '',
         acquisitionsSummary: input.acquisitionsSummary ?? '',
         acquisitionBundles: input.acquisitionBundles ?? [],
         purchaseRows: input.purchaseRows ?? [],
+        ...(input.projectSubtype === 'software'
+          ? { licenseLabel: input.licenseLabel ?? 'AGPL v3' }
+          : {}),
       },
     });
     return { ok: true };
@@ -210,9 +231,14 @@ export async function fetchAddProjectDistributionPlan(
       description: input.description,
       demand_consideration_note: input.demandConsiderationNote,
       total_cost_label: input.totalCostLabel,
+      location_id: input.locationId ?? null,
       plan_payload: {
         planPhases: input.planPhases,
         valueConsiderationNotes: input.valueConsiderationNotes ?? {},
+        locationLabel: input.locationLabel ?? '',
+        projectLocationId: input.projectLocationId ?? null,
+        projectLocationLabel: input.projectLocationLabel ?? '',
+        sameAsProductionLocation: input.sameAsProductionLocation ?? false,
         distributionSummary: input.distributionSummary ?? '',
         accessSummary: input.accessSummary ?? '',
         reserveSummary: input.reserveSummary ?? '',
@@ -275,6 +301,7 @@ export async function fetchAddProjectActivity(
     ends_at: input.endsAt,
     is_online: input.isOnline ?? false,
     location_label: input.locationLabel,
+    location_id: input.locationId ?? null,
     note: input.note,
     role_requirements: input.roleRequirements.map(r => ({
       label: r.label,
@@ -342,10 +369,12 @@ export async function fetchSetProjectPullRequestVote(
 export async function fetchRecordProjectPullRequestMerge(
   projectSlug: string,
   requestId: string,
-  mergeId: string
+  mergeId: string,
+  mergeUrl: string
 ): Promise<void> {
   await apiClient.post(`/projects/${projectSlug}/software/pull-requests/${requestId}/merge`, {
     mergeId,
+    mergeUrl,
   });
 }
 
@@ -572,13 +601,15 @@ export async function fetchAddProjectUpdate(
 
 export async function fetchCreateProjectManualLinkRequest(
   projectSlug: string,
-  targetProjectSlug: string,
-  relationshipLabel: string,
-  summary: string
+  targetKind: 'project' | 'event',
+  targetSlug: string,
+  summary: string,
+  relationshipLabel?: string | null
 ): Promise<void> {
   await apiClient.post(`/projects/${projectSlug}/manual-links`, {
-    target_project_slug: targetProjectSlug,
-    relationship_label: relationshipLabel,
+    target_kind: targetKind,
+    target_slug: targetSlug,
+    relationship_label: relationshipLabel ?? undefined,
     summary,
   });
 }
@@ -590,6 +621,16 @@ export async function fetchSetProjectManualLinkVote(
 ): Promise<void> {
   if (!vote) return;
   await apiClient.post(`/projects/${projectSlug}/manual-links/${requestId}/vote`, { vote });
+}
+
+export async function fetchCreateProjectManualLinkSeverRequest(
+  projectSlug: string,
+  linkId: string,
+  summary?: string | null
+): Promise<void> {
+  await apiClient.post(`/projects/${projectSlug}/links/${linkId}/sever`, {
+    summary: summary ?? undefined
+  });
 }
 
 // -- Misc --------------------------------------------------------------------

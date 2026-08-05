@@ -5,12 +5,16 @@
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import { castFeedVote } from '$lib/services/queries/feeds';
+  import { submitFeedEntitySignal } from '$lib/utils/signalEngagement';
   import type { PersonalActivityItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { formatRelativeTime } from '$lib/utils/time';
+  import { page } from '$app/stores';
+  import { requireViewer } from '$lib/utils/requireViewer';
 
-  export let item: PersonalActivityItem;
+  let { item }: { item: PersonalActivityItem } = $props();
 
   function buildCommentHref(href: string, subjectKind: PersonalActivityItem['subjectKind']) {
     const url = new URL(href, 'https://socialproduction.local');
@@ -27,15 +31,35 @@
     return `${url.pathname}${url.search}${url.hash}`;
   }
 
-  $: orderedTags = [...item.channelTags, ...item.communityTags];
-  $: commentHref = buildCommentHref(item.href, item.subjectKind);
+  const orderedTags = $derived([...item.channelTags, ...item.communityTags]);
+  const commentHref = $derived(buildCommentHref(item.href, item.subjectKind));
+  const usesSignals = $derived(item.subjectKind === 'project' || item.subjectKind === 'event');
+  const subjectSlug = $derived(
+    item.subjectSlug ??
+      item.href.split('/').filter(Boolean).at(-1)?.split('?')[0] ??
+      ''
+  );
 
-  async function handleVote(event: CustomEvent<{ vote: VoteDirection }>) {
-    await castFeedVote(item.subjectId, event.detail.vote);
+  async function handleVote({ vote }: { vote: VoteDirection }) {
+    return castFeedVote(item.subjectId, vote, {
+      activeVote: item.activeVote,
+      voteCount: item.voteCount
+    });
+  }
+
+  async function handleSignal(signal: 'demand' | 'opposition') {
+    if (!requireViewer($page.data.bootstrap?.viewer) || !subjectSlug || item.isClosed) {
+      return;
+    }
+
+    if (item.subjectKind === 'project' || item.subjectKind === 'event') {
+      return submitFeedEntitySignal(item.subjectKind, subjectSlug, signal);
+    }
   }
 </script>
 
 <FeedSurface
+  contentRestricted={item.moderationState === 'hidden'}
   href={item.href}
   tone="personal"
   accent={surfaceTypeAccent(item.subjectKind, item.subjectProjectMode ?? 'productive')}
@@ -47,6 +71,14 @@
         <div class="name-line">
           <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
           <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.subjectProjectMode ?? 'productive'} />
+          <ReportControl
+            hasActiveReport={item.hasActiveReport}
+            interactive={false}
+            isUnderReview={item.isUnderReview}
+            itemLabel={item.subjectKind}
+            moderationState={item.moderationState}
+            report={item.report ?? null}
+          />
         </div>
       </div>
     </div>
@@ -58,7 +90,7 @@
     {/if}
   </div>
 
-  <a class="title" href={item.href}>{item.title}</a>
+  <a class="title" data-sveltekit-preload-data="off" href={item.href}>{item.title}</a>
   <p class="body">{item.body}</p>
 
   {#if item.subjectKind === 'project' && item.subjectFundProgress}
@@ -76,7 +108,20 @@
 
   <div class="footer">
     <div class="engagement-row">
-      <VoteStrip activeVote={item.activeVote} count={item.voteCount} on:vote={handleVote} />
+      {#if usesSignals}
+        <VoteStrip
+          mode="signals"
+          syncKey={item.id}
+          supportCount={item.supportCount}
+          opposeCount={item.opposeCount}
+          favorability={item.favorability}
+          viewerSignal={item.viewerSignal}
+          disabled={Boolean(item.isClosed)}
+          onsignal={handleSignal}
+        />
+      {:else}
+        <VoteStrip activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
+      {/if}
       <a class="comment-link" href={commentHref}>
         <CountPill label={`${item.commentCount} comments`} />
       </a>
@@ -88,13 +133,25 @@
 </FeedSurface>
 
 <style>
-  .header-row,
-  .footer {
+  .header-row {
     display: flex;
     gap: 0.75rem;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
+  }
+
+  .footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--panel-border);
+    color: var(--text-soft);
+    font-size: 13px;
   }
 
   .identity-row {
@@ -109,7 +166,7 @@
     display: flex;
     gap: 0.45rem;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     min-width: 0;
   }
 
@@ -187,19 +244,11 @@
     line-height: 1.4;
   }
 
-  .footer {
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid var(--panel-border);
-    color: var(--text-soft);
-    font-size: 13px;
-  }
-
   .engagement-row {
     display: flex;
     gap: 8px;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .comment-link {
@@ -209,6 +258,7 @@
   }
 
   .footer-meta {
+    margin-left: auto;
     text-align: right;
     white-space: nowrap;
   }
@@ -224,6 +274,7 @@
     }
 
     .footer-meta {
+      margin-left: 0;
       text-align: left;
     }
   }

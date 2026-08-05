@@ -2,12 +2,15 @@
   import { createEventDispatcher, onMount, tick } from 'svelte';
   import SurfaceIcon from '$lib/components/cards/shared/SurfaceIcon.svelte';
   import type { SurfaceIconId } from '$lib/utils/surfaceType';
+  import { portal } from '$lib/utils/portal';
 
   export let value: string;
   export let ariaLabel: string;
   export let options: Array<{ value: string; label: string; icon?: SurfaceIconId }> = [];
   export let showOptionIcons = false;
   export let defaultValue: string | null = null;
+  export let portaled = false;
+  export let preferAbove = false;
 
   const dispatch = createEventDispatcher<{ change: { value: string } }>();
 
@@ -32,11 +35,16 @@
     const gap = 4;
     const viewportPadding = 8;
 
-    let top = triggerRect.bottom + gap;
+    let top: number;
     let left = triggerRect.right - menuRect.width;
 
-    if (top + menuRect.height > window.innerHeight - viewportPadding) {
+    if (preferAbove) {
       top = triggerRect.top - menuRect.height - gap;
+    } else {
+      top = triggerRect.bottom + gap;
+      if (top + menuRect.height > window.innerHeight - viewportPadding) {
+        top = triggerRect.top - menuRect.height - gap;
+      }
     }
 
     left = Math.max(viewportPadding, Math.min(left, window.innerWidth - menuRect.width - viewportPadding));
@@ -58,8 +66,11 @@
   }
 
   function selectOption(nextValue: string) {
-    if (nextValue !== value) {
-      value = nextValue;
+    // Always emit change so selecting the baseline default (e.g. "All time")
+    // still triggers feed reloads when local state was previously out of sync.
+    const changed = nextValue !== value;
+    value = nextValue;
+    if (changed || nextValue === baselineValue) {
       dispatch('change', { value: nextValue });
     }
 
@@ -79,9 +90,17 @@
   }
 
   function handleDocumentClick(event: MouseEvent) {
-    if (open && shell && !shell.contains(event.target as Node)) {
-      close();
+    const target = event.target as Node;
+    if (!open) {
+      return;
     }
+    if (shell?.contains(target)) {
+      return;
+    }
+    if (menuElement?.contains(target)) {
+      return;
+    }
+    close();
   }
 
   onMount(() => {
@@ -115,7 +134,13 @@
   </button>
 
   {#if open}
-    <div bind:this={menuElement} class="icon-menu" role="menu" style={menuStyle}>
+    <div
+      bind:this={menuElement}
+      class="icon-menu"
+      role="menu"
+      style={menuStyle}
+      use:portal={portaled ? 'body' : false}
+    >
       {#each options as option (option.value)}
         <button
           type="button"
@@ -123,6 +148,7 @@
           aria-checked={option.value === value}
           class="icon-menu-item"
           class:selected={option.value === value}
+          on:mousedown|preventDefault
           on:click={() => selectOption(option.value)}
         >
           {#if showOptionIcons && option.icon}

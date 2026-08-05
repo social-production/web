@@ -3,8 +3,8 @@
   import { goto, invalidateAll } from '$app/navigation';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import { surfaceAccentCssVar, surfaceTypeAccent } from '$lib/utils/surfaceType';
-  import { setProjectActivityCommitment, setProjectEditVote, setProjectPhaseChangeVote, setProjectPlanOverallVote, setProjectUpdateVote } from '$lib/services/commands/projects';
-import { setEventActivityCommitment, setEventEditVote, setEventPhaseChangeVote, setEventPlanOverallVote, setEventUpdateVote, toggleEventMembership } from '$lib/services/commands/events';
+  import { setProjectActivityCommitment, setProjectEditVote, setProjectManualLinkVote, setProjectMergeCapabilityChangeVote, setProjectPhaseChangeVote, setProjectPlanOverallVote, setProjectPullRequestVote, setProjectRepositoryReplacementVote, setProjectUpdateVote } from '$lib/services/commands/projects';
+  import { setEventActivityCommitment, setEventEditVote, setEventManualLinkVote, setEventPhaseChangeVote, setEventPlanOverallVote, setEventUpdateVote, toggleEventMembership } from '$lib/services/commands/events';
   import type { RightRailActivityItem } from '$lib/types/bootstrap';
   import {
     dismissRailItemId,
@@ -109,7 +109,13 @@ import { setEventActivityCommitment, setEventEditVote, setEventPhaseChangeVote, 
       return 'Help request';
     }
     if (item.kind === 'request') return 'Service request';
-    if (item.kind === 'vote') return item.voteKindLabel ? `Vote · ${item.voteKindLabel.replace('_', ' ')}` : 'Vote';
+    if (item.kind === 'vote') {
+      if (item.voteKindLabel === 'pull_request_merge') return 'Action · merge needed';
+      if (item.voteKindLabel === 'pull_request') return 'Vote · pull request';
+      if (item.voteKindLabel === 'merge_capability') return 'Vote · merge capability';
+      if (item.voteKindLabel === 'repository_replacement') return 'Vote · repository';
+      return item.voteKindLabel ? `Vote · ${item.voteKindLabel.replace('_', ' ')}` : 'Vote';
+    }
     return item.kind === 'event' ? 'Event activity' : 'Project activity';
   }
 
@@ -166,6 +172,19 @@ import { setEventActivityCommitment, setEventEditVote, setEventPhaseChangeVote, 
     event.stopPropagation();
     markRailItemSeen(seenStorageKey, item.id);
     requestClose();
+
+    if (item.voteKindLabel === 'pull_request_merge') {
+      await goto(item.href);
+      return;
+    }
+
+    if (item.voteKindLabel === 'pull_request') {
+      const href = item.href.includes('assess=1')
+        ? item.href
+        : `${item.href}${item.href.includes('?') ? '&' : '?'}assess=1`;
+      await goto(href);
+      return;
+    }
 
     const basePath = item.href.split('?')[0];
     await goto(`${basePath}#pending-votes-panel`);
@@ -238,6 +257,10 @@ import { setEventActivityCommitment, setEventEditVote, setEventPhaseChangeVote, 
           case 'edit':
             await setProjectEditVote(slug, targetId, vote);
             break;
+          case 'link':
+          case 'link_sever':
+            await setProjectManualLinkVote(slug, targetId, vote);
+            break;
           case 'plan':
             await setProjectPlanOverallVote(
               slug,
@@ -246,6 +269,18 @@ import { setEventActivityCommitment, setEventEditVote, setEventPhaseChangeVote, 
               vote
             );
             break;
+          case 'pull_request':
+            await setProjectPullRequestVote(slug, targetId, vote);
+            break;
+          case 'merge_capability':
+            await setProjectMergeCapabilityChangeVote(slug, targetId, vote);
+            break;
+          case 'repository_replacement':
+            await setProjectRepositoryReplacementVote(slug, targetId, vote);
+            break;
+          case 'pull_request_merge':
+            await goto(item.href);
+            return;
         }
       } else {
         switch (item.voteKindLabel) {
@@ -258,6 +293,10 @@ import { setEventActivityCommitment, setEventEditVote, setEventPhaseChangeVote, 
           case 'edit':
             await setEventEditVote(slug, targetId, vote);
             break;
+          case 'link':
+          case 'link_sever':
+            await setEventManualLinkVote(slug, targetId, vote);
+            break;
           case 'plan':
             await setEventPlanOverallVote(slug, targetId, vote);
             break;
@@ -266,7 +305,11 @@ import { setEventActivityCommitment, setEventEditVote, setEventPhaseChangeVote, 
 
       await invalidateAll();
       markRailItemSeen(seenStorageKey, item.id);
-      scrollToPendingVote(item.voteKindLabel, item.voteTargetId);
+      if (item.voteKindLabel === 'link' || item.voteKindLabel === 'link_sever') {
+        await goto(item.href);
+      } else {
+        scrollToPendingVote(item.voteKindLabel, item.voteTargetId);
+      }
     } finally {
       pendingVoteId = '';
     }
@@ -504,7 +547,7 @@ import { setEventActivityCommitment, setEventEditVote, setEventPhaseChangeVote, 
               {/if}
             </button>
             <div class="vote-row-actions">
-              {#if item.voteKindLabel === 'plan'}
+              {#if item.voteKindLabel === 'plan' || item.voteKindLabel === 'pull_request'}
                 <button
                   class="vote-action-button assess-button"
                   disabled={pendingVoteId === item.id}
@@ -514,7 +557,18 @@ import { setEventActivityCommitment, setEventEditVote, setEventPhaseChangeVote, 
                   Assess
                 </button>
               {/if}
-              {#if item.voteKindLabel !== 'plan' || item.voteSubKind === 'overall'}
+              {#if item.voteKindLabel === 'pull_request_merge'}
+                <button
+                  class="vote-action-button assess-button"
+                  disabled={pendingVoteId === item.id}
+                  type="button"
+                  on:click={(event) => handleRailAssess(item, event)}
+                >
+                  Record merge
+                </button>
+              {:else if
+                item.voteKindLabel !== 'pull_request' &&
+                (item.voteKindLabel !== 'plan' || item.voteSubKind === 'overall')}
                 <button
                   class="vote-action-button reject-button"
                   disabled={pendingVoteId === item.id}
