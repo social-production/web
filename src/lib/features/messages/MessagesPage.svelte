@@ -10,9 +10,10 @@
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import { unreadCounts } from '$lib/stores/unreadCounts';
   import { addComment } from '$lib/services/commands/shared';
-  import { fetchComments } from '$lib/api/drivers/fastapi/domains/content';
-  import { registerEntityType, registerCommentIds } from '$lib/api/drivers/fastapi/typeRegistry';
-  import { mapContentReport, mapModerationState } from '$lib/utils/moderation';
+  import {
+    registerEntityType,
+    registerCommentIds
+  } from '$lib/services/governanceEntityRegistry';
   import {
     ChatSendError,
     createOptimisticComment,
@@ -20,21 +21,23 @@
     pruneOptimisticComments
   } from '$lib/utils/discussionState';
   import {
-    addGroupConversationMember,
-    createGroupConversation,
     getConversationMessages,
     getMessageContacts,
+    getSubjectComments
+  } from '$lib/services/queries/inbox';
+  import {
+    addGroupConversationMember,
+    createGroupConversation,
     markConversationRead,
     markLinkedChatRead,
     removeGroupConversationMember,
     renameGroupConversation,
     sendMessage,
     startDirectMessage
-  } from '$lib/services/queries/inbox';
+  } from '$lib/services/commands/inbox';
   import type { DirectMessage, MessageLinkedChat, MessagesPageData } from '$lib/types/inbox';
   import type { ViewerSummary } from '$lib/types/bootstrap';
   import type { DetailComment } from '$lib/types/detail';
-  import type { VoteDirection } from '$lib/types/feed';
   import { tick } from 'svelte';
   import { formatRelativeTime } from '$lib/utils/time';
 
@@ -181,45 +184,12 @@
     return 'unknown';
   }
 
-  type RawLinkedChatComment = {
-    id: string;
-    author_id: string | null;
-    author_username: string;
-    body: string;
-    created_at: string;
-    vote_count: number;
-    active_vote?: number;
-    report?: unknown;
-    moderation_state?: string;
-    moderationState?: string;
-    replies?: RawLinkedChatComment[];
-  };
-
-  function mapLinkedChatComment(c: RawLinkedChatComment): DetailComment {
-    registerEntityType(c.id, 'comment');
+  function remapLinkedChatAuthor(comment: DetailComment): DetailComment {
+    registerEntityType(comment.id, 'comment');
     return {
-      id: c.id,
-      authorUsername: linkedChatAuthorUsername(c.author_username, c.author_id),
-      body: c.body,
-      createdAt: c.created_at,
-      voteCount: c.vote_count,
-      activeVote: (c.active_vote ?? 0) as VoteDirection,
-      report: mapContentReport(c.report),
-      ...(mapModerationState(c) ? { moderationState: mapModerationState(c) } : {}),
-      replies: (c.replies ?? []).map((reply) => {
-        registerEntityType(reply.id, 'comment');
-        return {
-          id: reply.id,
-          authorUsername: linkedChatAuthorUsername(reply.author_username, reply.author_id),
-          body: reply.body,
-          createdAt: reply.created_at,
-          voteCount: reply.vote_count,
-          activeVote: (reply.active_vote ?? 0) as VoteDirection,
-          report: mapContentReport(reply.report),
-          ...(mapModerationState(reply) ? { moderationState: mapModerationState(reply) } : {}),
-          replies: [],
-        };
-      }),
+      ...comment,
+      authorUsername: linkedChatAuthorUsername(comment.authorUsername, null),
+      replies: (comment.replies ?? []).map(remapLinkedChatAuthor)
     };
   }
 
@@ -630,8 +600,8 @@
 
     try {
       linkedChatComments = (
-        await fetchComments(chat.kind, chat.subjectId)
-      ).map(mapLinkedChatComment);
+        await getSubjectComments(chat.kind, chat.subjectId)
+      ).map(remapLinkedChatAuthor);
       linkedChatOptimisticComments = pruneOptimisticComments(
         linkedChatComments,
         linkedChatOptimisticComments
@@ -746,10 +716,11 @@
 
     try {
       await addComment(
-        activeLinkedChat.subjectId,
-        body,
-        undefined,
-        linkedChatEntityType(activeLinkedChat.kind)
+        {
+          id: activeLinkedChat.subjectId,
+          type: linkedChatEntityType(activeLinkedChat.kind)
+        },
+        body
       );
     } catch {
       linkedChatOptimisticComments = linkedChatOptimisticComments.filter(
@@ -760,8 +731,8 @@
 
     try {
       linkedChatComments = (
-        await fetchComments(activeLinkedChat.kind, activeLinkedChat.subjectId)
-      ).map(mapLinkedChatComment);
+        await getSubjectComments(activeLinkedChat.kind, activeLinkedChat.subjectId)
+      ).map(remapLinkedChatAuthor);
       linkedChatOptimisticComments = pruneOptimisticComments(
         linkedChatComments,
         linkedChatOptimisticComments

@@ -2,7 +2,7 @@
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import PreviewTile from '$lib/features/create/shared/PreviewTile.svelte';
-  import { createChannel } from '$lib/services/queries/create';
+  import { createChannel } from '$lib/services/commands/create';
   import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
   import { canonicalizeHandle, validateHandle } from '$lib/utils/handles';
 

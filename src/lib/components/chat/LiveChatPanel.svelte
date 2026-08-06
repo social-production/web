@@ -7,6 +7,7 @@
   import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
   import { addComment, setReportVote, submitReport } from '$lib/services/commands/shared';
   import type { ContentReportSummary, DetailComment, ModerationState } from '$lib/types/detail';
+  import type { CommentSubjectType, ReportTargetType } from '$lib/types/governance';
   import { linkifyMessageBody } from '$lib/utils/linkifyMessageBody';
   import { ChatSendError } from '$lib/utils/discussionState';
   import { moderatedPlaceholder, shouldHideModeratedBody } from '$lib/utils/moderation';
@@ -28,6 +29,7 @@
   export let comments: DetailComment[] = [];
   export let messages: ChatMessage[] = [];
   export let subjectId = '';
+  export let subjectType: CommentSubjectType | undefined = undefined;
   export let highlightedCommentId: string | null = null;
   export let title = 'Discussion';
   export let description = '';
@@ -38,7 +40,7 @@
   export let embedded = false;
   export let fitViewport = false;
   export let variant: 'chat' | 'message' = 'chat';
-  export let reportTargetType: 'message' | 'comment' | undefined = undefined;
+  export let reportTargetType: ReportTargetType | undefined = undefined;
   export let onSubmitMessage: ((body: string) => Promise<void> | void) | null = null;
   export let onModerated: (() => Promise<void> | void) | null = null;
 
@@ -158,7 +160,12 @@
       reportTargetType ?? (messages.length > 0 || comments.length === 0 ? 'message' : 'comment');
 
     try {
-      await submitReport(subjectId, reportTargetMessage.id, reportReason, reportDetails, targetType);
+      await submitReport(
+        subjectId,
+        { id: reportTargetMessage.id, type: targetType },
+        reportReason,
+        reportDetails
+      );
       closeReportComposer();
       await invalidateAfterReport($page.url.pathname);
       dispatch('moderated');
@@ -329,8 +336,8 @@
     try {
       if (onSubmitMessage) {
         await onSubmitMessage(body);
-      } else if (subjectId) {
-        await addComment(subjectId, body);
+      } else if (subjectId && subjectType) {
+        await addComment({ id: subjectId, type: subjectType }, body);
         await invalidateAll();
       } else {
         draftMessage = body;

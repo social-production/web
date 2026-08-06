@@ -12,7 +12,8 @@
     radiusPresetOptions
   } from '$lib/location/radius';
   import { getHomeFeedPage, getPublicFeedPage, getRegionFeedPage } from '$lib/services/queries/feeds';
-  import { getSettings, updateSettings } from '$lib/services/queries/account';
+  import { getSettings } from '$lib/services/queries/account';
+  import { updateSettings } from '$lib/services/commands/account';
   import { searchLocations } from '$lib/services/queries/locations';
   import { readDefaultLocation, writeDefaultLocation } from '$lib/location/defaults';
   import {
@@ -26,7 +27,7 @@
   import {
     DEFAULT_FEED_PAGE_SIZE,
     appendUniqueById
-  } from '$lib/features/feed/feedPagination';
+  } from '$lib/types/pagination';
   import type {
     FeedSortPreference,
     FeedWindowPreference,

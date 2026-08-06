@@ -5,7 +5,7 @@
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
-  import { setVote } from '$lib/services/queries/feeds';
+  import { setVote } from '$lib/services/commands/shared';
   import type { HelpRequestPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
   import { formatLocalDateTime, formatRelativeTime } from '$lib/utils/time';
@@ -18,7 +18,7 @@
   $: whenLabel = data.scheduleLabel?.trim() || formatLocalDateTime(data.neededAt);
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
-    await setVote(data.id, vote);
+    await setVote({ id: data.id, type: 'help_request' }, vote);
   }
 </script>
 

@@ -1,6 +1,7 @@
 import { isRedirect, redirect } from '@sveltejs/kit';
 import { toLoadError } from '$lib/services/errors';
-import { getNotifications, refreshUnreadCounts } from '$lib/services/queries/inbox';
+import { getNotifications } from '$lib/services/queries/inbox';
+import { refreshUnreadCounts } from '$lib/services/commands/inbox';
 import type { PageLoad } from './$types';
 
 export const load = (async () => {

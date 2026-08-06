@@ -1,16 +1,6 @@
 import { currentAdapter } from '$lib/services/adapters';
 import { feedCacheKey, withFeedCache } from '$lib/services/feedCache';
-import { DEFAULT_FEED_PAGE_SIZE } from '$lib/features/feed/feedPagination';
-import type { FeedPageResult } from '$lib/features/feed/feedPagination';
-import type { VoteDirection } from '$lib/types/feed';
-import { get } from 'svelte/store';
-import { page } from '$app/stores';
-import { requireViewer } from '$lib/utils/requireViewer';
-import {
-  applyVoteTarget,
-  invalidateFeedEngagementCache,
-  type VoteEngagement
-} from '$lib/utils/feedSignals';
+import { DEFAULT_FEED_PAGE_SIZE, type FeedPageResult } from '$lib/types/pagination';
 
 type PublicFeedOptions = {
   sort?: 'trending' | 'recent' | 'popular';
@@ -46,7 +36,9 @@ export function getPublicFeed(options?: PublicFeedOptions) {
   return withFeedCache(key, () => currentAdapter.getPublicFeed(options));
 }
 
-export function getPublicFeedPage(options?: PublicFeedOptions): Promise<FeedPageResult<import('$lib/types/feed').PublicFeedItem>> {
+export function getPublicFeedPage(
+  options?: PublicFeedOptions
+): Promise<FeedPageResult<import('$lib/types/feed').PublicFeedItem>> {
   const offset = options?.offset ?? 0;
   const limit = options?.limit ?? DEFAULT_FEED_PAGE_SIZE;
   const request = { ...options, limit, offset };
@@ -141,31 +133,3 @@ export function getUserFeedPage(options: {
   const limit = options.limit ?? DEFAULT_FEED_PAGE_SIZE;
   return currentAdapter.getUserFeedPage({ ...options, limit, offset });
 }
-
-export function setVote(targetId: string, vote: VoteDirection) {
-  const viewer = get(page).data.bootstrap?.viewer ?? null;
-
-  if (!requireViewer(viewer)) {
-    return Promise.resolve();
-  }
-
-  return currentAdapter.setVote(targetId, vote);
-}
-
-export async function castFeedVote(
-  targetId: string,
-  vote: VoteDirection,
-  current?: { activeVote?: VoteDirection; voteCount?: number }
-): Promise<VoteEngagement> {
-  try {
-    await setVote(targetId, vote);
-    const confirmed = applyVoteTarget(current?.activeVote ?? 0, current?.voteCount ?? 0, vote);
-    // Background refresh must not gate unlock/optimistic confirmation.
-    void invalidateFeedEngagementCache();
-    return confirmed;
-  } catch (err) {
-    console.error('Feed vote failed', err);
-    throw err;
-  }
-}
-

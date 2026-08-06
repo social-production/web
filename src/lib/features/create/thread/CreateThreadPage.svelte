@@ -8,7 +8,7 @@
   import CreateWizard from '$lib/features/create/shared/CreateWizard.svelte';
   import { commitSingleSuggestion, mergeScopeOptions } from '$lib/features/create/shared/createFormActions';
   import { loadTaggableScopeOptions } from '$lib/features/create/shared/taggableScopes';
-  import { createThread } from '$lib/services/queries/create';
+  import { createThread } from '$lib/services/commands/create';
   import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
   import type { PublicThreadItem, TagRef } from '$lib/types/feed';
   import {

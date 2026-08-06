@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { redeemScopeInvite } from '$lib/services/queries/scopes';
+  import { redeemScopeInvite } from '$lib/services/commands/scopes';
   import { parseInviteToken } from '$lib/utils/invite-token';
 
   let status = 'Redeeming invite…';

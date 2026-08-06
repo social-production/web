@@ -2,8 +2,8 @@
   import { goto, invalidateAll } from '$app/navigation';
   import NotificationCard from '$lib/components/cards/inbox/NotificationCard.svelte';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
-  import { acceptFollowRequest, rejectFollowRequest } from '$lib/services/queries/account';
-  import { markAllNotificationsRead, markNotificationRead } from '$lib/services/queries/inbox';
+  import { acceptFollowRequest, rejectFollowRequest } from '$lib/services/commands/account';
+  import { markAllNotificationsRead, markNotificationRead } from '$lib/services/commands/inbox';
   import type { NotificationItem, NotificationsPageData } from '$lib/types/inbox';
   import * as m from '$lib/paraglide/messages';
 

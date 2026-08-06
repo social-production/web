@@ -5,7 +5,7 @@
   import PlatformBoardExplainerCard from './PlatformBoardExplainerCard.svelte';
   import PlatformBoardMemberSection from './PlatformBoardMemberSection.svelte';
   import PlatformExecutionFramesPanel from './PlatformExecutionFramesPanel.svelte';
-  import { volunteerForBoard, removeVolunteer } from '$lib/services/queries/scopes';
+  import { volunteerForBoard, removeVolunteer } from '$lib/services/commands/scopes';
 
   export let pageData: ScopePageData;
   export let boardStatusLabel: (member: ScopeMemberSummary) => string = () => 'Recorded board seat';

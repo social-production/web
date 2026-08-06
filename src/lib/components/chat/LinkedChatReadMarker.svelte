@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { markLinkedChatRead } from '$lib/services/queries/inbox';
+  import { markLinkedChatRead } from '$lib/services/commands/inbox';
   import { onMount } from 'svelte';
 
   export let subjectType: string;

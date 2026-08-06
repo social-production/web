@@ -5,7 +5,7 @@
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
-  import { castFeedVote } from '$lib/services/queries/feeds';
+  import { castFeedVote } from '$lib/services/commands/shared';
   import type { PublicHelpRequestItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { describeActivityTime, formatLocalDateTime } from '$lib/utils/time';
@@ -22,10 +22,14 @@
         : '';
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
-    return castFeedVote(item.id, vote, {
-      activeVote: item.activeVote,
-      voteCount: item.voteCount
-    });
+    return castFeedVote(
+      { id: item.id, type: 'help_request' },
+      vote,
+      {
+        activeVote: item.activeVote,
+        voteCount: item.voteCount
+      }
+    );
   }
 </script>
 

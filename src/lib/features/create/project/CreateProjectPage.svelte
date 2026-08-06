@@ -11,7 +11,7 @@
   import CreateWizard from '$lib/features/create/shared/CreateWizard.svelte';
   import { commitSingleSuggestion, mergeScopeOptions } from '$lib/features/create/shared/createFormActions';
   import { loadTaggableScopeOptions } from '$lib/features/create/shared/taggableScopes';
-  import { createProject } from '$lib/services/queries/create';
+  import { createProject } from '$lib/services/commands/create';
   import {
     isPersonalServiceProject,
     projectCreateTypeOption,

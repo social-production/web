@@ -5,9 +5,11 @@
   import { addComment } from '$lib/services/commands/shared';
   import type { DetailComment, PostPageData, ThreadPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
+  import type { CommentSubjectType } from '$lib/types/governance';
   import { applyVoteTarget } from '$lib/utils/feedSignals';
 
   export let data: Pick<PostPageData | ThreadPageData, 'id' | 'discussion'>;
+  export let subjectType: CommentSubjectType;
   export let highlightedCommentId: string | null = null;
   export let embedded = false;
   export let sortMode: CommentSort = 'oldest';
@@ -46,7 +48,7 @@
       return;
     }
 
-    await addComment(data.id, draftComment);
+    await addComment({ id: data.id, type: subjectType }, draftComment);
     draftComment = '';
     await composer?.resetHeight();
     await invalidateAll();
@@ -89,6 +91,7 @@
         <DiscussionComment
           {comment}
           subjectId={data.id}
+          {subjectType}
           {highlightedCommentId}
           {embedded}
           onVote={(vote) => handleCommentVote(comment.id, vote)}

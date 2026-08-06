@@ -17,7 +17,7 @@
     eventPlanScheduleFromForm,
     type EventPlanForm
   } from '$lib/features/events/detail/lifecycle/eventLifecycleShared';
-  import { createEvent } from '$lib/services/queries/create';
+  import { createEvent } from '$lib/services/commands/create';
   import type { ScopeDirectoryItem, ViewerSummary } from '$lib/types/bootstrap';
   import type { EventAudience, EventGovernance, PublicEventItem, TagKind, TagRef } from '$lib/types/feed';
   import { emptyLocationPickerValue, type LocationPickerValue } from '$lib/types/locationPicker';

@@ -1,6 +1,6 @@
 import { apiClient } from '../client';
 import { mapPersonalItem, registerFeedEntity } from './feeds';
-import { DEFAULT_FEED_PAGE_SIZE } from '$lib/features/feed/feedPagination';
+import { DEFAULT_FEED_PAGE_SIZE } from '$lib/types/pagination';
 import type { ProfilePageData, SettingsPageData, SettingsUpdateInput } from '$lib/types/account';
 import type { ViewerSummary } from '$lib/types/bootstrap';
 import {

@@ -8,7 +8,7 @@
   import HelpRequestOverviewHeader from '$lib/features/help-requests/detail/HelpRequestOverviewHeader.svelte';
   import HelpRequestRolesSection from '$lib/features/help-requests/detail/HelpRequestRolesSection.svelte';
   import { addComment } from '$lib/services/commands/shared';
-  import { registerEntityType } from '$lib/api/drivers/fastapi/typeRegistry';
+  import { registerEntityType } from '$lib/services/governanceEntityRegistry';
   import type { DetailComment, HelpRequestPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
   import {
@@ -100,7 +100,7 @@
     optimisticComments = [...optimisticComments, optimistic];
 
     try {
-      await addComment(data.id, body, undefined, 'help_request');
+      await addComment({ id: data.id, type: 'help_request' }, body);
     } catch {
       optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
       throw new ChatSendError();

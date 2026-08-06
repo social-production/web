@@ -1,5 +1,5 @@
 import { apiClient, extractErrorMessage } from '../client';
-import { registerEntityType, registerCommentIds, resolveEntityType, tryResolveEntityType } from '../typeRegistry';
+import { registerEntityType, registerCommentIds } from '../typeRegistry';
 import type { ContentReportSummary, ContentReportVote, PostPageData, ThreadPageData } from '$lib/types/detail';
 import type { CreatePostInput, CreateResult, CreateThreadInput } from '$lib/types/feed';
 import type { VoteDirection } from '$lib/types/feed';
@@ -167,61 +167,55 @@ export async function fetchCreatePost(input: CreatePostInput): Promise<CreateRes
   }
 }
 
-export async function fetchSetVote(targetId: string, vote: VoteDirection): Promise<void> {
+export async function fetchSetVote(
+  target: { id: string; type: string },
+  vote: VoteDirection
+): Promise<void> {
+  registerEntityType(target.id, target.type as import('$lib/types/governance').GovernanceEntityType);
   await apiClient.post('/governance/votes', {
-    target_type: resolveEntityType(targetId),
-    target_id: targetId,
+    target_type: target.type,
+    target_id: target.id,
     direction: VOTE_DIR[vote as number] ?? 'neutral'
   });
 }
 
-export type CommentSubjectType = 'thread' | 'post' | 'event' | 'project' | 'help_request';
+export type CommentSubjectType = import('$lib/types/governance').CommentSubjectType;
 
 export async function fetchAddComment(
-  subjectId: string,
+  subject: { id: string; type: CommentSubjectType },
   body: string,
-  parentId?: string,
-  subjectType?: CommentSubjectType
+  parentId?: string
 ): Promise<void> {
+  registerEntityType(subject.id, subject.type);
   await apiClient.post('/governance/comments', {
-    subject_type: subjectType ?? resolveEntityType(subjectId),
-    subject_id: subjectId,
+    subject_type: subject.type,
+    subject_id: subject.id,
     body,
     parent_id: parentId ?? null
   });
 }
 
-export async function fetchComments(subjectType: string, subjectId: string): Promise<BackendComment[]> {
+export async function fetchComments(subjectType: string, subjectId: string): Promise<DetailComment[]> {
   const res = await apiClient.get<{ items: BackendComment[] }>(
     `/governance/comments?subject_type=${subjectType}&subject_id=${subjectId}`
   );
-  return res.items;
+  const items = res.items.map(mapComment);
+  registerCommentIds(items);
+  return items;
 }
 
-export type ReportTargetType =
-  | 'thread'
-  | 'post'
-  | 'comment'
-  | 'event'
-  | 'project'
-  | 'help_request'
-  | 'message';
+export type ReportTargetType = import('$lib/types/governance').ReportTargetType;
 
 export async function fetchSubmitReport(
-  subjectId: string,
-  targetId: string,
+  _subjectId: string,
+  target: { id: string; type: ReportTargetType },
   reason: string,
-  details: string,
-  targetType?: ReportTargetType
+  details: string
 ): Promise<ContentReportSummary | null> {
-  const resolvedType =
-    targetType ?? tryResolveEntityType(targetId) ?? resolveEntityType(subjectId);
-  if (targetType) {
-    registerEntityType(targetId, targetType);
-  }
+  registerEntityType(target.id, target.type);
   const payload = await apiClient.post<{ report?: unknown }>('/governance/reports', {
-    target_type: resolvedType,
-    target_id: targetId,
+    target_type: target.type,
+    target_id: target.id,
     reason,
     description: details
   });

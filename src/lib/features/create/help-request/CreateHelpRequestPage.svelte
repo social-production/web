@@ -10,7 +10,7 @@
   import CreateWizard from '$lib/features/create/shared/CreateWizard.svelte';
   import { commitSingleSuggestion, mergeScopeOptions } from '$lib/features/create/shared/createFormActions';
   import { loadTaggableScopeOptions } from '$lib/features/create/shared/taggableScopes';
-  import { createHelpRequest } from '$lib/services/queries/create';
+  import { createHelpRequest } from '$lib/services/commands/create';
   import { emptyLocationPickerValue, type LocationPickerValue } from '$lib/types/locationPicker';
   import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
   import type { PublicHelpRequestItem, TagRef } from '$lib/types/feed';

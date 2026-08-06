@@ -1,8 +1,7 @@
-import type { FeedbackCategory, FeedbackSubmitInput, FeedbackSubmitResult } from '$lib/api/drivers/fastapi/domains/feedback';
-import { currentAdapter } from '$lib/services/adapters';
-
-export function submitFeedback(input: FeedbackSubmitInput) {
-  return currentAdapter.submitFeedback(input);
-}
-
-export type { FeedbackCategory, FeedbackSubmitInput, FeedbackSubmitResult };
+/** @deprecated Import from `$lib/services/commands/feedback`. */
+export {
+  submitFeedback,
+  type FeedbackCategory,
+  type FeedbackSubmitInput,
+  type FeedbackSubmitResult
+} from '$lib/services/commands/feedback';

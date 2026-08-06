@@ -11,10 +11,10 @@
   import {
     DEFAULT_FEED_PAGE_SIZE,
     appendUniqueById
-  } from '$lib/features/feed/feedPagination';
+  } from '$lib/types/pagination';
   import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import { getScopeFeedPage } from '$lib/services/queries/feeds';
-  import { redeemScopeInvite, toggleScopeMembership, castModeratorVote } from '$lib/services/queries/scopes';
+  import { redeemScopeInvite, toggleScopeMembership, castModeratorVote } from '$lib/services/commands/scopes';
   import { parseInviteToken } from '$lib/utils/invite-token';
   import type { VoteDirection } from '$lib/types/feed';
   import type { ScopeMemberSummary, ScopePageData } from '$lib/types/scope';

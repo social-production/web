@@ -1,11 +1,11 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
-  import { extractErrorMessage } from '$lib/api/drivers/fastapi/client';
+  import { extractErrorMessage } from '$lib/services/errors';
   import { localizedApiError } from '$lib/i18n/notifications';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import * as m from '$lib/paraglide/messages';
-  import { submitFeedback, type FeedbackCategory } from '$lib/services/queries/feedback';
+  import { submitFeedback, type FeedbackCategory } from '$lib/services/commands/feedback';
 
   let category: FeedbackCategory = 'bug';
   let title = '';

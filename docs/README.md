@@ -6,6 +6,9 @@ Implementation docs for the web frontend and API contract live in this directory
 |-----|---------|
 | [`FRONTEND_ARCHITECTURE.md`](./FRONTEND_ARCHITECTURE.md) | Package layout, data flow, add-a-feature recipe |
 | [`ADAPTERS.md`](./ADAPTERS.md) | Adapter model, driver checklist, audit status |
+| [`PROVIDER_CONTRACTS.md`](./PROVIDER_CONTRACTS.md) | Stable contracts any backend provider must satisfy |
+| [`PROVIDER_IMPLEMENTATION_CHECKLIST.md`](./PROVIDER_IMPLEMENTATION_CHECKLIST.md) | Step-by-step plug-in checklist for a new provider |
+| [`PROVIDER_READINESS.md`](./PROVIDER_READINESS.md) | Supabase-first / Holochain-later readiness notes |
 | [`WEB_BACKEND_CONTRACT.md`](./WEB_BACKEND_CONTRACT.md) | Frontend ↔ API payload contract |
 | [`ROUTES_AND_SURFACES.md`](./ROUTES_AND_SURFACES.md) | Route map and surfaces |
 | [`UI_BUILD_RULES.md`](./UI_BUILD_RULES.md) | UI construction rules |

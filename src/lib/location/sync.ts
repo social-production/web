@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { getLocation } from '$lib/services/queries/locations';
-import { getSettings, updateSettings } from '$lib/services/queries/account';
+import { getSettings } from '$lib/services/queries/account';
+import { updateSettings } from '$lib/services/commands/account';
 import type { DefaultLocationPreference } from '$lib/types/location';
 import { readDefaultLocation, writeDefaultLocation } from './defaults';
 

@@ -1,27 +1,32 @@
-import { refreshSession } from '$lib/api/drivers/fastapi/client';
+import '$lib/api/drivers';
 import {
-  clearAuthenticatedSession,
-  getCsrfToken,
-  hasAuthenticatedSession,
-  hasRememberedAuthCookie,
-  shouldAttemptSessionRefresh
-} from '$lib/api/drivers/fastapi/auth';
-import {
-  tryRestoreAuthenticatedSession as tryRestoreOnce,
+  getSessionTransport,
   type SessionRestoreResult
-} from '$lib/api/drivers/fastapi/sessionRecovery';
-
-export {
-  clearAuthenticatedSession,
-  getCsrfToken,
-  hasAuthenticatedSession,
-  hasRememberedAuthCookie,
-  shouldAttemptSessionRefresh
-};
+} from '$lib/services/sessionTransport';
 
 export type { SessionRestoreResult };
 
-/** Cold-start silent refresh using the active API driver. */
+export function clearAuthenticatedSession(): void {
+  getSessionTransport().clearAuthenticatedSession();
+}
+
+export function getCsrfToken(): string | null {
+  return getSessionTransport().getCsrfToken();
+}
+
+export function hasAuthenticatedSession(): boolean {
+  return getSessionTransport().hasAuthenticatedSession();
+}
+
+export function hasRememberedAuthCookie(): boolean {
+  return getSessionTransport().hasRememberedAuthCookie();
+}
+
+export function shouldAttemptSessionRefresh(): boolean {
+  return getSessionTransport().shouldAttemptSessionRefresh();
+}
+
+/** Cold-start silent refresh using the active session transport. */
 export async function tryRestoreAuthenticatedSession(): Promise<SessionRestoreResult> {
-  return tryRestoreOnce(refreshSession);
+  return getSessionTransport().tryRestoreAuthenticatedSession();
 }

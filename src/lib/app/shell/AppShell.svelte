@@ -15,7 +15,7 @@
   import { createLiveSearchScheduler } from '$lib/features/search/liveSearch';
   import SearchSuggestionsList from '$lib/features/search/SearchSuggestionsList.svelte';
   import { unreadCounts } from '$lib/stores/unreadCounts';
-  import { refreshUnreadCounts, syncUnreadCountsFromBootstrap } from '$lib/services/queries/inbox';
+  import { refreshUnreadCounts, syncUnreadCountsFromBootstrap } from '$lib/services/commands/inbox';
   import * as m from '$lib/paraglide/messages';
   import { onMount, tick } from 'svelte';
   import type { BootstrapPayload } from '$lib/types/bootstrap';

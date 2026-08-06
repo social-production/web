@@ -5,10 +5,10 @@
   import CommentComposer from '$lib/components/shared/CommentComposer.svelte';
   import ReportComposerModal from '$lib/components/shared/ReportComposerModal.svelte';
   import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
-  import { addComment, setReportVote, submitReport } from '$lib/services/commands/shared';
-  import { setVote } from '$lib/services/queries/feeds';
+  import { addComment, setReportVote, setVote, submitReport } from '$lib/services/commands/shared';
   import type { DetailComment } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
+  import type { CommentSubjectType } from '$lib/types/governance';
   import { scrollCommentIntoView } from '$lib/utils/comment-scroll';
   import { moderatedPlaceholder, shouldHideModeratedBody } from '$lib/utils/moderation';
   import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
@@ -16,6 +16,7 @@
 
   export let comment: DetailComment;
   export let subjectId: string;
+  export let subjectType: CommentSubjectType;
   export let highlightedCommentId: string | null = null;
   export let embedded = false;
   export let onVote: ((vote: VoteDirection) => void) | null = null;
@@ -62,7 +63,7 @@
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
     onVote?.(vote);
-    await setVote(comment.id, vote);
+    await setVote({ id: comment.id, type: 'comment' }, vote);
   }
 
   async function submitReply() {
@@ -70,7 +71,7 @@
       return;
     }
 
-    await addComment(subjectId, draftReply, comment.id);
+    await addComment({ id: subjectId, type: subjectType }, draftReply, comment.id);
     draftReply = '';
     replyOpen = false;
     await replyComposer?.resetHeight();
@@ -81,7 +82,12 @@
     reportPending = true;
 
     try {
-      await submitReport(subjectId, comment.id, reportReason, reportDescription, 'comment');
+      await submitReport(
+        subjectId,
+        { id: comment.id, type: 'comment' },
+        reportReason,
+        reportDescription
+      );
       closeReportComposer();
       await invalidateAfterReport($page.url.pathname);
     } finally {

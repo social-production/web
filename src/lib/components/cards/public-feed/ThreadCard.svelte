@@ -5,7 +5,7 @@
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
-  import { castFeedVote } from '$lib/services/queries/feeds';
+  import { castFeedVote } from '$lib/services/commands/shared';
   import type { PublicThreadItem, VoteDirection } from '$lib/types/feed';
   import { invalidateThreadCache } from '$lib/utils/feedSignals';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
@@ -16,10 +16,14 @@
   $: orderedTags = [...item.channelTags, ...item.communityTags];
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
-    const confirmed = await castFeedVote(item.id, vote, {
-      activeVote: item.activeVote,
-      voteCount: item.voteCount
-    });
+    const confirmed = await castFeedVote(
+      { id: item.id, type: 'thread' },
+      vote,
+      {
+        activeVote: item.activeVote,
+        voteCount: item.voteCount
+      }
+    );
     void invalidateThreadCache(item.slug);
     return confirmed;
   }

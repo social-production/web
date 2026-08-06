@@ -3,14 +3,14 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
-  import { extractErrorMessage } from '$lib/api/drivers/fastapi/client';
+  import { extractErrorMessage } from '$lib/services/errors';
+  import { getFollowRequests } from '$lib/services/queries/account';
   import {
     acceptFollowRequest,
-    getFollowRequests,
     rejectFollowRequest,
     signOut,
     updateSettings
-  } from '$lib/services/queries/account';
+  } from '$lib/services/commands/account';
   import type {
     AppearanceThemeMode,
     PreferredLanguage,
@@ -22,7 +22,8 @@
   import { I18N_ENABLED, LANGUAGE_OPTIONS } from '$lib/i18n/config';
   import SearchableSelect from '$lib/components/shared/SearchableSelect.svelte';
   import LocationPicker from '$lib/components/shared/LocationPicker.svelte';
-  import { createLocation, getIpLocationHint } from '$lib/services/queries/locations';
+  import { getIpLocationHint } from '$lib/services/queries/locations';
+  import { createLocation } from '$lib/services/commands/locations';
   import {
     clearDefaultLocationOnServer,
     hydrateDefaultLocationFromServer,

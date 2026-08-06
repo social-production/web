@@ -5,6 +5,17 @@ import { validateHandle } from '$lib/utils/handles';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
 import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
 import type { CreateChannelInput, CreateCommunityInput, CreateResult } from '$lib/types/feed';
+import type {
+  CommunityDirectInviteResult,
+  ScopeInviteCreateResult,
+  ScopeInviteRedeemResult
+} from '$lib/types/invites';
+
+export type {
+  CommunityDirectInviteResult,
+  ScopeInviteCreateResult,
+  ScopeInviteRedeemResult
+} from '$lib/types/invites';
 
 // In-memory membership cache for toggle direction
 const membershipCache = new Set<string>();
@@ -258,23 +269,6 @@ export async function fetchToggleScopeMembership(
   } catch (err) {
     throw err;
   }
-}
-
-export interface ScopeInviteRedeemResult {
-  ok: boolean;
-  joined: boolean;
-  slug?: string;
-}
-
-export interface ScopeInviteCreateResult {
-  token: string;
-  redeemUrl: string;
-}
-
-export interface CommunityDirectInviteResult {
-  ok: boolean;
-  username: string;
-  alreadyMember: boolean;
 }
 
 export async function fetchRedeemScopeInvite(

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy, onMount, tick } from 'svelte';
   import { page } from '$app/stores';
-  import { createLocation, searchLocations } from '$lib/services/queries/locations';
+  import { searchLocations } from '$lib/services/queries/locations';
+  import { createLocation } from '$lib/services/commands/locations';
   import type { LocationRecord } from '$lib/types/location';
   import {
     emptyLocationPickerValue,

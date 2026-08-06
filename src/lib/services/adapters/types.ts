@@ -1,5 +1,4 @@
 import type { BootstrapPayload, ScopeDirectoryItem, ViewerSummary } from '$lib/types/bootstrap';
-import type { FeedPageResult } from '$lib/features/feed/feedPagination';
 import type {
   AuthResult,
   OnboardingPageData,
@@ -59,9 +58,23 @@ import type {
   SignalToggleResult,
   VoteDirection
 } from '$lib/types/feed';
+import type {
+  CommentSubjectRef,
+  CommentSubjectType,
+  ReportTargetRef,
+  VoteTargetRef
+} from '$lib/types/governance';
+import type { FeedPageResult } from '$lib/types/pagination';
 import type { SearchPageData } from '$lib/types/search';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
 import type { LocationPrecision, LocationRecord } from '$lib/types/location';
+import type {
+  CommunityDirectInviteResult,
+  ScopeInviteCreateResult,
+  ScopeInviteRedeemResult
+} from '$lib/types/invites';
+import type { FeedbackSubmitInput, FeedbackSubmitResult } from '$lib/types/feedback';
+import type { DetailComment } from '$lib/types/detail';
 
 export interface AppAdapter {
   getBootstrap(): Promise<BootstrapPayload>;
@@ -205,12 +218,7 @@ export interface AppAdapter {
   acceptFollowRequest(username: string): Promise<void>;
   rejectFollowRequest(username: string): Promise<void>;
   getFollowRequests(): Promise<ViewerSummary[]>;
-  submitFeedback(input: {
-    category: 'bug' | 'idea';
-    title: string;
-    description: string;
-    pageUrl?: string;
-  }): Promise<{ issueNumber: number; issueUrl: string }>;
+  submitFeedback(input: FeedbackSubmitInput): Promise<FeedbackSubmitResult>;
   searchLocations(
     query: string,
     limit?: number,
@@ -453,38 +461,26 @@ export interface AppAdapter {
     kind: ScopeKind,
     slug: string,
     inviteValue: string
-  ): Promise<import('$lib/api/drivers/fastapi/domains/scopes').ScopeInviteRedeemResult>;
+  ): Promise<ScopeInviteRedeemResult>;
   createScopeInvite(
     kind: 'channel' | 'community',
     slug: string
-  ): Promise<import('$lib/api/drivers/fastapi/domains/scopes').ScopeInviteCreateResult>;
+  ): Promise<ScopeInviteCreateResult>;
   inviteUserToCommunity(
     slug: string,
     username: string
-  ): Promise<import('$lib/api/drivers/fastapi/domains/scopes').CommunityDirectInviteResult>;
+  ): Promise<CommunityDirectInviteResult>;
   volunteerForBoard(): Promise<boolean>;
   removeVolunteer(): Promise<boolean>;
   castModeratorVote(targetUserId: string, vote: string): Promise<boolean>;
-  setVote(targetId: string, vote: VoteDirection): Promise<void>;
-  addComment(
-    subjectId: string,
-    body: string,
-    parentId?: string,
-    subjectType?: 'thread' | 'post' | 'event' | 'project' | 'help_request'
-  ): Promise<void>;
+  setVote(target: VoteTargetRef, vote: VoteDirection): Promise<void>;
+  getComments(subjectType: CommentSubjectType | string, subjectId: string): Promise<DetailComment[]>;
+  addComment(subject: CommentSubjectRef, body: string, parentId?: string): Promise<void>;
   submitReport(
     subjectId: string,
-    targetId: string,
+    target: ReportTargetRef,
     reason: string,
-    details: string,
-    targetType?:
-      | 'thread'
-      | 'post'
-      | 'comment'
-      | 'event'
-      | 'project'
-      | 'help_request'
-      | 'message'
+    details: string
   ): Promise<ContentReportSummary | null | void>;
   setReportVote(targetId: string, vote: ContentReportVote): Promise<ContentReportSummary | null | void>;
   addProjectUpdate(projectSlug: string, title: string, body: string): Promise<void>;

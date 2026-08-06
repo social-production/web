@@ -3,7 +3,7 @@
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import PreviewTile from '$lib/features/create/shared/PreviewTile.svelte';
-  import { createCommunity } from '$lib/services/queries/create';
+  import { createCommunity } from '$lib/services/commands/create';
   import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
   import { canonicalizeHandle, validateHandle } from '$lib/utils/handles';
 

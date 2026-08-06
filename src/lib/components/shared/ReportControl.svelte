@@ -4,20 +4,13 @@
   import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
   import { setReportVote, submitReport } from '$lib/services/commands/shared';
   import type { ContentReportReason, ContentReportSummary, ModerationState } from '$lib/types/detail';
+  import type { ReportTargetType } from '$lib/types/governance';
   import { isActiveReport } from '$lib/utils/moderation';
   import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
 
   export let subjectId = '';
   export let targetId = '';
-  export let targetType:
-    | 'thread'
-    | 'post'
-    | 'comment'
-    | 'event'
-    | 'project'
-    | 'help_request'
-    | 'message'
-    | undefined = undefined;
+  export let targetType: ReportTargetType | undefined = undefined;
   export let itemLabel = 'item';
   export let report: ContentReportSummary | null = null;
   export let ownerUsername = '';
@@ -117,14 +110,19 @@
   }
 
   async function submitActiveReport() {
-    if (!subjectId || !targetId) {
+    if (!subjectId || !targetId || !targetType) {
       return;
     }
 
     pending = true;
 
     try {
-      const nextReport = await submitReport(subjectId, targetId, reason, description, targetType);
+      const nextReport = await submitReport(
+        subjectId,
+        { id: targetId, type: targetType },
+        reason,
+        description
+      );
       if (nextReport) {
         applyReport(nextReport);
       } else {

@@ -2,8 +2,8 @@
   import { browser } from '$app/environment';
   import CreateScopeTagSelector from '$lib/features/create/shared/CreateScopeTagSelector.svelte';
   import { commitSingleSuggestion } from '$lib/features/create/shared/createFormActions';
-  import { fetchMessageContacts } from '$lib/api/drivers/fastapi/domains/messages';
-  import { createScopeInvite, inviteUserToCommunity } from '$lib/services/queries/scopes';
+  import { createScopeInvite, inviteUserToCommunity } from '$lib/services/commands/scopes';
+  import { getMessageContacts } from '$lib/services/queries/inbox';
   import type { ScopePageData } from '$lib/types/scope';
   import type { ViewerSummary } from '$lib/types/bootstrap';
   import { parseInviteToken, toAbsoluteInviteLink } from '$lib/utils/invite-token';
@@ -83,7 +83,7 @@
     const requestId = ++contactRequestId;
 
     try {
-      const items = await fetchMessageContacts(query, 8);
+      const items = await getMessageContacts(query, 8);
       if (requestId === contactRequestId) {
         contactSuggestions = items;
       }

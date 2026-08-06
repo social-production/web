@@ -11,7 +11,7 @@
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import { setVote } from '$lib/services/queries/feeds';
+  import { setVote } from '$lib/services/commands/shared';
   import type { PostPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
   import { applyVoteTarget } from '$lib/utils/feedSignals';
@@ -53,7 +53,7 @@
     const next = applyVoteTarget(localActiveVote, localVoteCount, vote);
     localActiveVote = next.activeVote;
     localVoteCount = next.voteCount;
-    await setVote(data.id, vote);
+    await setVote({ id: data.id, type: 'post' }, vote);
   }
 </script>
 
@@ -99,7 +99,7 @@
 
     <div class="comments-divider" aria-hidden="true"></div>
 
-    <DiscussionPanel {data} {highlightedCommentId} bind:sortMode embedded />
+    <DiscussionPanel {data} subjectType="post" {highlightedCommentId} bind:sortMode embedded />
   </FeedSurface>
 </section>
 

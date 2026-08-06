@@ -4,7 +4,7 @@
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import { addComment } from '$lib/services/commands/shared';
-  import { registerEntityType } from '$lib/api/drivers/fastapi/typeRegistry';
+  import { registerEntityType } from '$lib/services/governanceEntityRegistry';
   import type { DetailComment, ProjectPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
   import {
@@ -54,7 +54,7 @@
     optimisticComments = [...optimisticComments, optimistic];
 
     try {
-      await addComment(data.id, body, undefined, 'project');
+      await addComment({ id: data.id, type: 'project' }, body);
     } catch {
       optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
       throw new ChatSendError();

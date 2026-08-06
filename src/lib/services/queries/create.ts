@@ -1,42 +1,16 @@
 import { currentAdapter } from '$lib/services/adapters';
-import type {
-  CreateChannelInput,
-  CreateCommunityInput,
-  CreateEventInput,
-  CreateHelpRequestInput,
-  CreatePostInput,
-  CreateProjectInput,
-  CreateThreadInput
-} from '$lib/types/feed';
-
-export function createProject(input: CreateProjectInput) {
-  return currentAdapter.createProject(input);
-}
-
-export function createThread(input: CreateThreadInput) {
-  return currentAdapter.createThread(input);
-}
-
-export function createEvent(input: CreateEventInput) {
-  return currentAdapter.createEvent(input);
-}
-
-export function createPost(input: CreatePostInput) {
-  return currentAdapter.createPost(input);
-}
-
-export function createChannel(input: CreateChannelInput) {
-  return currentAdapter.createChannel(input);
-}
-
-export function createCommunity(input: CreateCommunityInput) {
-  return currentAdapter.createCommunity(input);
-}
-
-export function createHelpRequest(input: CreateHelpRequestInput) {
-  return currentAdapter.createHelpRequest(input);
-}
 
 export function getTaggableScopes(query: string, kind?: 'channel' | 'community', limit?: number) {
   return currentAdapter.getTaggableScopes(query, kind, limit);
 }
+
+/** @deprecated Import mutations from `$lib/services/commands/create`. */
+export {
+  createProject,
+  createThread,
+  createEvent,
+  createPost,
+  createChannel,
+  createCommunity,
+  createHelpRequest
+} from '$lib/services/commands/create';

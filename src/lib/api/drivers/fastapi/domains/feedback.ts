@@ -1,18 +1,10 @@
 import { apiClient } from '../client';
+import type {
+  FeedbackSubmitInput,
+  FeedbackSubmitResult
+} from '$lib/types/feedback';
 
-export type FeedbackCategory = 'bug' | 'idea';
-
-export interface FeedbackSubmitInput {
-  category: FeedbackCategory;
-  title: string;
-  description: string;
-  pageUrl?: string;
-}
-
-export interface FeedbackSubmitResult {
-  issueNumber: number;
-  issueUrl: string;
-}
+export type { FeedbackCategory, FeedbackSubmitInput, FeedbackSubmitResult } from '$lib/types/feedback';
 
 export async function fetchSubmitFeedback(input: FeedbackSubmitInput): Promise<FeedbackSubmitResult> {
   const res = await apiClient.post<{ issue_number: number; issue_url: string }>('/feedback', {

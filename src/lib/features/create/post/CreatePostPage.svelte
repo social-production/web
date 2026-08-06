@@ -4,7 +4,7 @@
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
-  import { createPost } from '$lib/services/queries/create';
+  import { createPost } from '$lib/services/commands/create';
   import type { PersonalPostItem } from '$lib/types/feed';
   import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 

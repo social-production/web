@@ -29,7 +29,7 @@
 
     <div class="comments-divider" aria-hidden="true"></div>
 
-    <DiscussionPanel {data} {highlightedCommentId} bind:sortMode embedded />
+    <DiscussionPanel {data} subjectType="thread" {highlightedCommentId} bind:sortMode embedded />
   </FeedSurface>
 </section>
 

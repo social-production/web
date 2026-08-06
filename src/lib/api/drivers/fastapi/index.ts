@@ -36,6 +36,7 @@ import {
   fetchCreateThread,
   fetchCreatePost,
   fetchSetVote,
+  fetchComments,
   fetchAddComment,
   fetchSubmitReport,
   fetchSetReportVote
@@ -204,16 +205,20 @@ export function createFastApiDriver(): AppAdapter {
       return fetchCreateHelpRequest(input);
     },
 
-    async setVote(targetId, vote) {
-      return fetchSetVote(targetId, vote);
+    async setVote(target, vote) {
+      return fetchSetVote(target, vote);
     },
 
-    async addComment(subjectId, body, parentId, subjectType) {
-      return fetchAddComment(subjectId, body, parentId, subjectType);
+    async getComments(subjectType, subjectId) {
+      return fetchComments(subjectType, subjectId);
     },
 
-    async submitReport(subjectId, targetId, reason, details, targetType) {
-      return fetchSubmitReport(subjectId, targetId, reason, details, targetType);
+    async addComment(subject, body, parentId) {
+      return fetchAddComment(subject, body, parentId);
+    },
+
+    async submitReport(subjectId, target, reason, details) {
+      return fetchSubmitReport(subjectId, target, reason, details);
     },
 
     async setReportVote(targetId, vote) {

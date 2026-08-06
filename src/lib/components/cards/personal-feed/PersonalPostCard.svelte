@@ -6,7 +6,7 @@
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
-  import { castFeedVote } from '$lib/services/queries/feeds';
+  import { castFeedVote } from '$lib/services/commands/shared';
   import type { PersonalPostItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { formatRelativeTime } from '$lib/utils/time';
@@ -23,10 +23,14 @@
   $: commentHref = buildCommentHref(item.href);
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
-    return castFeedVote(item.voteTargetId, vote, {
-      activeVote: item.activeVote,
-      voteCount: item.voteCount
-    });
+    return castFeedVote(
+      { id: item.voteTargetId, type: 'post' },
+      vote,
+      {
+        activeVote: item.activeVote,
+        voteCount: item.voteCount
+      }
+    );
   }
 </script>
 

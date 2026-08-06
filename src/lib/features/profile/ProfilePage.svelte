@@ -10,14 +10,14 @@
   import {
     DEFAULT_FEED_PAGE_SIZE,
     appendUniqueById
-  } from '$lib/features/feed/feedPagination';
+  } from '$lib/types/pagination';
+  import { getFollowRequests } from '$lib/services/queries/account';
   import {
     acceptFollowRequest,
     followUser,
-    getFollowRequests,
     rejectFollowRequest,
     unfollowUser
-  } from '$lib/services/queries/account';
+  } from '$lib/services/commands/account';
   import { getUserFeedPage } from '$lib/services/queries/feeds';
   import type { FollowStatus, ProfilePageData } from '$lib/types/account';
   import type { PersonalFeedItem } from '$lib/types/feed';

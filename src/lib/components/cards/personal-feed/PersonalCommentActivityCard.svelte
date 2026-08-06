@@ -4,7 +4,7 @@
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import { castFeedVote } from '$lib/services/queries/feeds';
+  import { castFeedVote } from '$lib/services/commands/shared';
   import type { PersonalCommentActivityItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { formatRelativeTime } from '$lib/utils/time';
@@ -23,10 +23,14 @@
   $: replyLabel = item.commentCount === 1 ? '1 reply' : `${item.commentCount} replies`;
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
-    return castFeedVote(item.voteTargetId, vote, {
-      activeVote: item.activeVote,
-      voteCount: item.voteCount
-    });
+    return castFeedVote(
+      { id: item.voteTargetId, type: 'comment' },
+      vote,
+      {
+        activeVote: item.activeVote,
+        voteCount: item.voteCount
+      }
+    );
   }
 </script>
 

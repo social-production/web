@@ -6,9 +6,10 @@
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
-  import { castFeedVote } from '$lib/services/queries/feeds';
+  import { castFeedVote } from '$lib/services/commands/shared';
   import { submitFeedEntitySignal } from '$lib/utils/signalEngagement';
   import type { PersonalActivityItem, VoteDirection } from '$lib/types/feed';
+  import { toVoteTargetType } from '$lib/types/governance';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { formatRelativeTime } from '$lib/utils/time';
   import { page } from '$app/stores';
@@ -41,10 +42,14 @@
   );
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
-    return castFeedVote(item.subjectId, vote, {
-      activeVote: item.activeVote,
-      voteCount: item.voteCount
-    });
+    return castFeedVote(
+      { id: item.subjectId, type: toVoteTargetType(item.subjectKind) },
+      vote,
+      {
+        activeVote: item.activeVote,
+        voteCount: item.voteCount
+      }
+    );
   }
 
   async function handleSignal(signal: 'demand' | 'opposition') {

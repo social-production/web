@@ -15,7 +15,7 @@ import {
   tryRestoreAuthenticatedSession,
   type SessionRestoreResult
 } from '$lib/services/session';
-import { syncUnreadCountsFromBootstrap } from '$lib/services/queries/inbox';
+import { syncUnreadCountsFromBootstrap } from '$lib/services/commands/inbox';
 import { isNetworkLoadError, toLoadError } from '$lib/services/errors';
 import {
   applyLocale,

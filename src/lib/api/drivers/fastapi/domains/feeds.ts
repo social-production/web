@@ -4,7 +4,7 @@ import {
   DEFAULT_FEED_PAGE_SIZE,
   toFeedPageResult,
   type FeedPageResult
-} from '$lib/features/feed/feedPagination';
+} from '$lib/types/pagination';
 import { buildFeedQueryString, normalizeFeedFilter, normalizeFeedSort, normalizeFeedWindow } from '$lib/utils/feedQuery';
 import { feedModerationFields } from '$lib/utils/moderation';
 import type {

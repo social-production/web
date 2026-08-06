@@ -25,19 +25,11 @@ export async function getIpLocationHint(): Promise<LocationRecord[]> {
   return currentAdapter.getIpLocationHint();
 }
 
-export async function createLocation(input: {
-  providerPlaceId?: string | null;
-  displayLabel: string;
-  latitude?: number | null;
-  longitude?: number | null;
-  region?: string | null;
-  country?: string | null;
-  precision?: LocationPrecision;
-  isOnline?: boolean;
-}): Promise<LocationRecord> {
-  return currentAdapter.createLocation(input);
-}
-
 export async function getLocation(locationId: string): Promise<LocationRecord | null> {
   return currentAdapter.getLocation(locationId);
 }
+
+/** @deprecated Import from `$lib/services/commands/locations`. */
+export { createLocation } from '$lib/services/commands/locations';
+
+export type { LocationPrecision, LocationRecord };

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
-  import { signIn, signUp } from '$lib/services/queries/account';
+  import { signIn, signUp } from '$lib/services/commands/account';
   import type { OnboardingPageData } from '$lib/types/account';
   import { canonicalizeHandle, validateHandle } from '$lib/utils/handles';
 
