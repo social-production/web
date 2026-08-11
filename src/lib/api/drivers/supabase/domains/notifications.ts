@@ -70,7 +70,9 @@ export async function fetchNotifications(): Promise<NotificationsPageData | null
       items: (res.items ?? []).map((n) => ({
         id: String(n.id),
         kind: mapKind(String(n.kind ?? 'project')),
-        surface: ((n.surface as string) ?? 'public') as 'public' | 'personal',
+        surface: ((n.surface as string) === 'profile'
+          ? 'personal'
+          : ((n.surface as string) ?? 'public')) as 'public' | 'personal',
         subjectKind: mapSubjectKind(String(n.subjectKind ?? n.subject_type ?? 'project')),
         actorUsername: (n.actorUsername ?? n.actor_username ?? undefined) as string | undefined,
         title: String(n.title ?? ''),
