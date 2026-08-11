@@ -15,7 +15,6 @@ export const backendProxyPaths = [
   '/scopes',
   '/platform',
   '/board',
-  '/feedback',
   '/healthz',
   '/readyz',
   '/locations'

@@ -17,7 +17,6 @@ Mirror `src/lib/api/drivers/fastapi/domains/` when building a new provider.
 | `users.ts` | profile, settings, follows |
 | `search.ts` | global search |
 | `locations.ts` | geocode / create / reverse |
-| `feedback.ts` | feedback submission |
 
 Also implement at the driver package root:
 

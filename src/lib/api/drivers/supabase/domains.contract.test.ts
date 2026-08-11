@@ -142,12 +142,11 @@ describe('supabase domain gateway routes', () => {
     expect(groupCall?.body).toMatchObject({ memberUsernames: ['a'] });
   });
 
-  it('covers projects, events, help requests, locations, feedback', async () => {
+  it('covers projects, events, help requests, locations', async () => {
     const projects = await import('$lib/api/drivers/supabase/domains/projects');
     const events = await import('$lib/api/drivers/supabase/domains/events');
     const help = await import('$lib/api/drivers/supabase/domains/helpRequests');
     const locations = await import('$lib/api/drivers/supabase/domains/locations');
-    const feedback = await import('$lib/api/drivers/supabase/domains/feedback');
     await projects.fetchCreateProject({ title: 'p', description: 'd', projectMode: 'productive' } as never);
     await projects.fetchProject('p1');
     await projects.fetchToggleProjectMembership('p1');
@@ -172,7 +171,6 @@ describe('supabase domain gateway routes', () => {
     await help.fetchCommitHelpRequestRole('h1', 'r1');
     await locations.fetchLocationSearch('mel');
     await locations.fetchLocationReverse(-37.8, 144.9);
-    await feedback.fetchSubmitFeedback({ category: 'bug', title: 't', description: 'x' });
     expect(hasCall('POST', '/projects')).toBe(true);
     expect(hasCall('POST', '/projects/p1/membership')).toBe(true);
     expect(hasCall('POST', '/projects/p1/plans/overall-vote')).toBe(true);
@@ -184,7 +182,6 @@ describe('supabase domain gateway routes', () => {
     expect(hasCall('POST', '/help-requests/h1/roles/r1/commit')).toBe(true);
     expect(hasCall('GET', '/locations/search')).toBe(true);
     expect(hasCall('GET', '/locations/reverse')).toBe(true);
-    expect(hasCall('POST', '/feedback')).toBe(true);
   });
 
   it('covers invites, board vote, notifications mark-one, messaging follow-ups', async () => {

@@ -51,7 +51,6 @@ import {
   fetchToggleEventHistoryCompletion,
   fetchToggleEventMembership
 } from './domains/events';
-import { fetchSubmitFeedback } from './domains/feedback';
 import {
   fetchHomeFeed,
   fetchHomeFeedPage,
@@ -632,9 +631,6 @@ export function createSupabaseDriver(): AppAdapter {
     },
     async getFollowRequests() {
       return fetchFollowRequests();
-    },
-    async submitFeedback(input) {
-      return fetchSubmitFeedback(input);
     },
     async searchLocations(query, limit = 5, options = {}) {
       return fetchLocationSearch(query, limit, options);

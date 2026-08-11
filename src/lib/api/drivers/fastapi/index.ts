@@ -58,7 +58,6 @@ import {
 } from './domains/scopes';
 import { fetchSearch } from './domains/search';
 import { fetchNotifications, fetchMarkNotificationRead, fetchMarkAllNotificationsRead } from './domains/notifications';
-import { fetchSubmitFeedback } from './domains/feedback';
 import {
   fetchCreateLocation,
   fetchIpLocationHint,
@@ -487,10 +486,6 @@ export function createFastApiDriver(): AppAdapter {
 
     async getFollowRequests() {
       return fetchFollowRequests();
-    },
-
-    async submitFeedback(input) {
-      return fetchSubmitFeedback(input);
     },
 
     async searchLocations(query, limit = 5, options = {}) {

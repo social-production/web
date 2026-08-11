@@ -73,7 +73,6 @@ import type {
   ScopeInviteCreateResult,
   ScopeInviteRedeemResult
 } from '$lib/types/invites';
-import type { FeedbackSubmitInput, FeedbackSubmitResult } from '$lib/types/feedback';
 import type { DetailComment } from '$lib/types/detail';
 
 export interface AppAdapter {
@@ -218,7 +217,6 @@ export interface AppAdapter {
   acceptFollowRequest(username: string): Promise<void>;
   rejectFollowRequest(username: string): Promise<void>;
   getFollowRequests(): Promise<ViewerSummary[]>;
-  submitFeedback(input: FeedbackSubmitInput): Promise<FeedbackSubmitResult>;
   searchLocations(
     query: string,
     limit?: number,

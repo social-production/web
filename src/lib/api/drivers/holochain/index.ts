@@ -24,7 +24,6 @@ import { scopesDomain } from './domains/scopes';
 import { usersDomain } from './domains/users';
 import { searchDomain } from './domains/search';
 import { locationsDomain } from './domains/locations';
-import { feedbackDomain } from './domains/feedback';
 
 export { createHolochainClient } from './client';
 export { createHolochainSessionTransport } from './sessionTransport';
@@ -45,6 +44,5 @@ export function createHolochainDriver(): AppAdapter {
     users: usersDomain,
     search: searchDomain,
     locations: locationsDomain,
-    feedback: feedbackDomain,
   });
 }

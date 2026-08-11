@@ -169,8 +169,7 @@ export const PROVIDER_REQUIRED_DOMAINS = [
   'scopes',
   'users',
   'search',
-  'locations',
-  'feedback'
+  'locations'
 ] as const;
 
 const CENTRALIZED_DEFAULTS: Partial<Record<ProviderCapabilityId, ProviderCapabilitySupport>> = {

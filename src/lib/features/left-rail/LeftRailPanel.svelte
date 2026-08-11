@@ -3,7 +3,6 @@
   import RailLinkRow from '$lib/components/shared/RailLinkRow.svelte';
   import { isAssetsSurfaceEnabled } from '$lib/config/features/phaseScope';
   import type { BootstrapPayload } from '$lib/types/bootstrap';
-  import * as m from '$lib/paraglide/messages';
 
   export let bootstrap: BootstrapPayload;
   export let isActive: (href: string) => boolean;
@@ -66,10 +65,6 @@
     {/each}
   </div>
 </section>
-
-<nav class="rail-utility">
-  <RailLinkRow active={isActive('/feedback')} href="/feedback" icon="feedback" label={m.feedback_title()} on:click={closePanels} />
-</nav>
 
 <style>
   .rail-panel {

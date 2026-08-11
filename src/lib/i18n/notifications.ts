@@ -44,12 +44,6 @@ export function localizedApiError(detail: string | undefined, fallback = m.error
   }
 
   const map: Record<string, string> = {
-    feedback_rate_limit_exceeded: m.feedback_error_rate_limit(),
-    feedback_not_configured: m.feedback_error_not_configured(),
-    feedback_submission_failed: m.feedback_error_generic(),
-    feedback_title_required: m.feedback_error_generic(),
-    feedback_description_required: m.feedback_error_generic(),
-    invalid_feedback_category: m.feedback_error_generic(),
     'Not authenticated': m.error_not_authenticated(),
     'User not found': m.error_user_not_found(),
     invalid_preferred_language: m.error_generic()

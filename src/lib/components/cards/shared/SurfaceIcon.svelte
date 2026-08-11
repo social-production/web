@@ -28,7 +28,7 @@
       />
     {:else if icon === 'thread'}
       <path d="M5 6h14M5 12h10M5 18h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" />
-    {:else if icon === 'help-request' || icon === 'feedback'}
+    {:else if icon === 'help-request'}
       <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8" />
       <path
         d="M9.5 9.2a2.7 2.7 0 1 1 4.8 1.6c-.8.5-1.3 1.1-1.3 2.2M12 17.2h.01"
