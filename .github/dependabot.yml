@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # SvelteKit Vite plugin peers are still on Vite 6/7; Vite 8 Dependabot PRs break npm ci.
+      - dependency-name: vite
+        versions: [">=8.0.0"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
