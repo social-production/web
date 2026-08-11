@@ -98,6 +98,23 @@
   let locationToast = '';
   let mapTileError = '';
   let syncingFromRadius = false;
+
+  function explainMapTileError(raw: string | null | undefined): string {
+    const message = (raw ?? '').trim();
+    const lower = message.toLowerCase();
+    if (
+      !message ||
+      lower.includes('networkerror') ||
+      lower.includes('failed to fetch') ||
+      lower.includes('ajaxerror') ||
+      lower.includes('load failed') ||
+      lower.includes('cartocdn') ||
+      lower.includes('basemaps.cartocdn')
+    ) {
+      return 'Map tiles could not be loaded from the internet (Carto basemaps). Local auth and feeds can still work — check DNS, firewall, VPN, or ad-blockers if the rest of the app is fine.';
+    }
+    return message;
+  }
   let mapFullscreen = false;
   let isMobile = false;
   let mapListCollapsed = false;
@@ -487,7 +504,7 @@
 
     adapter = createMapAdapter();
     adapter.setErrorHandler?.((message) => {
-      mapTileError = message;
+      mapTileError = explainMapTileError(message);
     });
     adapter.onViewportChange?.((viewport) => {
       if (!active || syncingFromRadius || mapStageTransitioning || suppressViewportLoads) {
@@ -516,8 +533,9 @@
       await adapter.mount(mapContainer, { center, zoom });
       mapMounted = true;
     } catch (error) {
-      mapTileError =
-        error instanceof Error ? error.message : 'Map tiles could not be loaded.';
+      mapTileError = explainMapTileError(
+        error instanceof Error ? error.message : 'Map tiles could not be loaded.'
+      );
     }
   }
 
@@ -655,10 +673,17 @@
     const lat = next.latitude;
     const lon = next.longitude;
     if (lat != null && lon != null) {
-      syncRadiusToMapAt(lat, lon, () => {
-        updateCurrentRadiusFromViewport();
-        void loadMarkers({ lat, lon });
-      });
+      void (async () => {
+        await mountMapIfNeeded({ lat, lon });
+        // Always reload markers for the chosen center. Do not wait only on
+        // fitToRadius completion — tile/network stalls used to leave an empty map
+        // until the panel was reopened.
+        scheduleLoadMarkers({ lat, lon });
+        syncRadiusToMapAt(lat, lon, () => {
+          updateCurrentRadiusFromViewport();
+          void loadMarkersWithInitialBroadening({ lat, lon });
+        });
+      })();
     }
   }
 

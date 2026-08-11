@@ -301,11 +301,28 @@
     if (event.key !== 'Enter') {
       return;
     }
-    if (!listOpen || suggestions.length === 0) {
+    if (listOpen && suggestions.length > 0) {
+      event.preventDefault();
+      void selectSuggestion(suggestions[0]);
       return;
     }
-    event.preventDefault();
-    void selectSuggestion(suggestions[0]);
+    // If suggestions just arrived / are still loading, wait for the search.
+    const trimmed = query.trim();
+    if (trimmed.length >= 2) {
+      event.preventDefault();
+      void (async () => {
+        try {
+          const results = await searchLocations(trimmed, 8, { countryCodes, viewbox });
+          suggestions = results;
+          listOpen = results.length > 0;
+          if (results[0]) {
+            await selectSuggestion(results[0]);
+          }
+        } catch {
+          // Keep typed text; user can pick a suggestion when available.
+        }
+      })();
+    }
   }
 
   function handleViewportChange() {
@@ -347,22 +364,6 @@
   {/if}
 
   {#if value.mode === 'physical'}
-    {#if quickPicks.length > 0}
-      <div class="quick-picks" role="group" aria-label="Suggested locations">
-        {#each quickPicks as pick (pick.id)}
-          <button
-            class="quick-pick"
-            class:active={isQuickPickSelected(pick)}
-            disabled={disabled}
-            type="button"
-            on:click={() => selectQuickPick(pick)}
-          >
-            <span class="quick-pick-label">{pick.label}</span>
-            <span class="quick-pick-source">{pick.sourceLabel}</span>
-          </button>
-        {/each}
-      </div>
-    {/if}
     <div class="search-wrap" bind:this={searchWrap}>
       <input
         bind:this={inputElement}
@@ -400,6 +401,22 @@
         </ul>
       {/if}
     </div>
+    {#if quickPicks.length > 0}
+      <div class="quick-picks" class:compact-picks={elevated} role="group" aria-label="Suggested locations">
+        {#each quickPicks.slice(0, elevated ? 3 : quickPicks.length) as pick (pick.id)}
+          <button
+            class="quick-pick"
+            class:active={isQuickPickSelected(pick)}
+            disabled={disabled}
+            type="button"
+            on:click={() => selectQuickPick(pick)}
+          >
+            <span class="quick-pick-label">{pick.label}</span>
+            <span class="quick-pick-source">{pick.sourceLabel}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
   {:else if value.mode === 'online'}
     <p class="online-chip" aria-live="polite">Online</p>
   {:else}
@@ -457,6 +474,11 @@
   .quick-picks {
     display: grid;
     gap: 6px;
+  }
+
+  .quick-picks.compact-picks {
+    max-height: 140px;
+    overflow: auto;
   }
 
   .quick-pick {

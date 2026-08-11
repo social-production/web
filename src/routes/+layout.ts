@@ -132,9 +132,8 @@ export const load = (async ({ url, depends }) => {
     }
   }
 
-  if (bootstrap.viewer && !settings && !settingsLoadFailedOnNetwork) {
-    throw redirect(307, '/onboarding');
-  }
+  // Authenticated viewers can continue even when settings are temporarily unavailable.
+  // Redirecting here stranded Supabase-local sessions on /onboarding after auth desync.
 
   const locale: SupportedLocale = I18N_ENABLED
     ? resolveLocale({

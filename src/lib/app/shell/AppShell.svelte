@@ -62,10 +62,8 @@
   const toolbarLiveSearch = createLiveSearchScheduler();
 
   function isCreateFabRoute(pathname: string): boolean {
-    if (pathname === '/' || pathname === '/personal') {
-      return true;
-    }
-    return /^\/channels\/[^/]+$/.test(pathname) || /^\/communities\/[^/]+$/.test(pathname);
+    // Keep FAB on the same surfaces that collapse chrome while scrolling.
+    return isFeedDiscoveryPath(pathname);
   }
 
   $: feedChromeActive = isCompact && isFeedDiscoveryPath($page.url.pathname);

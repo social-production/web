@@ -1,20 +1,26 @@
 # Supabase driver package
 
-Status: **unimplemented scaffold** (registry status stays `unimplemented`).
+Status: **ready** (registry `status: 'ready'`).
 
-Live deploys continue to use `VITE_BACKEND=fastapi`.
+Talks to the `web-supabase` Edge Function `gateway` plus Supabase Auth.
+
+Live production may still use `VITE_BACKEND=fastapi` until hosted Supabase signoff is green. Local development can use either backend.
 
 ## Layout
 
-- `client.ts` — Supabase JS client / BFF HTTP placeholder
-- `sessionTransport.ts` / `errorTransport.ts` — auth/error seams
-- `domains/*` — one file per required domain (throw stubs)
+- `client.ts` — gateway HTTP client (JWT bearer)
+- `sessionTransport.ts` / `errorTransport.ts` — auth/error seams (`localStorage` JWT session)
+- `domains/*` — one file per required domain (real gateway routes)
+- `mappers/*` — response shaping for feeds/profile/detail
 - `index.ts` — assembles `AppAdapter` from domain modules
 
-## Fill order when implementing
+## Contract tests
 
-1. `client.ts`
-2. `sessionTransport.ts` + `errorTransport.ts`
-3. `domains/auth.ts` + `domains/bootstrap.ts`
-4. Remaining domains against `web-supabase`
-5. Flip registry `status` to `ready`
+`domains.contract.test.ts` asserts the driver hits the gateway paths the UI expects, including lifecycle action aliases (`plans/overall-vote`, `phase-change/vote`, …) and group chat `memberUsernames`.
+
+## Docs
+
+- Local: `web-supabase/docs/LOCAL_DEV.md`
+- Hosted: `web-supabase/docs/HOSTED.md`
+- Cutover: `web-supabase/docs/CUTOVER.md`
+- Parity: `web-supabase/docs/PARITY_AUDIT.md`

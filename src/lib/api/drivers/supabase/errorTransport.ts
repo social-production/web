@@ -1,10 +1,18 @@
 import type { ErrorTransport } from '$lib/services/errorTransport';
-import { createUnimplementedErrorTransport } from '../unimplementedTransports';
+import {
+  extractErrorMessage,
+  isApiClientError,
+  isNetworkLoadError,
+  toLoadError
+} from './client';
 
-/**
- * Supabase ErrorTransport scaffold.
- * Normalize provider SDK/HTTP errors into frontend-safe messages.
- */
 export function createSupabaseErrorTransport(): ErrorTransport {
-  return createUnimplementedErrorTransport('supabase');
+  return {
+    extractErrorMessage,
+    isApiClientError,
+    isNetworkLoadError,
+    toLoadError(err, fallbackMessage = 'Something went wrong'): never {
+      return toLoadError(err, fallbackMessage);
+    }
+  };
 }

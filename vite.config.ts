@@ -1,10 +1,11 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type ProxyOptions } from 'vite';
 import { backendProxyPaths } from './src/lib/dev/backendProxyPaths';
 import { I18N_ENABLED } from './src/lib/i18n/config';
 
 const BACKEND_TARGET = 'http://127.0.0.1:8000';
+const SUPABASE_TARGET_DEFAULT = 'http://127.0.0.1:54321';
 
 const htmlBypassPaths = new Set([
   '/projects',
@@ -22,15 +23,8 @@ function bypassHtmlNavigation(req: { headers?: { accept?: string }; url?: string
   }
 }
 
-function createBackendProxy() {
-  const proxy: Record<
-    string,
-    {
-      target: string;
-      changeOrigin: boolean;
-      bypass?: (req: { headers?: { accept?: string }; url?: string }) => string | undefined;
-    }
-  > = {};
+function createBackendProxy(): Record<string, ProxyOptions> {
+  const proxy: Record<string, ProxyOptions> = {};
 
   for (const path of backendProxyPaths) {
     proxy[path] = {
@@ -43,9 +37,26 @@ function createBackendProxy() {
   return proxy;
 }
 
+/** Same-origin proxy so the browser never talks directly to :54321 (avoids PNA/CORS/LAN 503s). */
+function createSupabaseProxy(target: string): Record<string, ProxyOptions> {
+  const proxy: Record<string, ProxyOptions> = {};
+  for (const path of ['/auth/v1', '/functions/v1', '/rest/v1', '/storage/v1']) {
+    proxy[path] = {
+      target,
+      changeOrigin: true,
+      // Kong/edge can be slow on cold isolates; do not let the proxy give up early.
+      timeout: 120_000,
+      proxyTimeout: 120_000
+    };
+  }
+  return proxy;
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+  const backend = (env.VITE_BACKEND ?? 'fastapi').trim().toLowerCase();
   const useDevProxy = env.VITE_USE_DEV_PROXY === 'true';
+  const supabaseTarget = (env.VITE_SUPABASE_URL ?? SUPABASE_TARGET_DEFAULT).replace(/\/$/, '');
   const lanHmrHost = env.VITE_LAN_HMR_HOST?.trim();
   const plugins = [
     ...(I18N_ENABLED
@@ -59,6 +70,13 @@ export default defineConfig(({ mode }) => {
     sveltekit()
   ];
 
+  const proxy =
+    backend === 'supabase'
+      ? createSupabaseProxy(supabaseTarget)
+      : useDevProxy
+        ? createBackendProxy()
+        : undefined;
+
   return {
     plugins,
     server: {
@@ -71,7 +89,7 @@ export default defineConfig(({ mode }) => {
             port: Number(env.VITE_DEV_PORT || 5173)
           }
         : undefined,
-      proxy: useDevProxy ? createBackendProxy() : undefined
+      proxy
     }
   };
 });

@@ -19,7 +19,7 @@ Deterministic steps to plug a new backend into Social Production without rewriti
 |-----------|------|
 | `web` | Single frontend; all drivers live under `src/lib/api/drivers/` |
 | `web-backend` | FastAPI provider (ready; Railway live path) |
-| `web-supabase` | Supabase starter workspace (scaffold; not ready) |
+| `web-supabase` | Supabase Auth + Postgres + Edge Function gateway (registry **ready**; local automated signoff green — complete browser SIGNOFF before hosted) |
 | `web-holochain` | Holochain minimal placeholder (orientation only) |
 
 ## Frontend switch point

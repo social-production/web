@@ -192,7 +192,14 @@
   {#if comment.replies.length > 0}
     <div class="reply-stack">
       {#each comment.replies as reply}
-        <svelte:self comment={reply} {subjectId} {highlightedCommentId} {embedded} />
+        <svelte:self
+          comment={reply}
+          {subjectId}
+          {subjectType}
+          {highlightedCommentId}
+          {embedded}
+          {onVote}
+        />
       {/each}
     </div>
   {/if}

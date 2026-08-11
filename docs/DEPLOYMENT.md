@@ -119,3 +119,20 @@ This configuration is for **trusted testers**, not unrestricted public productio
 - Per-user rate limits on search, feeds, and bootstrap endpoints
 
 See [`SECURITY.md`](SECURITY.md) for the full hardening checklist and deferred items.
+
+## Alternate path: Supabase backend
+
+Production today tracks FastAPI on Railway. To run the frontend against hosted Supabase instead:
+
+1. Deploy backend from the dedicated [`web-supabase`](../../web-supabase) GitHub repo (auto-deploy on `main` — see [`web-supabase/docs/DEPLOYMENT.md`](../../web-supabase/docs/DEPLOYMENT.md)).
+2. Build this frontend with Supabase build args:
+
+| Variable | Value |
+|----------|--------|
+| `VITE_BACKEND` | `supabase` |
+| `VITE_SUPABASE_URL` | `https://<ref>.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Hosted JWT anon key (`eyJ…`) |
+| `VITE_SUPABASE_FUNCTIONS_URL` | `https://<ref>.supabase.co/functions/v1` |
+
+3. Keep FastAPI Railway warm until hosted browser signoff passes; rollback via [`web-supabase/docs/CUTOVER.md`](../../web-supabase/docs/CUTOVER.md).
+4. Switching backends locally: [`BACKEND_SWITCHING.md`](BACKEND_SWITCHING.md).

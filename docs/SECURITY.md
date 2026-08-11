@@ -24,7 +24,7 @@ Trusted-beta posture for the SvelteKit PWA. Backend details: [web-backend/docs/S
 | `Referrer-Policy` | Done |
 | `Permissions-Policy` | Done |
 | `Strict-Transport-Security` (HTTPS) | Done |
-| `Content-Security-Policy` (permissive baseline) | Done |
+| `Content-Security-Policy` (permissive baseline) | Done — `connect-src` allows `'self'`, `https:`, and local `http(s)/ws` to `127.0.0.1` / `localhost` for Supabase Auth + Edge Functions |
 
 ## Adapter boundary
 

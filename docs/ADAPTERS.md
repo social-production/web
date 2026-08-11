@@ -105,25 +105,24 @@ Build-time only (`VITE_BACKEND`):
 
 | Value | Status | Backend workspace |
 |-------|--------|-------------------|
-| `fastapi` | ready | `web-backend` (Railway live path) |
-| `supabase` | unimplemented scaffold | `web-supabase` (starter workspace exists) |
+| `fastapi` | ready | `web-backend` |
+| `supabase` | ready (local / full-parity gateway) | `web-supabase` |
 | `holochain` | unimplemented scaffold | `web-holochain` (minimal placeholder) |
 | `template` | experimental scaffold | n/a |
 
 ### Driver package shape (supabase / holochain)
 
-Both alternate drivers now mirror the FastAPI package layout under `src/lib/api/drivers/<name>/`:
+Alternate drivers mirror the FastAPI package layout under `src/lib/api/drivers/<name>/`:
 
 - `index.ts` — assembles `AppAdapter` from domain modules
-- `client.ts` — SDK/HTTP placeholder
+- `client.ts` — SDK/HTTP client (Supabase: Auth REST + Edge Function gateway)
 - `sessionTransport.ts` / `errorTransport.ts`
-- `domains/*.ts` — one throw-stub file per required domain
+- `domains/*.ts` — one file per required domain
 - `README.md` — fill order / scope notes
 
-Shared helpers: [`src/lib/api/drivers/scaffold.ts`](../src/lib/api/drivers/scaffold.ts).
+Shared helpers: [`src/lib/api/drivers/scaffold.ts`](../src/lib/api/drivers/scaffold.ts) (still used by Holochain / template).
 
-Registry + capability metadata: [`src/lib/api/drivers/registry.ts`](../src/lib/api/drivers/registry.ts). Unimplemented providers fail at driver creation with a clear message. **Do not** set `VITE_BACKEND=supabase|holochain` for Railway deploys until registry `status` is flipped to `ready`.
-
+Registry + capability metadata: [`src/lib/api/drivers/registry.ts`](../src/lib/api/drivers/registry.ts). Unimplemented providers fail at driver creation with a clear message. Set `VITE_BACKEND=supabase` only when a local/deployed Supabase stack is available (`web-supabase`).
 Full plug-in steps: [`PROVIDER_IMPLEMENTATION_CHECKLIST.md`](./PROVIDER_IMPLEMENTATION_CHECKLIST.md).
 
 ## Contract tests

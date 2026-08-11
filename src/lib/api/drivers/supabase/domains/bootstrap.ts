@@ -1,17 +1,22 @@
-/**
- * Supabase `bootstrap` domain scaffold.
- * Responsibility: bootstrap + unread summary + onboarding.
- * Replace stubs with real `web-supabase` calls mapped to `$lib/types/*`.
- */
+import { apiClient } from '../client';
 import type { AppAdapter } from '$lib/services/adapters/types';
-import { stubMethod } from '../../scaffold';
+import type { BootstrapPayload } from '$lib/types/bootstrap';
+import type { OnboardingPageData } from '$lib/types/account';
 
-const provider = 'supabase' as const;
-const domain = 'bootstrap' as const;
+export async function fetchBootstrapSummary(): Promise<Pick<BootstrapPayload, 'unreadCounts'>> {
+  return apiClient.get<Pick<BootstrapPayload, 'unreadCounts'>>('/bootstrap/summary');
+}
+
+export async function fetchBootstrap(): Promise<BootstrapPayload> {
+  return apiClient.get<BootstrapPayload>('/bootstrap');
+}
+
+export async function fetchOnboarding(): Promise<OnboardingPageData> {
+  return apiClient.get<OnboardingPageData>('/onboarding');
+}
 
 export const bootstrapDomain: Partial<AppAdapter> = {
-  getBootstrap: stubMethod(provider, domain, 'getBootstrap') as AppAdapter['getBootstrap'],
-  getBootstrapSummary: stubMethod(provider, domain, 'getBootstrapSummary') as AppAdapter['getBootstrapSummary'],
-  getOnboarding: stubMethod(provider, domain, 'getOnboarding') as AppAdapter['getOnboarding'],
+  getBootstrap: fetchBootstrap,
+  getBootstrapSummary: fetchBootstrapSummary,
+  getOnboarding: fetchOnboarding
 };
-

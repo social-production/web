@@ -724,8 +724,12 @@ export function createMapLibreAdapter(): MapAdapter {
         });
 
         map.once('error', (event) => {
-          const message =
+          const raw =
             event.error?.message?.trim() || 'Map tiles could not be loaded.';
+          const message =
+            /networkerror|failed to fetch|ajaxerror|cartocdn|basemaps\.cartocdn/i.test(raw)
+              ? 'Map tiles could not be loaded from the internet (Carto basemaps). Local auth and feeds can still work — check DNS, firewall, VPN, or ad-blockers if the rest of the app is fine.'
+              : raw;
           onError?.(message);
           reject(new Error(message));
         });

@@ -1,18 +1,42 @@
-/**
- * Supabase `helpRequests` domain scaffold.
- * Responsibility: help request detail + role commits.
- * Replace stubs with real `web-supabase` calls mapped to `$lib/types/*`.
- */
+import { apiClient } from '../client';
 import type { AppAdapter } from '$lib/services/adapters/types';
-import { stubMethod } from '../../scaffold';
+import type { HelpRequestPageData } from '$lib/types/detail';
+import type { CreateHelpRequestInput, CreateResult } from '$lib/types/feed';
 
-const provider = 'supabase' as const;
-const domain = 'helpRequests' as const;
+export async function fetchHelpRequest(id: string): Promise<HelpRequestPageData | null> {
+  try {
+    return await apiClient.get<HelpRequestPageData>(`/help-requests/${encodeURIComponent(id)}`);
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) return null;
+    throw err;
+  }
+}
+
+export async function fetchCreateHelpRequest(input: CreateHelpRequestInput): Promise<CreateResult> {
+  return apiClient.post<CreateResult>('/help-requests', input);
+}
+
+export async function fetchCommitHelpRequestRole(
+  helpRequestId: string,
+  roleId: string
+): Promise<{ ok: boolean; error?: string }> {
+  return apiClient.post<{ ok: boolean; error?: string }>(
+    `/help-requests/${encodeURIComponent(helpRequestId)}/roles/${encodeURIComponent(roleId)}/commit`
+  );
+}
+
+export async function fetchUncommitHelpRequestRole(
+  helpRequestId: string,
+  roleId: string
+): Promise<{ ok: boolean; error?: string }> {
+  return apiClient.post<{ ok: boolean; error?: string }>(
+    `/help-requests/${encodeURIComponent(helpRequestId)}/roles/${encodeURIComponent(roleId)}/uncommit`
+  );
+}
 
 export const helpRequestsDomain: Partial<AppAdapter> = {
-  getHelpRequest: stubMethod(provider, domain, 'getHelpRequest') as AppAdapter['getHelpRequest'],
-  createHelpRequest: stubMethod(provider, domain, 'createHelpRequest') as AppAdapter['createHelpRequest'],
-  commitHelpRequestRole: stubMethod(provider, domain, 'commitHelpRequestRole') as AppAdapter['commitHelpRequestRole'],
-  uncommitHelpRequestRole: stubMethod(provider, domain, 'uncommitHelpRequestRole') as AppAdapter['uncommitHelpRequestRole'],
+  getHelpRequest: fetchHelpRequest,
+  createHelpRequest: fetchCreateHelpRequest,
+  commitHelpRequestRole: fetchCommitHelpRequestRole,
+  uncommitHelpRequestRole: fetchUncommitHelpRequestRole
 };
-

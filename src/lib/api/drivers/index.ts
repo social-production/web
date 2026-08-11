@@ -70,7 +70,6 @@ export function createApiDriver() {
     case 'fastapi':
       return createFastApiDriver();
     case 'supabase':
-      // Scaffold package exists; registry status remains unimplemented until filled in.
       return createSupabaseDriver();
     case 'holochain':
       return createHolochainDriver();

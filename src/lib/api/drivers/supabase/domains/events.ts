@@ -1,41 +1,238 @@
-/**
- * Supabase `events` domain scaffold.
- * Responsibility: event detail + lifecycle mutations.
- * Replace stubs with real `web-supabase` calls mapped to `$lib/types/*`.
- */
+import { apiClient } from '../client';
 import type { AppAdapter } from '$lib/services/adapters/types';
-import { stubMethod } from '../../scaffold';
+import type {
+  EventPageData,
+  EventPlanInput,
+  GovernanceSignalType,
+  ProjectActivityInput,
+  ProjectApprovalVote,
+  ProjectImportanceVoteValue,
+  ShareTargetResult
+} from '$lib/types/detail';
+import type { CreateEventInput, CreateResult, SignalToggleResult } from '$lib/types/feed';
 
-const provider = 'supabase' as const;
-const domain = 'events' as const;
+export async function fetchEvent(slug: string): Promise<EventPageData | null> {
+  try {
+    return await apiClient.get<EventPageData>(`/events/${encodeURIComponent(slug)}`);
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) return null;
+    throw err;
+  }
+}
+
+export async function fetchCreateEvent(input: CreateEventInput): Promise<CreateResult> {
+  return apiClient.post<CreateResult>('/events', input);
+}
+
+async function eventAction<T = { ok?: boolean }>(slug: string, action: string, body?: unknown): Promise<T> {
+  return apiClient.post<T>(`/events/${encodeURIComponent(slug)}/${action}`, body ?? {});
+}
+
+export async function fetchToggleEventMembership(eventSlug: string): Promise<void> {
+  await eventAction(eventSlug, 'membership');
+}
+
+export async function fetchSetEventSignal(
+  eventSlug: string,
+  signal: GovernanceSignalType
+): Promise<SignalToggleResult> {
+  return eventAction<SignalToggleResult>(eventSlug, 'signal', { signal });
+}
+
+export async function fetchAddEventValue(eventSlug: string, label: string): Promise<void> {
+  await eventAction(eventSlug, 'values', { label });
+}
+
+export async function fetchSetEventValueImportance(
+  eventSlug: string,
+  valueId: string,
+  importance: ProjectImportanceVoteValue
+): Promise<void> {
+  await eventAction(eventSlug, 'values/importance', { valueId, importance });
+}
+
+export async function fetchAddEventPlan(eventSlug: string, input: EventPlanInput): Promise<boolean> {
+  const res = await eventAction<{ ok?: boolean }>(eventSlug, 'plans', input);
+  return res.ok !== false;
+}
+
+export async function fetchSetEventPlanOverallVote(
+  eventSlug: string,
+  planId: string,
+  vote: ProjectApprovalVote | null
+): Promise<void> {
+  await eventAction(eventSlug, 'plans/overall-vote', { planId, vote });
+}
+
+export async function fetchSetEventPlanValueVote(
+  eventSlug: string,
+  planId: string,
+  valueId: string,
+  vote: ProjectApprovalVote | null
+): Promise<void> {
+  await eventAction(eventSlug, 'plans/value-vote', { planId, valueId, vote });
+}
+
+export async function fetchSetEventPlanCriterionRating(
+  eventSlug: string,
+  planId: string,
+  criterionId: string,
+  rating: import('$lib/types/detail').PlanCriterionRating | null
+): Promise<void> {
+  await eventAction(eventSlug, 'plans/criterion-rating', { planId, criterionId, rating });
+}
+
+export async function fetchAddEventActivity(
+  eventSlug: string,
+  input: ProjectActivityInput
+): Promise<void> {
+  await eventAction(eventSlug, 'activities', input);
+}
+
+export async function fetchSetEventActivityCommitment(
+  eventSlug: string,
+  activityId: string,
+  roleLabel: string | null
+): Promise<void> {
+  await eventAction(eventSlug, 'activities/commitment', { activityId, roleLabel });
+}
+
+export async function fetchSetEventActivityRating(
+  eventSlug: string,
+  activityId: string,
+  rating: number,
+  comment: string | null
+): Promise<void> {
+  await eventAction(eventSlug, 'activities/rating', { activityId, rating, comment });
+}
+
+export async function fetchDeleteEventActivityRating(
+  eventSlug: string,
+  activityId: string
+): Promise<void> {
+  await eventAction(eventSlug, 'activities/rating/delete', { activityId });
+}
+
+export async function fetchToggleEventHistoryCompletion(
+  eventSlug: string,
+  historyId: string,
+  role: import('$lib/types/detail').ProjectServiceHistoryCompletionRole,
+  selection?: import('$lib/types/detail').ProjectServiceHistoryCompletionChoice
+): Promise<void> {
+  await eventAction(eventSlug, 'history/completion', { historyId, role, selection });
+}
+
+export async function fetchRequestEventPhaseChange(
+  eventSlug: string,
+  targetPhaseId: import('$lib/types/detail').EventLifecyclePhaseId,
+  reason: string
+): Promise<void> {
+  await eventAction(eventSlug, 'phase-change', { targetPhaseId, reason });
+}
+
+export async function fetchSetEventPhaseChangeVote(
+  eventSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+): Promise<void> {
+  await eventAction(eventSlug, 'phase-change/vote', { requestId, vote });
+}
+
+export async function fetchRequestEventUpdate(eventSlug: string, body: string): Promise<void> {
+  await eventAction(eventSlug, 'update-requests', { body });
+}
+
+export async function fetchSetEventUpdateVote(
+  eventSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+): Promise<void> {
+  await eventAction(eventSlug, 'update-requests/vote', { requestId, vote });
+}
+
+export async function fetchRequestEventEdit(
+  eventSlug: string,
+  title: string,
+  description: string
+): Promise<void> {
+  await eventAction(eventSlug, 'edit-requests', { title, description });
+}
+
+export async function fetchSetEventEditVote(
+  eventSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+): Promise<void> {
+  await eventAction(eventSlug, 'edit-requests/vote', { requestId, vote });
+}
+
+export async function fetchCreateEventManualLinkRequest(
+  eventSlug: string,
+  targetKind: 'project' | 'event',
+  targetSlug: string,
+  summary: string,
+  label?: string | null
+): Promise<void> {
+  await eventAction(eventSlug, 'manual-links', { targetKind, targetSlug, summary, label });
+}
+
+export async function fetchSetEventManualLinkVote(
+  eventSlug: string,
+  requestId: string,
+  vote: ProjectApprovalVote | null
+): Promise<void> {
+  await eventAction(eventSlug, 'manual-links/vote', { requestId, vote });
+}
+
+export async function fetchCreateEventManualLinkSeverRequest(
+  eventSlug: string,
+  linkId: string,
+  summary?: string | null
+): Promise<void> {
+  await eventAction(eventSlug, 'manual-links/sever', { linkId, summary });
+}
+
+export async function fetchGrantEventEditAccess(eventSlug: string, userId: string): Promise<void> {
+  await eventAction(eventSlug, 'edit-access/grant', { userId });
+}
+
+export async function fetchRevokeEventEditAccess(eventSlug: string, userId: string): Promise<void> {
+  await eventAction(eventSlug, 'edit-access/revoke', { userId });
+}
+
+export async function fetchShareEventWithUser(
+  eventSlug: string,
+  username: string
+): Promise<ShareTargetResult> {
+  return eventAction<ShareTargetResult>(eventSlug, 'share', { username });
+}
 
 export const eventsDomain: Partial<AppAdapter> = {
-  getEvent: stubMethod(provider, domain, 'getEvent') as AppAdapter['getEvent'],
-  createEvent: stubMethod(provider, domain, 'createEvent') as AppAdapter['createEvent'],
-  toggleEventMembership: stubMethod(provider, domain, 'toggleEventMembership') as AppAdapter['toggleEventMembership'],
-  setEventSignal: stubMethod(provider, domain, 'setEventSignal') as AppAdapter['setEventSignal'],
-  addEventValue: stubMethod(provider, domain, 'addEventValue') as AppAdapter['addEventValue'],
-  setEventValueImportance: stubMethod(provider, domain, 'setEventValueImportance') as AppAdapter['setEventValueImportance'],
-  addEventPlan: stubMethod(provider, domain, 'addEventPlan') as AppAdapter['addEventPlan'],
-  setEventPlanValueVote: stubMethod(provider, domain, 'setEventPlanValueVote') as AppAdapter['setEventPlanValueVote'],
-  setEventPlanCriterionRating: stubMethod(provider, domain, 'setEventPlanCriterionRating') as AppAdapter['setEventPlanCriterionRating'],
-  setEventPlanOverallVote: stubMethod(provider, domain, 'setEventPlanOverallVote') as AppAdapter['setEventPlanOverallVote'],
-  addEventActivity: stubMethod(provider, domain, 'addEventActivity') as AppAdapter['addEventActivity'],
-  setEventActivityCommitment: stubMethod(provider, domain, 'setEventActivityCommitment') as AppAdapter['setEventActivityCommitment'],
-  setEventActivityRating: stubMethod(provider, domain, 'setEventActivityRating') as AppAdapter['setEventActivityRating'],
-  deleteEventActivityRating: stubMethod(provider, domain, 'deleteEventActivityRating') as AppAdapter['deleteEventActivityRating'],
-  toggleEventHistoryCompletion: stubMethod(provider, domain, 'toggleEventHistoryCompletion') as AppAdapter['toggleEventHistoryCompletion'],
-  requestEventPhaseChange: stubMethod(provider, domain, 'requestEventPhaseChange') as AppAdapter['requestEventPhaseChange'],
-  setEventPhaseChangeVote: stubMethod(provider, domain, 'setEventPhaseChangeVote') as AppAdapter['setEventPhaseChangeVote'],
-  requestEventUpdate: stubMethod(provider, domain, 'requestEventUpdate') as AppAdapter['requestEventUpdate'],
-  setEventUpdateVote: stubMethod(provider, domain, 'setEventUpdateVote') as AppAdapter['setEventUpdateVote'],
-  requestEventEdit: stubMethod(provider, domain, 'requestEventEdit') as AppAdapter['requestEventEdit'],
-  setEventEditVote: stubMethod(provider, domain, 'setEventEditVote') as AppAdapter['setEventEditVote'],
-  createEventManualLinkRequest: stubMethod(provider, domain, 'createEventManualLinkRequest') as AppAdapter['createEventManualLinkRequest'],
-  setEventManualLinkVote: stubMethod(provider, domain, 'setEventManualLinkVote') as AppAdapter['setEventManualLinkVote'],
-  createEventManualLinkSeverRequest: stubMethod(provider, domain, 'createEventManualLinkSeverRequest') as AppAdapter['createEventManualLinkSeverRequest'],
-  grantEventEditAccess: stubMethod(provider, domain, 'grantEventEditAccess') as AppAdapter['grantEventEditAccess'],
-  revokeEventEditAccess: stubMethod(provider, domain, 'revokeEventEditAccess') as AppAdapter['revokeEventEditAccess'],
-  shareEventWithUser: stubMethod(provider, domain, 'shareEventWithUser') as AppAdapter['shareEventWithUser'],
+  getEvent: fetchEvent,
+  createEvent: fetchCreateEvent,
+  toggleEventMembership: fetchToggleEventMembership,
+  setEventSignal: fetchSetEventSignal,
+  addEventValue: fetchAddEventValue,
+  setEventValueImportance: fetchSetEventValueImportance,
+  addEventPlan: fetchAddEventPlan,
+  setEventPlanOverallVote: fetchSetEventPlanOverallVote,
+  setEventPlanValueVote: fetchSetEventPlanValueVote,
+  setEventPlanCriterionRating: fetchSetEventPlanCriterionRating,
+  addEventActivity: fetchAddEventActivity,
+  setEventActivityCommitment: fetchSetEventActivityCommitment,
+  setEventActivityRating: fetchSetEventActivityRating,
+  deleteEventActivityRating: fetchDeleteEventActivityRating,
+  toggleEventHistoryCompletion: fetchToggleEventHistoryCompletion,
+  requestEventPhaseChange: fetchRequestEventPhaseChange,
+  setEventPhaseChangeVote: fetchSetEventPhaseChangeVote,
+  requestEventUpdate: fetchRequestEventUpdate,
+  setEventUpdateVote: fetchSetEventUpdateVote,
+  requestEventEdit: fetchRequestEventEdit,
+  setEventEditVote: fetchSetEventEditVote,
+  createEventManualLinkRequest: fetchCreateEventManualLinkRequest,
+  setEventManualLinkVote: fetchSetEventManualLinkVote,
+  createEventManualLinkSeverRequest: fetchCreateEventManualLinkSeverRequest,
+  grantEventEditAccess: fetchGrantEventEditAccess,
+  revokeEventEditAccess: fetchRevokeEventEditAccess,
+  shareEventWithUser: fetchShareEventWithUser
 };
-

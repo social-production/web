@@ -100,10 +100,12 @@ describe('provider registry', () => {
     expect(fastapi.backendWorkspace).toBe('web-backend');
   });
 
-  it('reserves supabase and holochain slots as unimplemented', () => {
-    expect(getProviderMetadata('supabase').status).toBe('unimplemented');
-    expect(getProviderMetadata('holochain').status).toBe('unimplemented');
+  it('exposes supabase as a ready alternate and keeps holochain unimplemented', () => {
+    expect(getProviderMetadata('supabase').status).toBe('ready');
     expect(getProviderMetadata('supabase').backendWorkspace).toBe('web-supabase');
+    expect(providerSupports('supabase', 'bootstrap')).toBe(true);
+    expect(providerSupports('supabase', 'governanceVotes')).toBe(true);
+    expect(getProviderMetadata('holochain').status).toBe('unimplemented');
     expect(getProviderMetadata('holochain').backendWorkspace).toBe('web-holochain');
   });
 
@@ -118,7 +120,7 @@ describe('provider registry', () => {
   });
 
   it('fails clearly for unimplemented providers', () => {
-    expect(() => assertProviderReady('supabase')).toThrow(/not implemented/);
+    expect(() => assertProviderReady('supabase')).not.toThrow();
     expect(() => assertProviderReady('holochain')).toThrow(/web-holochain/);
   });
 
@@ -192,25 +194,27 @@ describe('template driver contract', () => {
   });
 });
 
-describe('supabase and holochain driver scaffolds', () => {
-  it('assembles AppAdapter methods from domain modules and fails loudly', async () => {
-    const { createSupabaseDriver } = await import('$lib/api/drivers/supabase');
-    const { createHolochainDriver } = await import('$lib/api/drivers/holochain');
+describe('supabase and holochain drivers', () => {
+  it(
+    'assembles AppAdapter methods; holochain still fails loudly as scaffold',
+    async () => {
+      const { createSupabaseDriver } = await import('$lib/api/drivers/supabase');
+      const { createHolochainDriver } = await import('$lib/api/drivers/holochain');
 
-    const supabase = createSupabaseDriver();
-    const holochain = createHolochainDriver();
+      const supabase = createSupabaseDriver();
+      const holochain = createHolochainDriver();
 
-    await expect(supabase.getBootstrap()).rejects.toThrow(/supabase driver: getBootstrap/);
-    await expect(supabase.getBootstrap()).rejects.toThrow(/domains\/bootstrap\.ts/);
-    await expect(supabase.setVote({ id: 't1', type: 'thread' }, 1)).rejects.toThrow(
-      /domains\/content\.ts/
-    );
+      for (const method of APP_ADAPTER_CONTRACT_METHODS) {
+        expect(typeof supabase[method]).toBe('function');
+      }
 
-    await expect(holochain.getBootstrap()).rejects.toThrow(/holochain driver: getBootstrap/);
-    await expect(holochain.addComment({ id: 'p1', type: 'post' }, 'hi')).rejects.toThrow(
-      /domains\/content\.ts/
-    );
-  });
+      await expect(holochain.getBootstrap()).rejects.toThrow(/holochain driver: getBootstrap/);
+      await expect(holochain.addComment({ id: 'p1', type: 'post' }, 'hi')).rejects.toThrow(
+        /domains\/content\.ts/
+      );
+    },
+    15000
+  );
 
   it('exposes split session and error transports', async () => {
     const supabase = await import('$lib/api/drivers/supabase');

@@ -2,18 +2,40 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { signIn, signUp } from '$lib/services/commands/account';
-  import type { OnboardingPageData } from '$lib/types/account';
+  import type { AccountOption, OnboardingPageData } from '$lib/types/account';
   import { canonicalizeHandle, validateHandle } from '$lib/utils/handles';
 
   export let data: OnboardingPageData;
 
-  let mode: 'login' | 'signup' = 'login';
+  const FALLBACK_MODES: AccountOption[] = [
+    {
+      value: 'signup',
+      label: 'Sign up',
+      description: 'Create a new account.'
+    },
+    {
+      value: 'login',
+      label: 'Log in',
+      description: 'Use an existing account.'
+    }
+  ];
+
+  let mode: 'login' | 'signup' = 'signup';
   let username = '';
   let password = '';
   let statusMessage = '';
   let isSubmitting = false;
 
   $: viewer = $page.data.bootstrap?.viewer ?? null;
+  $: accountModes =
+    Array.isArray(data?.accountModes) && data.accountModes.length > 0
+      ? data.accountModes
+      : FALLBACK_MODES;
+  $: pageTitle = data?.title?.trim() || 'Sign in or create an account';
+  $: pageIntro =
+    data?.intro?.trim() ||
+    'Sign in to post, follow people, and create projects, threads, and events.';
+  $: activeMode = accountModes.find((option) => option.value === mode) ?? null;
   $: handleCheck = mode === 'signup' ? validateHandle(username, 'Username') : null;
   $: canonicalPreview =
     handleCheck && handleCheck.ok ? `/profile/${handleCheck.canonical}` : username.trim()
@@ -56,8 +78,8 @@
 
 <section class="page">
   <section class="hero-card">
-    <h1>{data.title}</h1>
-    <p>{data.intro}</p>
+    <h1>{pageTitle}</h1>
+    <p>{pageIntro}</p>
     {#if viewer}
       <div class="signed-in-note">
         <strong>Signed in as @{viewer.username}</strong>
@@ -67,18 +89,24 @@
   </section>
 
   <section class="panel">
-    <div class="choice-row">
-      {#each data.accountModes as option}
+    <p class="mode-hint">Choose <strong>Sign up</strong> for a new account, or <strong>Log in</strong> if you already have one.</p>
+    <div class="choice-row" role="tablist" aria-label="Account mode">
+      {#each accountModes as option}
         <button
           class:active={mode === option.value}
           class="toggle-chip"
           type="button"
+          role="tab"
+          aria-selected={mode === option.value}
           on:click={() => (mode = option.value as 'login' | 'signup')}
         >
           {option.label}
         </button>
       {/each}
     </div>
+    {#if activeMode?.description}
+      <p class="helper-text">{activeMode.description}</p>
+    {/if}
 
     <form class="stack" on:submit|preventDefault={handleSubmit}>
       <label>
@@ -152,6 +180,11 @@
     margin-top: 8px;
   }
 
+  .mode-hint {
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+
   .choice-row,
   .button-row,
   .signed-in-note {
@@ -162,7 +195,24 @@
   }
 
   .choice-row {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
+  }
+
+  .toggle-chip {
+    min-width: 96px;
+    padding: 10px 14px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel-soft);
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .toggle-chip.active {
+    border-color: var(--brand-strong);
+    background: color-mix(in srgb, var(--brand-strong) 14%, var(--panel));
+    color: var(--brand-strong);
   }
 
   .signed-in-note {
@@ -178,34 +228,24 @@
     margin-bottom: 6px;
     color: var(--text-soft);
     font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
   }
 
-  .toggle-chip {
-    padding: 8px 12px;
+  input {
+    width: 100%;
+    padding: 10px 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-soft);
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
+    color: var(--text);
   }
 
-  .toggle-chip.active {
-    background: var(--brand-soft);
-    color: var(--brand-strong);
+  .helper-text,
+  .status-note {
+    margin: 0;
+    font-size: 13px;
   }
 
   .status-note {
-    margin: 0;
-    color: var(--accent-warm-strong);
-  }
-
-  .helper-text {
-    margin: 0;
-    color: var(--text-soft);
-    font-size: 13px;
+    color: var(--danger, #b91c1c);
   }
 </style>

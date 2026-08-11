@@ -310,7 +310,9 @@
   on:next={handleNext}
 >
   {#if stepIndex === 0}
-    <DirectUsePolicyNotice variant="plan" {context} />
+    <div class="policy-notice-wrap">
+      <DirectUsePolicyNotice variant="plan" {context} />
+    </div>
   {/if}
 
   {#if (form.validationMessages?.length ?? 0) > 0 && isReviewStep}
@@ -404,13 +406,17 @@
           </label>
         </div>
       {:else if currentStep.type === 'location'}
-        <LocationPicker
-          bind:value={locationPickerValue}
-          modes={['physical', 'online']}
-          on:change={handleLocationChange}
-        />
+        <div class="location-step">
+          <LocationPicker
+            bind:value={locationPickerValue}
+            modes={['physical', 'online']}
+            portaled
+            elevated
+            on:change={handleLocationChange}
+          />
+        </div>
       {:else if currentStep.type === 'distribution-location'}
-        <div class="settings-stack">
+        <div class="settings-stack location-step">
           {#if productionPlanLocation?.locationId || productionPlanLocation?.locationLabel}
             <label class="checkbox-row">
               <input
@@ -431,6 +437,8 @@
             <LocationPicker
               bind:value={distributionLocationPickerValue}
               modes={['physical', 'online']}
+              portaled
+              elevated
               on:change={handleDistributionLocationChange}
             />
           {/if}
@@ -587,9 +595,19 @@
 </PlanWizardShell>
 
 <style>
+  .policy-notice-wrap {
+    margin-bottom: 36px;
+  }
+
   .question-block {
     display: grid;
     gap: 14px;
+  }
+
+  .location-step {
+    display: grid;
+    gap: 12px;
+    min-height: 0;
   }
 
   h2 {

@@ -1,10 +1,38 @@
 import type { SessionTransport } from '$lib/services/sessionTransport';
-import { createUnimplementedSessionTransport } from '../unimplementedTransports';
+import {
+  clearAuthenticatedSession,
+  getCsrfToken,
+  hasAuthenticatedSession,
+  hasRememberedAuthCookie,
+  markAuthenticatedSession,
+  shouldAttemptSessionRefresh
+} from './authSession';
+import { refreshSession } from './client';
 
-/**
- * Supabase SessionTransport scaffold.
- * Implement cold-start restore / refresh against `web-supabase` auth.
- */
 export function createSupabaseSessionTransport(): SessionTransport {
-  return createUnimplementedSessionTransport('supabase');
+  return {
+    refreshSession,
+    markAuthenticatedSession,
+    clearAuthenticatedSession,
+    hasAuthenticatedSession,
+    hasRememberedAuthCookie,
+    shouldAttemptSessionRefresh,
+    getCsrfToken,
+    async tryRestoreAuthenticatedSession() {
+      if (!hasRememberedAuthCookie()) {
+        return 'skipped';
+      }
+      try {
+        const restored = await refreshSession();
+        if (restored) {
+          markAuthenticatedSession();
+          return 'restored';
+        }
+        clearAuthenticatedSession();
+        return 'auth-failed';
+      } catch {
+        return 'transient-failure';
+      }
+    }
+  };
 }

@@ -16,9 +16,14 @@ Phase 1 absolutely includes a backend. This repo is just frontend-first for now.
 
 ## Current Status
 
-Phase 1 is live and connected to the real FastAPI backend (`web-backend`).
+Phase 1 is live and can run against **either**:
 
-The mock driver has been removed. The frontend requires a running backend at `http://localhost:8000`. All data flows through the FastAPI driver.
+- **FastAPI** (`web-backend`) — default production / Railway path (`VITE_BACKEND=fastapi`)
+- **Supabase** (`web-supabase`) — local-ready alternate Auth + Edge Function gateway (`VITE_BACKEND=supabase`)
+
+The mock driver has been removed. Pick one backend via `web/.env.local`.
+
+Canonical local frontend URL: **`http://localhost:5173`**.
 
 Current surfaces:
 
@@ -32,48 +37,53 @@ The adapter entry point lives here:
 
 - `src/lib/services/adapters/index.ts`
 
-The FastAPI driver lives here:
+Drivers:
 
 - `src/lib/api/drivers/fastapi/`
+- `src/lib/api/drivers/supabase/`
 
 ## First-Time Setup
 
-The easiest way to run Social Production locally is to start the backend with Docker, then start the frontend with npm.
+You can start with **FastAPI** or **Supabase**. Both need Docker + Node 20+.
 
-### Prerequisites
-
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose for PostgreSQL, Redis, and the FastAPI backend
-- [Node.js 18+](https://nodejs.org/) and npm for the SvelteKit frontend
-- Git, if you are cloning the project for the first time
-
-Check your installed versions:
-
-```bash
-docker --version
-node --version
-npm --version
-```
-
-### 1. Start the backend
+### Option A — FastAPI (default / production-shaped)
 
 ```bash
 cd ../web-backend
 docker compose up -d --build
 ```
 
-Wait a minute for the database, migrations, and seed data. Then open `http://localhost:8000/docs`.
-
-### 2. Start the frontend
+Wait for `http://localhost:8000/docs`, then:
 
 ```bash
 cd ../web
+cp .env.example .env.local   # or create with VITE_BACKEND=fastapi
 npm install
 npm run dev
 ```
 
-Then open `http://localhost:5173`. The backend API docs are at `http://localhost:8000/docs`.
+Open `http://localhost:5173`. See `web-backend/README.md` for backend details.
 
-See `web-backend/README.md` for full backend setup details.
+### Option B — Supabase (local parity / hosted beta path)
+
+Follow the beginner guide (keys, gateway, smoke, clean slate):
+
+- [`../web-supabase/docs/LOCAL_DEV.md`](../web-supabase/docs/LOCAL_DEV.md)
+
+Short version:
+
+```bash
+cd ../web-supabase
+npm install && npm run start && npm run db:reset
+# create .env.local with JWT keys from `npm run status:env`
+npm run functions:serve   # separate terminal
+
+cd ../web
+# .env.local with VITE_BACKEND=supabase + local VITE_SUPABASE_* JWT keys
+npm install && npm run dev
+```
+
+Hosted / cutover: [`../web-supabase/docs/HOSTED.md`](../web-supabase/docs/HOSTED.md), [`../web-supabase/docs/CUTOVER.md`](../web-supabase/docs/CUTOVER.md).
 
 ## Share on your local Wi-Fi (LAN)
 
@@ -284,6 +294,7 @@ The frontend is fully decoupled from any specific backend. All data access goes 
 | `VITE_BACKEND` | Driver | Description |
 |---|---|---|
 | `fastapi` | `createFastApiDriver()` | HTTP calls to the FastAPI/Python backend |
+| `supabase` | `createSupabaseDriver()` | Supabase Auth + Edge Function `gateway` |
 
 A Holochain driver (or any other backend) can be added by implementing `AppAdapter` and registering it in `src/lib/api/drivers/index.ts` — no routes or components need to change.
 
@@ -297,7 +308,18 @@ VITE_BACKEND=fastapi
 VITE_API_URL=http://localhost:8000
 ```
 
-To point at a different backend host (for example a staging server), change `VITE_API_URL` to that URL. Restart `npm run dev` after any change to `.env.local`.
+**Supabase (localhost):**
+```env
+VITE_BACKEND=supabase
+VITE_SUPABASE_URL=http://127.0.0.1:54321
+VITE_SUPABASE_ANON_KEY=<JWT anon eyJ… from web-supabase status:env>
+VITE_SUPABASE_FUNCTIONS_URL=http://127.0.0.1:54321/functions/v1
+VITE_USE_DEV_PROXY=false
+```
+
+Restart `npm run dev` after any change to `.env.local`. Prefer one origin: `http://localhost:5173` (Supabase sessions are per-origin).
+
+Beginner switch guide: [`docs/BACKEND_SWITCHING.md`](docs/BACKEND_SWITCHING.md).
 
 ### Adding a new backend driver
 

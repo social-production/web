@@ -14,6 +14,8 @@
     "check": "npm run paraglide && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "smoke": "npm run check && npm run build",
     "format": "prettier --write \"src/**/*.{ts,svelte}\"",
     "format:check": "prettier --check \"src/**/*.{ts,svelte}\""
@@ -21,6 +23,7 @@
   "devDependencies": {
     "@inlang/paraglide-js": "^2.20.2",
     "@inlang/plugin-message-format": "^4.4.0",
+    "@playwright/test": "^1.62.1",
     "@sveltejs/adapter-auto": "^3.2.0",
     "@sveltejs/adapter-node": "^5.5.7",
     "@sveltejs/kit": "^2.69.3",
@@ -31,6 +34,7 @@
     "@types/node": "^22.15.3",
     "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^29.1.1",
+    "playwright": "^1.62.1",
     "prettier": "^3.5.3",
     "prettier-plugin-svelte": "^3.3.3",
     "svelte": "^5.56.5",
@@ -44,6 +48,7 @@
     "devalue": "^5.8.1"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.1",
     "maplibre-gl": "^5.24.0"
   }
 }

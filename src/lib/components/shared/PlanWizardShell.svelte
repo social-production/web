@@ -34,8 +34,14 @@
 
   $: progressPercent = stepCount > 0 ? Math.round(((stepIndex + 1) / stepCount) * 100) : 0;
 
+  $: if (open && bodyEl) {
+    // Reset scroll whenever the active step changes so location/search opens at top.
+    void stepIndex;
+    bodyEl.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }
+
   export function scrollBodyToTop() {
-    bodyEl?.scrollTo({ top: 0, behavior: 'instant' });
+    bodyEl?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
   }
 
   function handleBackdropKeydown(event: KeyboardEvent) {
@@ -237,10 +243,17 @@
   .wizard-body {
     overflow-y: auto;
     padding: 16px;
+    scroll-padding-top: 8px;
   }
 
   .wizard-shell.compact .wizard-body {
     padding: 12px;
+  }
+
+  @media (min-width: 900px) {
+    .wizard-body {
+      max-height: min(70dvh, 640px);
+    }
   }
 
   .wizard-footer {

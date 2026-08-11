@@ -16,7 +16,13 @@
 <main class="error-page">
   <section class="error-card">
     <p class="eyebrow">Something went wrong</p>
-    <h1>We could not load this page</h1>
+    <h1>
+      {#if $page.status}
+        {$page.status}
+      {:else}
+        Error
+      {/if}
+    </h1>
     <p class="message">
       {#if $page.error?.message}
         {$page.error.message}

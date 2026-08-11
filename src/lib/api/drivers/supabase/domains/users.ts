@@ -1,23 +1,67 @@
-/**
- * Supabase `users` domain scaffold.
- * Responsibility: profile, settings, follows.
- * Replace stubs with real `web-supabase` calls mapped to `$lib/types/*`.
- */
+import { apiClient } from '../client';
 import type { AppAdapter } from '$lib/services/adapters/types';
-import { stubMethod } from '../../scaffold';
+import type { ProfilePageData, SettingsPageData, SettingsUpdateInput } from '$lib/types/account';
+import type { ViewerSummary } from '$lib/types/bootstrap';
+import { mapGatewayProfile } from '../mappers/profile';
 
-const provider = 'supabase' as const;
-const domain = 'users' as const;
+export async function fetchSettings(): Promise<SettingsPageData | null> {
+  try {
+    return await apiClient.get<SettingsPageData>('/users/me/settings');
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) return null;
+    throw err;
+  }
+}
+
+export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<void> {
+  await apiClient.patch('/users/me/settings', input);
+}
+
+export async function fetchProfile(username: string): Promise<ProfilePageData | null> {
+  try {
+    const raw = await apiClient.get<unknown>(`/users/${encodeURIComponent(username)}`);
+    return mapGatewayProfile(raw);
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) return null;
+    throw err;
+  }
+}
+
+export async function fetchFollowUser(username: string): Promise<{ followStatus: string | null }> {
+  return apiClient.post<{ followStatus: string | null }>(
+    `/users/${encodeURIComponent(username)}/follow`
+  );
+}
+
+export async function fetchUnfollowUser(username: string): Promise<void> {
+  await apiClient.delete(`/users/${encodeURIComponent(username)}/follow`);
+}
+
+export async function fetchAcceptFollowRequest(username: string): Promise<void> {
+  await apiClient.post(`/users/${encodeURIComponent(username)}/follow/accept`);
+}
+
+export async function fetchRejectFollowRequest(username: string): Promise<void> {
+  await apiClient.post(`/users/${encodeURIComponent(username)}/follow/reject`);
+}
+
+export async function fetchFollowRequests(): Promise<ViewerSummary[]> {
+  try {
+    const res = await apiClient.get<{ items?: ViewerSummary[] }>('/users/me/follow-requests');
+    return res.items ?? [];
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) return [];
+    throw err;
+  }
+}
 
 export const usersDomain: Partial<AppAdapter> = {
-  getSettings: stubMethod(provider, domain, 'getSettings') as AppAdapter['getSettings'],
-  updateSettings: stubMethod(provider, domain, 'updateSettings') as AppAdapter['updateSettings'],
-  hydrateClientState: stubMethod(provider, domain, 'hydrateClientState') as AppAdapter['hydrateClientState'],
-  getProfile: stubMethod(provider, domain, 'getProfile') as AppAdapter['getProfile'],
-  followUser: stubMethod(provider, domain, 'followUser') as AppAdapter['followUser'],
-  unfollowUser: stubMethod(provider, domain, 'unfollowUser') as AppAdapter['unfollowUser'],
-  acceptFollowRequest: stubMethod(provider, domain, 'acceptFollowRequest') as AppAdapter['acceptFollowRequest'],
-  rejectFollowRequest: stubMethod(provider, domain, 'rejectFollowRequest') as AppAdapter['rejectFollowRequest'],
-  getFollowRequests: stubMethod(provider, domain, 'getFollowRequests') as AppAdapter['getFollowRequests'],
+  getSettings: fetchSettings,
+  updateSettings: fetchUpdateSettings,
+  getProfile: fetchProfile,
+  followUser: fetchFollowUser,
+  unfollowUser: fetchUnfollowUser,
+  acceptFollowRequest: fetchAcceptFollowRequest,
+  rejectFollowRequest: fetchRejectFollowRequest,
+  getFollowRequests: fetchFollowRequests
 };
-

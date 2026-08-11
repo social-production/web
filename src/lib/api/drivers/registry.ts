@@ -215,26 +215,26 @@ export const PROVIDER_REGISTRY: Record<BackendDriverName, ProviderMetadata> = {
   supabase: {
     name: 'supabase',
     label: 'Supabase',
-    status: 'unimplemented',
+    status: 'ready',
     backendWorkspace: 'web-supabase',
     notes:
-      'Medium-term alternate. Frontend driver scaffold + web-supabase workspace exist; implement domains then flip status to ready.',
+      'Local-ready alternate via Auth + Postgres + Edge Function gateway. Strict parity pass: lifecycle votes, region clip, board standing, report thresholds. Messaging remains intentional plaintext at rest. Beginner guides: web-supabase/docs/LOCAL_DEV.md, HOSTED.md, SIGNOFF.md. See PARITY_AUDIT.md.',
     requiredDomains: PROVIDER_REQUIRED_DOMAINS,
     capabilities: {
       ...CENTRALIZED_DEFAULTS,
-      sessionTransport: 'planned',
-      errorTransport: 'planned',
-      bootstrap: 'planned',
-      feeds: 'planned',
-      governanceVotes: 'planned',
-      governanceComments: 'planned',
-      governanceReports: 'planned',
-      messaging: 'planned',
-      notifications: 'planned',
-      search: 'planned',
-      locations: 'planned',
-      scopes: 'planned',
-      moderation: 'planned'
+      sessionTransport: 'supported',
+      errorTransport: 'supported',
+      bootstrap: 'supported',
+      feeds: 'supported',
+      governanceVotes: 'supported',
+      governanceComments: 'supported',
+      governanceReports: 'supported',
+      messaging: 'supported',
+      notifications: 'supported',
+      search: 'supported',
+      locations: 'supported',
+      scopes: 'supported',
+      moderation: 'supported'
     }
   },
   holochain: {
