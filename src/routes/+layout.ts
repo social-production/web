@@ -88,7 +88,22 @@ export const load = (async ({ url, depends }) => {
   }
 
   let bootstrap: BootstrapPayload;
+  let settings = null;
+  let settingsLoadFailedOnNetwork = false;
+
   try {
+    // When a session is likely present, overlap settings with bootstrap to cut layout wait.
+    const settingsPromise =
+      browser && restoreResult !== 'skipped' && restoreResult !== 'auth-failed'
+        ? getSettings().catch((err) => {
+            if (isNetworkLoadError(err)) {
+              settingsLoadFailedOnNetwork = true;
+              return null;
+            }
+            throw err;
+          })
+        : null;
+
     bootstrap = await loadBootstrapWithRetry();
     if (browser && shouldClearSessionAfterBootstrap(restoreResult, bootstrap)) {
       clearAuthenticatedSession();
@@ -97,6 +112,26 @@ export const load = (async ({ url, depends }) => {
       }
     }
     writeBootstrapCache(bootstrap);
+
+    if (bootstrap.viewer) {
+      if (settingsPromise) {
+        try {
+          settings = await settingsPromise;
+        } catch (err) {
+          toLoadError(err, 'Could not load account settings.');
+        }
+      } else {
+        try {
+          settings = await getSettings();
+        } catch (err) {
+          if (isNetworkLoadError(err)) {
+            settingsLoadFailedOnNetwork = true;
+          } else {
+            toLoadError(err, 'Could not load account settings.');
+          }
+        }
+      }
+    }
   } catch (err) {
     const cached = readPublicBootstrapCache();
     if (cached && isBootstrapCacheUsable(cached)) {
@@ -116,20 +151,6 @@ export const load = (async ({ url, depends }) => {
     protectedPrefixes.some((prefix) => url.pathname === prefix || url.pathname.startsWith(`${prefix}/`))
   ) {
     throw redirect(307, '/onboarding');
-  }
-
-  let settings = null;
-  let settingsLoadFailedOnNetwork = false;
-  if (bootstrap.viewer) {
-    try {
-      settings = await getSettings();
-    } catch (err) {
-      if (isNetworkLoadError(err)) {
-        settingsLoadFailedOnNetwork = true;
-      } else {
-        toLoadError(err, 'Could not load account settings.');
-      }
-    }
   }
 
   // Authenticated viewers can continue even when settings are temporarily unavailable.

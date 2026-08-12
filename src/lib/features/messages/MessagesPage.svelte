@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { goto, invalidate, invalidateAll } from '$app/navigation';
+  import { goto, invalidate } from '$app/navigation';
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
@@ -76,8 +76,8 @@
   let contactSearchKey = '';
   let contactSearchRequestId = 0;
 
-  const THREAD_POLL_MS = 8_000;
-  const INBOX_REFRESH_MS = 30_000;
+  const THREAD_POLL_MS = 12_000;
+  const INBOX_REFRESH_MS = 45_000;
 
   let lastKnownUnreadMessages = 0;
   let threadPollTimer: number | null = null;
@@ -495,7 +495,13 @@
     const vv = window.visualViewport;
     const viewportHeight = vv?.height ?? window.innerHeight;
     const viewportOffsetTop = vv?.offsetTop ?? 0;
-    const keyboardOpen = Boolean(vv && window.innerHeight - vv.height > 80);
+    const keyboardOpen = Boolean(
+      vv &&
+        window.innerHeight - vv.height > 120 &&
+        (document.activeElement instanceof HTMLTextAreaElement ||
+          document.activeElement instanceof HTMLInputElement ||
+          (document.activeElement instanceof HTMLElement && document.activeElement.isContentEditable))
+    );
     const topbarPx =
       document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
 
@@ -634,7 +640,7 @@
     if (!conversation) {
       if (!deepLinkRefreshAttempted) {
         deepLinkRefreshAttempted = true;
-        await invalidateAll();
+        await invalidate('inbox:messages');
       }
       return;
     }
@@ -962,7 +968,7 @@
 
     showComposer = false;
     resetComposer();
-    await invalidateAll();
+    await invalidate('inbox:messages');
 
     if (activeConversationId) {
       await loadConversationMessages(activeConversationId);
@@ -999,7 +1005,7 @@
     groupSettingsFeedback = result.ok ? 'Group name updated.' : result.error ?? 'The group name could not be updated.';
 
     if (result.ok) {
-      await invalidateAll();
+      await invalidate('inbox:messages');
       if (activeConversationId) {
         await loadConversationMessages(activeConversationId);
       }
@@ -1018,7 +1024,7 @@
 
     if (result.ok) {
       groupMemberDraft = '';
-      await invalidateAll();
+      await invalidate('inbox:messages');
       if (activeConversationId) {
         await loadConversationMessages(activeConversationId);
       }
@@ -1036,7 +1042,7 @@
     groupSettingsFeedback = result.ok ? `${username} was removed from the group chat.` : result.error ?? 'That member could not be removed.';
 
     if (result.ok) {
-      await invalidateAll();
+      await invalidate('inbox:messages');
       if (activeConversationId) {
         await loadConversationMessages(activeConversationId);
       }

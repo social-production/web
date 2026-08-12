@@ -6,6 +6,7 @@ interface FeedCacheEntry<T> {
 }
 
 const feedCache = new Map<string, FeedCacheEntry<unknown>>();
+const feedInflight = new Map<string, Promise<unknown>>();
 
 export function feedCacheKey(prefix: string, options?: Record<string, unknown>): string {
   return `${prefix}:${JSON.stringify(options ?? {})}`;
@@ -50,12 +51,25 @@ export async function withFeedCache<T>(
     return cached;
   }
 
-  const data = await loader();
-  writeFeedCache(key, data);
-  return data;
+  const pending = feedInflight.get(key) as Promise<T> | undefined;
+  if (pending) {
+    return pending;
+  }
+
+  const request = loader()
+    .then((data) => {
+      writeFeedCache(key, data);
+      return data;
+    })
+    .finally(() => {
+      feedInflight.delete(key);
+    });
+  feedInflight.set(key, request);
+  return request;
 }
 
 /** Drop all cached feed list payloads so the next load hits the network. */
 export function clearFeedCache(): void {
   feedCache.clear();
+  feedInflight.clear();
 }

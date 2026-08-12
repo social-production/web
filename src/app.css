@@ -176,16 +176,19 @@ body {
   --shell-bottom-nav-offset: var(--shell-bottom-nav-height);
 }
 
-/* Fixed full-height panes reserve the nav themselves — don't also pad main. */
+/* Fixed full-height panes and short tab surfaces reserve the nav themselves —
+   don't also pad main (blank band above the nav reads as a second footer). */
 .shell-compact .main-content-compact:has(.conversation-page),
 .shell-compact .main-content-compact:has(.page-chat),
-.shell-compact .main-content-compact:has(.messages-shell) {
+.shell-compact .main-content-compact:has(.messages-shell),
+.shell-compact .main-content-compact:has(.notifications-page) {
   padding-bottom: 0;
 }
 
 .shell-compact .main-content-compact:has(.conversation-page) .main-frame,
 .shell-compact .main-content-compact:has(.page-chat) .main-frame,
-.shell-compact .main-content-compact:has(.messages-shell) .main-frame {
+.shell-compact .main-content-compact:has(.messages-shell) .main-frame,
+.shell-compact .main-content-compact:has(.notifications-page) .main-frame {
   padding-bottom: 0;
 }
 

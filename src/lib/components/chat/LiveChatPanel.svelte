@@ -270,7 +270,13 @@
     const vv = window.visualViewport;
     const viewportHeight = vv?.height ?? window.innerHeight;
     const viewportOffsetTop = vv?.offsetTop ?? 0;
-    keyboardOpen = Boolean(vv && window.innerHeight - vv.height > 80);
+    keyboardOpen = Boolean(
+      vv &&
+        window.innerHeight - vv.height > 120 &&
+        (document.activeElement instanceof HTMLTextAreaElement ||
+          document.activeElement instanceof HTMLInputElement ||
+          (document.activeElement instanceof HTMLElement && document.activeElement.isContentEditable))
+    );
 
     if (embedded) {
       // MessagesPage pins the shell above the keyboard; keep the panel filling it.

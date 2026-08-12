@@ -31,6 +31,45 @@ describe('supabase personal feed mapping', () => {
     });
   });
 
+  it('keeps nested author profile images on major personal activity items', () => {
+    const mapped = mapGatewayPersonalItem({
+      kind: 'project',
+      id: 'project-1',
+      slug: 'rocket',
+      href: '/projects/rocket',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      title: 'Rocket',
+      summary: 'Build it',
+      author: {
+        id: 'u-ymsvz',
+        username: 'ymsvz',
+        profileImageUrl: 'https://cdn.example/ymsvz.png'
+      },
+      authorUsername: 'ymsvz',
+      projectMode: 'physical',
+      channelTags: [],
+      communityTags: [],
+      voteCount: 1,
+      activeVote: 0,
+      commentCount: 0,
+      supportCount: 0,
+      opposeCount: 0,
+      favorability: null,
+      viewerSignal: null,
+      isClosed: false
+    });
+
+    expect(mapped).toMatchObject({
+      kind: 'activity',
+      subjectKind: 'project',
+      author: {
+        id: 'u-ymsvz',
+        username: 'ymsvz',
+        profileImageUrl: 'https://cdn.example/ymsvz.png'
+      }
+    });
+  });
+
   it('maps posts into personal post items with stable ids', () => {
     const mapped = mapGatewayPersonalItem({
       kind: 'post',

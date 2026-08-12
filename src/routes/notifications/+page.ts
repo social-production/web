@@ -4,7 +4,8 @@ import { getNotifications } from '$lib/services/queries/inbox';
 import { refreshUnreadCounts } from '$lib/services/commands/inbox';
 import type { PageLoad } from './$types';
 
-export const load = (async () => {
+export const load = (async ({ depends }) => {
+  depends('inbox:notifications');
   try {
     const notifications = await getNotifications();
 

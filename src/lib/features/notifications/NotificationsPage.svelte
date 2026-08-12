@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto, invalidate } from '$app/navigation';
   import NotificationCard from '$lib/components/cards/inbox/NotificationCard.svelte';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import { acceptFollowRequest, rejectFollowRequest } from '$lib/services/commands/account';
@@ -13,13 +13,13 @@
 
   async function readNotification(notificationId: string) {
     await markNotificationRead(notificationId);
-    await invalidateAll();
+    await invalidate('inbox:notifications');
   }
 
   async function activateNotification(item: NotificationItem) {
     if (item.isUnread) {
       await markNotificationRead(item.id);
-      await invalidateAll();
+      await invalidate('inbox:notifications');
     }
 
     const isFollowKind =
@@ -57,7 +57,7 @@
         await rejectFollowRequest(username);
       }
       await markNotificationRead(notificationId);
-      await invalidateAll();
+      await invalidate('inbox:notifications');
     } finally {
       followRequestPending = '';
     }
@@ -65,7 +65,7 @@
 
   async function readAll() {
     await markAllNotificationsRead();
-    await invalidateAll();
+    await invalidate('inbox:notifications');
   }
 </script>
 
@@ -95,6 +95,11 @@
   .stack {
     display: grid;
     gap: 12px;
+  }
+
+  .notifications-page {
+    /* Main shell padding is zeroed for this surface; keep content clear of the nav. */
+    padding-bottom: calc(12px + var(--shell-bottom-nav-offset, 0px));
   }
 
   .stack {

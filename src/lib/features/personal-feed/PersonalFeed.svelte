@@ -420,6 +420,14 @@
       hydrateFromUrl($page.data.settings?.personalFeedPreferences);
       preferencesReady = true;
       syncFeedQueryToUrl();
+      const signature = feedQuerySignature();
+      if (items.length > 0) {
+        feedItems = items;
+        feedOffset = items.length;
+        feedHasMore = items.length >= DEFAULT_FEED_PAGE_SIZE;
+        lastLoadedQuery = signature;
+        return;
+      }
       lastLoadedQuery = '';
       await loadFeedItems();
     })();

@@ -63,6 +63,7 @@
   let feedChromeHidden = false;
   let lastFeedScrollY = 0;
   let keyboardOpen = false;
+  let textFieldFocused = false;
 
   const toolbarLiveSearch = createLiveSearchScheduler();
 
@@ -252,14 +253,41 @@
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('scroll', handleFeedChromeScroll, { passive: true });
 
+    const isTextField = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+      const tag = target.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
+    };
+
+    const onFocusIn = (event: FocusEvent) => {
+      if (isTextField(event.target)) {
+        textFieldFocused = true;
+        syncKeyboardState();
+      }
+    };
+    const onFocusOut = () => {
+      // Defer so focus moving between fields does not flicker chrome.
+      window.setTimeout(() => {
+        textFieldFocused = isTextField(document.activeElement);
+        syncKeyboardState();
+      }, 0);
+    };
+
     const viewport = window.visualViewport;
     const syncKeyboardState = () => {
-      const next = Boolean(viewport && window.innerHeight - viewport.height > 80);
+      // Firefox fires visualViewport resize for URL-bar show/hide. Only treat a
+      // shrink as keyboard when a text field is focused.
+      const viewportShrunk = Boolean(viewport && window.innerHeight - viewport.height > 120);
+      const next = textFieldFocused && viewportShrunk;
       if (next !== keyboardOpen) {
         keyboardOpen = next;
         requestAnimationFrame(updateLayoutMetrics);
       }
     };
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
     viewport?.addEventListener('resize', syncKeyboardState);
     viewport?.addEventListener('scroll', syncKeyboardState);
     syncKeyboardState();
@@ -312,6 +340,8 @@
       window.removeEventListener('focus', refreshBadgeCounts);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       document.removeEventListener('keydown', handleDocumentKeydown);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
       window.removeEventListener('scroll', handleFeedChromeScroll);
       viewport?.removeEventListener('resize', syncKeyboardState);
       viewport?.removeEventListener('scroll', syncKeyboardState);

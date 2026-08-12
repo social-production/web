@@ -32,8 +32,11 @@ function shouldCachePage(offset?: number) {
 }
 
 export function getPublicFeed(options?: PublicFeedOptions) {
-  const key = feedCacheKey('public', options);
-  return withFeedCache(key, () => currentAdapter.getPublicFeed(options));
+  return getPublicFeedPage({
+    ...options,
+    limit: options?.limit ?? DEFAULT_FEED_PAGE_SIZE,
+    offset: options?.offset ?? 0
+  }).then((page) => page.items);
 }
 
 export function getPublicFeedPage(
@@ -45,13 +48,17 @@ export function getPublicFeedPage(
   if (!shouldCachePage(offset)) {
     return currentAdapter.getPublicFeedPage(request);
   }
+  // Shared key with getPublicFeed so loaders and components do not double-hit the gateway.
   const key = feedCacheKey('public-page', request);
   return withFeedCache(key, () => currentAdapter.getPublicFeedPage(request));
 }
 
 export function getHomeFeed(options?: PublicFeedOptions) {
-  const key = feedCacheKey('home', options);
-  return withFeedCache(key, () => currentAdapter.getHomeFeed(options));
+  return getHomeFeedPage({
+    ...options,
+    limit: options?.limit ?? DEFAULT_FEED_PAGE_SIZE,
+    offset: options?.offset ?? 0
+  }).then((page) => page.items);
 }
 
 export function getHomeFeedPage(options?: PublicFeedOptions) {
@@ -92,8 +99,11 @@ export function getMapMarkers(options: {
 }
 
 export function getPersonalFeed(options?: PersonalFeedOptions) {
-  const key = feedCacheKey('personal', options);
-  return withFeedCache(key, () => currentAdapter.getPersonalFeed(options));
+  return getPersonalFeedPage({
+    ...options,
+    limit: options?.limit ?? DEFAULT_FEED_PAGE_SIZE,
+    offset: options?.offset ?? 0
+  }).then((page) => page.items);
 }
 
 export function getPersonalFeedPage(options?: PersonalFeedOptions) {
@@ -103,6 +113,7 @@ export function getPersonalFeedPage(options?: PersonalFeedOptions) {
   if (!shouldCachePage(offset)) {
     return currentAdapter.getPersonalFeedPage(request);
   }
+  // Shared key with getPersonalFeed so /personal loader + onMount share one request.
   const key = feedCacheKey('personal-page', request);
   return withFeedCache(key, () => currentAdapter.getPersonalFeedPage(request));
 }

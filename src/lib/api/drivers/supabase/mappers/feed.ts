@@ -31,6 +31,10 @@ type GatewayPersonalCandidate = Record<string, unknown> & {
   summary?: string;
   authorUsername?: string;
   createdByUsername?: string;
+  authorId?: string;
+  authorProfileImageUrl?: string | null;
+  profileImageUrl?: string | null;
+  profile_image_url?: string | null;
   author?: GatewayAuthor;
   projectMode?: ProjectMode;
   stage?: string;
@@ -72,9 +76,14 @@ function asAuthor(
       profileImageUrl: item.author.profileImageUrl ?? undefined
     };
   }
+  const rootImage =
+    (typeof item.authorProfileImageUrl === 'string' ? item.authorProfileImageUrl : null) ??
+    (typeof item.profileImageUrl === 'string' ? item.profileImageUrl : null) ??
+    (typeof item.profile_image_url === 'string' ? item.profile_image_url : null);
   return {
-    id: '',
-    username: fallbackUsername ?? item.authorUsername ?? item.createdByUsername ?? 'unknown'
+    id: typeof item.authorId === 'string' ? item.authorId : '',
+    username: fallbackUsername ?? item.authorUsername ?? item.createdByUsername ?? 'unknown',
+    ...(rootImage ? { profileImageUrl: rootImage } : {})
   };
 }
 
