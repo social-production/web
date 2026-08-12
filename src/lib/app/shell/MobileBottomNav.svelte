@@ -75,9 +75,9 @@
 
 <style>
   /*
-    Anchor to the true screen bottom. The safe-area is painted as part of the
-    nav chrome (not a transparent gap), and hide/show is transform-only so
-    content padding does not jump.
+    Only the 56px icon row is toolbar-colored. Safe-area below matches the page so
+    phones with a home indicator don't read as a second footer strip (desktop
+    narrow windows have 0 safe-area and already looked fine).
   */
   .mobile-bottom-nav {
     position: fixed;
@@ -98,10 +98,22 @@
     margin: 0;
     padding: 0 var(--shell-safe-right) var(--shell-safe-bottom) var(--shell-safe-left);
     border: none;
-    border-top: 1px solid var(--panel-border);
-    background: var(--toolbar-background);
+    border-top: none;
+    background: var(--page-background);
     transition: transform 0.22s ease, visibility 0.22s ease;
     will-change: transform;
+  }
+
+  .mobile-bottom-nav::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: var(--shell-bottom-nav-base);
+    border-top: 1px solid var(--panel-border);
+    background: var(--toolbar-background);
+    pointer-events: none;
   }
 
   .mobile-bottom-nav.chrome-collapsed {
@@ -112,6 +124,7 @@
 
   .bottom-nav-item {
     position: relative;
+    z-index: 1;
     display: grid;
     place-items: center;
     min-height: 0;

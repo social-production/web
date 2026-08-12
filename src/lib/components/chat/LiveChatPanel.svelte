@@ -13,7 +13,7 @@
   import { moderatedPlaceholder, shouldHideModeratedBody } from '$lib/utils/moderation';
   import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
   import { scrollCenteredInContainer } from '$lib/utils/comment-scroll';
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
 
   type ChatMessage = {
     id: string;
@@ -63,6 +63,7 @@
   let submitPending = false;
   let lastScrollSubjectKey = '';
   let lastAutoScrollKey = '';
+  let keyboardOpen = false;
 
   function formatMessageTime(value: string) {
     const date = new Date(value);
@@ -247,12 +248,65 @@
     return topbarHeight + 12;
   }
 
+  function clearPinnedPanelStyles() {
+    if (!panelElement) {
+      return;
+    }
+    panelElement.style.position = '';
+    panelElement.style.left = '';
+    panelElement.style.right = '';
+    panelElement.style.top = '';
+    panelElement.style.bottom = '';
+    panelElement.style.height = '';
+    panelElement.style.maxHeight = '';
+    panelElement.style.zIndex = '';
+  }
+
   function syncPanelHeight() {
-    if (!browser || !panelElement || embedded || !fitViewport) {
+    if (!browser || !panelElement) {
       return;
     }
 
-    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const vv = window.visualViewport;
+    const viewportHeight = vv?.height ?? window.innerHeight;
+    const viewportOffsetTop = vv?.offsetTop ?? 0;
+    keyboardOpen = Boolean(vv && window.innerHeight - vv.height > 80);
+
+    if (embedded) {
+      // MessagesPage pins the shell above the keyboard; keep the panel filling it.
+      clearPinnedPanelStyles();
+      return;
+    }
+
+    if (fitViewport) {
+      if (keyboardOpen) {
+        const topbarPx =
+          document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
+        const top = Math.max(viewportOffsetTop + topbarPx, viewportOffsetTop);
+        const bottomGap = Math.max(0, window.innerHeight - viewportOffsetTop - viewportHeight);
+        panelElement.style.position = 'fixed';
+        panelElement.style.left = '0';
+        panelElement.style.right = '0';
+        panelElement.style.top = `${Math.floor(top)}px`;
+        panelElement.style.bottom = `${Math.floor(bottomGap)}px`;
+        panelElement.style.height = 'auto';
+        panelElement.style.maxHeight = 'none';
+        panelElement.style.zIndex = '40';
+        panelElement.style.setProperty(
+          '--chat-panel-height',
+          `${Math.floor(Math.max(viewportHeight - topbarPx, 240))}px`
+        );
+        return;
+      }
+
+      clearPinnedPanelStyles();
+    }
+
+    if (!fitViewport) {
+      panelElement.style.removeProperty('--chat-panel-height');
+      return;
+    }
+
     const topOffset = Math.max(panelElement.getBoundingClientRect().top, visibleTopOffset());
     const nextHeight = Math.max(viewportHeight - topOffset, 320);
     panelElement.style.setProperty('--chat-panel-height', `${Math.floor(nextHeight)}px`);
@@ -396,6 +450,18 @@
       }
     };
   }
+
+  onMount(() => {
+    const viewport = window.visualViewport;
+    const onViewportChange = () => syncPanelHeight();
+    viewport?.addEventListener('resize', onViewportChange);
+    viewport?.addEventListener('scroll', onViewportChange);
+    syncPanelHeight();
+    return () => {
+      viewport?.removeEventListener('resize', onViewportChange);
+      viewport?.removeEventListener('scroll', onViewportChange);
+    };
+  });
 </script>
 
 <svelte:window on:resize={syncPanelHeight} />
@@ -406,6 +472,7 @@
   class:fit-viewport={fitViewport && !embedded}
   class:headerless={!showHeader}
   class:message-variant={variant === 'message'}
+  class:keyboard-open={keyboardOpen}
   class="chat-panel"
 >
   {#if showHeader}
@@ -500,6 +567,7 @@
     <div class="composer-input-shell">
       <textarea
         bind:value={draftMessage}
+        on:focus={syncPanelHeight}
         on:keydown={handleComposerKeydown}
         placeholder={placeholder}
         rows="3"
@@ -679,7 +747,12 @@
   }
 
   .composer-card {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
     border-top: 1px solid var(--panel-border);
+    padding: 12px 16px 16px;
+    background: var(--panel);
   }
 
   .message-time {
@@ -735,11 +808,6 @@
     position: relative;
   }
 
-  .composer-card {
-    padding: 12px 16px 16px;
-    background: var(--panel);
-  }
-
   .primary-button {
     position: absolute;
     right: 10px;
@@ -750,6 +818,17 @@
     color: var(--page-bg);
     font-size: 12px;
     font-weight: 700;
+  }
+
+  @media (max-width: 760px) {
+    .chat-panel.keyboard-open .composer-card {
+      padding: 8px 12px;
+    }
+
+    .chat-panel.keyboard-open textarea {
+      min-height: 64px;
+      padding: 10px 88px 10px 10px;
+    }
   }
 
   .empty-state {

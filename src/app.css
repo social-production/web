@@ -172,6 +172,7 @@ body {
 }
 
 .shell-compact {
+  /* Fallback only — AppShell overrides this to 0 while the nav is collapsed or the keyboard is open. */
   --shell-bottom-nav-offset: var(--shell-bottom-nav-height);
 }
 

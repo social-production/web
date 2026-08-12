@@ -335,6 +335,13 @@
 
     window.addEventListener('focus', handleVisibilityOrFocus);
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    const viewport = window.visualViewport;
+    const onViewportChange = () => {
+      syncMessagesShellHeight();
+    };
+    viewport?.addEventListener('resize', onViewportChange);
+    viewport?.addEventListener('scroll', onViewportChange);
+    syncMessagesShellHeight();
 
     const unsubscribeUnreadCounts = unreadCounts.subscribe((counts) => {
       if (!counts) {
@@ -361,6 +368,8 @@
 
       window.removeEventListener('focus', handleVisibilityOrFocus);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      viewport?.removeEventListener('resize', onViewportChange);
+      viewport?.removeEventListener('scroll', onViewportChange);
       unsubscribeUnreadCounts();
     };
   });
@@ -483,10 +492,44 @@
       return;
     }
 
-    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const vv = window.visualViewport;
+    const viewportHeight = vv?.height ?? window.innerHeight;
+    const viewportOffsetTop = vv?.offsetTop ?? 0;
+    const keyboardOpen = Boolean(vv && window.innerHeight - vv.height > 80);
+    const topbarPx =
+      document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
+
+    if (keyboardOpen) {
+      // Pin the shell to the visible viewport so the full composer sits above the keyboard.
+      const top = Math.max(viewportOffsetTop + (topbarCollapsedHeight(topbarPx) || 0), viewportOffsetTop);
+      const bottomGap = Math.max(0, window.innerHeight - viewportOffsetTop - viewportHeight);
+      messagesShellElement.style.position = 'fixed';
+      messagesShellElement.style.left = '0';
+      messagesShellElement.style.right = '0';
+      messagesShellElement.style.top = `${Math.floor(top)}px`;
+      messagesShellElement.style.bottom = `${Math.floor(bottomGap)}px`;
+      messagesShellElement.style.width = '100%';
+      messagesShellElement.style.height = 'auto';
+      messagesShellElement.style.minHeight = '0';
+      messagesShellElement.style.zIndex = '40';
+      messagesShellElement.style.setProperty(
+        '--messages-shell-height',
+        `${Math.floor(Math.max(viewportHeight - (top - viewportOffsetTop), 200))}px`
+      );
+      return;
+    }
+
+    messagesShellElement.style.position = '';
+    messagesShellElement.style.left = '';
+    messagesShellElement.style.right = '';
+    messagesShellElement.style.top = '';
+    messagesShellElement.style.bottom = '';
+    messagesShellElement.style.width = '';
+    messagesShellElement.style.height = '';
+    messagesShellElement.style.minHeight = '';
+    messagesShellElement.style.zIndex = '';
+
     const topOffset = Math.max(messagesShellElement.getBoundingClientRect().top, visibleTopOffset());
-    // Resolve the live shell bottom reservation (nav base + safe-area) so the
-    // messages pane does not extend under the fixed bottom chrome.
     const offsetRaw = getComputedStyle(messagesShellElement)
       .getPropertyValue('--shell-bottom-nav-offset')
       .trim();
@@ -500,6 +543,15 @@
     }
     const nextHeight = Math.max(viewportHeight - topOffset - bottomPx, 320);
     messagesShellElement.style.setProperty('--messages-shell-height', `${Math.floor(nextHeight)}px`);
+  }
+
+  function topbarCollapsedHeight(measured: number) {
+    // When the keyboard is open the shell chrome collapses; don't reserve a dead top band.
+    const topbar = document.querySelector<HTMLElement>('.topbar');
+    if (!topbar || topbar.classList.contains('chrome-collapsed')) {
+      return 0;
+    }
+    return measured;
   }
 
   async function focusConversationShell() {

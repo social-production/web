@@ -62,6 +62,7 @@
   let mapPanel: MapPanel | null = null;
   let feedChromeHidden = false;
   let lastFeedScrollY = 0;
+  let keyboardOpen = false;
 
   const toolbarLiveSearch = createLiveSearchScheduler();
 
@@ -76,11 +77,18 @@
   $: if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded) {
     feedChromeHidden = false;
   }
-  // Keep the content inset stable while the nav slides off-screen with transform.
-  $: shellBottomNavOffset = isCompact ? 'var(--shell-bottom-nav-height)' : '0px';
+  // Reserve bottom space only while the nav is visible. When it slides away,
+  // drop the inset so short pages and scroll-reveal don't leave a dead band.
+  $: shellBottomNavOffset =
+    isCompact &&
+    !keyboardOpen &&
+    !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
+      ? 'var(--shell-bottom-nav-height)'
+      : '0px';
   $: shellTopbarHeight =
     mapSurfaceActive || !(feedChromeActive && feedChromeHidden) ? topbarHeight : 0;
-  $: topbarCollapsed = feedChromeActive && feedChromeHidden && !mapSurfaceActive;
+  $: topbarCollapsed =
+    (feedChromeActive && feedChromeHidden && !mapSurfaceActive) || (isCompact && keyboardOpen);
 
   $: if (typeof document !== 'undefined') {
     document.documentElement.style.overflow = mapSurfaceActive ? 'hidden' : '';
@@ -114,9 +122,9 @@
     const delta = y - lastFeedScrollY;
     if (y < 24) {
       feedChromeHidden = false;
-    } else if (delta > 10) {
+    } else if (delta > 16) {
       feedChromeHidden = true;
-    } else if (delta < -10) {
+    } else if (delta < -16) {
       feedChromeHidden = false;
     }
     lastFeedScrollY = y;
@@ -244,6 +252,18 @@
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('scroll', handleFeedChromeScroll, { passive: true });
 
+    const viewport = window.visualViewport;
+    const syncKeyboardState = () => {
+      const next = Boolean(viewport && window.innerHeight - viewport.height > 80);
+      if (next !== keyboardOpen) {
+        keyboardOpen = next;
+        requestAnimationFrame(updateLayoutMetrics);
+      }
+    };
+    viewport?.addEventListener('resize', syncKeyboardState);
+    viewport?.addEventListener('scroll', syncKeyboardState);
+    syncKeyboardState();
+
     const badgePoll = window.setInterval(refreshBadgeCounts, 30_000);
     loadActivityRail();
 
@@ -293,6 +313,8 @@
       document.removeEventListener('visibilitychange', onVisibilityChange);
       document.removeEventListener('keydown', handleDocumentKeydown);
       window.removeEventListener('scroll', handleFeedChromeScroll);
+      viewport?.removeEventListener('resize', syncKeyboardState);
+      viewport?.removeEventListener('scroll', syncKeyboardState);
       window.clearInterval(badgePoll);
       resizeObserver.disconnect();
       media.removeEventListener('change', syncLayout);
@@ -1268,6 +1290,11 @@
       padding-top: 0;
       /* Let short pages stay short; don't force a full-viewport empty slab
          behind the fixed bottom nav (reads as a blank second footer). */
+      min-height: 0;
+    }
+
+    .shell {
+      /* Compact mobile: never invent an empty viewport-tall slab above the nav. */
       min-height: 0;
     }
 
