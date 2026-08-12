@@ -10,6 +10,7 @@ import { formatMarkerScheduleRange } from '$lib/utils/time';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 const DEFAULT_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+const FALLBACK_STYLE = 'https://demotiles.maplibre.org/style.json';
 const RADIUS_SOURCE_ID = 'sp-radius-circle';
 const RADIUS_FILL_LAYER_ID = 'sp-radius-fill';
 const RADIUS_LINE_LAYER_ID = 'sp-radius-line';
@@ -707,6 +708,26 @@ export function createMapLibreAdapter(): MapAdapter {
       }
 
       await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        let usedFallback = false;
+
+        const finishOk = () => {
+          if (settled) return;
+          settled = true;
+          ensureRadiusLayers();
+          attachViewportListeners();
+          applyPendingMarkers();
+          scheduleResize();
+          resolve();
+        };
+
+        const finishErr = (message: string) => {
+          if (settled) return;
+          settled = true;
+          onError?.(message);
+          reject(new Error(message));
+        };
+
         map = new maplibregl.Map({
           container,
           style: DEFAULT_STYLE,
@@ -715,23 +736,28 @@ export function createMapLibreAdapter(): MapAdapter {
         });
         map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right');
 
-        map.once('load', () => {
-          ensureRadiusLayers();
-          attachViewportListeners();
-          applyPendingMarkers();
-          scheduleResize();
-          resolve();
-        });
+        map.once('load', finishOk);
 
-        map.once('error', (event) => {
-          const raw =
-            event.error?.message?.trim() || 'Map tiles could not be loaded.';
-          const message =
-            /networkerror|failed to fetch|ajaxerror|cartocdn|basemaps\.cartocdn/i.test(raw)
+        map.on('error', (event) => {
+          const raw = event.error?.message?.trim() || 'Map tiles could not be loaded.';
+          const isCartoFailure =
+            /networkerror|failed to fetch|ajaxerror|cartocdn|basemaps\.cartocdn/i.test(raw);
+          if (!usedFallback && isCartoFailure && map) {
+            usedFallback = true;
+            try {
+              map.setStyle(FALLBACK_STYLE);
+              map.once('load', finishOk);
+              return;
+            } catch {
+              // fall through to hard failure
+            }
+          }
+          if (!settled) {
+            const message = isCartoFailure
               ? 'Map tiles could not be loaded from the internet (Carto basemaps). Local auth and feeds can still work — check DNS, firewall, VPN, or ad-blockers if the rest of the app is fine.'
               : raw;
-          onError?.(message);
-          reject(new Error(message));
+            finishErr(message);
+          }
         });
 
         resizeObserver = new ResizeObserver(() => {

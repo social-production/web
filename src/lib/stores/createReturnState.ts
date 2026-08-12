@@ -14,12 +14,16 @@ export type CreateReturnState = {
 
 const FEED_PATHS = new Set(['/', '/personal']);
 
-/** Home/personal plus scoped channel/community feeds (and platform). */
+/** Home/personal plus scoped channel/community feeds, platform, and profiles. */
 export function isFeedDiscoveryPath(pathname: string): boolean {
   if (FEED_PATHS.has(pathname) || pathname === '/platform') {
     return true;
   }
-  return /^\/channels\/[^/]+$/.test(pathname) || /^\/communities\/[^/]+$/.test(pathname);
+  return (
+    /^\/channels\/[^/]+$/.test(pathname) ||
+    /^\/communities\/[^/]+$/.test(pathname) ||
+    /^\/profile\/[^/]+$/.test(pathname)
+  );
 }
 
 export function isCreateEntrySurface(pathname: string): boolean {

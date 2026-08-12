@@ -19,20 +19,29 @@ function parsePreference(raw: string | null): DefaultLocationPreference | null {
 
   try {
     const parsed = JSON.parse(raw) as Partial<DefaultLocationPreference>;
-    if (typeof parsed.displayLabel !== 'string' || !parsed.displayLabel.trim()) {
+    const hasCoords =
+      typeof parsed.latitude === 'number' &&
+      typeof parsed.longitude === 'number' &&
+      Number.isFinite(parsed.latitude) &&
+      Number.isFinite(parsed.longitude);
+    const hasLabel = typeof parsed.displayLabel === 'string' && parsed.displayLabel.trim().length > 0;
+    const deviceEnabled = parsed.deviceGeolocationEnabled === true;
+
+    // Allow opt-in-only records (no place chosen yet) so "Device location" can stay On.
+    if (!hasLabel && !hasCoords && !deviceEnabled) {
       return null;
     }
 
     return {
-      displayLabel: parsed.displayLabel.trim(),
-      latitude: typeof parsed.latitude === 'number' ? parsed.latitude : null,
-      longitude: typeof parsed.longitude === 'number' ? parsed.longitude : null,
+      displayLabel: hasLabel ? parsed.displayLabel!.trim() : hasCoords ? 'Current location' : '',
+      latitude: hasCoords ? (parsed.latitude as number) : null,
+      longitude: hasCoords ? (parsed.longitude as number) : null,
       region: typeof parsed.region === 'string' ? parsed.region : null,
       country: typeof parsed.country === 'string' ? parsed.country : null,
       precision: isPrecision(parsed.precision) ? parsed.precision : DEFAULT_LOCATION_PRECISION,
       providerPlaceId: typeof parsed.providerPlaceId === 'string' ? parsed.providerPlaceId : null,
       locationId: typeof parsed.locationId === 'string' ? parsed.locationId : null,
-      deviceGeolocationEnabled: parsed.deviceGeolocationEnabled === true,
+      deviceGeolocationEnabled: deviceEnabled,
       updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString()
     };
   } catch {

@@ -1240,7 +1240,9 @@
     .content-grid {
       grid-template-columns: 1fr;
       padding-top: 0;
-      min-height: calc(100dvh - var(--topbar-height) - var(--shell-bottom-nav-offset));
+      /* Don't subtract bottom-nav here — main already pads for the fixed nav.
+         Subtracting both created a blank second footer bar on short pages. */
+      min-height: calc(100dvh - var(--topbar-height));
     }
 
     .rail {

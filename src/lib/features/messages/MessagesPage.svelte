@@ -105,7 +105,7 @@
         isOwn: message.isOwn,
         report: message.report ?? null,
         moderationState: message.moderationState,
-        showAuthor: activeConversation?.kind === 'group'
+        showAuthor: !message.isOwn
       }))
     : [];
   $: directConversationPartner =
@@ -416,6 +416,20 @@
       null;
 
     return partner?.profileImageUrl ?? null;
+  }
+
+  function conversationDisplayTitle(conversation: MessagesPageData['conversations'][number]) {
+    if (conversation.title?.trim()) {
+      return conversation.title.trim();
+    }
+    if (conversation.kind === 'direct') {
+      const partner =
+        conversation.participants.find((participant) => participant.id !== data.viewer.id) ??
+        conversation.participants[0] ??
+        null;
+      return partner?.username ?? 'Direct message';
+    }
+    return 'Group chat';
   }
 
   function findScrollContainer(node: HTMLElement) {
@@ -1003,11 +1017,11 @@
                 on:click={toggleGroupOptions}
               >
                 <div>
-                  <h2>{activeConversation.title}</h2>
+                  <h2>{conversationDisplayTitle(activeConversation)}</h2>
                   <p class="identity-note">Group chat settings</p>
                 </div>
 
-                <AvatarBadge size="md" username={activeConversation.title} />
+                <AvatarBadge size="md" username={conversationDisplayTitle(activeConversation)} />
               </button>
             {:else}
               <button
@@ -1017,12 +1031,12 @@
                 on:click={toggleDirectOptions}
               >
                 <div>
-                  <h2>{activeConversation.title}</h2>
+                  <h2>{conversationDisplayTitle(activeConversation)}</h2>
                 </div>
 
                 <AvatarBadge
                   size="md"
-                  username={activeConversation.title}
+                  username={conversationDisplayTitle(activeConversation)}
                   imageUrl={activeDirectAvatarImageUrl}
                 />
               </button>
@@ -1362,12 +1376,12 @@
               >
                 <AvatarBadge
                   size="sm"
-                  username={conversation.title}
+                  username={conversationDisplayTitle(conversation)}
                   imageUrl={directConversationAvatarImage(conversation)}
                 />
                 <div class="conversation-copy">
                   <div class="conversation-topline">
-                    <strong>{conversation.title}</strong>
+                    <strong>{conversationDisplayTitle(conversation)}</strong>
                     <span class="conversation-time">{formatRelativeTime(conversation.lastMessageAt)}</span>
                   </div>
                     <p class="conversation-preview">{conversation.preview}</p>
@@ -1689,17 +1703,19 @@
   }
 
   .conversation-row.unread {
-    background: transparent;
+    background: color-mix(in srgb, var(--brand-soft) 22%, var(--panel));
     border-left: 3px solid var(--brand);
     padding-left: 9px;
   }
 
   .conversation-row.unread .conversation-topline strong {
     font-weight: 800;
+    color: var(--text-main);
   }
 
   .conversation-row.unread .conversation-copy p {
     color: var(--text-main);
+    font-weight: 600;
   }
 
   .conversation-row:hover,

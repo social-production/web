@@ -31,12 +31,13 @@ export const handle: Handle = async ({ event, resolve }) => {
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: https:",
-      "font-src 'self' data: https://fonts.gstatic.com",
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://basemaps.cartocdn.com https://demotiles.maplibre.org",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data: https://fonts.gstatic.com https://basemaps.cartocdn.com https://demotiles.maplibre.org",
       `connect-src ${connectSrc}`,
-      "worker-src blob:",
+      "worker-src 'self' blob:",
+      "child-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'"

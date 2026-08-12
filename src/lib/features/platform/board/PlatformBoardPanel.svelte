@@ -14,8 +14,24 @@
 
   let volunteering = false;
   let volunteerMessage = '';
+  let voteMessage = '';
   let showWithdrawConfirm = false;
   let showStepDownConfirm = false;
+
+  async function handleBoardVote(member: ScopeMemberSummary, vote: VoteDirection) {
+    voteMessage = '';
+    try {
+      await onVote(member, vote);
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      const body = (err as { body?: { error?: string } }).body;
+      if (status === 403 || body?.error === 'cannot_vote_self') {
+        voteMessage = 'You cannot vote for your own standing.';
+      } else {
+        voteMessage = 'Could not record that standing vote. Try again.';
+      }
+    }
+  }
 
   async function handleVolunteer() {
     volunteering = true;
@@ -100,7 +116,7 @@
         sectionIndex={0}
         {boardStatusLabel}
         {meetsConfidenceThreshold}
-        {onVote}
+        onVote={handleBoardVote}
       />
 
       <PlatformBoardMemberSection
@@ -110,10 +126,14 @@
         sectionIndex={1}
         {boardStatusLabel}
         {meetsConfidenceThreshold}
-        {onVote}
+        onVote={handleBoardVote}
       />
     {/if}
   </div>
+
+  {#if voteMessage}
+    <p class="volunteer-feedback">{voteMessage}</p>
+  {/if}
 
   {#if viewerState === 'member'}
     <div class="volunteer-row">

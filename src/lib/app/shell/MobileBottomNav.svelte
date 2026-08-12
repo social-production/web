@@ -77,21 +77,21 @@
   .mobile-bottom-nav {
     position: fixed;
     left: 0;
-    right: 0;
     bottom: 0;
     z-index: 55;
     width: 100%;
-    max-width: 100%;
+    max-width: 100vw;
+    max-width: 100dvw;
     box-sizing: border-box;
     overflow: hidden;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 2px;
     min-height: var(--shell-bottom-nav-base);
+    height: var(--shell-bottom-nav-height);
     padding: 4px var(--shell-safe-right) calc(4px + var(--shell-safe-bottom)) var(--shell-safe-left);
     border-top: 1px solid var(--panel-border);
-    background: color-mix(in srgb, var(--toolbar-background) 92%, transparent);
-    backdrop-filter: blur(10px);
+    background: var(--toolbar-background);
     transition: transform 0.22s ease;
     will-change: transform;
   }
@@ -99,6 +99,7 @@
   .mobile-bottom-nav.chrome-collapsed {
     transform: translateY(100%);
     pointer-events: none;
+    visibility: hidden;
   }
 
   .bottom-nav-item {

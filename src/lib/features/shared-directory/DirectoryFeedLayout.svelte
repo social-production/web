@@ -297,12 +297,14 @@
 
   async function handleConfidenceVote(member: ScopeMemberSummary, vote: VoteDirection) {
     if (!member.confidenceTargetId) {
-      return;
+      throw new Error('missing_target');
     }
-    if (vote === 0) {
-      await castModeratorVote(member.confidenceTargetId, 'neutral');
-    } else {
-      await castModeratorVote(member.confidenceTargetId, vote === 1 ? 'yes' : 'no');
+    const ok =
+      vote === 0
+        ? await castModeratorVote(member.confidenceTargetId, 'neutral')
+        : await castModeratorVote(member.confidenceTargetId, vote === 1 ? 'yes' : 'no');
+    if (!ok) {
+      throw new Error('vote_rejected');
     }
     await invalidateAll();
   }

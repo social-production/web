@@ -10,10 +10,11 @@ describe('createReturnState feed surfaces', () => {
     expect(isFeedDiscoveryPath('/personal')).toBe(true);
   });
 
-  it('treats channel, community, and platform feeds as discovery feeds', () => {
+  it('treats channel, community, platform, and profile feeds as discovery feeds', () => {
     expect(isFeedDiscoveryPath('/channels/general')).toBe(true);
     expect(isFeedDiscoveryPath('/communities/neighbors')).toBe(true);
     expect(isFeedDiscoveryPath('/platform')).toBe(true);
+    expect(isFeedDiscoveryPath('/profile/alice')).toBe(true);
   });
 
   it('does not treat detail pages as discovery feeds', () => {
