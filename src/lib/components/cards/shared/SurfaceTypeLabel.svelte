@@ -1,19 +1,30 @@
 <script lang="ts">
   import SurfaceIcon from '$lib/components/cards/shared/SurfaceIcon.svelte';
   import type { ProjectMode, SubjectKind } from '$lib/types/feed';
-  import { surfaceAccentCssVar, surfaceIconForKind, surfaceTypeAccent, surfaceTypeLabel } from '$lib/utils/surfaceType';
+  import {
+    surfaceAccentCssVar,
+    surfaceIconForKind,
+    surfaceTypeAccent,
+    surfaceTypeLabel,
+    type SurfaceActivityKind
+  } from '$lib/utils/surfaceType';
 
   export let kind: SubjectKind;
   export let projectMode: ProjectMode = 'productive';
+  export let activityKind: SurfaceActivityKind = 'created';
 
-  $: label = surfaceTypeLabel(kind, projectMode);
+  $: isUpdated = activityKind === 'updated' && (kind === 'project' || kind === 'event');
+  $: label = surfaceTypeLabel(kind, projectMode, activityKind);
   $: accent = surfaceTypeAccent(kind, projectMode);
   $: icon = surfaceIconForKind(kind);
   $: accentColor = surfaceAccentCssVar(accent);
 </script>
 
-<span class="surface-type-label">
+<span class="surface-type-label" style={`--surface-accent: ${accentColor}`}>
   <SurfaceIcon {icon} size="sm" />
+  {#if isUpdated}
+    <SurfaceIcon icon="microphone" size="sm" />
+  {/if}
   <span class="label-copy">{label}</span>
 </span>
 

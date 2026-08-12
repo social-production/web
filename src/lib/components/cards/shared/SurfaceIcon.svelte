@@ -55,6 +55,21 @@
         stroke-width="1.8"
         stroke-linecap="round"
       />
+    {:else if icon === 'microphone'}
+      <path
+        d="M12 3.5a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0v-5a3 3 0 0 0-3-3Z"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M7 11.5a5 5 0 0 0 10 0M12 16.5v3.5M9.5 20h5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
     {:else}
       <path d="M8 7.5h8M8 12h8M8 16.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" />
       <path d="M6.5 5.5h11A2.5 2.5 0 0 1 20 8v10a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18V8a2.5 2.5 0 0 1 2.5-2.5Z" fill="none" stroke="currentColor" stroke-width="1.8" />

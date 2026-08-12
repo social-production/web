@@ -276,6 +276,11 @@ export function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
   }
 
   if (item.entity_type === 'project' && item.slug) {
+    const latestUpdateAt = item.last_update_at ?? undefined;
+    const activityKind =
+      latestUpdateAt && +new Date(latestUpdateAt) > +new Date(item.created_at)
+        ? 'updated'
+        : 'created';
     return {
       kind: 'project',
       id: item.id,
@@ -288,7 +293,8 @@ export function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
       projectSubtype: (item.project_subtype as never) ?? null,
       summary: item.body,
       latestDescription: item.latest_update_body ?? undefined,
-      latestUpdateAt: item.last_update_at ?? undefined,
+      latestUpdateAt,
+      activityKind,
       channelTags,
       communityTags,
       stage: item.stage_label ?? '',
@@ -325,6 +331,11 @@ export function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
   }
 
   if (item.entity_type === 'event' && item.slug) {
+    const latestUpdateAt = item.last_update_at ?? undefined;
+    const activityKind =
+      latestUpdateAt && +new Date(latestUpdateAt) > +new Date(item.created_at)
+        ? 'updated'
+        : 'created';
     return {
       kind: 'event',
       id: item.id,
@@ -348,7 +359,8 @@ export function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
       memberCount: item.member_count,
       lastActivityAt: item.last_activity_at,
       latestUpdateBody: item.latest_update_body ?? undefined,
-      latestUpdateAt: item.last_update_at ?? undefined,
+      latestUpdateAt,
+      activityKind,
       ...moderation
     };
   }
@@ -444,6 +456,17 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
     thread: 'started a thread',
     event: 'created an event'
   };
+  const updatedActionLabelMap: Record<string, string> = {
+    project: 'updated a project',
+    event: 'updated an event'
+  };
+  const latestUpdateAt = item.last_update_at ?? undefined;
+  const activityKind =
+    (subjectKind === 'project' || subjectKind === 'event') &&
+    latestUpdateAt &&
+    +new Date(latestUpdateAt) > +new Date(item.created_at)
+      ? 'updated'
+      : 'created';
 
   return {
     kind: 'activity',
@@ -452,7 +475,10 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
     href: `/${item.entity_type}s/${item.slug}`,
     author,
     feedSource: source,
-    actionLabel: actionLabelMap[item.entity_type] ?? 'posted',
+    actionLabel:
+      activityKind === 'updated'
+        ? updatedActionLabelMap[item.entity_type] ?? actionLabelMap[item.entity_type] ?? 'posted'
+        : actionLabelMap[item.entity_type] ?? 'posted',
     subjectKind,
     subjectProjectMode: item.project_mode as never ?? undefined,
     title: item.title,
@@ -463,6 +489,8 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
     ...signalFields(item),
     commentCount: item.comment_count,
     createdAt: item.created_at,
+    latestUpdateAt,
+    activityKind,
     channelTags,
     communityTags,
     subjectSlug: item.slug,

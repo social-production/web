@@ -34,7 +34,11 @@
 >
   <div class="header-row">
     <div class="chips">
-      <SurfaceTypeLabel kind="project" projectMode={item.projectMode} />
+      <SurfaceTypeLabel
+        kind="project"
+        projectMode={item.projectMode}
+        activityKind={item.activityKind ?? 'created'}
+      />
       {#if item.stage}
         <span class="meta-note">· {item.stage}</span>
       {/if}

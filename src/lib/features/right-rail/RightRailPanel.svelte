@@ -5,6 +5,7 @@
   import { surfaceAccentCssVar, surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { setProjectActivityCommitment, setProjectEditVote, setProjectManualLinkVote, setProjectMergeCapabilityChangeVote, setProjectPhaseChangeVote, setProjectPlanOverallVote, setProjectPullRequestVote, setProjectRepositoryReplacementVote, setProjectUpdateVote } from '$lib/services/commands/projects';
   import { setEventActivityCommitment, setEventEditVote, setEventManualLinkVote, setEventPhaseChangeVote, setEventPlanOverallVote, setEventUpdateVote, toggleEventMembership } from '$lib/services/commands/events';
+  import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
   import type { RightRailActivityItem } from '$lib/types/bootstrap';
   import {
     dismissRailItemId,
@@ -78,7 +79,9 @@
       item.kind === 'help-request-owned'
   );
   $: requestItems = visibleItems.filter((item) => item.kind === 'request');
-  $: voteItems = visibleItems.filter((item) => item.kind === 'vote');
+  $: voteItems = visibleItems.filter(
+    (item) => item.kind === 'vote' && !seenRailIds.has(item.id)
+  );
 
   function requestClose() {
     dispatch('close');
@@ -279,6 +282,8 @@
             await setProjectRepositoryReplacementVote(slug, targetId, vote);
             break;
           case 'pull_request_merge':
+            markRailItemSeen(seenStorageKey, item.id);
+            requestActivityRailRefresh();
             await goto(item.href);
             return;
         }
@@ -303,8 +308,9 @@
         }
       }
 
-      await invalidateAll();
       markRailItemSeen(seenStorageKey, item.id);
+      requestActivityRailRefresh();
+      await invalidateAll();
       if (item.voteKindLabel === 'link' || item.voteKindLabel === 'link_sever') {
         await goto(item.href);
       } else {
@@ -343,6 +349,8 @@
             await setEventActivityCommitment(item.eventSlug, item.activityId, null);
           }
 
+          markRailItemSeen(seenStorageKey, item.id);
+          requestActivityRailRefresh();
           await invalidateAll();
         } finally {
           pendingSubjectId = '';
@@ -360,6 +368,8 @@
 
     try {
       await toggleEventMembership(item.eventSlug ?? item.subjectId);
+      markRailItemSeen(seenStorageKey, item.id);
+      requestActivityRailRefresh();
       await invalidateAll();
     } finally {
       pendingSubjectId = '';

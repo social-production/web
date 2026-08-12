@@ -19,6 +19,11 @@
   $: activityLabel = createdAt ? describeUpdateTime(createdAt, updatedAt) : '';
   $: activityInstant = createdAt ? activityStampInstant(createdAt, updatedAt) : '';
   $: resolvedAuthorHref = authorHref ?? (authorUsername ? `/profile/${authorUsername}` : null);
+  $: isUpdated = Boolean(
+    createdAt &&
+      updatedAt &&
+      +new Date(updatedAt) > +new Date(createdAt)
+  );
 </script>
 
 <span class="content-meta-row" class:time-only={timeOnly}>
@@ -38,7 +43,7 @@
   {#if createdAt}
     <span class="meta-chip activity-stamp" title={activityLabel} aria-label={activityLabel}>
       <span class="meta-icon-wrap" aria-hidden="true">
-        <FeedToolbarIcon name="clock" />
+        <FeedToolbarIcon name={isUpdated ? 'microphone' : 'clock'} />
       </span>
       <span>{formatRelativeTimeCompact(activityInstant)}</span>
     </span>

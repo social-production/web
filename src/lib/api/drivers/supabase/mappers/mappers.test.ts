@@ -164,4 +164,31 @@ describe('supabase profile mapping', () => {
       author: { username: 'alice' }
     });
   });
+
+  it('labels updated projects distinctly from created ones', () => {
+    const mapped = mapGatewayPersonalItem({
+      kind: 'project',
+      id: 'project-2',
+      slug: 'rocket-2',
+      href: '/projects/rocket-2',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      latestUpdateAt: '2026-02-01T00:00:00.000Z',
+      title: 'Rocket 2',
+      summary: 'Updated build',
+      authorUsername: 'alice',
+      projectMode: 'productive',
+      channelTags: [],
+      communityTags: [],
+      voteCount: 0,
+      activeVote: 0,
+      commentCount: 0
+    });
+
+    expect(mapped).toMatchObject({
+      kind: 'activity',
+      subjectKind: 'project',
+      actionLabel: 'updated a project',
+      activityKind: 'updated'
+    });
+  });
 });

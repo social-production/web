@@ -151,6 +151,7 @@ export interface PublicProjectItem extends FeedModerationFields {
   summary: string;
   latestDescription?: string;
   latestUpdateAt?: string;
+  activityKind?: 'created' | 'updated';
   channelTags: TagRef[];
   communityTags: TagRef[];
   stage: string;
@@ -214,6 +215,7 @@ export interface PublicEventItem extends FeedModerationFields {
   lastActivityAt: string;
   latestUpdateBody?: string;
   latestUpdateAt?: string;
+  activityKind?: 'created' | 'updated';
 }
 
 export interface PublicHelpRequestItem extends FeedModerationFields {
@@ -299,6 +301,8 @@ export interface PersonalActivityItem extends FeedModerationFields {
   isClosed?: boolean;
   commentCount: number;
   createdAt: string;
+  latestUpdateAt?: string;
+  activityKind?: 'created' | 'updated';
   channelTags: TagRef[];
   communityTags: TagRef[];
   subjectFundProgress?: ProjectFundProgress;

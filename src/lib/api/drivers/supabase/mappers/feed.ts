@@ -63,7 +63,21 @@ type GatewayPersonalCandidate = Record<string, unknown> & {
   report?: unknown;
   isUnderReview?: boolean;
   hasActiveReport?: boolean;
+  latestUpdateAt?: string;
+  activityKind?: 'created' | 'updated';
 };
+
+function resolveActivityKind(
+  kind: string,
+  createdAt: string | undefined,
+  latestUpdateAt: string | undefined,
+  activityKind?: 'created' | 'updated'
+): 'created' | 'updated' {
+  if (kind !== 'project' && kind !== 'event') return 'created';
+  if (activityKind === 'updated' || activityKind === 'created') return activityKind;
+  if (!createdAt || !latestUpdateAt) return 'created';
+  return +new Date(latestUpdateAt) > +new Date(createdAt) ? 'updated' : 'created';
+}
 
 function asAuthor(
   item: GatewayPersonalCandidate,
@@ -195,6 +209,16 @@ export function mapGatewayPersonalItem(raw: unknown): PersonalFeedItem | null {
     thread: 'started a thread',
     event: 'created an event'
   };
+  const updatedActionLabelMap: Record<string, string> = {
+    project: 'updated a project',
+    event: 'updated an event'
+  };
+  const resolvedActivityKind = resolveActivityKind(
+    kind,
+    item.createdAt,
+    item.latestUpdateAt,
+    item.activityKind
+  );
 
   const href =
     item.href ??
@@ -207,7 +231,10 @@ export function mapGatewayPersonalItem(raw: unknown): PersonalFeedItem | null {
     href,
     author: asAuthor(item, item.authorUsername ?? item.createdByUsername),
     feedSource: item.feedSource,
-    actionLabel: actionLabelMap[kind] ?? 'posted',
+    actionLabel:
+      resolvedActivityKind === 'updated'
+        ? updatedActionLabelMap[kind] ?? actionLabelMap[kind] ?? 'posted'
+        : actionLabelMap[kind] ?? 'posted',
     subjectKind,
     subjectProjectMode: item.projectMode,
     subjectSlug: item.slug,
@@ -223,6 +250,8 @@ export function mapGatewayPersonalItem(raw: unknown): PersonalFeedItem | null {
     isClosed: item.isClosed,
     commentCount: item.commentCount ?? 0,
     createdAt: item.createdAt ?? new Date(0).toISOString(),
+    latestUpdateAt: item.latestUpdateAt,
+    activityKind: resolvedActivityKind,
     channelTags: item.channelTags ?? [],
     communityTags: item.communityTags ?? [],
     ...moderationFields(item)
@@ -237,15 +266,36 @@ export function mapGatewayPersonalItems(items: unknown[]): PersonalFeedItem[] {
 }
 
 export function mapGatewayPublicItems(items: unknown[]): PublicFeedItem[] {
-  return items.filter((item): item is PublicFeedItem => {
-    if (!item || typeof item !== 'object') return false;
-    const kind = (item as { kind?: string }).kind;
-    return (
-      kind === 'project' ||
-      kind === 'project-activity' ||
-      kind === 'thread' ||
-      kind === 'event' ||
-      kind === 'help-request'
-    );
+  return items.flatMap((raw) => {
+    if (!raw || typeof raw !== 'object') return [];
+    const item = raw as PublicFeedItem & {
+      activityKind?: 'created' | 'updated';
+      latestUpdateAt?: string;
+      createdAt?: string;
+    };
+    const kind = item.kind;
+    if (
+      kind !== 'project' &&
+      kind !== 'project-activity' &&
+      kind !== 'thread' &&
+      kind !== 'event' &&
+      kind !== 'help-request'
+    ) {
+      return [];
+    }
+
+    if (kind === 'project' || kind === 'event') {
+      const activityKind =
+        item.activityKind === 'updated' || item.activityKind === 'created'
+          ? item.activityKind
+          : item.createdAt &&
+              item.latestUpdateAt &&
+              +new Date(item.latestUpdateAt) > +new Date(item.createdAt)
+            ? 'updated'
+            : 'created';
+      return [{ ...item, activityKind } as PublicFeedItem];
+    }
+
+    return [item as PublicFeedItem];
   });
 }

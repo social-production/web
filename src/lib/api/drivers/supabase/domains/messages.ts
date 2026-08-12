@@ -9,16 +9,90 @@ import type {
   MessagesPageData
 } from '$lib/types/inbox';
 
+type ConversationsPayload = Partial<MessagesPageData> & {
+  viewer?: ViewerSummary;
+  conversations?: MessagesPageData['conversations'];
+  linkedChats?: MessageLinkedChat[];
+  suggestedContacts?: ViewerSummary[];
+  activeConversationId?: string | null;
+};
+
+type LinkedChatsPayload = {
+  items?: Array<{
+    id: string;
+    kind: 'project' | 'event' | 'help_request';
+    entity_id?: string;
+    entity_slug?: string;
+    subjectId?: string;
+    title: string;
+    href?: string;
+    meta?: string;
+    preview?: string;
+    last_message_at?: string;
+    lastMessageAt?: string;
+    comment_count?: number;
+    unread_count?: number;
+    unreadCount?: number;
+  }>;
+  linkedChats?: MessageLinkedChat[];
+};
+
+function mapLinkedChatItems(payload: LinkedChatsPayload | null | undefined): MessageLinkedChat[] {
+  if (!payload) return [];
+  if (Array.isArray(payload.linkedChats)) return payload.linkedChats;
+  if (!Array.isArray(payload.items)) return [];
+
+  return payload.items.map((chat) => ({
+    id: chat.id,
+    kind: chat.kind,
+    subjectId: chat.subjectId ?? chat.entity_id ?? chat.id,
+    title: chat.title,
+    href:
+      chat.href ??
+      (chat.kind === 'help_request'
+        ? `/help-requests/${chat.entity_id ?? chat.id}`
+        : `/${chat.kind}s/${chat.entity_slug ?? chat.id}`),
+    meta: chat.meta ?? `${chat.comment_count ?? 0} comments`,
+    preview: chat.preview ?? '',
+    lastMessageAt: chat.lastMessageAt ?? chat.last_message_at ?? new Date(0).toISOString(),
+    unreadCount: chat.unreadCount ?? chat.unread_count ?? 0,
+    comments: []
+  }));
+}
+
 export async function fetchMessages(): Promise<MessagesPageData | null> {
   try {
-    // Conversations payload already embeds linkedChats — avoid a second round-trip.
-    const page = await apiClient.get<MessagesPageData & { linkedChats?: MessageLinkedChat[] }>(
-      '/messages/conversations'
-    );
+    // Conversations are the critical path; linked chats load separately so a slow
+    // linked-chat query cannot block the Messages tab from opening.
+    const [conversationsResult, linkedResult] = await Promise.allSettled([
+      apiClient.get<ConversationsPayload>('/messages/conversations'),
+      apiClient.get<LinkedChatsPayload>('/messages/linked-chats')
+    ]);
+
+    if (conversationsResult.status === 'rejected') {
+      const err = conversationsResult.reason as { status?: number };
+      if (err?.status === 401) return null;
+      throw conversationsResult.reason;
+    }
+
+    const page = conversationsResult.value;
+    const linkedChats =
+      linkedResult.status === 'fulfilled'
+        ? mapLinkedChatItems(linkedResult.value)
+        : Array.isArray(page.linkedChats)
+          ? page.linkedChats
+          : [];
+
+    if (!page.viewer) {
+      return null;
+    }
 
     return {
-      ...page,
-      linkedChats: page.linkedChats ?? []
+      viewer: page.viewer,
+      conversations: Array.isArray(page.conversations) ? page.conversations : [],
+      linkedChats,
+      suggestedContacts: Array.isArray(page.suggestedContacts) ? page.suggestedContacts : [],
+      activeConversationId: page.activeConversationId ?? null
     };
   } catch (err) {
     if ((err as { status?: number }).status === 401) return null;

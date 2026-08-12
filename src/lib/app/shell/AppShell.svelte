@@ -21,7 +21,7 @@
   import type { BootstrapPayload, RightRailActivityItem } from '$lib/types/bootstrap';
   import type { SearchResultItem } from '$lib/types/search';
   import { countActionableRailItems } from '$lib/utils/activityRailCounts';
-  import { getActivityRail } from '$lib/services/queries/bootstrap';
+  import { getActivityRail, activityRailRefreshNonce } from '$lib/services/queries/bootstrap';
   import {
     dismissedRailRevision,
     dismissedRailStorageKey,
@@ -108,6 +108,30 @@
     window.setTimeout(() => {
       void refreshUnreadCounts();
     }, 120);
+  }
+
+  function loadActivityRail() {
+    if (!bootstrap.viewer) {
+      activityRailItems = [];
+      activityRailHistoryItems = [];
+      lastActivityRailViewerId = null;
+      return;
+    }
+    const viewerId = bootstrap.viewer.id;
+    void getActivityRail()
+      .then((rail) => {
+        activityRailItems = rail.activityRail ?? [];
+        activityRailHistoryItems = rail.activityRailHistory ?? [];
+        lastActivityRailViewerId = viewerId;
+      })
+      .catch(() => {
+        activityRailItems = bootstrap.activityRail ?? [];
+        activityRailHistoryItems = bootstrap.activityRailHistory ?? [];
+      });
+  }
+
+  $: if ($activityRailRefreshNonce > 0) {
+    loadActivityRail();
   }
 
   function handleFeedChromeScroll() {
@@ -220,29 +244,6 @@
       }
     };
 
-    const loadActivityRail = () => {
-      if (!bootstrap.viewer) {
-        activityRailItems = [];
-        activityRailHistoryItems = [];
-        lastActivityRailViewerId = null;
-        return;
-      }
-      const viewerId = bootstrap.viewer.id;
-      void getActivityRail()
-        .then((rail) => {
-          if (lastActivityRailViewerId !== viewerId && lastActivityRailViewerId != null) {
-            // Viewer changed while the request was in flight.
-          }
-          activityRailItems = rail.activityRail ?? [];
-          activityRailHistoryItems = rail.activityRailHistory ?? [];
-          lastActivityRailViewerId = viewerId;
-        })
-        .catch(() => {
-          activityRailItems = bootstrap.activityRail ?? [];
-          activityRailHistoryItems = bootstrap.activityRailHistory ?? [];
-        });
-    };
-
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         refreshBadgeCounts();
@@ -293,7 +294,12 @@
     syncKeyboardState();
 
     const badgePoll = window.setInterval(refreshBadgeCounts, 30_000);
-    loadActivityRail();
+    // Defer rail until after first paint so it does not compete with feed loads.
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(() => loadActivityRail(), { timeout: 2500 });
+    } else {
+      window.setTimeout(() => loadActivityRail(), 200);
+    }
 
     const media = window.matchMedia('(max-width: 1080px)');
     const syncLayout = () => {

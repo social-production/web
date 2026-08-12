@@ -75,7 +75,11 @@
       <div class="identity-copy">
         <div class="name-line">
           <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-          <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.subjectProjectMode ?? 'productive'} />
+          <SurfaceTypeLabel
+            kind={item.subjectKind}
+            projectMode={item.subjectProjectMode ?? 'productive'}
+            activityKind={item.activityKind ?? 'created'}
+          />
           <ReportControl
             hasActiveReport={item.hasActiveReport}
             interactive={false}
@@ -132,7 +136,7 @@
       </a>
     </div>
     <div class="footer-meta">
-      <ContentMetaRow timeOnly createdAt={item.createdAt} />
+      <ContentMetaRow timeOnly createdAt={item.createdAt} updatedAt={item.latestUpdateAt} />
     </div>
   </div>
 </FeedSurface>

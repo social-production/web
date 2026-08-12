@@ -77,11 +77,14 @@
   let contactSearchRequestId = 0;
 
   const THREAD_POLL_MS = 12_000;
-  const INBOX_REFRESH_MS = 45_000;
+  const INBOX_REFRESH_MS = 90_000;
+  const INBOX_FOCUS_REFRESH_COOLDOWN_MS = 30_000;
 
   let lastKnownUnreadMessages = 0;
   let threadPollTimer: number | null = null;
   let inboxRefreshTimer: number | null = null;
+  let lastInboxRefreshAt = 0;
+  let inboxRefreshInFlight: Promise<void> | null = null;
 
   $: linkedChatDiscussion = mergeDiscussion(linkedChatComments, linkedChatOptimisticComments);
   $: activeConversation =
@@ -290,12 +293,27 @@
     return unreadTotal > 0 ? `${label}, ${unreadTotal} unread` : label;
   }
 
-  async function refreshMessagesInbox() {
+  async function refreshMessagesInbox(options: { force?: boolean } = {}) {
     if (!browser || document.visibilityState !== 'visible') {
       return;
     }
 
-    await invalidate('inbox:messages');
+    const now = Date.now();
+    if (!options.force && now - lastInboxRefreshAt < INBOX_FOCUS_REFRESH_COOLDOWN_MS) {
+      return;
+    }
+
+    if (inboxRefreshInFlight) {
+      return inboxRefreshInFlight;
+    }
+
+    lastInboxRefreshAt = now;
+    inboxRefreshInFlight = invalidate('inbox:messages')
+      .catch(() => undefined)
+      .finally(() => {
+        inboxRefreshInFlight = null;
+      });
+    return inboxRefreshInFlight;
   }
 
   async function refreshActiveThread() {
@@ -330,7 +348,7 @@
     }, THREAD_POLL_MS);
 
     inboxRefreshTimer = window.setInterval(() => {
-      void refreshMessagesInbox();
+      void refreshMessagesInbox({ force: true });
     }, INBOX_REFRESH_MS);
 
     window.addEventListener('focus', handleVisibilityOrFocus);
@@ -353,7 +371,7 @@
       }
 
       lastKnownUnreadMessages = counts.messages;
-      void refreshMessagesInbox();
+      void refreshMessagesInbox({ force: true });
       void refreshActiveThread();
     });
 

@@ -46,7 +46,7 @@
 >
   <div class="header-row">
     <div class="chips">
-      <SurfaceTypeLabel kind="event" />
+      <SurfaceTypeLabel kind="event" activityKind={item.activityKind ?? 'created'} />
       <span class="meta-note">· {item.isPrivate ? 'Private' : 'Public'}</span>
       {#if item.stage}
         <span class="meta-note">· {item.stage}</span>

@@ -27,7 +27,8 @@
     | 'calendar-x'
     | 'calendar-range'
     | 'search'
-    | 'link';
+    | 'link'
+    | 'microphone';
 </script>
 
 <svg aria-hidden="true" viewBox="0 0 24 24" class="toolbar-icon">
@@ -218,6 +219,21 @@
       stroke-width="1.8"
       stroke-linecap="round"
       stroke-linejoin="round"
+    />
+  {:else if name === 'microphone'}
+    <path
+      d="M12 3.5a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0v-5a3 3 0 0 0-3-3Z"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M7 11.5a5 5 0 0 0 10 0M12 16.5v3.5M9.5 20h5"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
     />
   {:else}
     <path d="M5 17l4-6 3.5 4L16 9l3 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" />
