@@ -87,7 +87,7 @@
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(var(--shell-bottom-nav-base) + var(--shell-safe-bottom));
+    bottom: var(--shell-bottom-nav-height);
     z-index: 75;
     display: grid;
     gap: 8px;

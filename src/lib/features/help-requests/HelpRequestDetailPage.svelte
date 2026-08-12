@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { goto } from '$app/navigation';
+  import { goto, invalidate } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
@@ -45,9 +45,21 @@
 
     syncCompact();
     media.addEventListener('change', syncCompact);
+    const poll = window.setInterval(() => {
+      if (activeTab !== 'chat') return;
+      void refreshSubjectDiscussion('help_request', data.id)
+        .then((refreshed) => {
+          serverDiscussion = refreshed;
+          optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+        })
+        .catch(() => {
+          // Keep current discussion until the next successful refresh.
+        });
+    }, 8000);
 
     return () => {
       media.removeEventListener('change', syncCompact);
+      window.clearInterval(poll);
     };
   });
 
@@ -101,6 +113,7 @@
 
     try {
       await addComment({ id: data.id, type: 'help_request' }, body);
+      void invalidate('inbox:messages');
     } catch {
       optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
       throw new ChatSendError();

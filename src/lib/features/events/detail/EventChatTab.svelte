@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { invalidate } from '$app/navigation';
   import { page } from '$app/stores';
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
@@ -30,6 +32,23 @@
 
   $: discussion = mergeDiscussion(serverDiscussion, optimisticComments);
 
+  async function refreshDiscussion() {
+    try {
+      const refreshed = await refreshSubjectDiscussion('event', data.id);
+      serverDiscussion = refreshed;
+      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+    } catch {
+      // Keep current discussion until the next successful refresh.
+    }
+  }
+
+  onMount(() => {
+    const poll = window.setInterval(() => {
+      void refreshDiscussion();
+    }, 8000);
+    return () => window.clearInterval(poll);
+  });
+
   async function submitEventMessage(body: string) {
     registerEntityType(data.id, 'event');
 
@@ -39,18 +58,13 @@
 
     try {
       await addComment({ id: data.id, type: 'event' }, body);
+      void invalidate('inbox:messages');
     } catch {
       optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
       throw new ChatSendError();
     }
 
-    try {
-      const refreshed = await refreshSubjectDiscussion('event', data.id);
-      serverDiscussion = refreshed;
-      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
-    } catch {
-      // Comment was saved; keep optimistic row until the next refresh succeeds.
-    }
+    await refreshDiscussion();
   }
 </script>
 
@@ -63,9 +77,7 @@
     fitViewport={fullscreen}
     {highlightedCommentId}
     onModerated={async () => {
-      const refreshed = await refreshSubjectDiscussion('event', data.id);
-      serverDiscussion = refreshed;
-      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+      await refreshDiscussion();
     }}
     onSubmitMessage={submitEventMessage}
     placeholder="Message members..."

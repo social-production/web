@@ -1,6 +1,6 @@
 import { apiClient } from '../client';
 import type { AppAdapter } from '$lib/services/adapters/types';
-import type { BootstrapPayload } from '$lib/types/bootstrap';
+import type { BootstrapPayload, RightRailActivityItem } from '$lib/types/bootstrap';
 import type { OnboardingPageData } from '$lib/types/account';
 
 export async function fetchBootstrapSummary(): Promise<Pick<BootstrapPayload, 'unreadCounts'>> {
@@ -9,6 +9,16 @@ export async function fetchBootstrapSummary(): Promise<Pick<BootstrapPayload, 'u
 
 export async function fetchBootstrap(): Promise<BootstrapPayload> {
   return apiClient.get<BootstrapPayload>('/bootstrap');
+}
+
+export async function fetchActivityRail(): Promise<{
+  activityRail: RightRailActivityItem[];
+  activityRailHistory: RightRailActivityItem[];
+}> {
+  return apiClient.get<{
+    activityRail: RightRailActivityItem[];
+    activityRailHistory: RightRailActivityItem[];
+  }>('/bootstrap/activity-rail');
 }
 
 export async function fetchOnboarding(): Promise<OnboardingPageData> {

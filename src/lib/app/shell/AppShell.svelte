@@ -18,9 +18,10 @@
   import { refreshUnreadCounts, syncUnreadCountsFromBootstrap } from '$lib/services/commands/inbox';
   import * as m from '$lib/paraglide/messages';
   import { onMount, tick } from 'svelte';
-  import type { BootstrapPayload } from '$lib/types/bootstrap';
+  import type { BootstrapPayload, RightRailActivityItem } from '$lib/types/bootstrap';
   import type { SearchResultItem } from '$lib/types/search';
   import { countActionableRailItems } from '$lib/utils/activityRailCounts';
+  import { getActivityRail } from '$lib/services/queries/bootstrap';
   import {
     dismissedRailRevision,
     dismissedRailStorageKey,
@@ -38,6 +39,9 @@
   export let bootstrap: BootstrapPayload;
 
   let isCompact = true;
+  let activityRailItems: RightRailActivityItem[] = bootstrap.activityRail ?? [];
+  let activityRailHistoryItems: RightRailActivityItem[] = bootstrap.activityRailHistory ?? [];
+  let lastActivityRailViewerId: string | null = bootstrap.viewer?.id ?? null;
   let leftRailOpen = false;
   let rightRailOpen = false;
   let mapPanelOpen = false;
@@ -66,16 +70,14 @@
     return isFeedDiscoveryPath(pathname);
   }
 
-  $: feedChromeActive = isCompact && isFeedDiscoveryPath($page.url.pathname);
+  $: feedChromeActive = isCompact;
   $: dedicatedMapPage = $page.url.pathname === '/map';
   $: mapSurfaceActive = mapPanelOpen || dedicatedMapPage;
   $: if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded) {
     feedChromeHidden = false;
   }
-  $: shellBottomNavOffset =
-    isCompact && !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
-      ? 'var(--shell-bottom-nav-height)'
-      : '0px';
+  // Keep the content inset stable while the nav slides off-screen with transform.
+  $: shellBottomNavOffset = isCompact ? 'var(--shell-bottom-nav-height)' : '0px';
   $: shellTopbarHeight =
     mapSurfaceActive || !(feedChromeActive && feedChromeHidden) ? topbarHeight : 0;
   $: topbarCollapsed = feedChromeActive && feedChromeHidden && !mapSurfaceActive;
@@ -187,7 +189,7 @@
   $: seenStorageKey = seenRailStorageKey(bootstrap.viewer?.id ?? null);
   $: dismissedRailIds = readDismissedRailIds(dismissedStorageKey, $dismissedRailRevision);
   $: seenRailIds = readSeenRailIds(seenStorageKey, $dismissedRailRevision);
-  $: rightRailActionCount = countActionableRailItems(bootstrap.activityRail, dismissedRailIds, seenRailIds);
+  $: rightRailActionCount = countActionableRailItems(activityRailItems, dismissedRailIds, seenRailIds);
   $: showCreateFab =
     Boolean(bootstrap.viewer) &&
     isCreateFabRoute($page.url.pathname) &&
@@ -209,6 +211,29 @@
       }
     };
 
+    const loadActivityRail = () => {
+      if (!bootstrap.viewer) {
+        activityRailItems = [];
+        activityRailHistoryItems = [];
+        lastActivityRailViewerId = null;
+        return;
+      }
+      const viewerId = bootstrap.viewer.id;
+      void getActivityRail()
+        .then((rail) => {
+          if (lastActivityRailViewerId !== viewerId && lastActivityRailViewerId != null) {
+            // Viewer changed while the request was in flight.
+          }
+          activityRailItems = rail.activityRail ?? [];
+          activityRailHistoryItems = rail.activityRailHistory ?? [];
+          lastActivityRailViewerId = viewerId;
+        })
+        .catch(() => {
+          activityRailItems = bootstrap.activityRail ?? [];
+          activityRailHistoryItems = bootstrap.activityRailHistory ?? [];
+        });
+    };
+
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         refreshBadgeCounts();
@@ -220,6 +245,7 @@
     window.addEventListener('scroll', handleFeedChromeScroll, { passive: true });
 
     const badgePoll = window.setInterval(refreshBadgeCounts, 30_000);
+    loadActivityRail();
 
     const media = window.matchMedia('(max-width: 1080px)');
     const syncLayout = () => {
@@ -697,8 +723,8 @@
 
     <aside class="rail right-rail" data-open={rightRailOpen}>
       <RightRailPanel
-        items={bootstrap.activityRail}
-        historyItems={bootstrap.activityRailHistory ?? []}
+        items={activityRailItems}
+        historyItems={activityRailHistoryItems}
         viewerId={bootstrap.viewer?.id ?? null}
         on:close={closeCompactPanels}
       />

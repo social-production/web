@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { invalidate } from '$app/navigation';
   import { page } from '$app/stores';
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
@@ -32,6 +33,16 @@
 
   $: discussion = mergeDiscussion(serverDiscussion, optimisticComments);
 
+  async function refreshDiscussion() {
+    try {
+      const refreshed = await refreshSubjectDiscussion('project', data.id);
+      serverDiscussion = refreshed;
+      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+    } catch {
+      // Keep current discussion until the next successful refresh.
+    }
+  }
+
   onMount(() => {
     const media = window.matchMedia('(max-width: 1080px)');
     const syncCompact = () => {
@@ -40,9 +51,13 @@
 
     syncCompact();
     media.addEventListener('change', syncCompact);
+    const poll = window.setInterval(() => {
+      void refreshDiscussion();
+    }, 8000);
 
     return () => {
       media.removeEventListener('change', syncCompact);
+      window.clearInterval(poll);
     };
   });
 
@@ -55,18 +70,13 @@
 
     try {
       await addComment({ id: data.id, type: 'project' }, body);
+      void invalidate('inbox:messages');
     } catch {
       optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
       throw new ChatSendError();
     }
 
-    try {
-      const refreshed = await refreshSubjectDiscussion('project', data.id);
-      serverDiscussion = refreshed;
-      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
-    } catch {
-      // Comment was saved; keep optimistic row until the next refresh succeeds.
-    }
+    await refreshDiscussion();
   }
 </script>
 
@@ -79,9 +89,7 @@
     fitViewport={isCompact || fullscreen}
     {highlightedCommentId}
     onModerated={async () => {
-      const refreshed = await refreshSubjectDiscussion('project', data.id);
-      serverDiscussion = refreshed;
-      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+      await refreshDiscussion();
     }}
     onSubmitMessage={submitProjectMessage}
     placeholder="Message the project..."

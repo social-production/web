@@ -374,6 +374,28 @@
     gap: 18px;
   }
 
+  .updates-list {
+    gap: 0;
+  }
+
+  .updates-list :global(.update-card) {
+    border-radius: 0;
+  }
+
+  .updates-list :global(.update-card + .update-card) {
+    border-top: none;
+  }
+
+  .updates-list :global(.update-card:first-child) {
+    border-top-left-radius: var(--radius-sm);
+    border-top-right-radius: var(--radius-sm);
+  }
+
+  .updates-list :global(.update-card:last-child) {
+    border-bottom-left-radius: var(--radius-sm);
+    border-bottom-right-radius: var(--radius-sm);
+  }
+
   .updates-shell {
     padding: 24px 0 22px;
     border-bottom: 1px solid var(--panel-border);

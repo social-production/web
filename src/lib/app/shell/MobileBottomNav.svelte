@@ -75,27 +75,28 @@
 
 <style>
   /*
-    Lift the chrome row above the safe-area inset instead of painting a second
-    strip under the buttons. Dark page/toolbar colors are nearly identical, so
-    any attached safe-area bar reads as a doubled footer.
+    Anchor to the true screen bottom. The safe-area is painted as part of the
+    nav chrome (not a transparent gap), and hide/show is transform-only so
+    content padding does not jump.
   */
   .mobile-bottom-nav {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: var(--shell-safe-bottom);
+    bottom: 0;
     z-index: 55;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-content: start;
     gap: 2px;
-    height: var(--shell-bottom-nav-base);
-    min-height: var(--shell-bottom-nav-base);
-    max-height: var(--shell-bottom-nav-base);
+    height: var(--shell-bottom-nav-height);
+    min-height: var(--shell-bottom-nav-height);
+    max-height: var(--shell-bottom-nav-height);
     margin: 0;
-    padding: 0 var(--shell-safe-right) 0 var(--shell-safe-left);
+    padding: 0 var(--shell-safe-right) var(--shell-safe-bottom) var(--shell-safe-left);
     border: none;
     border-top: 1px solid var(--panel-border);
     background: var(--toolbar-background);
@@ -104,7 +105,7 @@
   }
 
   .mobile-bottom-nav.chrome-collapsed {
-    transform: translateY(calc(100% + var(--shell-safe-bottom)));
+    transform: translateY(100%);
     pointer-events: none;
     visibility: hidden;
   }
@@ -114,7 +115,7 @@
     display: grid;
     place-items: center;
     min-height: 0;
-    height: 100%;
+    height: var(--shell-bottom-nav-base);
     padding: 0;
     border: none;
     border-radius: var(--radius-sm);

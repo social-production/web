@@ -569,6 +569,14 @@
       hydrateFromUrl($page.data.settings?.publicFeedPreferences);
       preferencesReady = true;
       syncFeedQueryToUrl();
+      const signature = feedQuerySignature();
+      if (items.length > 0) {
+        visibleItems = items;
+        feedOffset = items.length;
+        feedHasMore = items.length >= DEFAULT_FEED_PAGE_SIZE;
+        lastLoadedQuery = signature;
+        return;
+      }
       lastLoadedQuery = '';
       await loadFeedItems();
     })();
