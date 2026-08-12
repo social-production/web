@@ -4,6 +4,7 @@ import type {
   CreateGroupMessageInput,
   DirectMessage,
   MessageConversationResult,
+  MessageLinkedChat,
   MessagesPageData
 } from '$lib/types/inbox';
 import type { ViewerSummary } from '$lib/types/bootstrap';
@@ -145,9 +146,8 @@ function mapMessage(
 
 export async function fetchMessages(): Promise<MessagesPageData | null> {
   try {
-    const [convsRes, linkedRes, meRes] = await Promise.all([
+    const [convsRes, meRes] = await Promise.all([
       apiClient.get<BackendConversationsListResponse>('/messages/conversations'),
-      apiClient.get<BackendLinkedChatsResponse>('/messages/linked-chats'),
       apiClient.get<{ user: BackendUser }>('/users/me')
     ]);
     const viewer: ViewerSummary = {
@@ -159,26 +159,38 @@ export async function fetchMessages(): Promise<MessagesPageData | null> {
     return {
       viewer,
       conversations: convsRes.items.map((conversation) => mapConversation(conversation, viewer.id)),
-      linkedChats: linkedRes.items.map((chat) => ({
-        id: chat.id,
-        kind: chat.kind as 'project' | 'event' | 'help_request',
-        subjectId: chat.entity_id,
-        title: chat.title,
-        href:
-          chat.kind === 'help_request'
-            ? `/help-requests/${chat.entity_id}`
-            : `/${chat.kind}s/${chat.entity_slug}`,
-        meta: `${chat.comment_count} comments`,
-        preview: chat.preview,
-        lastMessageAt: chat.last_message_at,
-        unreadCount: chat.unread_count ?? 0,
-        comments: []
-      })),
+      linkedChats: [],
       suggestedContacts: [],
       activeConversationId: null
     };
   } catch (err) {
     if ((err as { status?: number }).status === 401) return null;
+    throw err;
+  }
+}
+
+export async function fetchLinkedChats(): Promise<MessageLinkedChat[]> {
+  try {
+    const linkedRes = await apiClient.get<BackendLinkedChatsResponse>('/messages/linked-chats');
+    return linkedRes.items.map((chat) => ({
+      id: chat.id,
+      kind: chat.kind as 'project' | 'event' | 'help_request',
+      subjectId: chat.entity_id,
+      title: chat.title,
+      href:
+        chat.kind === 'help_request'
+          ? `/help-requests/${chat.entity_id}`
+          : `/${chat.kind}s/${chat.entity_slug}`,
+      meta: `${chat.comment_count} comments`,
+      preview: chat.preview,
+      lastMessageAt: chat.last_message_at,
+      unreadCount: chat.unread_count ?? 0,
+      comments: []
+    }));
+  } catch (err) {
+    if ((err as { status?: number }).status === 401 || (err as { status?: number }).status === 404) {
+      return [];
+    }
     throw err;
   }
 }

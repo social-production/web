@@ -67,6 +67,7 @@ import {
 } from './domains/locations';
 import {
   fetchMessages,
+  fetchLinkedChats,
   fetchConversationMessages,
   fetchMessageContacts,
   fetchSendMessage,
@@ -370,6 +371,10 @@ export function createFastApiDriver(): AppAdapter {
 
     async getMessages() {
       return fetchMessages();
+    },
+
+    async getLinkedChats() {
+      return fetchLinkedChats();
     },
 
     async getConversationMessages(conversationId, viewerId, participants) {

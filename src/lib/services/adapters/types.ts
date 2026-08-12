@@ -41,6 +41,7 @@ import type {
   CreateGroupMessageInput,
   DirectMessage,
   MessageConversationResult,
+  MessageLinkedChat,
   MessagesPageData,
   NotificationsPageData
 } from '$lib/types/inbox';
@@ -237,6 +238,7 @@ export interface AppAdapter {
   getLocation(locationId: string): Promise<LocationRecord | null>;
   getNotifications(): Promise<NotificationsPageData | null>;
   getMessages(): Promise<MessagesPageData | null>;
+  getLinkedChats(): Promise<MessageLinkedChat[]>;
   getConversationMessages(
     conversationId: string,
     viewerId: string,

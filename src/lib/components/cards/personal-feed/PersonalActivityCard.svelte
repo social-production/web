@@ -75,11 +75,7 @@
       <div class="identity-copy">
         <div class="name-line">
           <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-          <SurfaceTypeLabel
-            kind={item.subjectKind}
-            projectMode={item.subjectProjectMode ?? 'productive'}
-            activityKind={item.activityKind ?? 'created'}
-          />
+          <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.subjectProjectMode ?? 'productive'} />
           <ReportControl
             hasActiveReport={item.hasActiveReport}
             interactive={false}

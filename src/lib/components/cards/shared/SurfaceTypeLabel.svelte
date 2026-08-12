@@ -5,16 +5,13 @@
     surfaceAccentCssVar,
     surfaceIconForKind,
     surfaceTypeAccent,
-    surfaceTypeLabel,
-    type SurfaceActivityKind
+    surfaceTypeLabel
   } from '$lib/utils/surfaceType';
 
   export let kind: SubjectKind;
   export let projectMode: ProjectMode = 'productive';
-  export let activityKind: SurfaceActivityKind = 'created';
 
-  $: isUpdated = activityKind === 'updated' && (kind === 'project' || kind === 'event');
-  $: label = surfaceTypeLabel(kind, projectMode, activityKind);
+  $: label = surfaceTypeLabel(kind, projectMode);
   $: accent = surfaceTypeAccent(kind, projectMode);
   $: icon = surfaceIconForKind(kind);
   $: accentColor = surfaceAccentCssVar(accent);
@@ -22,9 +19,6 @@
 
 <span class="surface-type-label" style={`--surface-accent: ${accentColor}`}>
   <SurfaceIcon {icon} size="sm" />
-  {#if isUpdated}
-    <SurfaceIcon icon="microphone" size="sm" />
-  {/if}
   <span class="label-copy">{label}</span>
 </span>
 

@@ -43,7 +43,7 @@
   {#if createdAt}
     <span class="meta-chip activity-stamp" title={activityLabel} aria-label={activityLabel}>
       <span class="meta-icon-wrap" aria-hidden="true">
-        <FeedToolbarIcon name={isUpdated ? 'microphone' : 'clock'} />
+        <FeedToolbarIcon name={isUpdated ? 'loudspeaker' : 'clock'} />
       </span>
       <span>{formatRelativeTimeCompact(activityInstant)}</span>
     </span>

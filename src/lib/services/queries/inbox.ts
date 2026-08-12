@@ -10,6 +10,10 @@ export function getMessages() {
   return currentAdapter.getMessages();
 }
 
+export function getLinkedChats() {
+  return currentAdapter.getLinkedChats();
+}
+
 export function getConversationMessages(
   conversationId: string,
   viewerId: string,

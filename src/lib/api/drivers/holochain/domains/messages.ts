@@ -11,6 +11,7 @@ const domain = 'messages' as const;
 
 export const messagesDomain: Partial<AppAdapter> = {
   getMessages: stubMethod(provider, domain, 'getMessages') as AppAdapter['getMessages'],
+  getLinkedChats: stubMethod(provider, domain, 'getLinkedChats') as AppAdapter['getLinkedChats'],
   getConversationMessages: stubMethod(provider, domain, 'getConversationMessages') as AppAdapter['getConversationMessages'],
   getMessageContacts: stubMethod(provider, domain, 'getMessageContacts') as AppAdapter['getMessageContacts'],
   sendMessage: stubMethod(provider, domain, 'sendMessage') as AppAdapter['sendMessage'],

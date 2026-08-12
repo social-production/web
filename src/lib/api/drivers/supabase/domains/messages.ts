@@ -62,26 +62,8 @@ function mapLinkedChatItems(payload: LinkedChatsPayload | null | undefined): Mes
 
 export async function fetchMessages(): Promise<MessagesPageData | null> {
   try {
-    // Conversations are the critical path; linked chats load separately so a slow
-    // linked-chat query cannot block the Messages tab from opening.
-    const [conversationsResult, linkedResult] = await Promise.allSettled([
-      apiClient.get<ConversationsPayload>('/messages/conversations'),
-      apiClient.get<LinkedChatsPayload>('/messages/linked-chats')
-    ]);
-
-    if (conversationsResult.status === 'rejected') {
-      const err = conversationsResult.reason as { status?: number };
-      if (err?.status === 401) return null;
-      throw conversationsResult.reason;
-    }
-
-    const page = conversationsResult.value;
-    const linkedChats =
-      linkedResult.status === 'fulfilled'
-        ? mapLinkedChatItems(linkedResult.value)
-        : Array.isArray(page.linkedChats)
-          ? page.linkedChats
-          : [];
+    // Conversations only on the critical path. Linked chats hydrate after first paint.
+    const page = await apiClient.get<ConversationsPayload>('/messages/conversations');
 
     if (!page.viewer) {
       return null;
@@ -90,12 +72,24 @@ export async function fetchMessages(): Promise<MessagesPageData | null> {
     return {
       viewer: page.viewer,
       conversations: Array.isArray(page.conversations) ? page.conversations : [],
-      linkedChats,
+      linkedChats: [],
       suggestedContacts: Array.isArray(page.suggestedContacts) ? page.suggestedContacts : [],
       activeConversationId: page.activeConversationId ?? null
     };
   } catch (err) {
     if ((err as { status?: number }).status === 401) return null;
+    throw err;
+  }
+}
+
+export async function fetchLinkedChats(): Promise<MessageLinkedChat[]> {
+  try {
+    const payload = await apiClient.get<LinkedChatsPayload>('/messages/linked-chats');
+    return mapLinkedChatItems(payload);
+  } catch (err) {
+    if ((err as { status?: number }).status === 401 || (err as { status?: number }).status === 404) {
+      return [];
+    }
     throw err;
   }
 }
@@ -192,6 +186,7 @@ export async function fetchMarkLinkedChatRead(subjectType: string, subjectId: st
 
 export const messagesDomain: Partial<AppAdapter> = {
   getMessages: fetchMessages,
+  getLinkedChats: fetchLinkedChats,
   getConversationMessages: fetchConversationMessages,
   getMessageContacts: fetchMessageContacts,
   sendMessage: fetchSendMessage,

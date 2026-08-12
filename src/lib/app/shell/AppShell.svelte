@@ -176,7 +176,11 @@
       closeMapPanel();
     }
     if (bootstrap.viewer) {
-      deferUnreadRefresh();
+      const navigatingToMessages = Boolean(toPath?.startsWith('/messages'));
+      // Messages already loads its own inbox data; don't pile on a bootstrap unread scan.
+      if (!navigatingToMessages) {
+        deferUnreadRefresh();
+      }
     }
     if (isCompact) {
       searchExpanded = false;
@@ -780,12 +784,14 @@
     </main>
 
     <aside class="rail right-rail" data-open={rightRailOpen}>
-      <RightRailPanel
-        items={activityRailItems}
-        historyItems={activityRailHistoryItems}
-        viewerId={bootstrap.viewer?.id ?? null}
-        on:close={closeCompactPanels}
-      />
+      {#if rightRailOpen}
+        <RightRailPanel
+          items={activityRailItems}
+          historyItems={activityRailHistoryItems}
+          viewerId={bootstrap.viewer?.id ?? null}
+          on:close={closeCompactPanels}
+        />
+      {/if}
     </aside>
   </div>
 

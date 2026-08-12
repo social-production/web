@@ -85,6 +85,7 @@ import {
   fetchMarkLinkedChatRead,
   fetchMessageContacts,
   fetchMessages,
+  fetchLinkedChats,
   fetchRemoveGroupConversationMember,
   fetchRenameGroupConversation,
   fetchSendMessage,
@@ -542,6 +543,9 @@ export function createSupabaseDriver(): AppAdapter {
     },
     async getMessages() {
       return fetchMessages();
+    },
+    async getLinkedChats() {
+      return fetchLinkedChats();
     },
     async getConversationMessages(conversationId, viewerId, participants) {
       return fetchConversationMessages(conversationId, viewerId, participants);

@@ -28,7 +28,7 @@
     | 'calendar-range'
     | 'search'
     | 'link'
-    | 'microphone';
+    | 'loudspeaker';
 </script>
 
 <svg aria-hidden="true" viewBox="0 0 24 24" class="toolbar-icon">
@@ -220,16 +220,16 @@
       stroke-linecap="round"
       stroke-linejoin="round"
     />
-  {:else if name === 'microphone'}
+  {:else if name === 'loudspeaker'}
     <path
-      d="M12 3.5a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0v-5a3 3 0 0 0-3-3Z"
+      d="M4.5 9.5h3.2L12 6.2v11.6L7.7 14.5H4.5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Z"
       fill="none"
       stroke="currentColor"
       stroke-width="1.8"
       stroke-linejoin="round"
     />
     <path
-      d="M7 11.5a5 5 0 0 0 10 0M12 16.5v3.5M9.5 20h5"
+      d="M15.2 9.2a3.2 3.2 0 0 1 0 5.6M17.8 7a5.8 5.8 0 0 1 0 10"
       fill="none"
       stroke="currentColor"
       stroke-width="1.8"

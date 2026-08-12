@@ -22,6 +22,7 @@
   } from '$lib/utils/discussionState';
   import {
     getConversationMessages,
+    getLinkedChats,
     getMessageContacts,
     getSubjectComments
   } from '$lib/services/queries/inbox';
@@ -48,6 +49,9 @@
   let activeConversationId: string | null = null;
   let activeLinkedChatId: string | null = null;
   let activeListTab: 'messages' | 'linked-chats' | 'help-request-chats' = 'messages';
+  let linkedChats: MessageLinkedChat[] = data.linkedChats ?? [];
+  let linkedChatsLoading = false;
+  let linkedChatsHydrated = false;
   let showComposer = false;
   let composerMode: 'direct' | 'group' = 'direct';
   let recipientDraft = '';
@@ -85,15 +89,23 @@
   let inboxRefreshTimer: number | null = null;
   let lastInboxRefreshAt = 0;
   let inboxRefreshInFlight: Promise<void> | null = null;
+  let shellHeightFrame: number | null = null;
+  let cachedBottomNavPx = 0;
+  let cachedBottomNavOffsetRaw = '';
+  let cachedTopbarPx = 0;
 
   $: linkedChatDiscussion = mergeDiscussion(linkedChatComments, linkedChatOptimisticComments);
+  $: if (data.linkedChats?.length) {
+    linkedChats = data.linkedChats;
+    linkedChatsHydrated = true;
+  }
   $: activeConversation =
     data.conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
-  $: activeLinkedChat = data.linkedChats.find((chat) => chat.id === activeLinkedChatId) ?? null;
-  $: projectEventLinkedChats = data.linkedChats.filter(
+  $: activeLinkedChat = linkedChats.find((chat) => chat.id === activeLinkedChatId) ?? null;
+  $: projectEventLinkedChats = linkedChats.filter(
     (chat) => chat.kind === 'project' || chat.kind === 'event'
   );
-  $: helpRequestLinkedChats = data.linkedChats.filter((chat) => chat.kind === 'help_request');
+  $: helpRequestLinkedChats = linkedChats.filter((chat) => chat.kind === 'help_request');
   $: directGroupUnreadTotal = data.conversations.reduce((sum, conversation) => sum + conversation.unreadCount, 0);
   $: projectEventUnreadTotal = projectEventLinkedChats.reduce((sum, chat) => sum + chat.unreadCount, 0);
   $: helpRequestUnreadTotal = helpRequestLinkedChats.reduce((sum, chat) => sum + chat.unreadCount, 0);
@@ -293,6 +305,24 @@
     return unreadTotal > 0 ? `${label}, ${unreadTotal} unread` : label;
   }
 
+  async function hydrateLinkedChats(options: { force?: boolean } = {}) {
+    if (!browser) return;
+    if (linkedChatsLoading) return;
+    if (linkedChatsHydrated && !options.force) return;
+
+    linkedChatsLoading = true;
+    try {
+      linkedChats = await getLinkedChats();
+      linkedChatsHydrated = true;
+    } catch {
+      if (!linkedChatsHydrated) {
+        linkedChats = [];
+      }
+    } finally {
+      linkedChatsLoading = false;
+    }
+  }
+
   async function refreshMessagesInbox(options: { force?: boolean } = {}) {
     if (!browser || document.visibilityState !== 'visible') {
       return;
@@ -337,11 +367,13 @@
     }
 
     void refreshActiveThread();
+    // Avoid full inbox invalidation on every focus; cool-downed soft refresh only.
     void refreshMessagesInbox();
   }
 
   onMount(() => {
     lastKnownUnreadMessages = get(unreadCounts)?.messages ?? 0;
+    void hydrateLinkedChats();
 
     threadPollTimer = window.setInterval(() => {
       void refreshActiveThread();
@@ -349,17 +381,18 @@
 
     inboxRefreshTimer = window.setInterval(() => {
       void refreshMessagesInbox({ force: true });
+      void hydrateLinkedChats({ force: true });
     }, INBOX_REFRESH_MS);
 
     window.addEventListener('focus', handleVisibilityOrFocus);
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
     const viewport = window.visualViewport;
     const onViewportChange = () => {
-      syncMessagesShellHeight();
+      scheduleMessagesShellHeightSync();
     };
     viewport?.addEventListener('resize', onViewportChange);
     viewport?.addEventListener('scroll', onViewportChange);
-    syncMessagesShellHeight();
+    scheduleMessagesShellHeightSync();
 
     const unsubscribeUnreadCounts = unreadCounts.subscribe((counts) => {
       if (!counts) {
@@ -371,7 +404,7 @@
       }
 
       lastKnownUnreadMessages = counts.messages;
-      void refreshMessagesInbox({ force: true });
+      // Badge churn should not reload the whole inbox route; refresh the open thread only.
       void refreshActiveThread();
     });
 
@@ -382,6 +415,10 @@
 
       if (inboxRefreshTimer !== null) {
         window.clearInterval(inboxRefreshTimer);
+      }
+
+      if (shellHeightFrame !== null) {
+        window.cancelAnimationFrame(shellHeightFrame);
       }
 
       window.removeEventListener('focus', handleVisibilityOrFocus);
@@ -505,6 +542,15 @@
     });
   }
 
+  function scheduleMessagesShellHeightSync() {
+    if (!browser) return;
+    if (shellHeightFrame !== null) return;
+    shellHeightFrame = window.requestAnimationFrame(() => {
+      shellHeightFrame = null;
+      syncMessagesShellHeight();
+    });
+  }
+
   function syncMessagesShellHeight() {
     if (!browser || !messagesShellElement) {
       return;
@@ -520,8 +566,12 @@
           document.activeElement instanceof HTMLInputElement ||
           (document.activeElement instanceof HTMLElement && document.activeElement.isContentEditable))
     );
-    const topbarPx =
-      document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
+    const topbar = document.querySelector<HTMLElement>('.topbar');
+    const measuredTopbar = topbar?.getBoundingClientRect().height ?? 0;
+    if (measuredTopbar > 0) {
+      cachedTopbarPx = measuredTopbar;
+    }
+    const topbarPx = cachedTopbarPx;
 
     if (keyboardOpen) {
       // Pin the shell to the visible viewport so the full composer sits above the keyboard.
@@ -557,13 +607,18 @@
     const offsetRaw = getComputedStyle(messagesShellElement)
       .getPropertyValue('--shell-bottom-nav-offset')
       .trim();
-    let bottomPx = 0;
-    if (offsetRaw && offsetRaw !== '0px') {
-      const probe = document.createElement('div');
-      probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;height:${offsetRaw}`;
-      document.body.appendChild(probe);
-      bottomPx = probe.getBoundingClientRect().height;
-      probe.remove();
+    let bottomPx = cachedBottomNavPx;
+    if (offsetRaw !== cachedBottomNavOffsetRaw) {
+      cachedBottomNavOffsetRaw = offsetRaw;
+      bottomPx = 0;
+      if (offsetRaw && offsetRaw !== '0px') {
+        const probe = document.createElement('div');
+        probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;height:${offsetRaw}`;
+        document.body.appendChild(probe);
+        bottomPx = probe.getBoundingClientRect().height;
+        probe.remove();
+      }
+      cachedBottomNavPx = bottomPx;
     }
     const nextHeight = Math.max(viewportHeight - topOffset - bottomPx, 320);
     messagesShellElement.style.setProperty('--messages-shell-height', `${Math.floor(nextHeight)}px`);
@@ -587,7 +642,7 @@
     scrollConversationShellIntoView();
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     await tick();
-    syncMessagesShellHeight();
+    scheduleMessagesShellHeightSync();
   }
 
   $: shellLayoutKey = [
@@ -601,7 +656,7 @@
 
   $: if (browser && messagesShellElement && shellLayoutKey) {
     tick().then(() => {
-      syncMessagesShellHeight();
+      scheduleMessagesShellHeightSync();
     });
   }
 
@@ -720,7 +775,7 @@
   }
 
   async function openLinkedChat(chatId: string) {
-    const chat = data.linkedChats.find((item) => item.id === chatId);
+    const chat = linkedChats.find((item) => item.id === chatId);
 
     if (!chat) {
       return false;
@@ -873,7 +928,7 @@
     showDirectOptions = false;
     groupSettingsFeedback = '';
     directOptionsFeedback = '';
-    syncMessagesShellHeight();
+    scheduleMessagesShellHeightSync();
 
     if (browser) {
       void goto('/messages');
@@ -887,6 +942,7 @@
     if (tab !== 'messages') {
       showComposer = false;
       resetComposer();
+      void hydrateLinkedChats();
     }
   }
 
@@ -1068,7 +1124,7 @@
   }
 </script>
 
-<svelte:window on:resize={syncMessagesShellHeight} />
+<svelte:window on:resize={scheduleMessagesShellHeightSync} />
 
 <section class:conversation-page={!!activeConversation || !!activeLinkedChat} class="page">
   {#if !activeConversation && !activeLinkedChat}

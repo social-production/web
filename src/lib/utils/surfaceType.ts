@@ -10,10 +10,7 @@ export type SurfaceIconId =
   | 'channel'
   | 'community'
   | 'platform'
-  | 'document'
-  | 'microphone';
-
-export type SurfaceActivityKind = 'created' | 'updated';
+  | 'document';
 
 export type SurfaceTypeAccent =
   | 'thread'
@@ -28,15 +25,7 @@ export type SurfaceTypeAccent =
   | 'platform'
   | 'neutral';
 
-export function surfaceTypeLabel(
-  kind: SubjectKind,
-  projectMode: ProjectMode = 'productive',
-  activityKind: SurfaceActivityKind = 'created'
-) {
-  if (activityKind === 'updated' && (kind === 'project' || kind === 'event')) {
-    return 'Updated';
-  }
-
+export function surfaceTypeLabel(kind: SubjectKind, projectMode: ProjectMode = 'productive') {
   if (kind === 'project') {
     return projectSubjectLabel(projectMode);
   }

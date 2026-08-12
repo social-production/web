@@ -65,6 +65,7 @@ export const APP_ADAPTER_CONTRACT_METHODS = [
   'signUp',
   'getSearch',
   'getMessages',
+  'getLinkedChats',
   'getNotifications',
   'setVote',
   'getComments',
