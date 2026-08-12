@@ -5,13 +5,15 @@
   import DetailUpdateCard from '$lib/components/cards/details/DetailUpdateCard.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
+  import GroupsIcon from '$lib/components/shared/GroupsIcon.svelte';
+  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import { requestEventEdit, requestEventUpdate, setEventEditVote, setEventUpdateVote } from '$lib/services/commands/events';
   import {
     formatProjectVoteRequirement,
     formatProjectVoteSummary
   } from '$lib/utils/projectVotes';
   import type { EventPageData, ProjectApprovalVote } from '$lib/types/detail';
-  import { formatRelativeTime } from '$lib/utils/time';
+  import { formatRelativeTime, formatRelativeTimeCompact } from '$lib/utils/time';
 
   export let data: EventPageData;
   export let highlightedUpdateId: string | null = null;
@@ -298,12 +300,14 @@
   <div class="overview-footer-row">
     <button
       aria-expanded={showMembersPanel}
+      aria-label={memberButtonLabel}
       class:highlighted={showMembersPanel}
-      class="detail-action-button"
+      class="detail-action-button members-action"
       type="button"
       on:click={toggleMembersPanel}
     >
-      {memberButtonLabel}
+      <GroupsIcon className="meta-icon" />
+      <span>{data.memberCount}</span>
     </button>
     {#if canProposeEdit}
       <button
@@ -323,7 +327,12 @@
     {/if}
     <span class="footer-author-row">
       <a class="inline-link" href={`/profile/${data.createdByUsername}`}>{data.createdByUsername}</a>
-      · {formatRelativeTime(data.createdAt)}
+      <span class="meta-chip" title={`created ${formatRelativeTime(data.createdAt)}`}>
+        <span class="meta-icon-wrap" aria-hidden="true">
+          <FeedToolbarIcon name="clock" />
+        </span>
+        <span>{formatRelativeTimeCompact(data.createdAt)}</span>
+      </span>
     </span>
   </div>
 
@@ -400,7 +409,40 @@
 
   .footer-author-row {
     margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    min-width: 0;
     color: var(--text-soft);
+    white-space: nowrap;
+  }
+
+  .members-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .members-action :global(.meta-icon),
+  .meta-icon-wrap {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+  }
+
+  .meta-icon-wrap :global(.toolbar-icon),
+  .meta-icon-wrap :global(svg) {
+    width: 14px;
+    height: 14px;
   }
 
   .field-stack {
@@ -538,9 +580,15 @@
   }
 
   @media (max-width: 760px) {
+    .overview-footer-row {
+      flex-wrap: nowrap;
+      gap: 8px;
+    }
+
     .footer-author-row {
-      margin-left: 0;
-      width: 100%;
+      margin-left: auto;
+      width: auto;
+      min-width: 0;
     }
   }
 </style>

@@ -10,15 +10,27 @@ export async function hydrateDefaultLocationFromServer(viewerId: string | null) 
     return readDefaultLocation(viewerId);
   }
 
+  const local = readDefaultLocation(viewerId);
+  // Prefer a live local GPS/search anchor over the older server default place.
+  // Otherwise map/GPS can land in Brisbane while Settings still reloads Melbourne.
+  if (
+    local &&
+    local.latitude != null &&
+    local.longitude != null &&
+    (local.deviceGeolocationEnabled || !local.locationId)
+  ) {
+    return local;
+  }
+
   const settings = await getSettings();
   const locationId = settings?.defaultLocationId;
   if (!locationId) {
-    return readDefaultLocation(viewerId);
+    return local;
   }
 
   const location = await getLocation(locationId);
   if (!location) {
-    return readDefaultLocation(viewerId);
+    return local;
   }
 
   const preference: Omit<DefaultLocationPreference, 'updatedAt'> = {
@@ -30,7 +42,7 @@ export async function hydrateDefaultLocationFromServer(viewerId: string | null) 
     precision: location.precision,
     providerPlaceId: location.providerPlaceId,
     locationId: location.id ?? locationId,
-    deviceGeolocationEnabled: readDefaultLocation(viewerId)?.deviceGeolocationEnabled ?? false
+    deviceGeolocationEnabled: local?.deviceGeolocationEnabled ?? false
   };
   writeDefaultLocation(viewerId, preference);
   return readDefaultLocation(viewerId);

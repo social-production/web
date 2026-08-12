@@ -15,7 +15,14 @@ export interface DevicePosition {
 export type DevicePositionError = 'disabled' | 'unsupported' | 'denied' | 'timeout' | 'unavailable';
 
 export type DevicePositionResult =
-  | { ok: true; position: DevicePosition; label: string; providerPlaceId: string | null }
+  | {
+      ok: true;
+      position: DevicePosition;
+      label: string;
+      providerPlaceId: string | null;
+      region: string | null;
+      country: string | null;
+    }
   | { ok: false; error: DevicePositionError };
 
 export function isDeviceGeolocationEnabled(viewerId: string | null): boolean {
@@ -94,6 +101,8 @@ export async function requestDevicePosition(viewerId: string | null): Promise<De
     // Keep coordinate fallback label.
   }
 
+  // GPS is a live fix, not the previously saved place row — clear locationId so
+  // server hydration cannot resurrect an old city (e.g. Melbourne over Brisbane).
   writeDefaultLocation(viewerId, {
     displayLabel: label,
     latitude: position.latitude,
@@ -102,7 +111,7 @@ export async function requestDevicePosition(viewerId: string | null): Promise<De
     country,
     precision: 'approximate',
     providerPlaceId,
-    locationId: readDefaultLocation(viewerId)?.locationId ?? null,
+    locationId: null,
     deviceGeolocationEnabled: true
   });
 
@@ -110,7 +119,9 @@ export async function requestDevicePosition(viewerId: string | null): Promise<De
     ok: true,
     position,
     label,
-    providerPlaceId
+    providerPlaceId,
+    region,
+    country
   };
 }
 

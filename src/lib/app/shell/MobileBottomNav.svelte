@@ -42,43 +42,43 @@
   class:chrome-collapsed={collapsed}
   aria-hidden={collapsed}
 >
-  {#each tabs as tab}
-    <a
-      aria-label={tab.label}
-      class:active-link={isActive(tab.href)}
+  <div class="mobile-bottom-nav-row">
+    {#each tabs as tab}
+      <a
+        aria-label={tab.label}
+        class:active-link={isActive(tab.href)}
+        class="bottom-nav-item"
+        href={tab.href}
+      >
+        <span class="bottom-nav-icon" aria-hidden="true">
+          <FeedToolbarIcon name={tab.icon} />
+        </span>
+        {#if tab.badge && tab.badge > 0}
+          <CountBadge count={tab.badge} />
+        {/if}
+      </a>
+    {/each}
+
+    <button
+      aria-label="More"
       class="bottom-nav-item"
-      href={tab.href}
+      class:active-link={moreActive}
+      aria-expanded={moreActive}
+      aria-haspopup="dialog"
+      type="button"
+      on:click={onMore}
     >
       <span class="bottom-nav-icon" aria-hidden="true">
-        <FeedToolbarIcon name={tab.icon} />
+        <FeedToolbarIcon name="more" />
       </span>
-      {#if tab.badge && tab.badge > 0}
-        <CountBadge count={tab.badge} />
-      {/if}
-    </a>
-  {/each}
-
-  <button
-    aria-label="More"
-    class="bottom-nav-item"
-    class:active-link={moreActive}
-    aria-expanded={moreActive}
-    aria-haspopup="dialog"
-    type="button"
-    on:click={onMore}
-  >
-    <span class="bottom-nav-icon" aria-hidden="true">
-      <FeedToolbarIcon name="more" />
-    </span>
-  </button>
+    </button>
+  </div>
+  <!-- Safe-area sits below the chrome row with page background so it cannot read as a
+       second empty toolbar strip (Firefox / notched devices). -->
+  <div class="mobile-bottom-nav-safe" aria-hidden="true"></div>
 </nav>
 
 <style>
-  /*
-    Height comes from row min-height + safe-area padding only.
-    A fixed height of (base + safe-area) PLUS padding-bottom safe-area
-    left an empty toolbar-colored strip under the icons (the "blank footer").
-  */
   .mobile-bottom-nav {
     position: fixed;
     left: 0;
@@ -88,14 +88,12 @@
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    overflow: hidden;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 2px;
-    min-height: var(--shell-bottom-nav-base);
-    padding: 4px var(--shell-safe-right) var(--shell-safe-bottom) var(--shell-safe-left);
-    border-top: 1px solid var(--panel-border);
-    background: var(--toolbar-background);
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
     transition: transform 0.22s ease, visibility 0.22s ease;
     will-change: transform;
   }
@@ -106,12 +104,33 @@
     visibility: hidden;
   }
 
+  .mobile-bottom-nav-row {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 2px;
+    box-sizing: border-box;
+    height: var(--shell-bottom-nav-base);
+    min-height: var(--shell-bottom-nav-base);
+    max-height: var(--shell-bottom-nav-base);
+    padding: 0 var(--shell-safe-right) 0 var(--shell-safe-left);
+    border-top: 1px solid var(--panel-border);
+    background: var(--toolbar-background);
+  }
+
+  .mobile-bottom-nav-safe {
+    flex: 0 0 auto;
+    height: var(--shell-safe-bottom);
+    min-height: var(--shell-safe-bottom);
+    background: var(--page-background);
+  }
+
   .bottom-nav-item {
     position: relative;
     display: grid;
     place-items: center;
-    min-height: calc(var(--shell-bottom-nav-base) - 8px);
-    padding: 6px 2px;
+    min-height: 0;
+    height: 100%;
+    padding: 0;
     border: none;
     border-radius: var(--radius-sm);
     background: transparent;

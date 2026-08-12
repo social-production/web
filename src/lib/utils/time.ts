@@ -77,6 +77,17 @@ export function describeUpdateTime(createdAt: string, lastUpdateAt?: string | nu
   )}`;
 }
 
+/** Instant used by compact clock stamps (updated if newer than created). */
+export function activityStampInstant(createdAt: string, lastUpdateAt?: string | null): string {
+  if (!lastUpdateAt) return createdAt;
+  const createdMs = new Date(createdAt).getTime();
+  const lastUpdateMs = new Date(lastUpdateAt).getTime();
+  if (!Number.isNaN(createdMs) && !Number.isNaN(lastUpdateMs) && lastUpdateMs > createdMs) {
+    return lastUpdateAt;
+  }
+  return createdAt;
+}
+
 import { getDisplayTimezone } from '$lib/stores/timezoneStore';
 
 function resolvedTimeZone() {

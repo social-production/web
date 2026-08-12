@@ -108,22 +108,21 @@
       padding: 12px;
     }
 
-    .phase-tab {
+    .phase-tab,
+    .phase-tab.future-phase:not(.active),
+    .phase-tab.locked-phase:not(.active),
+    .phase-tab:hover:not(:disabled):not(.active),
+    .phase-tab.active,
+    .phase-tab.future-phase:hover:not(:disabled):not(.active),
+    .phase-tab.locked-phase:hover:not(:disabled):not(.active) {
       min-height: auto;
       min-width: 0;
       padding: 0;
       border: none;
       background: transparent;
       box-shadow: none;
-      justify-items: center;
-    }
-
-    .phase-tab:hover:not(:disabled):not(.active),
-    .phase-tab.active {
-      border: none;
-      background: transparent;
-      box-shadow: none;
       color: inherit;
+      justify-items: center;
     }
 
     .phase-tab-title,

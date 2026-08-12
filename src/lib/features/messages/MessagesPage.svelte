@@ -1922,7 +1922,7 @@
       z-index: 20;
       overflow-y: auto;
       border: none;
-      padding: 12px 12px calc(12px + var(--shell-safe-bottom));
+      padding: 12px;
       background: var(--panel);
     }
   }

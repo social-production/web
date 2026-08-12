@@ -91,7 +91,7 @@
     z-index: 75;
     display: grid;
     gap: 8px;
-    padding: 8px 16px calc(12px + var(--shell-safe-bottom));
+    padding: 8px 16px 12px;
     border-top: 1px solid var(--panel-border);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     background: var(--panel);

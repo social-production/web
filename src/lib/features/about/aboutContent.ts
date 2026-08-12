@@ -119,9 +119,9 @@ export const aboutGovernanceSummary = {
   lead: 'Nobody owns Social Production. Users govern it collectively. Decisions pass with 66% approval of votes cast, once a derived quorum is met.',
   rules: [
     'Approval is always 66% of votes cast. That never changes.',
-    'Quorum is derived from weekly active users in the relevant audience. It is not “every active user must vote.”',
-    'Ordinary projects and events use their own weekly active members for quorum.',
-    'Platform-tagged projects and events use platform weekly actives, because they affect everyone. If platform is tagged alongside other channels or communities, platform still sets the quorum context.',
+    'Quorum is the required-votes formula applied to audience size N. It is not “every member must vote,” and N itself is not the quorum.',
+    'Ordinary projects and events use weekly unique active members (within membership) as N, then apply the formula.',
+    'Platform-tagged projects and events use platform weekly actives as N, because they affect everyone. If platform is tagged alongside other channels or communities, platform still sets the quorum context.',
     'On platform-tagged items, any signed-in user can cast signals and governance votes — membership is not required.',
     'Meeting a threshold unlocks a transition vote. It does not auto-advance anything.',
     'Moderation uses the same audience-derived approach: required votes cast + yes share, not unanimous turnout.'
@@ -129,7 +129,7 @@ export const aboutGovernanceSummary = {
 };
 
 export const quorumFormulaSteps = [
-  'Start from audience size N: weekly unique users with at least one meaningful action in the last 7 days, in the relevant scope.',
+  'Start from audience size N: weekly unique users with at least one meaningful action in the last 7 days — within project/event membership for ordinary items, or across the platform for platform-tagged items.',
   'Choose a margin of error that tightens as N grows: roughly 10% → 7% for small groups, 7% → 5% into the mid hundreds, then down toward about 2% at very large scale.',
   'Use the Cochran sample-size formula to estimate how many votes you need for that confidence level, then adjust for finite population size.',
   'For tiny groups, also apply a small-group ceiling of ceil(0.75 × N). The final quorum is the minimum of that ceiling and the Cochran result. Rounding can still push a tiny group slightly above 75% — for example N = 10 → 8 votes (80%).',

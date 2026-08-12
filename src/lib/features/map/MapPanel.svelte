@@ -207,18 +207,20 @@
     }, RADIUS_SYNC_BUFFER_MS);
   }
 
-  function syncRadiusOverlay() {
-    if (!adapter || centerLat == null || centerLon == null) {
+  function syncRadiusOverlay(override?: { lat: number; lon: number }) {
+    const lat = override?.lat ?? centerLat;
+    const lon = override?.lon ?? centerLon;
+    if (!adapter || lat == null || lon == null) {
       adapter?.setCenterMarker?.(null);
       adapter?.clearRadiusCircle?.();
       return;
     }
 
-    adapter.setCenterMarker?.({ latitude: centerLat, longitude: centerLon });
+    adapter.setCenterMarker?.({ latitude: lat, longitude: lon });
     const radius =
       currentRadiusKm ?? adapter.getViewportRadiusKm?.() ?? effectiveRadiusKm(radiusKm);
     if (radius != null) {
-      adapter.setRadiusCircle?.({ latitude: centerLat, longitude: centerLon }, radius);
+      adapter.setRadiusCircle?.({ latitude: lat, longitude: lon }, radius);
     }
   }
 
@@ -467,6 +469,13 @@
       zoom: zoomHint
     });
     adapter.setCenterMarker?.({ latitude: lat, longitude: lon });
+    const radiusForOverlay = effectiveRadiusKm(radiusKm);
+    if (radiusKm !== GLOBAL_RADIUS_VALUE && radiusForOverlay != null) {
+      currentRadiusKm = radiusForOverlay;
+      adapter.setRadiusCircle?.({ latitude: lat, longitude: lon }, radiusForOverlay);
+    } else {
+      adapter.clearRadiusCircle?.();
+    }
 
     if (radiusKm === GLOBAL_RADIUS_VALUE) {
       endRadiusSync();
@@ -662,7 +671,8 @@
     scheduleMapResize();
   }
 
-  function persistCenter() {
+  function persistCenter(options?: { deviceGeolocationEnabled?: boolean }) {
+    const previous = readDefaultLocation(viewerId());
     writeDefaultLocation(viewerId(), {
       displayLabel: locationValue.displayLabel,
       latitude: locationValue.latitude,
@@ -672,30 +682,52 @@
       precision: locationValue.precision,
       providerPlaceId: locationValue.providerPlaceId,
       locationId: locationValue.locationId,
-      deviceGeolocationEnabled: false
+      deviceGeolocationEnabled:
+        options?.deviceGeolocationEnabled ?? previous?.deviceGeolocationEnabled ?? false
     });
   }
 
-  function handleLocationChange(event: CustomEvent<LocationPickerValue>) {
-    const next = event.detail;
-    locationValue = next;
-    resetViewportQuery();
-    persistCenter();
-    fullscreenSearchOpen = false;
+  /**
+   * Canonical path for search selection + GPS: one anchor drives label, pin,
+   * radius, camera, and marker queries together.
+   */
+  async function applyAnchor(
+    next: LocationPickerValue,
+    options?: { deviceGeolocationEnabled?: boolean; broadenEmpty?: boolean }
+  ) {
+    if (next.latitude == null || next.longitude == null) {
+      locationValue = next;
+      persistCenter(options);
+      return;
+    }
+
     const lat = next.latitude;
     const lon = next.longitude;
-    if (lat != null && lon != null) {
-      void (async () => {
-        await mountMapIfNeeded({ lat, lon });
-        await tick();
-        await new Promise<void>((resolve) => {
-          syncRadiusToMapAt(lat, lon, resolve);
-        });
-        scheduleLoadMarkers({ lat, lon });
-        updateCurrentRadiusFromViewport();
-        void loadMarkersWithInitialBroadening({ lat, lon });
-      })();
+    locationValue = next;
+    resetViewportQuery();
+    persistCenter(options);
+    fullscreenSearchOpen = false;
+
+    await mountMapIfNeeded({ lat, lon });
+    await tick();
+    // Draw pin + radius immediately at the chosen place (don't wait for camera settle).
+    currentRadiusKm = effectiveRadiusKm(radiusKm);
+    syncRadiusOverlay({ lat, lon });
+    await new Promise<void>((resolve) => {
+      syncRadiusToMapAt(lat, lon, resolve);
+    });
+    updateCurrentRadiusFromViewport();
+    syncRadiusOverlay({ lat, lon });
+
+    if (options?.broadenEmpty) {
+      await loadMarkersWithInitialBroadening({ lat, lon });
+    } else {
+      await loadMarkers({ lat, lon });
     }
+  }
+
+  function handleLocationChange(event: CustomEvent<LocationPickerValue>) {
+    void applyAnchor(event.detail, { broadenEmpty: true });
   }
 
   async function useDeviceCenter() {
@@ -706,24 +738,19 @@
       showLocationToast(devicePositionErrorMessage(result.error));
       return;
     }
-    locationValue = {
-      ...emptyLocationPickerValue(),
-      displayLabel: result.label,
-      latitude: result.position.latitude,
-      longitude: result.position.longitude,
-      providerPlaceId: result.providerPlaceId
-    };
-    resetViewportQuery();
-    persistCenter();
-    await tick();
-    await new Promise<void>((resolve) => {
-      syncRadiusToMapAt(result.position.latitude, result.position.longitude, resolve);
-    });
-    updateCurrentRadiusFromViewport();
-    await loadMarkers({
-      lat: result.position.latitude,
-      lon: result.position.longitude
-    });
+    await applyAnchor(
+      {
+        ...emptyLocationPickerValue(),
+        displayLabel: result.label,
+        latitude: result.position.latitude,
+        longitude: result.position.longitude,
+        providerPlaceId: result.providerPlaceId,
+        region: result.region,
+        country: result.country,
+        locationId: null
+      },
+      { deviceGeolocationEnabled: true, broadenEmpty: true }
+    );
   }
 
   async function tryIpCenter() {
@@ -740,7 +767,8 @@
         region: hint.region,
         country: hint.country,
         precision: hint.precision,
-        providerPlaceId: hint.providerPlaceId
+        providerPlaceId: hint.providerPlaceId,
+        locationId: null
       };
       persistCenter();
       return true;
@@ -763,9 +791,12 @@
       displayLabel: result.label,
       latitude: result.position.latitude,
       longitude: result.position.longitude,
-      providerPlaceId: result.providerPlaceId
+      providerPlaceId: result.providerPlaceId,
+      region: result.region,
+      country: result.country,
+      locationId: null
     };
-    persistCenter();
+    persistCenter({ deviceGeolocationEnabled: true });
     return true;
   }
 

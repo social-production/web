@@ -68,7 +68,8 @@
   --radius-md: 6px;
   --radius-sm: 4px;
   --shell-safe-top: env(safe-area-inset-top, 0px);
-  --shell-safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Cap bottom inset so a mis-reported env() value cannot invent a second footer row. */
+  --shell-safe-bottom: min(env(safe-area-inset-bottom, 0px), 34px);
   --shell-safe-left: env(safe-area-inset-left, 0px);
   --shell-safe-right: env(safe-area-inset-right, 0px);
   --shell-touch-min: 44px;
@@ -174,17 +175,16 @@ body {
   --shell-bottom-nav-offset: var(--shell-bottom-nav-height);
 }
 
+/* Fixed full-height panes reserve the nav themselves — don't also pad main. */
 .shell-compact .main-content-compact:has(.conversation-page),
 .shell-compact .main-content-compact:has(.page-chat),
-.shell-compact .main-content-compact:has(.messages-shell),
-.shell-compact .main-content-compact:has(.notifications-page) {
+.shell-compact .main-content-compact:has(.messages-shell) {
   padding-bottom: 0;
 }
 
 .shell-compact .main-content-compact:has(.conversation-page) .main-frame,
 .shell-compact .main-content-compact:has(.page-chat) .main-frame,
-.shell-compact .main-content-compact:has(.messages-shell) .main-frame,
-.shell-compact .main-content-compact:has(.notifications-page) .main-frame {
+.shell-compact .main-content-compact:has(.messages-shell) .main-frame {
   padding-bottom: 0;
 }
 

@@ -159,7 +159,7 @@
     const viewerId = $page.data.bootstrap?.viewer?.id ?? null;
     try {
       const [hint] = await getIpLocationHint();
-      if (!hint) {
+      if (!hint || hint.latitude == null || hint.longitude == null) {
         regionalMessage =
           'IP location is unavailable. On localhost use search or device location; on a deployed site this uses your public IP.';
         return;
@@ -171,16 +171,17 @@
         longitude: hint.longitude,
         region: hint.region,
         country: hint.country,
-        precision: hint.precision,
-        providerPlaceId: hint.providerPlaceId
+        precision: hint.precision ?? 'approximate',
+        providerPlaceId: hint.providerPlaceId,
+        locationId: null
       };
       await handleLocationChange(new CustomEvent('change', { detail: locationValue }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : '';
+      const message = extractErrorMessage(error, error instanceof Error ? error.message : '');
       if (message.includes('ip_location_unavailable')) {
         regionalMessage =
           'IP location is unavailable on localhost. Use search or device location, or try again from a network address.';
-      } else if (message.includes('429')) {
+      } else if (message.includes('429') || message.includes('rate_limit')) {
         regionalMessage = 'Too many IP location requests. Wait a moment and try again.';
       } else {
         regionalMessage = 'IP location is unavailable right now.';

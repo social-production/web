@@ -166,7 +166,7 @@
             {/each}
           </ol>
           <div class="math-card" aria-label="Quorum formula summary">
-            <p><strong>Audience N</strong> = weekly unique active users in scope</p>
+            <p><strong>Audience N</strong> = weekly unique active members (ordinary projects/events), or platform weekly actives when platform-tagged</p>
             <p><strong>Margin of error</strong> tightens as N grows (about 10% → 2%)</p>
             <p><strong>Quorum</strong> = min(ceil(0.75 × N), Cochran sample size for that margin)</p>
             <p><strong>Pass</strong> when votes cast ≥ quorum and yes / total ≥ 66%</p>
