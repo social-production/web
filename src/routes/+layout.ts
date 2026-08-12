@@ -28,6 +28,7 @@ import { I18N_ENABLED } from '$lib/i18n/config';
 import { setDisplayTimezone } from '$lib/stores/timezoneStore';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
 import type { LayoutLoad } from './$types';
+import { measureAsync } from '$lib/utils/performanceDebug';
 
 export const ssr = false;
 
@@ -84,7 +85,7 @@ export const load = (async ({ url, depends }) => {
 
   let restoreResult: SessionRestoreResult = 'skipped';
   if (browser) {
-    restoreResult = await tryRestoreAuthenticatedSession();
+    restoreResult = await measureAsync('layout:session-restore', tryRestoreAuthenticatedSession);
   }
 
   let bootstrap: BootstrapPayload;
@@ -104,7 +105,7 @@ export const load = (async ({ url, depends }) => {
           })
         : null;
 
-    bootstrap = await loadBootstrapWithRetry();
+    bootstrap = await measureAsync('layout:bootstrap', loadBootstrapWithRetry);
     if (browser && shouldClearSessionAfterBootstrap(restoreResult, bootstrap)) {
       clearAuthenticatedSession();
       if (!hasRememberedAuthCookie()) {
@@ -116,13 +117,13 @@ export const load = (async ({ url, depends }) => {
     if (bootstrap.viewer) {
       if (settingsPromise) {
         try {
-          settings = await settingsPromise;
+          settings = await measureAsync('layout:settings-overlapped', () => settingsPromise);
         } catch (err) {
           toLoadError(err, 'Could not load account settings.');
         }
       } else {
         try {
-          settings = await getSettings();
+          settings = await measureAsync('layout:settings', getSettings);
         } catch (err) {
           if (isNetworkLoadError(err)) {
             settingsLoadFailedOnNetwork = true;

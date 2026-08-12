@@ -93,6 +93,7 @@ export interface AppAdapter {
     filter?: string;
     limit?: number;
     offset?: number;
+    before?: string | null;
   }): Promise<FeedPageResult<PublicFeedItem>>;
   getHomeFeed(options?: {
     sort?: 'trending' | 'recent' | 'popular';
@@ -107,6 +108,7 @@ export interface AppAdapter {
     filter?: string;
     limit?: number;
     offset?: number;
+    before?: string | null;
   }): Promise<FeedPageResult<PublicFeedItem>>;
   getRegionFeed(options: {
     lat: number;
@@ -184,6 +186,7 @@ export interface AppAdapter {
     filter?: string;
     limit?: number;
     offset?: number;
+    before?: string | null;
   }): Promise<FeedPageResult<PersonalFeedItem>>;
   getScopeFeedPage(options: {
     kind: 'channel' | 'community';

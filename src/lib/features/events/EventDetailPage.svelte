@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount, tick } from 'svelte';
   import EventChatTab from '$lib/features/events/detail/EventChatTab.svelte';
@@ -17,6 +17,7 @@
   import PlanAssessmentWizard from '$lib/components/shared/PlanAssessmentWizard.svelte';
   import { setEventEditVote, setEventPhaseChangeVote, setEventPlanCriterionRating, setEventPlanOverallVote, setEventPlanValueVote, setEventUpdateVote } from '$lib/services/commands/events';
   import type { EventPageData, PlanCriterionRating, ProjectApprovalVote } from '$lib/types/detail';
+  import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
   import {
     buildEventParticipationSteps,
     resolveCurrentParticipationStep
@@ -260,7 +261,7 @@
     }
 
     await setEventPlanCriterionRating(data.slug, pendingAssessmentPlanId, criterionId, rating);
-    await invalidateAll();
+    await invalidateEventDetail(data.slug);
   }
 
   async function handlePendingOverallVote(vote: ProjectApprovalVote | null) {
@@ -269,7 +270,7 @@
     }
 
     await setEventPlanOverallVote(data.slug, pendingAssessmentPlanId, vote);
-    await invalidateAll();
+    await invalidateEventDetail(data.slug);
     closePendingAssessment();
   }
 
@@ -297,7 +298,7 @@
         break;
     }
 
-    await invalidateAll();
+    await invalidateEventDetail(data.slug);
   }
 </script>
 

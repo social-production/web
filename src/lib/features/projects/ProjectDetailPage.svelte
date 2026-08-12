@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount, tick } from 'svelte';
   import ProjectChatTab from '$lib/features/projects/detail/ProjectChatTab.svelte';
@@ -18,6 +18,7 @@
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import { setProjectEditVote, setProjectMergeCapabilityChangeVote, setProjectPhaseChangeVote, setProjectPlanCriterionRating, setProjectPlanOverallVote, setProjectPlanValueVote, setProjectPullRequestVote, setProjectRepositoryReplacementVote, setProjectUpdateVote } from '$lib/services/commands/projects';
   import type { PlanCriterionRating, ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
+  import { invalidateProjectDetail } from '$lib/utils/detailInvalidation';
   import {
     buildProjectParticipationSteps,
     resolveCurrentParticipationStep
@@ -317,7 +318,7 @@
       criterionId,
       rating
     );
-    await invalidateAll();
+    await invalidateProjectDetail(data.slug);
   }
 
   async function handlePendingOverallVote(vote: ProjectApprovalVote | null) {
@@ -326,7 +327,7 @@
     }
 
     await setProjectPlanOverallVote(data.slug, pendingAssessmentPhaseId, pendingAssessmentPlanId, vote);
-    await invalidateAll();
+    await invalidateProjectDetail(data.slug);
     closePendingAssessment();
   }
 
@@ -365,7 +366,7 @@
         return;
     }
 
-    await invalidateAll();
+    await invalidateProjectDetail(data.slug);
   }
 
   async function handlePendingAction(item: PendingVoteItem) {

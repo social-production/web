@@ -9,9 +9,13 @@
   import {
     effectiveRadiusKm,
     normalizeRadiusFromUrl,
-    radiusPresetOptions
+    radiusPresetOptions,
   } from '$lib/location/radius';
-  import { getHomeFeedPage, getPublicFeedPage, getRegionFeedPage } from '$lib/services/queries/feeds';
+  import {
+    getHomeFeedPage,
+    getPublicFeedPage,
+    getRegionFeedPage,
+  } from '$lib/services/queries/feeds';
   import { getSettings } from '$lib/services/queries/account';
   import { updateSettings } from '$lib/services/commands/account';
   import { searchLocations } from '$lib/services/queries/locations';
@@ -19,21 +23,18 @@
   import {
     devicePositionErrorMessage,
     requestDevicePosition,
-    setDeviceGeolocationEnabled
+    setDeviceGeolocationEnabled,
   } from '$lib/location/geolocation';
   import { displayTimezone } from '$lib/stores/timezoneStore';
   import { debounce } from '$lib/utils/debounce';
   import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
-  import {
-    DEFAULT_FEED_PAGE_SIZE,
-    appendUniqueById
-  } from '$lib/types/pagination';
+  import { DEFAULT_FEED_PAGE_SIZE, appendUniqueById } from '$lib/types/pagination';
   import type {
     FeedSortPreference,
     FeedWindowPreference,
     PublicFeedFilterPreference,
     PublicFeedPreferences,
-    PublicFeedScopePreference
+    PublicFeedScopePreference,
   } from '$lib/types/account';
   import type { PublicFeedItem } from '$lib/types/feed';
   import {
@@ -41,11 +42,13 @@
     normalizeFeedWindow,
     resolveFeedCorePreferences,
     resolveLoaderFeedSync,
-    toFeedSortPreference
+    toFeedSortPreference,
   } from '$lib/utils/feedQuery';
   import { mergeFeedEngagement } from '$lib/utils/feedSignals';
 
   export let items: PublicFeedItem[];
+  export let initialHasMore: boolean | undefined = undefined;
+  export let initialCursor: string | null = null;
 
   type PublicScope = PublicFeedScopePreference;
   type PublicFilter = PublicFeedFilterPreference;
@@ -56,13 +59,13 @@
     scope: 'global',
     filter: 'all',
     sort: 'trending',
-    window: 'all'
+    window: 'all',
   };
 
   const scopeOptions = [
     { value: 'home', label: 'Home' },
     { value: 'global', label: 'Global' },
-    { value: 'region', label: 'Region' }
+    { value: 'region', label: 'Region' },
   ];
 
   const filterOptions = [
@@ -70,19 +73,19 @@
     { value: 'projects', label: 'Projects', icon: 'project' as const },
     { value: 'threads', label: 'Threads', icon: 'thread' as const },
     { value: 'events', label: 'Events', icon: 'event' as const },
-    { value: 'help_requests', label: 'Help requests', icon: 'help-request' as const }
+    { value: 'help_requests', label: 'Help requests', icon: 'help-request' as const },
   ];
 
   const sortOptions = [
     { value: 'trending', label: 'Trending' },
-    { value: 'recent', label: 'Most recent' }
+    { value: 'recent', label: 'Most recent' },
   ];
 
   const windowOptions = [
     { value: 'today', label: 'Today' },
     { value: 'week', label: 'This week' },
     { value: 'month', label: 'This month' },
-    { value: 'all', label: 'All time' }
+    { value: 'all', label: 'All time' },
   ];
 
   const radiusOptions = radiusPresetOptions;
@@ -105,8 +108,13 @@
   let visibleItems: PublicFeedItem[] = items;
   let feedLoading = false;
   let feedLoadingMore = false;
-  let feedHasMore = items.length >= DEFAULT_FEED_PAGE_SIZE;
+  let feedHasMore = initialHasMore ?? items.length >= DEFAULT_FEED_PAGE_SIZE;
   let feedOffset = items.length;
+  let feedCursor: string | null =
+    initialCursor ??
+    (items.at(-1) as { lastActivityAt?: string; createdAt?: string } | undefined)?.lastActivityAt ??
+    (items.at(-1) as { createdAt?: string } | undefined)?.createdAt ??
+    null;
   let feedRequestId = 0;
   let lastLoadedQuery = '';
   let lastSyncedItems = items;
@@ -129,7 +137,7 @@
         lon: item.longitude as number,
         providerPlaceId: item.providerPlaceId,
         region: item.region,
-        country: item.country
+        country: item.country,
       }));
   }, 300);
 
@@ -142,7 +150,7 @@
       scope: activeScope,
       filter: activeFilter,
       sort: activeSort,
-      window: activeWindow
+      window: activeWindow,
     };
   }
 
@@ -155,7 +163,7 @@
   function applyPreferences(preferences?: Partial<PublicFeedPreferences> | null) {
     const next: PublicFeedPreferences = {
       ...defaultPreferences,
-      ...(preferences ?? {})
+      ...(preferences ?? {}),
     };
     next.scope = normalizeScope(next.scope);
     next.sort = toFeedSortPreference(next.sort);
@@ -189,7 +197,7 @@
     const signature = preferenceSignature({
       ...defaultPreferences,
       ...settings.publicFeedPreferences,
-      scope: normalizeScope(settings.publicFeedPreferences.scope)
+      scope: normalizeScope(settings.publicFeedPreferences.scope),
     });
     if (signature === preferenceSignature(currentPreferences())) {
       return;
@@ -202,12 +210,14 @@
   }
 
   async function fetchPublicPage(offset: number) {
+    const useCursor = activeScope !== 'region' && offset > 0 && Boolean(feedCursor);
     const query = {
       sort: activeSort,
       window: activeWindow,
       filter: activeFilter,
       limit: DEFAULT_FEED_PAGE_SIZE,
-      offset
+      offset: useCursor ? 0 : offset,
+      before: useCursor ? feedCursor : null,
     };
 
     if (activeScope === 'home') {
@@ -220,7 +230,7 @@
           items: [] as PublicFeedItem[],
           limit: DEFAULT_FEED_PAGE_SIZE,
           offset,
-          hasMore: false
+          hasMore: false,
         };
       }
 
@@ -230,7 +240,7 @@
         lon: centerLon,
         radiusKm: effectiveRadiusKm(activeRadius),
         includeOnline,
-        tz: $displayTimezone || null
+        tz: $displayTimezone || null,
       });
     }
 
@@ -261,6 +271,7 @@
       if (requestId === feedRequestId) {
         visibleItems = pageResult.items;
         feedOffset = pageResult.items.length;
+        feedCursor = pageResult.nextCursor ?? null;
         feedHasMore = pageResult.hasMore;
         lastLoadedQuery = signature;
       }
@@ -291,6 +302,7 @@
       }
       visibleItems = appendUniqueById(visibleItems, pageResult.items);
       feedOffset += pageResult.items.length;
+      feedCursor = pageResult.nextCursor ?? feedCursor;
       feedHasMore = pageResult.hasMore;
     } finally {
       if (requestId === feedRequestId) {
@@ -322,7 +334,7 @@
       precision: 'approximate',
       providerPlaceId: suggestion.providerPlaceId ?? null,
       locationId: null,
-      deviceGeolocationEnabled: false
+      deviceGeolocationEnabled: false,
     });
     syncFeedQueryToUrl();
     lastLoadedQuery = '';
@@ -351,7 +363,7 @@
       precision: 'approximate',
       providerPlaceId: result.providerPlaceId,
       locationId: null,
-      deviceGeolocationEnabled: true
+      deviceGeolocationEnabled: true,
     });
     syncFeedQueryToUrl();
     lastLoadedQuery = '';
@@ -394,7 +406,7 @@
       activeFilter,
       activeWindow,
       hasClientQuery: Boolean(lastLoadedQuery),
-      hasClientItems: visibleItems.length > 0
+      hasClientItems: visibleItems.length > 0,
     });
     if (syncMode === 'merge') {
       visibleItems = mergeFeedEngagement(visibleItems, items);
@@ -494,7 +506,7 @@
       await goto(`${$page.url.pathname}${nextUrlSearch}`, {
         replaceState: true,
         noScroll: true,
-        keepFocus: true
+        keepFocus: true,
       });
     } finally {
       lastHydratedUrl = $page.url.search;
@@ -517,7 +529,7 @@
       saved,
       defaults: defaultPreferences,
       normalizeScope: normalizePublicScope,
-      normalizeFilter: (value) => normalizeFeedFilter(value)
+      normalizeFilter: (value) => normalizeFeedFilter(value),
     });
 
     activeScope = core.scope as PublicScope;
@@ -568,12 +580,18 @@
       lastHydratedUrl = $page.url.search;
       hydrateFromUrl($page.data.settings?.publicFeedPreferences);
       preferencesReady = true;
-      syncFeedQueryToUrl();
+      await syncFeedQueryToUrl();
       const signature = feedQuerySignature();
       if (items.length > 0) {
         visibleItems = items;
         feedOffset = items.length;
-        feedHasMore = items.length >= DEFAULT_FEED_PAGE_SIZE;
+        feedCursor =
+          initialCursor ??
+          (items.at(-1) as { lastActivityAt?: string; createdAt?: string } | undefined)
+            ?.lastActivityAt ??
+          (items.at(-1) as { createdAt?: string } | undefined)?.createdAt ??
+          null;
+        feedHasMore = initialHasMore ?? items.length >= DEFAULT_FEED_PAGE_SIZE;
         lastLoadedQuery = signature;
         return;
       }
@@ -684,7 +702,9 @@
         <ul class="suggestions">
           {#each placeSuggestions as suggestion}
             <li>
-              <button type="button" on:click={() => selectPlace(suggestion)}>{suggestion.label}</button>
+              <button type="button" on:click={() => selectPlace(suggestion)}
+                >{suggestion.label}</button
+              >
             </li>
           {/each}
         </ul>
@@ -713,7 +733,7 @@
       </section>
     {:else}
       {#each visibleItems as item (item.id)}
-        <PublicFeedCard item={item} />
+        <PublicFeedCard {item} />
       {/each}
       <InfiniteFeedSentinel
         disabled={!feedHasMore || feedLoading}

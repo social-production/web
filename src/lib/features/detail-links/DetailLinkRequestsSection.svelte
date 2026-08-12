@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import { onMount, tick } from 'svelte';
+  import { invalidateDetail } from '$lib/utils/detailInvalidation';
   import LinkCard from './LinkCard.svelte';
   import {
     formatLinkVoteRequirement,
@@ -185,7 +185,7 @@
       } else {
         await createEventManualLinkRequest(ownerSlug, target.kind, target.slug, summary.trim());
       }
-      await invalidateAll();
+      await invalidateDetail(ownerKind, ownerSlug);
       closeComposer();
     } finally {
       createPending = false;
@@ -208,7 +208,7 @@
       } else {
         await setEventManualLinkVote(slug, requestId, vote);
       }
-      await invalidateAll();
+      await invalidateDetail(ownerKind, ownerSlug);
     } finally {
       activeVotePendingId = null;
     }

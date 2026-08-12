@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { invalidateAll } from '$app/navigation';
+  import { invalidate } from '$app/navigation';
   import { page } from '$app/stores';
   import { tick } from 'svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
@@ -17,6 +17,7 @@
   import type { ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
 
   export let data: ProjectPageData;
+  const refreshProject = () => invalidate(`app:project:${data.slug}`);
   export let highlightedUpdateId: string | null = null;
   export let showMembersPanel = false;
   export let votesRenderedInHub = false;
@@ -129,7 +130,7 @@
 
       draftUpdateBody = '';
       showUpdateComposer = false;
-      await invalidateAll();
+      await refreshProject();
     } catch {
       updateMessage = isPersonalServiceProject(data.projectMode)
         ? 'This update could not be posted. Reload and try again.'
@@ -158,7 +159,7 @@
       }
 
       showEditComposer = false;
-      await invalidateAll();
+      await refreshProject();
     } catch {
       editMessage = isPersonalServiceProject(data.projectMode)
         ? 'These project details could not be saved. Reload and try again.'
@@ -200,12 +201,12 @@
 
   async function voteOnUpdateRequest(requestId: string, vote: ProjectApprovalVote | null) {
     await setProjectUpdateVote(data.slug, requestId, vote);
-    await invalidateAll();
+    await refreshProject();
   }
 
   async function voteOnEditRequest(requestId: string, vote: ProjectApprovalVote | null) {
     await setProjectEditVote(data.slug, requestId, vote);
-    await invalidateAll();
+    await refreshProject();
   }
 
   $: showMembershipButton = !isPersonalServiceProject(data.projectMode);

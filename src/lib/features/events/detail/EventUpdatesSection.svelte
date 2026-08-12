@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { invalidateAll } from '$app/navigation';
+  import { invalidate } from '$app/navigation';
   import { tick } from 'svelte';
   import DetailUpdateCard from '$lib/components/cards/details/DetailUpdateCard.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
@@ -15,6 +15,7 @@
   import type { EventPageData, ProjectApprovalVote } from '$lib/types/detail';
 
   export let data: EventPageData;
+  const refreshEvent = () => invalidate(`app:event:${data.slug}`);
   export let highlightedUpdateId: string | null = null;
   export let showMembersPanel = false;
   export let votesRenderedInHub = false;
@@ -87,7 +88,7 @@
       await requestEventUpdate(data.slug, draftUpdateBody);
       draftUpdateBody = '';
       showUpdateComposer = false;
-      await invalidateAll();
+      await refreshEvent();
     } catch {
       updateMessage = 'This update request could not be submitted. Reload and try again.';
     } finally {
@@ -107,7 +108,7 @@
     try {
       await requestEventEdit(data.slug, draftEditTitle, draftEditDescription);
       showEditComposer = false;
-      await invalidateAll();
+      await refreshEvent();
     } catch {
       editMessage = 'This edit request could not be submitted. Reload and try again.';
     } finally {
@@ -181,12 +182,12 @@
 
   async function voteOnUpdateRequest(requestId: string, vote: ProjectApprovalVote | null) {
     await setEventUpdateVote(data.slug, requestId, vote);
-    await invalidateAll();
+    await refreshEvent();
   }
 
   async function voteOnEditRequest(requestId: string, vote: ProjectApprovalVote | null) {
     await setEventEditVote(data.slug, requestId, vote);
-    await invalidateAll();
+    await refreshEvent();
   }
 
   $: memberButtonLabel = data.isPrivate ? 'Members / Editors' : 'Members';

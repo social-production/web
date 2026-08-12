@@ -1,10 +1,28 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto, invalidate } from '$app/navigation';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import { surfaceAccentCssVar, surfaceTypeAccent } from '$lib/utils/surfaceType';
-  import { setProjectActivityCommitment, setProjectEditVote, setProjectManualLinkVote, setProjectMergeCapabilityChangeVote, setProjectPhaseChangeVote, setProjectPlanOverallVote, setProjectPullRequestVote, setProjectRepositoryReplacementVote, setProjectUpdateVote } from '$lib/services/commands/projects';
-  import { setEventActivityCommitment, setEventEditVote, setEventManualLinkVote, setEventPhaseChangeVote, setEventPlanOverallVote, setEventUpdateVote, toggleEventMembership } from '$lib/services/commands/events';
+  import {
+    setProjectActivityCommitment,
+    setProjectEditVote,
+    setProjectManualLinkVote,
+    setProjectMergeCapabilityChangeVote,
+    setProjectPhaseChangeVote,
+    setProjectPlanOverallVote,
+    setProjectPullRequestVote,
+    setProjectRepositoryReplacementVote,
+    setProjectUpdateVote,
+  } from '$lib/services/commands/projects';
+  import {
+    setEventActivityCommitment,
+    setEventEditVote,
+    setEventManualLinkVote,
+    setEventPhaseChangeVote,
+    setEventPlanOverallVote,
+    setEventUpdateVote,
+    toggleEventMembership,
+  } from '$lib/services/commands/events';
   import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
   import type { RightRailActivityItem } from '$lib/types/bootstrap';
   import {
@@ -17,12 +35,27 @@
     readSeenRailIds,
     restoreAllRailItems,
     restoreRailItemId,
-    seenRailStorageKey
+    seenRailStorageKey,
   } from '$lib/utils/dismissedRailItems';
   import { scrollToPendingVote } from '$lib/utils/pendingVotes';
   import { formatLocalDateTime, formatScheduleLabel } from '$lib/utils/time';
 
   export let items: RightRailActivityItem[] = [];
+  function invalidateRailSubject(item: RightRailActivityItem) {
+    if (item.projectSlug) {
+      return invalidate(`app:project:${item.projectSlug}`);
+    }
+    if (item.eventSlug) {
+      return invalidate(`app:event:${item.eventSlug}`);
+    }
+    const routeMatch = item.href.match(/^\/(projects|events)\/([^/?#]+)/);
+    if (routeMatch?.[2]) {
+      const kind = routeMatch[1] === 'projects' ? 'project' : 'event';
+      return invalidate(`app:${kind}:${decodeURIComponent(routeMatch[2])}`);
+    }
+    return invalidate('app:bootstrap');
+  }
+
   export let historyItems: RightRailActivityItem[] = [];
   export let viewerId: string | null = null;
 
@@ -79,9 +112,7 @@
       item.kind === 'help-request-owned'
   );
   $: requestItems = visibleItems.filter((item) => item.kind === 'request');
-  $: voteItems = visibleItems.filter(
-    (item) => item.kind === 'vote' && !seenRailIds.has(item.id)
-  );
+  $: voteItems = visibleItems.filter((item) => item.kind === 'vote' && !seenRailIds.has(item.id));
 
   function requestClose() {
     dispatch('close');
@@ -194,7 +225,8 @@
   }
 
   function itemDetail(item: RightRailActivityItem) {
-    if (item.kind === 'request' && item.requesterUsername) return `Requested by ${item.requesterUsername}`;
+    if (item.kind === 'request' && item.requesterUsername)
+      return `Requested by ${item.requesterUsername}`;
     return item.countLabel ?? '';
   }
 
@@ -225,11 +257,15 @@
 
     return {
       entityKind: match[1] === 'events' ? ('event' as const) : ('project' as const),
-      slug: match[2]
+      slug: match[2],
     };
   }
 
-  async function handleRailVote(item: RightRailActivityItem, vote: 'yes' | 'no', event: MouseEvent) {
+  async function handleRailVote(
+    item: RightRailActivityItem,
+    vote: 'yes' | 'no',
+    event: MouseEvent
+  ) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -310,7 +346,7 @@
 
       markRailItemSeen(seenStorageKey, item.id);
       requestActivityRailRefresh();
-      await invalidateAll();
+      await invalidateRailSubject(item);
       if (item.voteKindLabel === 'link' || item.voteKindLabel === 'link_sever') {
         await goto(item.href);
       } else {
@@ -351,7 +387,7 @@
 
           markRailItemSeen(seenStorageKey, item.id);
           requestActivityRailRefresh();
-          await invalidateAll();
+          await invalidateRailSubject(item);
         } finally {
           pendingSubjectId = '';
         }
@@ -370,13 +406,12 @@
       await toggleEventMembership(item.eventSlug ?? item.subjectId);
       markRailItemSeen(seenStorageKey, item.id);
       requestActivityRailRefresh();
-      await invalidateAll();
+      await invalidateRailSubject(item);
     } finally {
       pendingSubjectId = '';
     }
   }
 </script>
-
 
 <section class="rail-panel">
   <section class="rail-section">
@@ -385,7 +420,10 @@
       {#if activityItems.length === 0}
         <div class="snapshot-row">
           <strong>No activity yet</strong>
-          <span>Tagged project activity, invites, and related events will appear here when they match your memberships.</span>
+          <span
+            >Tagged project activity, invites, and related events will appear here when they match
+            your memberships.</span
+          >
         </div>
       {:else}
         {#each activityItems as item}
@@ -402,9 +440,16 @@
             >
               ×
             </button>
-            <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
+            <button
+              class="activity-open-button"
+              type="button"
+              on:click={() => handleOpenItem(item)}
+            >
               <div class="activity-topline">
-                <SurfaceTypeLabel kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'productive'} />
+                <SurfaceTypeLabel
+                  kind={itemSurfaceKind(item)}
+                  projectMode={item.projectMode ?? 'productive'}
+                />
                 <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
               {#if itemKicker(item)}
@@ -430,7 +475,10 @@
       {#if helpRequestItems.length === 0}
         <div class="snapshot-row">
           <strong>No help requests yet</strong>
-          <span>Open requests in channels and communities you belong to, plus any you sign up for, appear here.</span>
+          <span
+            >Open requests in channels and communities you belong to, plus any you sign up for,
+            appear here.</span
+          >
         </div>
       {:else}
         {#each helpRequestItems as item}
@@ -446,9 +494,16 @@
             >
               ×
             </button>
-            <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
+            <button
+              class="activity-open-button"
+              type="button"
+              on:click={() => handleOpenItem(item)}
+            >
               <div class="activity-topline">
-                <SurfaceTypeLabel kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'productive'} />
+                <SurfaceTypeLabel
+                  kind={itemSurfaceKind(item)}
+                  projectMode={item.projectMode ?? 'productive'}
+                />
                 <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
               {#if itemKicker(item)}
@@ -477,7 +532,9 @@
       {#if requestItems.length === 0}
         <div class="snapshot-row">
           <strong>No open requests</strong>
-          <span>Service requests you can review will appear here and open the matching project card.</span>
+          <span
+            >Service requests you can review will appear here and open the matching project card.</span
+          >
         </div>
       {:else}
         {#each requestItems as item}
@@ -493,9 +550,16 @@
             >
               ×
             </button>
-            <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
+            <button
+              class="activity-open-button"
+              type="button"
+              on:click={() => handleOpenItem(item)}
+            >
               <div class="activity-topline">
-                <SurfaceTypeLabel kind={itemSurfaceKind(item)} projectMode={item.projectMode ?? 'collective-service'} />
+                <SurfaceTypeLabel
+                  kind={itemSurfaceKind(item)}
+                  projectMode={item.projectMode ?? 'collective-service'}
+                />
                 <span class="snapshot-time">{itemTimeLabel(item)}</span>
               </div>
               {#if itemKicker(item)}
@@ -521,7 +585,9 @@
       {#if voteItems.length === 0}
         <div class="snapshot-row">
           <strong>No active votes</strong>
-          <span>When your memberships have open decisions, they appear here for one-click voting.</span>
+          <span
+            >When your memberships have open decisions, they appear here for one-click voting.</span
+          >
         </div>
       {:else}
         {#each voteItems as item}
@@ -537,7 +603,11 @@
             >
               ×
             </button>
-            <button class="activity-open-button" type="button" on:click={() => handleOpenItem(item)}>
+            <button
+              class="activity-open-button"
+              type="button"
+              on:click={() => handleOpenItem(item)}
+            >
               <div class="activity-topline">
                 <SurfaceTypeLabel
                   kind={itemSurfaceKind(item)}
@@ -576,9 +646,7 @@
                 >
                   Record merge
                 </button>
-              {:else if
-                item.voteKindLabel !== 'pull_request' &&
-                (item.voteKindLabel !== 'plan' || item.voteSubKind === 'overall')}
+              {:else if item.voteKindLabel !== 'pull_request' && (item.voteKindLabel !== 'plan' || item.voteSubKind === 'overall')}
                 <button
                   class="vote-action-button reject-button"
                   disabled={pendingVoteId === item.id}
@@ -660,7 +728,11 @@
         <div class="cleared-list">
           {#each clearedItems as item}
             <div class="cleared-row">
-              <button class="cleared-open-button" type="button" on:click={() => handleOpenItem(item)}>
+              <button
+                class="cleared-open-button"
+                type="button"
+                on:click={() => handleOpenItem(item)}
+              >
                 <span class="cleared-kind">{itemKicker(item)}</span>
                 <strong>{item.title}</strong>
                 {#if item.meta}

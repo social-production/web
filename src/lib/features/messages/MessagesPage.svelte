@@ -41,6 +41,7 @@
   import type { DetailComment } from '$lib/types/detail';
   import { tick } from 'svelte';
   import { formatRelativeTime } from '$lib/utils/time';
+  import { startVisibilityPoll } from '$lib/utils/visibilityPoll';
 
   export let data: MessagesPageData;
   export let openConversationId: string | null = null;
@@ -85,8 +86,6 @@
   const INBOX_FOCUS_REFRESH_COOLDOWN_MS = 30_000;
 
   let lastKnownUnreadMessages = 0;
-  let threadPollTimer: number | null = null;
-  let inboxRefreshTimer: number | null = null;
   let lastInboxRefreshAt = 0;
   let inboxRefreshInFlight: Promise<void> | null = null;
   let shellHeightFrame: number | null = null;
@@ -307,6 +306,7 @@
 
   async function hydrateLinkedChats(options: { force?: boolean } = {}) {
     if (!browser) return;
+    if (options.force && document.visibilityState !== 'visible') return;
     if (linkedChatsLoading) return;
     if (linkedChatsHydrated && !options.force) return;
 
@@ -375,14 +375,22 @@
     lastKnownUnreadMessages = get(unreadCounts)?.messages ?? 0;
     void hydrateLinkedChats();
 
-    threadPollTimer = window.setInterval(() => {
-      void refreshActiveThread();
-    }, THREAD_POLL_MS);
-
-    inboxRefreshTimer = window.setInterval(() => {
-      void refreshMessagesInbox({ force: true });
-      void hydrateLinkedChats({ force: true });
-    }, INBOX_REFRESH_MS);
+    const stopThreadPolling = startVisibilityPoll(refreshActiveThread, {
+      activeMs: THREAD_POLL_MS,
+      idleMs: 60_000
+    });
+    const stopInboxPolling = startVisibilityPoll(
+      async () => {
+        await Promise.all([
+          refreshMessagesInbox({ force: true }),
+          hydrateLinkedChats({ force: true })
+        ]);
+      },
+      {
+        activeMs: INBOX_REFRESH_MS,
+        idleMs: INBOX_REFRESH_MS * 3
+      }
+    );
 
     window.addEventListener('focus', handleVisibilityOrFocus);
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
@@ -409,13 +417,8 @@
     });
 
     return () => {
-      if (threadPollTimer !== null) {
-        window.clearInterval(threadPollTimer);
-      }
-
-      if (inboxRefreshTimer !== null) {
-        window.clearInterval(inboxRefreshTimer);
-      }
+      stopThreadPolling();
+      stopInboxPolling();
 
       if (shellHeightFrame !== null) {
         window.cancelAnimationFrame(shellHeightFrame);

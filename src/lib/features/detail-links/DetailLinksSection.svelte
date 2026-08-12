@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import LinkCard from './LinkCard.svelte';
+  import { invalidateDetail } from '$lib/utils/detailInvalidation';
   import {
     formatLinkVoteRequirement,
     formatLinkVoteSummary,
@@ -89,7 +89,7 @@
       } else {
         await setEventManualLinkVote(slug, requestId, vote);
       }
-      await invalidateAll();
+      await invalidateDetail(ownerKind, ownerSlug);
     } finally {
       activeVotePendingId = null;
     }
@@ -104,7 +104,7 @@
       } else {
         await createEventManualLinkSeverRequest(ownerSlug, item.id);
       }
-      await invalidateAll();
+      await invalidateDetail(ownerKind, ownerSlug);
       expandedById = { ...expandedById, [item.id]: true };
     } finally {
       severPendingId = null;

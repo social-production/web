@@ -10,6 +10,7 @@ import { get } from 'svelte/store';
 import { requireViewer } from '$lib/utils/requireViewer';
 import { applyVoteTarget, invalidateFeedEngagementCache } from '$lib/utils/feedSignals';
 import type { VoteEngagement } from '$lib/utils/feedSignals';
+import { measureAsync } from '$lib/utils/performanceDebug';
 
 export function addComment(subject: CommentSubjectRef, body: string, parentId?: string) {
   return currentAdapter.addComment(subject, body, parentId);
@@ -35,7 +36,7 @@ export function setVote(target: VoteTargetRef, vote: VoteDirection) {
     return Promise.resolve();
   }
 
-  return currentAdapter.setVote(target, vote);
+  return measureAsync(`mutation:vote:${target.type}`, () => currentAdapter.setVote(target, vote));
 }
 
 export async function castFeedVote(

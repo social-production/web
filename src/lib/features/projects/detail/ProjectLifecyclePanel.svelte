@@ -1,8 +1,8 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
-  import { goto, invalidateAll } from '$app/navigation';
-  import { refreshBootstrap } from '$lib/services/queries/bootstrap';
+  import { goto } from '$app/navigation';
+  import { invalidateProjectDetail } from '$lib/utils/detailInvalidation';
   import { localDateTimeInputToIso } from '$lib/utils/eventSchedule';
   import { onDestroy, onMount, tick } from 'svelte';
   import { preserveScrollDuring } from '$lib/utils/time';
@@ -636,7 +636,7 @@
 
   async function refreshAfter(action: () => Promise<void>) {
     await action();
-    await Promise.all([invalidateAll(), refreshBootstrap()]);
+    await invalidateProjectDetail(data.slug, true);
   }
 
   function handlePhaseChangeRequest(
@@ -775,7 +775,7 @@
       return;
     }
 
-    await Promise.all([invalidateAll(), refreshBootstrap()]);
+    await invalidateProjectDetail(data.slug, true);
     productionForm = resetProductionForm();
     editingProductionPlanId = null;
     showPhaseTwoComposer = false;
@@ -834,7 +834,7 @@
       return;
     }
 
-    await Promise.all([invalidateAll(), refreshBootstrap()]);
+    await invalidateProjectDetail(data.slug, true);
     distributionForm = resetDistributionForm();
     showPhaseThreeComposer = false;
   }

@@ -10,17 +10,19 @@ export type FeedPageResult<T> = {
   limit: number;
   offset: number;
   hasMore: boolean;
+  nextCursor?: string | null;
 };
 
 export function toFeedPageResult<T>(
   items: T[],
-  meta: { limit: number; offset: number; rawCount: number }
+  meta: { limit: number; offset: number; rawCount: number; nextCursor?: string | null }
 ): FeedPageResult<T> {
   return {
     items,
     limit: meta.limit,
     offset: meta.offset,
-    hasMore: meta.rawCount >= meta.limit && meta.rawCount > 0
+    hasMore: meta.rawCount >= meta.limit && meta.rawCount > 0,
+    nextCursor: meta.nextCursor
   };
 }
 

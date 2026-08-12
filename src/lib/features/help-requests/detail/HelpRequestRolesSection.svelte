@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { invalidate } from '$app/navigation';
   import { commitHelpRequestRole, uncommitHelpRequestRole } from '$lib/services/commands/shared';
   import type { HelpRequestPageData, HelpRequestRoleData } from '$lib/types/detail';
 
@@ -38,7 +38,7 @@
         return;
       }
 
-      await invalidateAll();
+      await invalidate(`app:help_request:${data.id}`);
     } catch {
       roleMessage = 'Could not update role signup. Reload and try again.';
     } finally {

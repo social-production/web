@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import ProjectInventorySummary from './components/ProjectInventorySummary.svelte';
+  import { invalidateProjectDetail } from '$lib/utils/detailInvalidation';
   import { addProjectServiceRequest } from '$lib/services/commands/projects';
   import type { ProjectInventoryFrameData } from '$lib/types/detail';
 
@@ -139,7 +139,7 @@
         scheduledAt,
         endsAt
       });
-      await invalidateAll();
+      await invalidateProjectDetail(frame.projectSlug);
       requestedAssetQuantities = {};
       closeRequestComposer();
     } finally {

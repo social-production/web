@@ -15,7 +15,7 @@
     <button type="button" on:click={reloadPage}>Retry</button>
   </section>
 {:else}
-  <PublicFeed items={data.items} />
+  <PublicFeed items={data.items} initialHasMore={data.hasMore} initialCursor={data.nextCursor} />
 {/if}
 
 <style>

@@ -8,6 +8,7 @@
   import { registerEntityType } from '$lib/services/governanceEntityRegistry';
   import type { DetailComment, EventPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
+  import { startVisibilityPoll } from '$lib/utils/visibilityPoll';
   import {
     ChatSendError,
     createOptimisticComment,
@@ -43,10 +44,10 @@
   }
 
   onMount(() => {
-    const poll = window.setInterval(() => {
-      void refreshDiscussion();
-    }, 8000);
-    return () => window.clearInterval(poll);
+    return startVisibilityPoll(refreshDiscussion, {
+      activeMs: 8_000,
+      idleMs: 45_000
+    });
   });
 
   async function submitEventMessage(body: string) {

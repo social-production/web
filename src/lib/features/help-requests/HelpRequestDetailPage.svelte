@@ -11,6 +11,7 @@
   import { registerEntityType } from '$lib/services/governanceEntityRegistry';
   import type { DetailComment, HelpRequestPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
+  import { startVisibilityPoll } from '$lib/utils/visibilityPoll';
   import {
     ChatSendError,
     createOptimisticComment,
@@ -45,21 +46,26 @@
 
     syncCompact();
     media.addEventListener('change', syncCompact);
-    const poll = window.setInterval(() => {
-      if (activeTab !== 'chat') return;
-      void refreshSubjectDiscussion('help_request', data.id)
-        .then((refreshed) => {
+    const stopPolling = startVisibilityPoll(
+      async () => {
+        try {
+          const refreshed = await refreshSubjectDiscussion('help_request', data.id);
           serverDiscussion = refreshed;
           optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
-        })
-        .catch(() => {
+        } catch {
           // Keep current discussion until the next successful refresh.
-        });
-    }, 8000);
+        }
+      },
+      {
+        activeMs: 8_000,
+        idleMs: 45_000,
+        isActive: () => activeTab === 'chat'
+      }
+    );
 
     return () => {
       media.removeEventListener('change', syncCompact);
-      window.clearInterval(poll);
+      stopPolling();
     };
   });
 

@@ -6,7 +6,6 @@
   import AuthActionNotice from '$lib/components/shared/AuthActionNotice.svelte';
   import LeftRailPanel from '$lib/features/left-rail/LeftRailPanel.svelte';
   import RightRailPanel from '$lib/features/right-rail/RightRailPanel.svelte';
-  import MapPanel from '$lib/features/map/MapPanel.svelte';
   import MobileBottomNav from '$lib/app/shell/MobileBottomNav.svelte';
   import MobileMoreSheet from '$lib/app/shell/MobileMoreSheet.svelte';
   import CreateFab from '$lib/app/shell/CreateFab.svelte';
@@ -27,12 +26,12 @@
     dismissedRailStorageKey,
     readDismissedRailIds,
     readSeenRailIds,
-    seenRailStorageKey
+    seenRailStorageKey,
   } from '$lib/utils/dismissedRailItems';
   import {
     consumeCreateReturnScroll,
     isCreateEntrySurface,
-    isFeedDiscoveryPath
+    isFeedDiscoveryPath,
   } from '$lib/stores/createReturnState';
   import { feedReturnHref, rememberFeedReturnState } from '$lib/stores/feedReturnState';
 
@@ -59,11 +58,13 @@
   let moreSheetOpen = false;
   let createFabOpen = false;
   let searchInputElement: HTMLInputElement | null = null;
-  let mapPanel: MapPanel | null = null;
+  let MapPanelComponent: typeof import('$lib/features/map/MapPanel.svelte').default | null = null;
+  let mapPanel: { refreshMap: () => Promise<void> } | null = null;
   let feedChromeHidden = false;
   let lastFeedScrollY = 0;
   let keyboardOpen = false;
   let textFieldFocused = false;
+  let activityRailLoaded = activityRailItems.length > 0 || activityRailHistoryItems.length > 0;
 
   const toolbarLiveSearch = createLiveSearchScheduler();
 
@@ -81,9 +82,7 @@
   // Reserve bottom space only while the nav is visible. When it slides away,
   // drop the inset so short pages and scroll-reveal don't leave a dead band.
   $: shellBottomNavOffset =
-    isCompact &&
-    !keyboardOpen &&
-    !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
+    isCompact && !keyboardOpen && !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
       ? 'var(--shell-bottom-nav-height)'
       : '0px';
   $: shellTopbarHeight =
@@ -96,12 +95,14 @@
     document.body.style.overflow = mapSurfaceActive ? 'hidden' : '';
   }
 
-
   function deferUnreadRefresh() {
     if (typeof requestIdleCallback !== 'undefined') {
-      requestIdleCallback(() => {
-        void refreshUnreadCounts();
-      }, { timeout: 2000 });
+      requestIdleCallback(
+        () => {
+          void refreshUnreadCounts();
+        },
+        { timeout: 2000 }
+      );
       return;
     }
 
@@ -115,6 +116,7 @@
       activityRailItems = [];
       activityRailHistoryItems = [];
       lastActivityRailViewerId = null;
+      activityRailLoaded = true;
       return;
     }
     const viewerId = bootstrap.viewer.id;
@@ -123,10 +125,12 @@
         activityRailItems = rail.activityRail ?? [];
         activityRailHistoryItems = rail.activityRailHistory ?? [];
         lastActivityRailViewerId = viewerId;
+        activityRailLoaded = true;
       })
       .catch(() => {
         activityRailItems = bootstrap.activityRail ?? [];
         activityRailHistoryItems = bootstrap.activityRailHistory ?? [];
+        activityRailLoaded = true;
       });
   }
 
@@ -226,7 +230,11 @@
   $: seenStorageKey = seenRailStorageKey(bootstrap.viewer?.id ?? null);
   $: dismissedRailIds = readDismissedRailIds(dismissedStorageKey, $dismissedRailRevision);
   $: seenRailIds = readSeenRailIds(seenStorageKey, $dismissedRailRevision);
-  $: rightRailActionCount = countActionableRailItems(activityRailItems, dismissedRailIds, seenRailIds);
+  $: rightRailActionCount = countActionableRailItems(
+    activityRailItems,
+    dismissedRailIds,
+    seenRailIds
+  );
   $: showCreateFab =
     Boolean(bootstrap.viewer) &&
     isCreateFabRoute($page.url.pathname) &&
@@ -241,20 +249,28 @@
   onMount(() => {
     syncUnreadCountsFromBootstrap(bootstrap.unreadCounts);
     showThemeHint = localStorage.getItem('theme-hint-dismissed') !== 'true';
+    let lastBadgeRefreshAt = Date.now();
 
-    const refreshBadgeCounts = () => {
-      if (bootstrap.viewer) {
+    const refreshBadgeCounts = (force = false) => {
+      const now = Date.now();
+      if (
+        bootstrap.viewer &&
+        document.visibilityState === 'visible' &&
+        (force || now - lastBadgeRefreshAt >= 30_000)
+      ) {
+        lastBadgeRefreshAt = now;
         void refreshUnreadCounts();
       }
     };
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        refreshBadgeCounts();
+        refreshBadgeCounts(true);
       }
     };
 
-    window.addEventListener('focus', refreshBadgeCounts);
+    const onWindowFocus = () => refreshBadgeCounts();
+    window.addEventListener('focus', onWindowFocus);
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('scroll', handleFeedChromeScroll, { passive: true });
 
@@ -297,13 +313,7 @@
     viewport?.addEventListener('scroll', syncKeyboardState);
     syncKeyboardState();
 
-    const badgePoll = window.setInterval(refreshBadgeCounts, 30_000);
-    // Defer rail until after first paint so it does not compete with feed loads.
-    if (typeof requestIdleCallback !== 'undefined') {
-      requestIdleCallback(() => loadActivityRail(), { timeout: 2500 });
-    } else {
-      window.setTimeout(() => loadActivityRail(), 200);
-    }
+    const badgePoll = window.setInterval(() => refreshBadgeCounts(), 30_000);
 
     const media = window.matchMedia('(max-width: 1080px)');
     const syncLayout = () => {
@@ -335,6 +345,14 @@
     }
 
     syncLayout();
+    // Closed compact rails do no work until the user opens them.
+    if (!isCompact && !activityRailLoaded) {
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(() => loadActivityRail(), { timeout: 2500 });
+      } else {
+        window.setTimeout(() => loadActivityRail(), 200);
+      }
+    }
     media.addEventListener('change', syncLayout);
     window.addEventListener('resize', updateLayoutMetrics);
 
@@ -347,7 +365,7 @@
     document.addEventListener('keydown', handleDocumentKeydown);
 
     return () => {
-      window.removeEventListener('focus', refreshBadgeCounts);
+      window.removeEventListener('focus', onWindowFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       document.removeEventListener('keydown', handleDocumentKeydown);
       document.removeEventListener('focusin', onFocusIn);
@@ -383,6 +401,9 @@
 
   function toggleRightRail() {
     rightRailOpen = !rightRailOpen;
+    if (rightRailOpen && !activityRailLoaded) {
+      loadActivityRail();
+    }
     if (isCompact && rightRailOpen) {
       leftRailOpen = false;
       mapPanelOpen = false;
@@ -391,8 +412,17 @@
     }
   }
 
+  async function loadMapPanelComponent() {
+    if (MapPanelComponent) return;
+    const module = await import('$lib/features/map/MapPanel.svelte');
+    MapPanelComponent = module.default;
+  }
+
   async function toggleMapPanel() {
     const opening = !mapPanelOpen;
+    if (opening) {
+      await loadMapPanelComponent();
+    }
     if (opening && !isCompact) {
       railsBeforeMap = { left: leftRailOpen, right: rightRailOpen };
     }
@@ -510,7 +540,6 @@
     showThemeHint = false;
     localStorage.setItem('theme-hint-dismissed', 'true');
   }
-
 </script>
 
 <div
@@ -533,10 +562,24 @@
     class:topbar-map-pinned={mapSurfaceActive}
   >
     {#if isCompact && searchExpanded}
-      <form class="toolbar-search toolbar-search-expanded" role="search" on:submit={submitToolbarSearch}>
-        <button aria-label="Close search" class="search-close-button" type="button" on:click={closeSearch}>
+      <form
+        class="toolbar-search toolbar-search-expanded"
+        role="search"
+        on:submit={submitToolbarSearch}
+      >
+        <button
+          aria-label="Close search"
+          class="search-close-button"
+          type="button"
+          on:click={closeSearch}
+        >
           <svg aria-hidden="true" viewBox="0 0 24 24" class="search-icon">
-            <path d="M15.5 8.5 8.5 15.5M8.5 8.5l7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path
+              d="M15.5 8.5 8.5 15.5M8.5 8.5l7 7"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
           </svg>
         </button>
         <div class="toolbar-search-wrap">
@@ -565,7 +608,9 @@
       <a
         class="brand"
         href={isCreateEntrySurface($page.url.pathname) ? '/' : feedReturnHref('/')}
-        aria-label={isCreateEntrySurface($page.url.pathname) ? 'Social Production home' : 'Back to feed'}
+        aria-label={isCreateEntrySurface($page.url.pathname)
+          ? 'Social Production home'
+          : 'Back to feed'}
         on:click={handleBrandClick}
       >
         <span class="brand-mark">
@@ -603,7 +648,13 @@
               stroke-width="1.8"
               stroke-linejoin="round"
             />
-            <path d="M9 4.5v13M14 7v13" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none" />
+            <path
+              d="M9 4.5v13M14 7v13"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"
+              fill="none"
+            />
           </svg>
         </button>
         <button
@@ -616,10 +667,39 @@
           on:click={toggleRightRail}
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" class="panel-toggle-icon">
-            <rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.8" />
-            <path d="M4 9h16M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" />
-            <circle cx="17.5" cy="17.5" r="4.5" fill="var(--panel)" stroke="currentColor" stroke-width="1.6" />
-            <path d="M15.8 17.5 16.9 18.6 19.3 16.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            <rect
+              x="4"
+              y="5"
+              width="16"
+              height="15"
+              rx="2"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+            <path
+              d="M4 9h16M8 3v4M16 3v4"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              fill="none"
+            />
+            <circle
+              cx="17.5"
+              cy="17.5"
+              r="4.5"
+              fill="var(--panel)"
+              stroke="currentColor"
+              stroke-width="1.6"
+            />
+            <path
+              d="M15.8 17.5 16.9 18.6 19.3 16.2"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              fill="none"
+            />
           </svg>
           {#if rightRailActionCount > 0}
             <span class="panel-toggle-badge">
@@ -631,7 +711,12 @@
 
       <div class="toolbar-center">
         {#if isCompact}
-          <button aria-label="Open search" class="search-open-button" type="button" on:click={openSearch}>
+          <button
+            aria-label="Open search"
+            class="search-open-button"
+            type="button"
+            on:click={openSearch}
+          >
             <svg aria-hidden="true" viewBox="0 0 24 24" class="search-icon">
               <path
                 d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Zm6.8 2.2-4.2-4.2"
@@ -713,7 +798,11 @@
 
       <nav class="utility-nav" aria-label="Utilities">
         {#if !isCompact}
-          <a class:active-link={isActive('/about') || isActive('/roadmap')} class="utility-link" href="/about">{m.shell_nav_about()}</a>
+          <a
+            class:active-link={isActive('/about') || isActive('/roadmap')}
+            class="utility-link"
+            href="/about">{m.shell_nav_about()}</a
+          >
         {/if}
         {#if bootstrap.viewer}
           {#if !isCompact}
@@ -727,7 +816,12 @@
           {/if}
           {#if !isCompact}
             <div class="settings-wrap">
-              <a aria-label="Settings" class:active-link={isActive('/settings')} class="gear-button" href="/settings">
+              <a
+                aria-label="Settings"
+                class:active-link={isActive('/settings')}
+                class="gear-button"
+                href="/settings"
+              >
                 <svg aria-hidden="true" viewBox="0 0 24 24" class="gear-icon">
                   <path
                     d="M10.3 2h3.4l.5 2.4c.5.2 1 .4 1.5.6l2.1-1.2 2.4 2.4-1.2 2.1c.2.5.4 1 .6 1.5L22 10.3v3.4l-2.4.5c-.2.5-.4 1-.6 1.5l1.2 2.1-2.4 2.4-2.1-1.2c-.5.2-1 .4-1.5.6L13.7 22h-3.4l-.5-2.4c-.5-.2-1-.4-1.5-.6l-2.1 1.2-2.4-2.4 1.2-2.1c-.2-.5-.4-1-.6-1.5L2 13.7v-3.4l2.4-.5c.2-.5.4-1 .6-1.5L3.8 6.2l2.4-2.4 2.1 1.2c.5-.2 1-.4 1.5-.6L10.3 2Zm1.7 6.2A3.8 3.8 0 1 0 12 15.8 3.8 3.8 0 0 0 12 8.2Z"
@@ -738,7 +832,9 @@
               {#if showThemeHint}
                 <div class="theme-hint" role="status">
                   <p>{m.shell_theme_hint()}</p>
-                  <button class="theme-hint-dismiss" type="button" on:click={dismissThemeHint}>{m.shell_theme_hint_dismiss()}</button>
+                  <button class="theme-hint-dismiss" type="button" on:click={dismissThemeHint}
+                    >{m.shell_theme_hint_dismiss()}</button
+                  >
                 </div>
               {/if}
             </div>
@@ -751,12 +847,19 @@
   </header>
 
   {#if isCompact && (leftRailOpen || rightRailOpen)}
-    <button aria-label="Close side panels" class="rail-backdrop" on:click={closeCompactPanels}></button>
+    <button aria-label="Close side panels" class="rail-backdrop" on:click={closeCompactPanels}
+    ></button>
   {/if}
 
   <section class="map-overlay" class:map-overlay--open={mapPanelOpen} aria-hidden={!mapPanelOpen}>
-    {#if mapPanelOpen}
-      <MapPanel bind:this={mapPanel} active embedded on:close={closeMapPanel} />
+    {#if mapPanelOpen && MapPanelComponent}
+      <svelte:component
+        this={MapPanelComponent}
+        bind:this={mapPanel}
+        active
+        embedded
+        on:close={closeMapPanel}
+      />
     {/if}
   </section>
 
@@ -766,11 +869,7 @@
     class:content-grid--map-open={mapSurfaceActive}
   >
     <aside class="rail left-rail" data-open={leftRailOpen}>
-      <LeftRailPanel
-        {bootstrap}
-        {isActive}
-        closePanels={closeCompactPanels}
-      />
+      <LeftRailPanel {bootstrap} {isActive} closePanels={closeCompactPanels} />
     </aside>
 
     <main class="main-content" class:main-content-compact={isCompact}>
@@ -842,7 +941,9 @@
     border-bottom: 1px solid var(--panel-border);
     background: var(--toolbar-background);
     overflow: visible;
-    transition: transform 0.22s ease, margin-top 0.22s ease;
+    transition:
+      transform 0.22s ease,
+      margin-top 0.22s ease;
     will-change: transform, margin-top;
   }
 
@@ -928,7 +1029,10 @@
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-soft);
-    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+    transition:
+      border-color 0.16s ease,
+      background-color 0.16s ease,
+      color 0.16s ease;
   }
 
   .panel-toggle-icon,
@@ -1014,7 +1118,10 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-soft);
-    transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+    transition:
+      border-color 0.16s ease,
+      box-shadow 0.16s ease,
+      background-color 0.16s ease;
   }
 
   .toolbar-search-wrap {
@@ -1102,7 +1209,9 @@
     font-size: 13px;
     font-weight: 700;
     white-space: nowrap;
-    transition: background-color 0.18s ease, color 0.18s ease;
+    transition:
+      background-color 0.18s ease,
+      color 0.18s ease;
   }
 
   .nav-link-icon {
@@ -1147,7 +1256,10 @@
     border-radius: var(--radius-sm);
     background: var(--panel-soft);
     color: var(--text-main);
-    transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+    transition:
+      background-color 0.18s ease,
+      color 0.18s ease,
+      border-color 0.18s ease;
   }
 
   .gear-icon {

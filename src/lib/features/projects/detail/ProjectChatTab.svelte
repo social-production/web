@@ -8,6 +8,7 @@
   import { registerEntityType } from '$lib/services/governanceEntityRegistry';
   import type { DetailComment, ProjectPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
+  import { startVisibilityPoll } from '$lib/utils/visibilityPoll';
   import {
     ChatSendError,
     createOptimisticComment,
@@ -51,13 +52,14 @@
 
     syncCompact();
     media.addEventListener('change', syncCompact);
-    const poll = window.setInterval(() => {
-      void refreshDiscussion();
-    }, 8000);
+    const stopPolling = startVisibilityPoll(refreshDiscussion, {
+      activeMs: 8_000,
+      idleMs: 45_000
+    });
 
     return () => {
       media.removeEventListener('change', syncCompact);
-      window.clearInterval(poll);
+      stopPolling();
     };
   });
 

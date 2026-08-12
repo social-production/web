@@ -4,25 +4,34 @@ import { PERSONAL_FEED_DEPENDS } from '$lib/utils/feedSignals';
 import { DEFAULT_FEED_PAGE_SIZE } from '$lib/types/pagination';
 import type { PageLoad } from './$types';
 
-export const load = (async ({ depends }) => {
+export const load = (async ({ depends, parent, url }) => {
   depends(PERSONAL_FEED_DEPENDS);
 
   try {
+    const parentData = await parent();
+    const saved = parentData.settings?.personalFeedPreferences;
     const page = await getPersonalFeedPage({
-      scope: 'popular',
-      sort: 'popular',
+      scope: (url.searchParams.get('scope') ?? saved?.scope ?? 'popular') as
+        'following' | 'popular',
+      sort: (url.searchParams.get('sort') ?? saved?.sort ?? 'trending') as 'trending' | 'recent',
+      window: url.searchParams.get('window') ?? saved?.window ?? 'all',
+      filter: url.searchParams.get('filter') ?? saved?.filter ?? 'all',
       limit: DEFAULT_FEED_PAGE_SIZE,
-      offset: 0
+      offset: 0,
     });
     return {
       items: page.items,
-      loadError: null as string | null
+      hasMore: page.hasMore,
+      nextCursor: page.nextCursor ?? null,
+      loadError: null as string | null,
     };
   } catch (err) {
     if (isNetworkLoadError(err)) {
       return {
         items: [],
-        loadError: 'Could not load your personal feed. Check your connection and try again.'
+        hasMore: false,
+        nextCursor: null,
+        loadError: 'Could not load your personal feed. Check your connection and try again.',
       };
     }
 

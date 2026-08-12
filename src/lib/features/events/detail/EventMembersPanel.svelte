@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import MemberListPanel from '$lib/components/shared/MemberListPanel.svelte';
+  import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import { grantEventEditAccess, revokeEventEditAccess, shareEventWithUser } from '$lib/services/commands/events';
   import { getMessageContacts } from '$lib/services/queries/inbox';
@@ -21,7 +21,7 @@
 
     try {
       await grantEventEditAccess(data.slug, userId);
-      await invalidateAll();
+      await invalidateEventDetail(data.slug);
     } finally {
       editorActionPendingId = null;
     }
@@ -32,7 +32,7 @@
 
     try {
       await revokeEventEditAccess(data.slug, userId);
-      await invalidateAll();
+      await invalidateEventDetail(data.slug);
     } finally {
       editorActionPendingId = null;
     }
@@ -41,7 +41,7 @@
   async function handleInvite(username: string) {
     const result = await shareEventWithUser(data.slug, username);
     if (result.ok) {
-      await invalidateAll();
+      await invalidateEventDetail(data.slug);
     }
     return result;
   }

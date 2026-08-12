@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
@@ -14,6 +14,7 @@
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
   import { requireViewer } from '$lib/utils/requireViewer';
   import { buildSharePrefill } from '$lib/utils/sharePrefill';
+  import { invalidateProjectDetail } from '$lib/utils/detailInvalidation';
 
   let {
     data,
@@ -73,7 +74,7 @@
 
     try {
       await toggleProjectMembership(data.slug);
-      await invalidateAll();
+      await invalidateProjectDetail(data.slug);
     } catch {
       onMembershipChange?.({
         viewerIsMember: wasMember,
@@ -86,7 +87,7 @@
     const result = await shareProjectWithUser(data.slug, username);
 
     if (result.ok) {
-      await invalidateAll();
+      await invalidateProjectDetail(data.slug);
     }
 
     return result;

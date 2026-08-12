@@ -22,6 +22,38 @@ let refreshInFlight: Promise<boolean> | null = null;
 
 const MAX_ERROR_MESSAGE_LENGTH = 200;
 const INVALID_RESPONSE_MESSAGE = 'The server returned an unexpected response.';
+const PERFORMANCE_DEBUG_KEY = 'sp_perf_debug';
+
+function performanceDebugEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(PERFORMANCE_DEBUG_KEY) === '1';
+}
+
+function finishGatewayTiming(
+  path: string,
+  method: HttpMethod,
+  startedAt: number,
+  response: Response,
+  clientRequestId: string
+) {
+  if (typeof performance === 'undefined' || !performanceDebugEnabled()) return;
+  const durationMs = performance.now() - startedAt;
+  const serverTiming = response.headers.get('server-timing');
+  const requestId = response.headers.get('x-request-id') ?? clientRequestId;
+  performance.measure(`gateway:${method}:${path}`, {
+    start: startedAt,
+    end: performance.now(),
+    detail: { requestId, status: response.status, serverTiming }
+  });
+  console.info('[sp-perf] gateway', {
+    method,
+    path,
+    status: response.status,
+    durationMs: Math.round(durationMs * 10) / 10,
+    requestId,
+    serverTiming
+  });
+}
 
 function configuredSupabaseUrl(): string {
   return (import.meta.env.VITE_SUPABASE_URL ?? 'http://127.0.0.1:54321').replace(/\/$/, '');
@@ -235,9 +267,16 @@ async function requestGateway<T>(
   allowRefresh = true
 ): Promise<T> {
   const isBrowser = typeof window !== 'undefined';
+  const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const clientRequestId =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const headers = buildHeaders(method, body);
+  headers['X-Request-Id'] = clientRequestId;
   const options: RequestInit = {
     method,
-    headers: buildHeaders(method, body)
+    headers
   };
   if (body !== undefined && method !== 'GET' && method !== 'DELETE') {
     options.body = JSON.stringify(body);
@@ -251,6 +290,7 @@ async function requestGateway<T>(
     const detail = err instanceof Error ? err.message : String(err);
     throw new TypeError(`Network request failed for ${url}: ${detail}`);
   }
+  finishGatewayTiming(path, method, startedAt, response, clientRequestId);
 
   if (
     response.status === 401 &&

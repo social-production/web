@@ -74,13 +74,10 @@ export async function createProjectViaUi(
     .getByPlaceholder(/search channels|Type to search channels/i)
     .first();
   await channelInput.fill('platform');
-  await page.waitForTimeout(800);
-  const suggestion = page.locator('main').getByText(/^Platform$/i).first();
-  if (await suggestion.isVisible().catch(() => false)) {
-    await suggestion.click();
-  } else {
-    await channelInput.press('Enter');
-  }
+  const suggestion = page.locator('main').getByRole('button', { name: /^Platform$/i }).first();
+  await expect(suggestion).toBeVisible({ timeout: 10_000 });
+  await suggestion.click();
+  await expect(channelInput).toHaveValue('');
   await clickWizardContinue(page);
 
   // Overview → submit

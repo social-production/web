@@ -1,10 +1,9 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { invalidateAll } from '$app/navigation';
-  import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import { page } from '$app/stores';
   import { onDestroy, onMount, tick } from 'svelte';
   import { preserveScrollDuring } from '$lib/utils/time';
+  import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
   import { composeActivityLocationLabel, normalizedRoleRequirements } from '$lib/utils/activityCreationSteps';
   import { resolveEventPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
   import EventLifecycleMechanicsCard from './components/EventLifecycleMechanicsCard.svelte';
@@ -422,13 +421,13 @@
     await addEventValue(data.slug, draftValue);
     draftValue = '';
     showValueComposer = false;
-    await invalidateAll();
+    await invalidateEventDetail(data.slug);
   }
 
   async function voteOnValue(valueId: string, vote: ProjectImportanceVoteValue) {
     await preserveScrollDuring(async () => {
       await setEventValueImportance(data.slug, valueId, vote);
-      await invalidateAll();
+      await invalidateEventDetail(data.slug);
     });
   }
 
@@ -473,7 +472,7 @@
 
     resetPlanForm();
     showPlanComposer = false;
-    await invalidateAll();
+    await invalidateEventDetail(data.slug);
   }
 
   async function ratePlanCriterion(
@@ -483,14 +482,14 @@
   ) {
     await preserveScrollDuring(async () => {
       await setEventPlanCriterionRating(data.slug, planId, criterionId, rating);
-      await invalidateAll();
+      await invalidateEventDetail(data.slug);
     });
   }
 
   async function voteOnPlanOverall(planId: string, vote: ProjectApprovalVote | null) {
     await preserveScrollDuring(async () => {
       await setEventPlanOverallVote(data.slug, planId, vote);
-      await invalidateAll();
+      await invalidateEventDetail(data.slug);
     });
   }
 
@@ -562,12 +561,12 @@
     });
     resetActivityForm();
     showActivityComposer = false;
-    await invalidateAll();
+    await invalidateEventDetail(data.slug);
   }
 
   async function changeCommitment(activityId: string, roleLabel: string | null) {
     await setEventActivityCommitment(data.slug, activityId, roleLabel);
-    await invalidateAll();
+    await invalidateEventDetail(data.slug);
   }
 
   async function saveActivityRating(
@@ -576,12 +575,12 @@
     comment: string | null
   ) {
     await setEventActivityRating(data.slug, activityId, rating, comment);
-    await Promise.all([invalidateAll(), refreshBootstrap()]);
+    await invalidateEventDetail(data.slug, true);
   }
 
   async function deleteActivityRating(activityId: string) {
     await deleteEventActivityRating(data.slug, activityId);
-    await Promise.all([invalidateAll(), refreshBootstrap()]);
+    await invalidateEventDetail(data.slug, true);
   }
 
   async function toggleHistoryCompletion(
@@ -590,7 +589,7 @@
     selection?: ProjectServiceHistoryCompletionChoice
   ) {
     await toggleEventHistoryCompletion(data.slug, historyId, role, selection);
-    await Promise.all([invalidateAll(), refreshBootstrap()]);
+    await invalidateEventDetail(data.slug, true);
   }
 
   async function requestPhaseChange(targetPhaseId: EventLifecyclePhaseId, reason: string) {
@@ -605,7 +604,7 @@
     try {
       await requestEventPhaseChange(data.slug, targetPhaseId, reason);
       phaseChangeReason = '';
-      await Promise.all([invalidateAll(), refreshBootstrap()]);
+      await invalidateEventDetail(data.slug, true);
     } catch {
       // Phase change failed — demand threshold may not be met
     }
@@ -613,7 +612,7 @@
 
   async function voteOnPhaseChange(requestId: string, vote: ProjectApprovalVote | null) {
     await setEventPhaseChangeVote(data.slug, requestId, vote);
-    await Promise.all([invalidateAll(), refreshBootstrap()]);
+    await invalidateEventDetail(data.slug, true);
   }
 </script>
 

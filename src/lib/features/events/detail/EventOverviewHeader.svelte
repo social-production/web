@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
@@ -15,6 +15,7 @@
   import { formatLocalDateTime } from '$lib/utils/time';
   import { requireViewer } from '$lib/utils/requireViewer';
   import { buildSharePrefill } from '$lib/utils/sharePrefill';
+  import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
 
   let {
     data,
@@ -110,7 +111,7 @@
 
     try {
       await toggleEventMembership(data.slug);
-      await invalidateAll();
+      await invalidateEventDetail(data.slug);
     } catch {
       onMembershipChange?.({
         viewerIsMember: wasMember,
@@ -123,7 +124,7 @@
     const result = await shareEventWithUser(data.slug, username);
 
     if (result.ok) {
-      await invalidateAll();
+      await invalidateEventDetail(data.slug);
     }
 
     return result;

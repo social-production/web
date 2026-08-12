@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import DecisionHistoryList from '$lib/components/shared/DecisionHistoryList.svelte';
+  import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
   import {
     setEventEditVote,
     setEventManualLinkVote,
@@ -32,7 +32,7 @@
         return;
     }
 
-    await invalidateAll();
+    await invalidateEventDetail(data.slug);
   }
 </script>
 

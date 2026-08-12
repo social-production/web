@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { invalidate } from '$app/navigation';
   import DiscussionComment from '$lib/components/discussion/DiscussionComment.svelte';
   import CommentComposer from '$lib/components/shared/CommentComposer.svelte';
   import { addComment } from '$lib/services/commands/shared';
@@ -8,7 +8,9 @@
   import type { CommentSubjectType } from '$lib/types/governance';
   import { applyVoteTarget } from '$lib/utils/feedSignals';
 
-  export let data: Pick<PostPageData | ThreadPageData, 'id' | 'discussion'>;
+  export let data: Pick<PostPageData | ThreadPageData, 'id' | 'discussion'> & {
+    slug?: string;
+  };
   export let subjectType: CommentSubjectType;
   export let highlightedCommentId: string | null = null;
   export let embedded = false;
@@ -51,7 +53,15 @@
     await addComment({ id: data.id, type: subjectType }, draftComment);
     draftComment = '';
     await composer?.resetHeight();
-    await invalidateAll();
+    const dependency =
+      subjectType === 'post'
+        ? `app:post:${data.id}`
+        : data.slug
+          ? `app:thread:${data.slug}`
+          : null;
+    if (dependency) {
+      await invalidate(dependency);
+    }
   }
 
   function handleCommentVote(commentId: string, vote: VoteDirection) {

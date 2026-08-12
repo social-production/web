@@ -1,7 +1,10 @@
 import type { HandleClientError } from '@sveltejs/kit';
 import { dev } from '$app/environment';
+import { startLongTaskObserver } from '$lib/utils/performanceDebug';
 
 const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 200;
+
+startLongTaskObserver();
 
 function sanitizeClientMessage(message: string): string {
   const trimmed = message.trim();

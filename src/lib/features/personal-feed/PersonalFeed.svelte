@@ -9,16 +9,13 @@
   import { getPersonalFeedPage } from '$lib/services/queries/feeds';
   import { getSettings } from '$lib/services/queries/account';
   import { updateSettings } from '$lib/services/commands/account';
-  import {
-    DEFAULT_FEED_PAGE_SIZE,
-    appendUniqueById
-  } from '$lib/types/pagination';
+  import { DEFAULT_FEED_PAGE_SIZE, appendUniqueById } from '$lib/types/pagination';
   import type {
     FeedSortPreference,
     FeedWindowPreference,
     PersonalFeedFilterPreference,
     PersonalFeedPreferences,
-    PersonalFeedScopePreference
+    PersonalFeedScopePreference,
   } from '$lib/types/account';
   import type { PersonalFeedItem } from '$lib/types/feed';
   import { mergeFeedEngagement } from '$lib/utils/feedSignals';
@@ -26,10 +23,12 @@
     normalizeFeedWindow,
     resolveFeedCorePreferences,
     resolveLoaderFeedSync,
-    toFeedSortPreference
+    toFeedSortPreference,
   } from '$lib/utils/feedQuery';
 
   export let items: PersonalFeedItem[];
+  export let initialHasMore: boolean | undefined = undefined;
+  export let initialCursor: string | null = null;
 
   type PersonalScope = PersonalFeedScopePreference;
   type PersonalFilter = PersonalFeedFilterPreference;
@@ -40,12 +39,12 @@
     scope: 'popular',
     filter: 'all',
     sort: 'trending',
-    window: 'all'
+    window: 'all',
   };
 
   const scopeOptions = [
     { value: 'following', label: 'Following only' },
-    { value: 'popular', label: 'Following + popular' }
+    { value: 'popular', label: 'Following + popular' },
   ];
 
   const filterOptions = [
@@ -53,26 +52,31 @@
     { value: 'activity', label: 'Public activity' },
     { value: 'posts', label: 'Posts', icon: 'post' as const },
     { value: 'events', label: 'Events', icon: 'event' as const },
-    { value: 'help_requests', label: 'Help requests', icon: 'help-request' as const }
+    { value: 'help_requests', label: 'Help requests', icon: 'help-request' as const },
   ];
 
   const sortOptions = [
     { value: 'trending', label: 'Trending' },
-    { value: 'recent', label: 'Most recent' }
+    { value: 'recent', label: 'Most recent' },
   ];
 
   const windowOptions = [
     { value: 'today', label: 'Today' },
     { value: 'week', label: 'This week' },
     { value: 'month', label: 'This month' },
-    { value: 'all', label: 'All time' }
+    { value: 'all', label: 'All time' },
   ];
 
   let feedItems: PersonalFeedItem[] = items;
   let feedItemsLoading = false;
   let feedItemsLoadingMore = false;
-  let feedHasMore = items.length >= DEFAULT_FEED_PAGE_SIZE;
+  let feedHasMore = initialHasMore ?? items.length >= DEFAULT_FEED_PAGE_SIZE;
   let feedOffset = items.length;
+  let feedCursor: string | null =
+    initialCursor ??
+    (items.at(-1) as { lastActivityAt?: string; createdAt?: string } | undefined)?.lastActivityAt ??
+    (items.at(-1) as { createdAt?: string } | undefined)?.createdAt ??
+    null;
   let feedItemsRequestId = 0;
   let lastLoadedQuery = '';
   let lastSyncedItems = items;
@@ -95,7 +99,7 @@
       scope: activeScope,
       filter: activeFilter,
       sort: activeSort,
-      window: activeWindow
+      window: activeWindow,
     };
   }
 
@@ -115,7 +119,7 @@
   function applyPreferences(preferences?: Partial<PersonalFeedPreferences> | null) {
     const next: PersonalFeedPreferences = {
       ...defaultPreferences,
-      ...(preferences ?? {})
+      ...(preferences ?? {}),
     };
 
     isHydratingPreferences = true;
@@ -127,7 +131,7 @@
       scope: activeScope,
       filter: activeFilter,
       sort: activeSort,
-      window: activeWindow
+      window: activeWindow,
     });
     isHydratingPreferences = false;
   }
@@ -139,7 +143,7 @@
     }
     const signature = preferenceSignature({
       ...defaultPreferences,
-      ...settings.personalFeedPreferences
+      ...settings.personalFeedPreferences,
     });
     if (signature === preferenceSignature(currentPreferences())) {
       return;
@@ -213,11 +217,12 @@
         window: activeWindow,
         filter: apiFilter,
         limit: DEFAULT_FEED_PAGE_SIZE,
-        offset: 0
+        offset: 0,
       });
       if (requestId === feedItemsRequestId) {
         feedItems = pageResult.items;
         feedOffset = pageResult.items.length;
+        feedCursor = pageResult.nextCursor ?? null;
         feedHasMore = pageResult.hasMore;
         lastLoadedQuery = query;
       }
@@ -245,13 +250,15 @@
         window: activeWindow,
         filter: apiFilter,
         limit: DEFAULT_FEED_PAGE_SIZE,
-        offset: feedOffset
+        offset: feedCursor ? 0 : feedOffset,
+        before: feedCursor,
       });
       if (requestId !== feedItemsRequestId) {
         return;
       }
       feedItems = appendUniqueById(feedItems, pageResult.items);
       feedOffset += pageResult.items.length;
+      feedCursor = pageResult.nextCursor ?? feedCursor;
       feedHasMore = pageResult.hasMore;
     } finally {
       if (requestId === feedItemsRequestId) {
@@ -285,7 +292,7 @@
   }
 
   function itemTimestamp(item: PersonalFeedItem) {
-    return +(new Date(item.createdAt));
+    return +new Date(item.createdAt);
   }
 
   function matchesWindow(_item: PersonalFeedItem, _window: FeedWindow, _referenceTime: number) {
@@ -305,7 +312,7 @@
       activeFilter,
       activeWindow,
       hasClientQuery: Boolean(lastLoadedQuery),
-      hasClientItems: feedItems.length > 0
+      hasClientItems: feedItems.length > 0,
     });
     if (syncMode === 'merge') {
       feedItems = mergeFeedEngagement(feedItems, items);
@@ -378,7 +385,7 @@
       await goto(`${$page.url.pathname}${nextUrlSearch}`, {
         replaceState: true,
         noScroll: true,
-        keepFocus: true
+        keepFocus: true,
       });
     } finally {
       lastHydratedUrl = $page.url.search;
@@ -388,7 +395,9 @@
 
   function normalizePersonalScope(value: string | null | undefined): PersonalScope {
     const normalized = (value ?? '').trim().toLowerCase();
-    return normalized === 'following' || normalized === 'popular' ? normalized : defaultPreferences.scope;
+    return normalized === 'following' || normalized === 'popular'
+      ? normalized
+      : defaultPreferences.scope;
   }
 
   function hydrateFromUrl(saved = $page.data.settings?.personalFeedPreferences) {
@@ -398,7 +407,7 @@
       saved,
       defaults: defaultPreferences,
       normalizeScope: normalizePersonalScope,
-      normalizeFilter: normalizePersonalFilter
+      normalizeFilter: normalizePersonalFilter,
     });
     activeScope = core.scope as PersonalScope;
     activeFilter = core.filter as PersonalFilter;
@@ -424,7 +433,13 @@
       if (items.length > 0) {
         feedItems = items;
         feedOffset = items.length;
-        feedHasMore = items.length >= DEFAULT_FEED_PAGE_SIZE;
+        feedCursor =
+          initialCursor ??
+          (items.at(-1) as { lastActivityAt?: string; createdAt?: string } | undefined)
+            ?.lastActivityAt ??
+          (items.at(-1) as { createdAt?: string } | undefined)?.createdAt ??
+          null;
+        feedHasMore = initialHasMore ?? items.length >= DEFAULT_FEED_PAGE_SIZE;
         lastLoadedQuery = signature;
         return;
       }
@@ -486,11 +501,15 @@
       </section>
     {:else if visibleItems.length === 0}
       <section class="empty-card">
-        <p>{activeScope === 'following' ? 'No posts or activity from people you follow match this filter yet.' : 'No followed activity or popular public posts match this filter yet.'}</p>
+        <p>
+          {activeScope === 'following'
+            ? 'No posts or activity from people you follow match this filter yet.'
+            : 'No followed activity or popular public posts match this filter yet.'}
+        </p>
       </section>
     {:else}
       {#each visibleItems as item (item.id)}
-        <PersonalFeedCard item={item} />
+        <PersonalFeedCard {item} />
       {/each}
       <InfiniteFeedSentinel
         disabled={!feedHasMore || feedItemsLoading}

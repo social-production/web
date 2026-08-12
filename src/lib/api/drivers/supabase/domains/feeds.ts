@@ -15,6 +15,7 @@ type PublicFeedQuery = {
   filter?: string;
   limit?: number;
   offset?: number;
+  before?: string | null;
 };
 
 type RegionFeedQuery = PublicFeedQuery & {
@@ -79,6 +80,7 @@ async function fetchRawFeedPage(
   offset: number;
   hasMore?: boolean;
   total?: number;
+  nextCursor?: string | null;
 }> {
   const { sort, window, filter, scope, limit, offset, ...extra } = query;
   const qs = withExtraParams(
@@ -98,6 +100,7 @@ async function fetchRawFeedPage(
     offset?: number;
     hasMore?: boolean;
     total?: number;
+    nextCursor?: string | null;
   }>(`${path}${qs}`);
   const items = res.items ?? [];
   const pageLimit = res.limit ?? Number(limit ?? DEFAULT_FEED_PAGE_SIZE);
@@ -107,7 +110,8 @@ async function fetchRawFeedPage(
     limit: pageLimit,
     offset: pageOffset,
     hasMore: res.hasMore,
-    total: res.total
+    total: res.total,
+    nextCursor: res.nextCursor
   };
 }
 
@@ -118,17 +122,25 @@ function toTypedFeedPage<T>(
     offset: number;
     hasMore?: boolean;
     total?: number;
+    nextCursor?: string | null;
   },
   mapper: (items: unknown[]) => T[]
 ): FeedPageResult<T> {
   const items = mapper(raw.items);
   if (typeof raw.hasMore === 'boolean') {
-    return { items, limit: raw.limit, offset: raw.offset, hasMore: raw.hasMore };
+    return {
+      items,
+      limit: raw.limit,
+      offset: raw.offset,
+      hasMore: raw.hasMore,
+      nextCursor: raw.nextCursor
+    };
   }
   return toFeedPageResult(items, {
     limit: raw.limit,
     offset: raw.offset,
-    rawCount: typeof raw.total === 'number' ? raw.total : raw.items.length
+    rawCount: typeof raw.total === 'number' ? raw.total : raw.items.length,
+    nextCursor: raw.nextCursor
   });
 }
 

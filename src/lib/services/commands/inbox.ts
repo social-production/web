@@ -5,6 +5,8 @@ import { unreadCounts } from '$lib/stores/unreadCounts';
 import type { CreateGroupMessageInput } from '$lib/types/inbox';
 import type { UnreadCounts } from '$lib/types/bootstrap';
 
+let unreadRefreshInFlight: Promise<UnreadCounts> | null = null;
+
 function currentUnreadBase(): UnreadCounts | undefined {
   return get(unreadCounts) ?? get(page).data.bootstrap?.unreadCounts;
 }
@@ -43,10 +45,18 @@ export function syncUnreadCountsFromBootstrap(counts: UnreadCounts) {
   unreadCounts.set(counts);
 }
 
-export async function refreshUnreadCounts() {
-  const summary = await currentAdapter.getBootstrapSummary();
-  syncUnreadCountsFromBootstrap(summary.unreadCounts);
-  return summary.unreadCounts;
+export function refreshUnreadCounts() {
+  if (unreadRefreshInFlight) return unreadRefreshInFlight;
+  unreadRefreshInFlight = currentAdapter
+    .getBootstrapSummary()
+    .then((summary) => {
+      syncUnreadCountsFromBootstrap(summary.unreadCounts);
+      return summary.unreadCounts;
+    })
+    .finally(() => {
+      unreadRefreshInFlight = null;
+    });
+  return unreadRefreshInFlight;
 }
 
 export function markNotificationRead(notificationId: string) {
