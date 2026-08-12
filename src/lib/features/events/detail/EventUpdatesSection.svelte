@@ -6,14 +6,13 @@
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import GroupsIcon from '$lib/components/shared/GroupsIcon.svelte';
-  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import { requestEventEdit, requestEventUpdate, setEventEditVote, setEventUpdateVote } from '$lib/services/commands/events';
   import {
     formatProjectVoteRequirement,
     formatProjectVoteSummary
   } from '$lib/utils/projectVotes';
   import type { EventPageData, ProjectApprovalVote } from '$lib/types/detail';
-  import { formatRelativeTime, formatRelativeTimeCompact } from '$lib/utils/time';
 
   export let data: EventPageData;
   export let highlightedUpdateId: string | null = null;
@@ -326,13 +325,7 @@
       </button>
     {/if}
     <span class="footer-author-row">
-      <a class="inline-link" href={`/profile/${data.createdByUsername}`}>{data.createdByUsername}</a>
-      <span class="meta-chip" title={`created ${formatRelativeTime(data.createdAt)}`}>
-        <span class="meta-icon-wrap" aria-hidden="true">
-          <FeedToolbarIcon name="clock" />
-        </span>
-        <span>{formatRelativeTimeCompact(data.createdAt)}</span>
-      </span>
+      <ContentMetaRow authorUsername={data.createdByUsername} createdAt={data.createdAt} />
     </span>
   </div>
 
@@ -424,25 +417,12 @@
     gap: 6px;
   }
 
-  .meta-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .members-action :global(.meta-icon),
-  .meta-icon-wrap {
+  .members-action :global(.meta-icon) {
     width: 14px;
     height: 14px;
     flex: 0 0 auto;
     display: grid;
     place-items: center;
-  }
-
-  .meta-icon-wrap :global(.toolbar-icon),
-  .meta-icon-wrap :global(svg) {
-    width: 14px;
-    height: 14px;
   }
 
   .field-stack {
@@ -572,11 +552,6 @@
   .secondary-button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-  }
-
-  .inline-link {
-    color: var(--text-main);
-    font-weight: 700;
   }
 
   @media (max-width: 760px) {

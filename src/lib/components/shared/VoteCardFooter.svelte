@@ -1,6 +1,6 @@
 <script lang="ts">
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import type { ProjectApprovalVote } from '$lib/types/detail';
-  import { formatRelativeTime } from '$lib/utils/time';
 
   export let authorUsername: string;
   export let createdAt: string;
@@ -74,7 +74,9 @@
   {/if}
 
   {#if showMeta}
-    <span class="vote-card-meta">{authorUsername} · {formatRelativeTime(createdAt)}</span>
+    <span class="vote-card-meta">
+      <ContentMetaRow {authorUsername} {createdAt} />
+    </span>
   {/if}
 </div>
 

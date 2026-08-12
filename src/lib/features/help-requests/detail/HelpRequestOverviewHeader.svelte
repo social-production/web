@@ -5,10 +5,11 @@
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import { setVote } from '$lib/services/commands/shared';
   import type { HelpRequestPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
-  import { formatLocalDateTime, formatRelativeTime } from '$lib/utils/time';
+  import { formatLocalDateTime } from '$lib/utils/time';
 
   export let data: HelpRequestPageData;
 
@@ -77,8 +78,7 @@
     <CountPill label={`${data.commentCount} comments`} />
   </a>
   <span class="footer-author-row">
-    <a class="inline-link" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>
-    · {formatRelativeTime(data.createdAt)}
+    <ContentMetaRow authorUsername={data.authorUsername} createdAt={data.createdAt} />
   </span>
 </div>
 
@@ -174,11 +174,6 @@
   .comment-link {
     color: inherit;
     text-decoration: none;
-  }
-
-  .inline-link {
-    color: var(--text-main);
-    font-weight: 700;
   }
 
   @media (max-width: 760px) {

@@ -11,9 +11,9 @@
   import type { PersonalActivityItem, VoteDirection } from '$lib/types/feed';
   import { toVoteTargetType } from '$lib/types/governance';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
-  import { formatRelativeTime } from '$lib/utils/time';
   import { page } from '$app/stores';
   import { requireViewer } from '$lib/utils/requireViewer';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
 
   let { item }: { item: PersonalActivityItem } = $props();
 
@@ -132,7 +132,7 @@
       </a>
     </div>
     <div class="footer-meta">
-      <span>{formatRelativeTime(item.createdAt)}</span>
+      <ContentMetaRow timeOnly createdAt={item.createdAt} />
     </div>
   </div>
 </FeedSurface>

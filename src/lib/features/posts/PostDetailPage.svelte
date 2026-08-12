@@ -11,12 +11,12 @@
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import { setVote } from '$lib/services/commands/shared';
   import type { PostPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
   import { applyVoteTarget } from '$lib/utils/feedSignals';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
-  import { formatRelativeTime } from '$lib/utils/time';
 
   export let data: PostPageData;
 
@@ -94,7 +94,7 @@
           <FeedToolbarIcon name="sort" />
         </IconMenuButton>
       </div>
-      <span>{formatRelativeTime(data.createdAt)}</span>
+      <ContentMetaRow timeOnly createdAt={data.createdAt} />
     </div>
 
     <div class="comments-divider" aria-hidden="true"></div>
@@ -162,10 +162,5 @@
     color: var(--text-main);
     font-size: 16px;
     font-weight: 800;
-  }
-
-  span {
-    color: var(--text-soft);
-    line-height: 1.5;
   }
 </style>

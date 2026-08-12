@@ -6,19 +6,13 @@
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
-  import GroupsIcon from '$lib/components/shared/GroupsIcon.svelte';
-  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import { submitFeedEntitySignal } from '$lib/utils/signalEngagement';
   import type { PublicEventItem } from '$lib/types/feed';
   import { requireViewer } from '$lib/utils/requireViewer';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
-  import {
-    activityStampInstant,
-    describeUpdateTime,
-    formatLocalDateTime,
-    formatRelativeTimeCompact
-  } from '$lib/utils/time';
+  import { formatLocalDateTime } from '$lib/utils/time';
 
   let { item }: { item: PublicEventItem } = $props();
 
@@ -34,8 +28,6 @@
     isImplementedScheduleLabel(item.locationLabel) ? item.locationLabel.trim() : ''
   );
   const signalsDisabled = $derived(Boolean(item.isClosed));
-  const activityLabel = $derived(describeUpdateTime(item.createdAt, item.latestUpdateAt));
-  const activityInstant = $derived(activityStampInstant(item.createdAt, item.latestUpdateAt));
 
   async function handleSignal(signal: 'demand' | 'opposition') {
     if (!requireViewer($page.data.bootstrap?.viewer) || signalsDisabled) {
@@ -103,17 +95,12 @@
       </a>
     </div>
     <div class="footer-meta">
-      <a class="inline-link" href={`/profile/${item.createdByUsername}`}>{item.createdByUsername}</a>
-      <span class="meta-chip" title={`${item.memberCount} members`}>
-        <GroupsIcon className="meta-icon" />
-        <span>{item.memberCount}</span>
-      </span>
-      <span class="meta-chip activity-stamp" title={activityLabel} aria-label={activityLabel}>
-        <span class="meta-icon-wrap" aria-hidden="true">
-          <FeedToolbarIcon name="clock" />
-        </span>
-        <span>{formatRelativeTimeCompact(activityInstant)}</span>
-      </span>
+      <ContentMetaRow
+        authorUsername={item.createdByUsername}
+        memberCount={item.memberCount}
+        createdAt={item.createdAt}
+        updatedAt={item.latestUpdateAt}
+      />
     </div>
   </div>
 </FeedSurface>
@@ -198,11 +185,6 @@
     font-size: 13px;
   }
 
-  .inline-link {
-    color: var(--text-main);
-    font-weight: 700;
-  }
-
   .engagement-row {
     display: flex;
     gap: 8px;
@@ -223,32 +205,6 @@
     flex-wrap: nowrap;
     min-width: 0;
     text-align: right;
-    white-space: nowrap;
-  }
-
-  .meta-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--text-soft);
-  }
-
-  .meta-chip :global(.meta-icon),
-  .meta-icon-wrap {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-    display: grid;
-    place-items: center;
-  }
-
-  .meta-icon-wrap :global(.toolbar-icon),
-  .meta-icon-wrap :global(svg) {
-    width: 14px;
-    height: 14px;
-  }
-
-  .activity-stamp {
     white-space: nowrap;
   }
 

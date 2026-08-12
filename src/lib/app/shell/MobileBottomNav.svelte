@@ -42,86 +42,71 @@
   class:chrome-collapsed={collapsed}
   aria-hidden={collapsed}
 >
-  <div class="mobile-bottom-nav-row">
-    {#each tabs as tab}
-      <a
-        aria-label={tab.label}
-        class:active-link={isActive(tab.href)}
-        class="bottom-nav-item"
-        href={tab.href}
-      >
-        <span class="bottom-nav-icon" aria-hidden="true">
-          <FeedToolbarIcon name={tab.icon} />
-        </span>
-        {#if tab.badge && tab.badge > 0}
-          <CountBadge count={tab.badge} />
-        {/if}
-      </a>
-    {/each}
-
-    <button
-      aria-label="More"
+  {#each tabs as tab}
+    <a
+      aria-label={tab.label}
+      class:active-link={isActive(tab.href)}
       class="bottom-nav-item"
-      class:active-link={moreActive}
-      aria-expanded={moreActive}
-      aria-haspopup="dialog"
-      type="button"
-      on:click={onMore}
+      href={tab.href}
     >
       <span class="bottom-nav-icon" aria-hidden="true">
-        <FeedToolbarIcon name="more" />
+        <FeedToolbarIcon name={tab.icon} />
       </span>
-    </button>
-  </div>
-  <!-- Safe-area sits below the chrome row with page background so it cannot read as a
-       second empty toolbar strip (Firefox / notched devices). -->
-  <div class="mobile-bottom-nav-safe" aria-hidden="true"></div>
+      {#if tab.badge && tab.badge > 0}
+        <CountBadge count={tab.badge} />
+      {/if}
+    </a>
+  {/each}
+
+  <button
+    aria-label="More"
+    class="bottom-nav-item"
+    class:active-link={moreActive}
+    aria-expanded={moreActive}
+    aria-haspopup="dialog"
+    type="button"
+    on:click={onMore}
+  >
+    <span class="bottom-nav-icon" aria-hidden="true">
+      <FeedToolbarIcon name="more" />
+    </span>
+  </button>
 </nav>
 
 <style>
+  /*
+    Lift the chrome row above the safe-area inset instead of painting a second
+    strip under the buttons. Dark page/toolbar colors are nearly identical, so
+    any attached safe-area bar reads as a doubled footer.
+  */
   .mobile-bottom-nav {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--shell-safe-bottom);
     z-index: 55;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 2px;
+    height: var(--shell-bottom-nav-base);
+    min-height: var(--shell-bottom-nav-base);
+    max-height: var(--shell-bottom-nav-base);
     margin: 0;
-    padding: 0;
+    padding: 0 var(--shell-safe-right) 0 var(--shell-safe-left);
     border: none;
-    background: transparent;
+    border-top: 1px solid var(--panel-border);
+    background: var(--toolbar-background);
     transition: transform 0.22s ease, visibility 0.22s ease;
     will-change: transform;
   }
 
   .mobile-bottom-nav.chrome-collapsed {
-    transform: translateY(100%);
+    transform: translateY(calc(100% + var(--shell-safe-bottom)));
     pointer-events: none;
     visibility: hidden;
-  }
-
-  .mobile-bottom-nav-row {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 2px;
-    box-sizing: border-box;
-    height: var(--shell-bottom-nav-base);
-    min-height: var(--shell-bottom-nav-base);
-    max-height: var(--shell-bottom-nav-base);
-    padding: 0 var(--shell-safe-right) 0 var(--shell-safe-left);
-    border-top: 1px solid var(--panel-border);
-    background: var(--toolbar-background);
-  }
-
-  .mobile-bottom-nav-safe {
-    flex: 0 0 auto;
-    height: var(--shell-safe-bottom);
-    min-height: var(--shell-safe-bottom);
-    background: var(--page-background);
   }
 
   .bottom-nav-item {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import type { DetailUpdate } from '$lib/types/detail';
-  import { formatRelativeTime } from '$lib/utils/time';
   import { tick } from 'svelte';
 
   export let update: DetailUpdate;
@@ -32,8 +32,7 @@
 >
   <p class="update-body">{update.body}</p>
   <div class="update-meta">
-    <a class="inline-link" href={`/profile/${update.authorUsername}`}>{update.authorUsername}</a>
-    <span>updated {formatRelativeTime(update.createdAt)}</span>
+    <ContentMetaRow authorUsername={update.authorUsername} createdAt={update.createdAt} />
   </div>
 </article>
 
@@ -55,14 +54,10 @@
     box-shadow: inset 0 0 0 1px var(--brand);
   }
 
-  .update-body,
-  .update-meta span {
-    color: var(--text-soft);
-    line-height: 1.45;
-  }
-
   .update-body {
     margin: 0;
+    color: var(--text-soft);
+    line-height: 1.45;
   }
 
   .update-meta {
@@ -74,10 +69,4 @@
     text-align: right;
     font-size: 12px;
   }
-
-  .inline-link {
-    color: var(--text-main);
-    font-weight: 700;
-  }
-
 </style>

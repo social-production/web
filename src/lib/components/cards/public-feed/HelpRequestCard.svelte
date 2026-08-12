@@ -5,10 +5,11 @@
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import { castFeedVote } from '$lib/services/commands/shared';
   import type { PublicHelpRequestItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
-  import { describeActivityTime, formatLocalDateTime } from '$lib/utils/time';
+  import { formatLocalDateTime } from '$lib/utils/time';
 
   export let item: PublicHelpRequestItem;
 
@@ -77,10 +78,11 @@
       </a>
     </div>
     <div class="footer-meta">
-      <span>
-        <a class="inline-link" href={`/profile/${item.authorUsername}`}>{item.authorUsername}</a> ·
-        <span class="activity-stamp">{describeActivityTime(item.createdAt, item.createdAt)}</span>
-      </span>
+      <ContentMetaRow
+        authorUsername={item.authorUsername}
+        createdAt={item.createdAt}
+        updatedAt={item.lastActivityAt ?? item.createdAt}
+      />
     </div>
   </div>
 </FeedSurface>
@@ -147,11 +149,6 @@
     color: var(--text-main);
   }
 
-  .inline-link {
-    color: var(--text-main);
-    font-weight: 700;
-  }
-
   .engagement-row {
     display: flex;
     gap: 8px;
@@ -167,10 +164,6 @@
 
   .footer-meta {
     text-align: right;
-  }
-
-  .activity-stamp {
-    white-space: nowrap;
   }
 
   @media (max-width: 760px) {

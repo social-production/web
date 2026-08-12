@@ -7,11 +7,11 @@
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import { setVote } from '$lib/services/commands/shared';
   import type { ThreadPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
   import { applyVoteTarget } from '$lib/utils/feedSignals';
-  import { formatRelativeTime } from '$lib/utils/time';
   import { createEventDispatcher } from 'svelte';
 
   export let data: ThreadPageData;
@@ -91,8 +91,7 @@
       <FeedToolbarIcon name="sort" />
     </IconMenuButton>
     <span class="footer-author-row">
-      <a class="inline-link" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>
-      · {formatRelativeTime(data.lastActivityAt)}
+      <ContentMetaRow authorUsername={data.authorUsername} createdAt={data.lastActivityAt} />
     </span>
   </div>
 </section>
@@ -166,11 +165,6 @@
   .footer-author-row {
     margin-left: auto;
     color: var(--text-soft);
-  }
-
-  .inline-link {
-    color: var(--text-main);
-    font-weight: 700;
   }
 
   @media (max-width: 760px) {

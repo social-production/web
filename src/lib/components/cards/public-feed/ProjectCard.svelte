@@ -6,24 +6,16 @@
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
-  import GroupsIcon from '$lib/components/shared/GroupsIcon.svelte';
-  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import { submitFeedEntitySignal } from '$lib/utils/signalEngagement';
   import type { PublicProjectItem } from '$lib/types/feed';
   import { requireViewer } from '$lib/utils/requireViewer';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
-  import {
-    activityStampInstant,
-    describeUpdateTime,
-    formatRelativeTimeCompact
-  } from '$lib/utils/time';
 
   let { item }: { item: PublicProjectItem } = $props();
 
   const orderedTags = $derived([...(item.channelTags ?? []), ...(item.communityTags ?? [])]);
   const signalsDisabled = $derived(Boolean(item.isClosed) || item.projectMode === 'personal-service');
-  const activityLabel = $derived(describeUpdateTime(item.createdAt, item.latestUpdateAt));
-  const activityInstant = $derived(activityStampInstant(item.createdAt, item.latestUpdateAt));
 
   async function handleSignal(signal: 'demand' | 'opposition') {
     if (!requireViewer($page.data.bootstrap?.viewer) || signalsDisabled) {
@@ -101,17 +93,12 @@
       </a>
     </div>
     <div class="footer-meta">
-      <a class="inline-link" href={`/profile/${item.authorUsername}`}>{item.authorUsername}</a>
-      <span class="meta-chip" title={`${item.memberCount} members`}>
-        <GroupsIcon className="meta-icon" />
-        <span>{item.memberCount}</span>
-      </span>
-      <span class="meta-chip activity-stamp" title={activityLabel} aria-label={activityLabel}>
-        <span class="meta-icon-wrap" aria-hidden="true">
-          <FeedToolbarIcon name="clock" />
-        </span>
-        <span>{formatRelativeTimeCompact(activityInstant)}</span>
-      </span>
+      <ContentMetaRow
+        authorUsername={item.authorUsername}
+        memberCount={item.memberCount}
+        createdAt={item.createdAt}
+        updatedAt={item.latestUpdateAt}
+      />
     </div>
   </div>
 </FeedSurface>
@@ -250,37 +237,6 @@
     min-width: 0;
     margin-left: auto;
     text-align: right;
-    white-space: nowrap;
-  }
-
-  .meta-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--text-soft);
-  }
-
-  .meta-chip :global(.meta-icon),
-  .meta-icon-wrap {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-    display: grid;
-    place-items: center;
-  }
-
-  .meta-icon-wrap :global(.toolbar-icon),
-  .meta-icon-wrap :global(svg) {
-    width: 14px;
-    height: 14px;
-  }
-
-  .inline-link {
-    color: var(--text-main);
-    font-weight: 700;
-  }
-
-  .activity-stamp {
     white-space: nowrap;
   }
 

@@ -6,10 +6,11 @@
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import { castFeedVote } from '$lib/services/commands/shared';
   import type { PersonalHelpRequestItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
-  import { formatLocalDateTime, formatRelativeTime } from '$lib/utils/time';
+  import { formatLocalDateTime } from '$lib/utils/time';
 
   export let item: PersonalHelpRequestItem;
 
@@ -90,7 +91,7 @@
       </a>
     </div>
     <div class="footer-meta">
-      <span>{formatRelativeTime(item.createdAt)}</span>
+      <ContentMetaRow timeOnly createdAt={item.createdAt} />
     </div>
   </div>
 </FeedSurface>

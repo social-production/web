@@ -6,8 +6,8 @@
   import type { NotificationItem } from '$lib/types/inbox';
   import { localizedNotificationBody } from '$lib/i18n/notifications';
   import * as m from '$lib/paraglide/messages';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
-  import { formatRelativeTime } from '$lib/utils/time';
 
   export let item: NotificationItem;
   export let followRequestPending = '';
@@ -108,7 +108,7 @@
         {#if item.actorUsername}
           <a class="actor-link" href={`/profile/${item.actorUsername}`}>{item.actorUsername}</a>
         {/if}
-        <span class="time">{formatRelativeTime(item.createdAt)}</span>
+        <ContentMetaRow timeOnly createdAt={item.createdAt} />
       </div>
     </div>
   </div>
@@ -169,8 +169,7 @@
   }
 
   .action,
-  .body,
-  .time {
+  .body {
     color: var(--text-soft);
     line-height: 1.45;
   }

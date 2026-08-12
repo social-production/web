@@ -485,7 +485,20 @@
 
     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
     const topOffset = Math.max(messagesShellElement.getBoundingClientRect().top, visibleTopOffset());
-    const nextHeight = Math.max(viewportHeight - topOffset, 320);
+    // Resolve the live shell bottom reservation (nav base + safe-area) so the
+    // messages pane does not extend under the fixed bottom chrome.
+    const offsetRaw = getComputedStyle(messagesShellElement)
+      .getPropertyValue('--shell-bottom-nav-offset')
+      .trim();
+    let bottomPx = 0;
+    if (offsetRaw && offsetRaw !== '0px') {
+      const probe = document.createElement('div');
+      probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;height:${offsetRaw}`;
+      document.body.appendChild(probe);
+      bottomPx = probe.getBoundingClientRect().height;
+      probe.remove();
+    }
+    const nextHeight = Math.max(viewportHeight - topOffset - bottomPx, 320);
     messagesShellElement.style.setProperty('--messages-shell-height', `${Math.floor(nextHeight)}px`);
   }
 

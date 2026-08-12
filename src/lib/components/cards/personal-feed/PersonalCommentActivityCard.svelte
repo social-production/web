@@ -7,7 +7,7 @@
   import { castFeedVote } from '$lib/services/commands/shared';
   import type { PersonalCommentActivityItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
-  import { formatRelativeTime } from '$lib/utils/time';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
 
   export let item: PersonalCommentActivityItem;
 
@@ -58,7 +58,7 @@
         <CountPill label={replyLabel} />
       </a>
     </div>
-    <span class="time">{formatRelativeTime(item.createdAt)}</span>
+    <ContentMetaRow timeOnly createdAt={item.createdAt} />
   </div>
 </FeedSurface>
 
@@ -110,7 +110,6 @@
   }
 
   .action,
-  .time,
   .comment-excerpt {
     color: var(--text-soft);
     font-size: 12px;
@@ -146,10 +145,6 @@
     text-decoration: none;
     color: inherit;
     border-radius: var(--radius-sm);
-  }
-
-  .time {
-    white-space: nowrap;
   }
 
   @media (max-width: 760px) {

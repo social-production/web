@@ -60,9 +60,13 @@ export function formatCompactVoteStatus(
   voteSummary: ProjectPlanVoteSummary,
   approvalThresholdPercent?: number
 ) {
-  const voted = voteSummary.yesCount + voteSummary.noCount;
-  const eligible = voteSummary.remainingEligibleVotes + voted;
-  const base = `${voteSummary.approvalPercent}% yes · ${voted}/${eligible} voted`;
+  const yesCount = Number(voteSummary?.yesCount ?? 0);
+  const noCount = Number(voteSummary?.noCount ?? 0);
+  const voted = yesCount + noCount;
+  const remainingEligible = Number(voteSummary?.remainingEligibleVotes ?? 0);
+  const eligible = Number.isFinite(remainingEligible) ? remainingEligible + voted : voted;
+  const approvalPercent = Number(voteSummary?.approvalPercent ?? 0);
+  const base = `${Number.isFinite(approvalPercent) ? approvalPercent : 0}% yes · ${voted}/${eligible} voted`;
 
   if (approvalThresholdPercent == null) {
     return base;
