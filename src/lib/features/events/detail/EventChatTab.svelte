@@ -5,6 +5,7 @@
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import { addComment } from '$lib/services/commands/shared';
+  import { subscribeToSubjectComments } from '$lib/api/drivers/supabase/realtime';
   import { registerEntityType } from '$lib/services/governanceEntityRegistry';
   import type { DetailComment, EventPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
@@ -14,7 +15,7 @@
     createOptimisticComment,
     mergeDiscussion,
     pruneOptimisticComments,
-    syncIncomingDiscussion
+    syncIncomingDiscussion,
   } from '$lib/utils/discussionState';
 
   export let data: EventPageData;
@@ -44,10 +45,17 @@
   }
 
   onMount(() => {
-    return startVisibilityPoll(refreshDiscussion, {
+    const stopPolling = startVisibilityPoll(refreshDiscussion, {
       activeMs: 8_000,
-      idleMs: 45_000
+      idleMs: 45_000,
     });
+    const stopRealtime = subscribeToSubjectComments('event', data.id, () => {
+      void refreshDiscussion();
+    });
+    return () => {
+      stopPolling();
+      stopRealtime();
+    };
   });
 
   async function submitEventMessage(body: string) {

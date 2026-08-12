@@ -10,21 +10,18 @@
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import { unreadCounts } from '$lib/stores/unreadCounts';
   import { addComment } from '$lib/services/commands/shared';
-  import {
-    registerEntityType,
-    registerCommentIds
-  } from '$lib/services/governanceEntityRegistry';
+  import { registerEntityType, registerCommentIds } from '$lib/services/governanceEntityRegistry';
   import {
     ChatSendError,
     createOptimisticComment,
     mergeDiscussion,
-    pruneOptimisticComments
+    pruneOptimisticComments,
   } from '$lib/utils/discussionState';
   import {
     getConversationMessages,
     getLinkedChats,
     getMessageContacts,
-    getSubjectComments
+    getSubjectComments,
   } from '$lib/services/queries/inbox';
   import {
     addGroupConversationMember,
@@ -34,7 +31,7 @@
     removeGroupConversationMember,
     renameGroupConversation,
     sendMessage,
-    startDirectMessage
+    startDirectMessage,
   } from '$lib/services/commands/inbox';
   import type { DirectMessage, MessageLinkedChat, MessagesPageData } from '$lib/types/inbox';
   import type { ViewerSummary } from '$lib/types/bootstrap';
@@ -42,6 +39,7 @@
   import { tick } from 'svelte';
   import { formatRelativeTime } from '$lib/utils/time';
   import { startVisibilityPoll } from '$lib/utils/visibilityPoll';
+  import { subscribeToViewerInbox } from '$lib/api/drivers/supabase/realtime';
 
   export let data: MessagesPageData;
   export let openConversationId: string | null = null;
@@ -81,9 +79,9 @@
   let contactSearchKey = '';
   let contactSearchRequestId = 0;
 
-  const THREAD_POLL_MS = 12_000;
-  const INBOX_REFRESH_MS = 90_000;
-  const INBOX_FOCUS_REFRESH_COOLDOWN_MS = 30_000;
+  const THREAD_POLL_MS = 5_000;
+  const INBOX_REFRESH_MS = 8_000;
+  const INBOX_FOCUS_REFRESH_COOLDOWN_MS = 3_000;
 
   let lastKnownUnreadMessages = 0;
   let lastInboxRefreshAt = 0;
@@ -105,11 +103,21 @@
     (chat) => chat.kind === 'project' || chat.kind === 'event'
   );
   $: helpRequestLinkedChats = linkedChats.filter((chat) => chat.kind === 'help_request');
-  $: directGroupUnreadTotal = data.conversations.reduce((sum, conversation) => sum + conversation.unreadCount, 0);
-  $: projectEventUnreadTotal = projectEventLinkedChats.reduce((sum, chat) => sum + chat.unreadCount, 0);
-  $: helpRequestUnreadTotal = helpRequestLinkedChats.reduce((sum, chat) => sum + chat.unreadCount, 0);
-  $: activeConversationMessagesLoading =
-    activeConversationId ? (messagesLoadingById[activeConversationId] ?? false) : false;
+  $: directGroupUnreadTotal = data.conversations.reduce(
+    (sum, conversation) => sum + conversation.unreadCount,
+    0
+  );
+  $: projectEventUnreadTotal = projectEventLinkedChats.reduce(
+    (sum, chat) => sum + chat.unreadCount,
+    0
+  );
+  $: helpRequestUnreadTotal = helpRequestLinkedChats.reduce(
+    (sum, chat) => sum + chat.unreadCount,
+    0
+  );
+  $: activeConversationMessagesLoading = activeConversationId
+    ? (messagesLoadingById[activeConversationId] ?? false)
+    : false;
   $: activeConversationMessages = activeConversationId
     ? (conversationMessagesById[activeConversationId] ?? []).map((message) => ({
         id: message.id,
@@ -119,14 +127,14 @@
         isOwn: message.isOwn,
         report: message.report ?? null,
         moderationState: message.moderationState,
-        showAuthor: !message.isOwn
+        showAuthor: !message.isOwn,
       }))
     : [];
   $: directConversationPartner =
     activeConversation?.kind === 'direct'
-      ? activeConversation.participants.find((participant) => participant.id !== data.viewer.id) ??
+      ? (activeConversation.participants.find((participant) => participant.id !== data.viewer.id) ??
         activeConversation.participants[0] ??
-        null
+        null)
       : null;
   $: activeDirectAvatarImageUrl = directConversationPartner?.profileImageUrl ?? null;
   $: normalizedRecipientQuery = recipientDraft.trim().toLowerCase();
@@ -159,7 +167,9 @@
           (contact) =>
             contact.id !== data.viewer.id &&
             !activeConversation.participants.some((participant) => participant.id === contact.id) &&
-            (normalizedGroupQuery ? contact.username.toLowerCase().includes(normalizedGroupQuery) : true)
+            (normalizedGroupQuery
+              ? contact.username.toLowerCase().includes(normalizedGroupQuery)
+              : true)
         )
       : [];
   $: removableGroupMembers =
@@ -203,7 +213,7 @@
     return {
       ...comment,
       authorUsername: linkedChatAuthorUsername(comment.authorUsername, null),
-      replies: (comment.replies ?? []).map(remapLinkedChatAuthor)
+      replies: (comment.replies ?? []).map(remapLinkedChatAuthor),
     };
   }
 
@@ -256,7 +266,9 @@
     if (!normalized) {
       if (showAddMembers) {
         contactSuggestions =
-          activeConversation?.participants.filter((participant) => participant.id !== data.viewer.id) ?? [];
+          activeConversation?.participants.filter(
+            (participant) => participant.id !== data.viewer.id
+          ) ?? [];
         return;
       }
 
@@ -369,6 +381,7 @@
     void refreshActiveThread();
     // Avoid full inbox invalidation on every focus; cool-downed soft refresh only.
     void refreshMessagesInbox();
+    void hydrateLinkedChats();
   }
 
   onMount(() => {
@@ -377,20 +390,27 @@
 
     const stopThreadPolling = startVisibilityPoll(refreshActiveThread, {
       activeMs: THREAD_POLL_MS,
-      idleMs: 60_000
+      idleMs: 60_000,
     });
     const stopInboxPolling = startVisibilityPoll(
       async () => {
         await Promise.all([
           refreshMessagesInbox({ force: true }),
-          hydrateLinkedChats({ force: true })
+          hydrateLinkedChats({ force: true }),
         ]);
       },
       {
         activeMs: INBOX_REFRESH_MS,
-        idleMs: INBOX_REFRESH_MS * 3
+        idleMs: INBOX_REFRESH_MS * 3,
       }
     );
+    const stopRealtime = subscribeToViewerInbox(() => {
+      void Promise.all([
+        refreshActiveThread(),
+        refreshMessagesInbox({ force: true }),
+        hydrateLinkedChats({ force: true }),
+      ]);
+    });
 
     window.addEventListener('focus', handleVisibilityOrFocus);
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
@@ -412,13 +432,17 @@
       }
 
       lastKnownUnreadMessages = counts.messages;
-      // Badge churn should not reload the whole inbox route; refresh the open thread only.
-      void refreshActiveThread();
+      void Promise.all([
+        refreshActiveThread(),
+        refreshMessagesInbox({ force: true }),
+        hydrateLinkedChats({ force: true }),
+      ]);
     });
 
     return () => {
       stopThreadPolling();
       stopInboxPolling();
+      stopRealtime();
 
       if (shellHeightFrame !== null) {
         window.cancelAnimationFrame(shellHeightFrame);
@@ -445,7 +469,7 @@
     if (!options.silent) {
       messagesLoadingById = {
         ...messagesLoadingById,
-        [conversationId]: true
+        [conversationId]: true,
       };
     }
 
@@ -457,7 +481,7 @@
       );
       conversationMessagesById = {
         ...conversationMessagesById,
-        [conversationId]: messages
+        [conversationId]: messages,
       };
       return true;
     } catch {
@@ -466,7 +490,7 @@
       if (!options.silent) {
         messagesLoadingById = {
           ...messagesLoadingById,
-          [conversationId]: false
+          [conversationId]: false,
         };
       }
     }
@@ -504,7 +528,8 @@
 
     while (parent) {
       const styles = getComputedStyle(parent);
-      const canScrollY = /auto|scroll/.test(styles.overflowY) && parent.scrollHeight > parent.clientHeight;
+      const canScrollY =
+        /auto|scroll/.test(styles.overflowY) && parent.scrollHeight > parent.clientHeight;
 
       if (canScrollY) {
         return parent;
@@ -517,7 +542,8 @@
   }
 
   function visibleTopOffset() {
-    const topbarHeight = document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
+    const topbarHeight =
+      document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
     return topbarHeight + 12;
   }
 
@@ -533,7 +559,7 @@
       const shellTop = messagesShellElement.getBoundingClientRect().top;
       scrollContainer.scrollTo({
         top: Math.max(scrollContainer.scrollTop + shellTop - containerTop - 12, 0),
-        behavior: 'auto'
+        behavior: 'auto',
       });
       return;
     }
@@ -541,7 +567,7 @@
     const shellTop = messagesShellElement.getBoundingClientRect().top;
     window.scrollTo({
       top: Math.max(window.scrollY + shellTop - visibleTopOffset(), 0),
-      behavior: 'auto'
+      behavior: 'auto',
     });
   }
 
@@ -564,10 +590,10 @@
     const viewportOffsetTop = vv?.offsetTop ?? 0;
     const keyboardOpen = Boolean(
       vv &&
-        window.innerHeight - vv.height > 120 &&
-        (document.activeElement instanceof HTMLTextAreaElement ||
-          document.activeElement instanceof HTMLInputElement ||
-          (document.activeElement instanceof HTMLElement && document.activeElement.isContentEditable))
+      window.innerHeight - vv.height > 120 &&
+      (document.activeElement instanceof HTMLTextAreaElement ||
+        document.activeElement instanceof HTMLInputElement ||
+        (document.activeElement instanceof HTMLElement && document.activeElement.isContentEditable))
     );
     const topbar = document.querySelector<HTMLElement>('.topbar');
     const measuredTopbar = topbar?.getBoundingClientRect().height ?? 0;
@@ -578,7 +604,10 @@
 
     if (keyboardOpen) {
       // Pin the shell to the visible viewport so the full composer sits above the keyboard.
-      const top = Math.max(viewportOffsetTop + (topbarCollapsedHeight(topbarPx) || 0), viewportOffsetTop);
+      const top = Math.max(
+        viewportOffsetTop + (topbarCollapsedHeight(topbarPx) || 0),
+        viewportOffsetTop
+      );
       const bottomGap = Math.max(0, window.innerHeight - viewportOffsetTop - viewportHeight);
       messagesShellElement.style.position = 'fixed';
       messagesShellElement.style.left = '0';
@@ -606,7 +635,10 @@
     messagesShellElement.style.minHeight = '';
     messagesShellElement.style.zIndex = '';
 
-    const topOffset = Math.max(messagesShellElement.getBoundingClientRect().top, visibleTopOffset());
+    const topOffset = Math.max(
+      messagesShellElement.getBoundingClientRect().top,
+      visibleTopOffset()
+    );
     const offsetRaw = getComputedStyle(messagesShellElement)
       .getPropertyValue('--shell-bottom-nav-offset')
       .trim();
@@ -624,7 +656,10 @@
       cachedBottomNavPx = bottomPx;
     }
     const nextHeight = Math.max(viewportHeight - topOffset - bottomPx, 320);
-    messagesShellElement.style.setProperty('--messages-shell-height', `${Math.floor(nextHeight)}px`);
+    messagesShellElement.style.setProperty(
+      '--messages-shell-height',
+      `${Math.floor(nextHeight)}px`
+    );
   }
 
   function topbarCollapsedHeight(measured: number) {
@@ -654,7 +689,7 @@
     activeConversation?.id ?? 'no-conversation',
     activeLinkedChat?.id ?? 'no-linked-chat',
     showGroupOptions ? 'group-options-open' : 'group-options-closed',
-    showDirectOptions ? 'direct-options-open' : 'direct-options-closed'
+    showDirectOptions ? 'direct-options-open' : 'direct-options-closed',
   ].join(':');
 
   $: if (browser && messagesShellElement && shellLayoutKey) {
@@ -760,9 +795,9 @@
     }
 
     try {
-      linkedChatComments = (
-        await getSubjectComments(chat.kind, chat.subjectId)
-      ).map(remapLinkedChatAuthor);
+      linkedChatComments = (await getSubjectComments(chat.kind, chat.subjectId)).map(
+        remapLinkedChatAuthor
+      );
       linkedChatOptimisticComments = pruneOptimisticComments(
         linkedChatComments,
         linkedChatOptimisticComments
@@ -804,7 +839,13 @@
 
     if (chat.unreadCount > 0) {
       await markLinkedChatRead(chat.kind, chat.subjectId, chat.unreadCount);
-      await refreshMessagesInbox();
+      linkedChats = linkedChats.map((item) =>
+        item.id === chat.id ? { ...item, unreadCount: 0 } : item
+      );
+      await Promise.all([
+        refreshMessagesInbox({ force: true }),
+        hydrateLinkedChats({ force: true }),
+      ]);
       await loadLinkedChatComments(chat, { silent: true });
     }
 
@@ -827,14 +868,14 @@
       sender: {
         id: data.viewer.id,
         username: data.viewer.username,
-        profileImageUrl: data.viewer.profileImageUrl
+        profileImageUrl: data.viewer.profileImageUrl,
       },
-      report: null
+      report: null,
     };
 
     conversationMessagesById = {
       ...conversationMessagesById,
-      [conversationId]: [...(conversationMessagesById[conversationId] ?? []), optimisticMessage]
+      [conversationId]: [...(conversationMessagesById[conversationId] ?? []), optimisticMessage],
     };
 
     composerError = '';
@@ -847,7 +888,7 @@
         ...conversationMessagesById,
         [conversationId]: (conversationMessagesById[conversationId] ?? []).filter(
           (message) => message.id !== optimisticId
-        )
+        ),
       };
 
       const detail = (err as { body?: { detail?: unknown } }).body?.detail;
@@ -879,7 +920,7 @@
       await addComment(
         {
           id: activeLinkedChat.subjectId,
-          type: linkedChatEntityType(activeLinkedChat.kind)
+          type: linkedChatEntityType(activeLinkedChat.kind),
         },
         body
       );
@@ -901,6 +942,7 @@
     } catch {
       // Comment was saved; keep optimistic row until the next refresh succeeds.
     }
+    await hydrateLinkedChats({ force: true });
   }
 
   function handleNewComposerKeydown(event: KeyboardEvent) {
@@ -1031,7 +1073,7 @@
       const result = await createGroupConversation({
         title: groupTitleDraft,
         memberUsernames: selectedGroupMembers,
-        body
+        body,
       });
 
       if (!result.ok || !result.conversationId) {
@@ -1079,7 +1121,9 @@
     const result = await renameGroupConversation(activeConversation.id, renameDraft);
 
     groupSettingsTone = result.ok ? 'success' : 'warning';
-    groupSettingsFeedback = result.ok ? 'Group name updated.' : result.error ?? 'The group name could not be updated.';
+    groupSettingsFeedback = result.ok
+      ? 'Group name updated.'
+      : (result.error ?? 'The group name could not be updated.');
 
     if (result.ok) {
       await invalidate('inbox:messages');
@@ -1097,7 +1141,9 @@
     const result = await addGroupConversationMember(activeConversation.id, username);
 
     groupSettingsTone = result.ok ? 'success' : 'warning';
-    groupSettingsFeedback = result.ok ? `${username} joined the group chat.` : result.error ?? 'That member could not be added.';
+    groupSettingsFeedback = result.ok
+      ? `${username} joined the group chat.`
+      : (result.error ?? 'That member could not be added.');
 
     if (result.ok) {
       groupMemberDraft = '';
@@ -1116,7 +1162,9 @@
     const result = await removeGroupConversationMember(activeConversation.id, username);
 
     groupSettingsTone = result.ok ? 'success' : 'warning';
-    groupSettingsFeedback = result.ok ? `${username} was removed from the group chat.` : result.error ?? 'That member could not be removed.';
+    groupSettingsFeedback = result.ok
+      ? `${username} was removed from the group chat.`
+      : (result.error ?? 'That member could not be removed.');
 
     if (result.ok) {
       await invalidate('inbox:messages');
@@ -1141,14 +1189,15 @@
 
   <section
     bind:this={messagesShellElement}
-    class:composer-open={!activeConversation && !activeLinkedChat && showComposer && activeListTab === 'messages'}
+    class:composer-open={!activeConversation &&
+      !activeLinkedChat &&
+      showComposer &&
+      activeListTab === 'messages'}
     class:conversation-view={!!activeConversation || !!activeLinkedChat}
     class:list-view={!activeConversation && !activeLinkedChat}
-    class:with-chat-options={
-      !!activeConversation &&
+    class:with-chat-options={!!activeConversation &&
       ((activeConversation.kind === 'group' && showGroupOptions) ||
-        (activeConversation.kind === 'direct' && showDirectOptions && !!directConversationPartner))
-    }
+        (activeConversation.kind === 'direct' && showDirectOptions && !!directConversationPartner))}
     class="messages-shell"
   >
     {#if activeConversation || activeLinkedChat}
@@ -1197,7 +1246,9 @@
               <p class="identity-note">{linkedChatMeta(activeLinkedChat)}</p>
             </div>
 
-            <a class="secondary-button open-source-link" href={activeLinkedChat.href}>Open source page</a>
+            <a class="secondary-button open-source-link" href={activeLinkedChat.href}
+              >Open source page</a
+            >
           </div>
         {/if}
       </header>
@@ -1261,7 +1312,11 @@
               {#if addableGroupMembers.length > 0}
                 <div class="contact-list">
                   {#each addableGroupMembers as member}
-                    <button class="contact-chip" type="button" on:click={() => addMemberToGroup(member.username)}>
+                    <button
+                      class="contact-chip"
+                      type="button"
+                      on:click={() => addMemberToGroup(member.username)}
+                    >
                       {member.username}
                     </button>
                   {/each}
@@ -1275,7 +1330,11 @@
               <span>Remove someone</span>
               <div class="contact-list">
                 {#each removableGroupMembers as member}
-                  <button class="contact-chip" type="button" on:click={() => removeMemberFromGroup(member.username)}>
+                  <button
+                    class="contact-chip"
+                    type="button"
+                    on:click={() => removeMemberFromGroup(member.username)}
+                  >
                     {member.username}
                   </button>
                 {/each}
@@ -1297,10 +1356,18 @@
               <a class="member-link" href={`/profile/${directConversationPartner.username}`}>
                 Open @{directConversationPartner.username}
               </a>
-              <button class="contact-chip" type="button" on:click={() => handleDirectOption('mute')}>
+              <button
+                class="contact-chip"
+                type="button"
+                on:click={() => handleDirectOption('mute')}
+              >
                 Mute
               </button>
-              <button class="contact-chip" type="button" on:click={() => handleDirectOption('block')}>
+              <button
+                class="contact-chip"
+                type="button"
+                on:click={() => handleDirectOption('block')}
+              >
                 Block
               </button>
             </div>
@@ -1330,11 +1397,9 @@
         <LiveChatPanel
           comments={linkedChatDiscussion}
           embedded={true}
-          emptyCopy={
-            linkedChatCommentsLoading
-              ? 'Loading messages...'
-              : linkedChatEmptyCopy(activeLinkedChat)
-          }
+          emptyCopy={linkedChatCommentsLoading
+            ? 'Loading messages...'
+            : linkedChatEmptyCopy(activeLinkedChat)}
           onModerated={refreshActiveThread}
           onSubmitMessage={submitLinkedChatMessage}
           placeholder={linkedChatPlaceholder(activeLinkedChat)}
@@ -1454,7 +1519,11 @@
             {#if selectedGroupMembers.length > 0}
               <div class="selected-members">
                 {#each selectedGroupMembers as member}
-                  <button class="selected-member-chip" type="button" on:click={() => removeComposerMember(member)}>
+                  <button
+                    class="selected-member-chip"
+                    type="button"
+                    on:click={() => removeComposerMember(member)}
+                  >
                     {member}
                     <span>×</span>
                   </button>
@@ -1482,7 +1551,11 @@
           {#if composerMode === 'direct' && directSuggestions.length > 0}
             <div class="contact-list">
               {#each directSuggestions as contact}
-                <button class="contact-chip" type="button" on:click={() => chooseDirectRecipient(contact.username)}>
+                <button
+                  class="contact-chip"
+                  type="button"
+                  on:click={() => chooseDirectRecipient(contact.username)}
+                >
                   {contact.username}
                 </button>
               {/each}
@@ -1492,7 +1565,11 @@
           {#if composerMode === 'group' && groupSuggestions.length > 0}
             <div class="contact-list">
               {#each groupSuggestions as contact}
-                <button class="contact-chip" type="button" on:click={() => chooseGroupComposerMember(contact.username)}>
+                <button
+                  class="contact-chip"
+                  type="button"
+                  on:click={() => chooseGroupComposerMember(contact.username)}
+                >
                   {contact.username}
                 </button>
               {/each}
@@ -1505,7 +1582,9 @@
 
           <div class="composer-actions">
             <button class="secondary-button" type="button" on:click={toggleComposer}>Cancel</button>
-            <button class="primary-button" type="button" on:click={submitNewConversation}>Send</button>
+            <button class="primary-button" type="button" on:click={submitNewConversation}
+              >Send</button
+            >
           </div>
         </section>
       {/if}
@@ -1530,9 +1609,11 @@
                 <div class="conversation-copy">
                   <div class="conversation-topline">
                     <strong>{conversationDisplayTitle(conversation)}</strong>
-                    <span class="conversation-time">{formatRelativeTime(conversation.lastMessageAt)}</span>
+                    <span class="conversation-time"
+                      >{formatRelativeTime(conversation.lastMessageAt)}</span
+                    >
                   </div>
-                    <p class="conversation-preview">{conversation.preview}</p>
+                  <p class="conversation-preview">{conversation.preview}</p>
                 </div>
                 {#if conversation.unreadCount > 0}
                   <span class="unread-pill">{conversation.unreadCount}</span>

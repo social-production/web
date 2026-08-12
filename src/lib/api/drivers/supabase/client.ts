@@ -13,7 +13,7 @@ import {
   getRefreshToken,
   markAuthenticatedSession,
   persistAuthTokens,
-  shouldAttemptSessionRefresh
+  shouldAttemptSessionRefresh,
 } from './authSession';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -43,7 +43,7 @@ function finishGatewayTiming(
   performance.measure(`gateway:${method}:${path}`, {
     start: startedAt,
     end: performance.now(),
-    detail: { requestId, status: response.status, serverTiming }
+    detail: { requestId, status: response.status, serverTiming },
   });
   console.info('[sp-perf] gateway', {
     method,
@@ -51,7 +51,7 @@ function finishGatewayTiming(
     status: response.status,
     durationMs: Math.round(durationMs * 10) / 10,
     requestId,
-    serverTiming
+    serverTiming,
   });
 }
 
@@ -79,6 +79,10 @@ export function getSupabaseUrl(): string {
   return configuredSupabaseUrl();
 }
 
+export function getSupabaseRealtimeUrl(): string {
+  return configuredSupabaseUrl();
+}
+
 export function getSupabaseAnonKey(): string {
   return import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ?? '';
 }
@@ -102,10 +106,14 @@ function authUrl(path: string): string {
   return `${getSupabaseUrl()}/auth/v1${normalized}`;
 }
 
-function buildHeaders(method: HttpMethod, body?: unknown, accessToken?: string | null): Record<string, string> {
+function buildHeaders(
+  method: HttpMethod,
+  body?: unknown,
+  accessToken?: string | null
+): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    apikey: getSupabaseAnonKey()
+    apikey: getSupabaseAnonKey(),
   };
 
   const token = accessToken ?? getAccessToken();
@@ -140,7 +148,7 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   if (!isJsonContentType(response)) {
     throw {
       status: response.status || 502,
-      body: { detail: INVALID_RESPONSE_MESSAGE }
+      body: { detail: INVALID_RESPONSE_MESSAGE },
     };
   }
   try {
@@ -148,7 +156,7 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   } catch {
     throw {
       status: response.status || 502,
-      body: { detail: INVALID_RESPONSE_MESSAGE }
+      body: { detail: INVALID_RESPONSE_MESSAGE },
     };
   }
 }
@@ -226,7 +234,7 @@ export async function refreshSession(): Promise<boolean> {
       response = await fetch(authUrl('/token?grant_type=refresh_token'), {
         method: 'POST',
         headers: buildHeaders('POST', {}, null),
-        body: JSON.stringify({ refresh_token: refreshToken })
+        body: JSON.stringify({ refresh_token: refreshToken }),
       });
     } catch {
       throw new TypeError('Network request failed while refreshing Supabase session');
@@ -240,7 +248,7 @@ export async function refreshSession(): Promise<boolean> {
       }
       throw {
         status: response.status,
-        body: await readResponseBody(response)
+        body: await readResponseBody(response),
       };
     }
 
@@ -248,7 +256,7 @@ export async function refreshSession(): Promise<boolean> {
     persistAuthTokens({
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
-      expiresIn: tokens.expires_in
+      expiresIn: tokens.expires_in,
     });
     return true;
   })();
@@ -276,7 +284,7 @@ async function requestGateway<T>(
   headers['X-Request-Id'] = clientRequestId;
   const options: RequestInit = {
     method,
-    headers
+    headers,
   };
   if (body !== undefined && method !== 'GET' && method !== 'DELETE') {
     options.body = JSON.stringify(body);
@@ -292,12 +300,7 @@ async function requestGateway<T>(
   }
   finishGatewayTiming(path, method, startedAt, response, clientRequestId);
 
-  if (
-    response.status === 401 &&
-    allowRefresh &&
-    isBrowser &&
-    shouldAttemptSessionRefresh()
-  ) {
+  if (response.status === 401 && allowRefresh && isBrowser && shouldAttemptSessionRefresh()) {
     const refreshed = await refreshSession();
     if (refreshed) {
       return requestGateway<T>(method, path, body, false);
@@ -311,7 +314,7 @@ async function requestGateway<T>(
     }
     throw {
       status: response.status,
-      body: await readResponseBody(response)
+      body: await readResponseBody(response),
     };
   }
 
@@ -322,21 +325,25 @@ async function requestGateway<T>(
   return parseJsonResponse<T>(response);
 }
 
-export async function authSignUp(email: string, password: string, metadata: Record<string, unknown>) {
+export async function authSignUp(
+  email: string,
+  password: string,
+  metadata: Record<string, unknown>
+) {
   const response = await fetch(authUrl('/signup'), {
     method: 'POST',
     headers: buildHeaders('POST', {}),
     body: JSON.stringify({
       email,
       password,
-      data: metadata
-    })
+      data: metadata,
+    }),
   });
 
   if (!response.ok) {
     throw {
       status: response.status,
-      body: await readResponseBody(response)
+      body: await readResponseBody(response),
     };
   }
 
@@ -345,7 +352,7 @@ export async function authSignUp(email: string, password: string, metadata: Reco
     persistAuthTokens({
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
-      expiresIn: tokens.expires_in
+      expiresIn: tokens.expires_in,
     });
   } else {
     markAuthenticatedSession();
@@ -357,13 +364,13 @@ export async function authSignIn(email: string, password: string) {
   const response = await fetch(authUrl('/token?grant_type=password'), {
     method: 'POST',
     headers: buildHeaders('POST', {}),
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password }),
   });
 
   if (!response.ok) {
     throw {
       status: response.status,
-      body: await readResponseBody(response)
+      body: await readResponseBody(response),
     };
   }
 
@@ -371,7 +378,7 @@ export async function authSignIn(email: string, password: string) {
   persistAuthTokens({
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
-    expiresIn: tokens.expires_in
+    expiresIn: tokens.expires_in,
   });
   return tokens;
 }
@@ -382,7 +389,7 @@ export async function authSignOut(): Promise<void> {
     if (token) {
       await fetch(authUrl('/logout'), {
         method: 'POST',
-        headers: buildHeaders('POST', {}, token)
+        headers: buildHeaders('POST', {}, token),
       });
     }
   } finally {
@@ -413,7 +420,7 @@ export function createSupabaseClient(_config: SupabaseClientConfig = {}): Supaba
     post: <T>(path: string, body?: unknown) => requestGateway<T>('POST', path, body),
     put: <T>(path: string, body?: unknown) => requestGateway<T>('PUT', path, body),
     patch: <T>(path: string, body?: unknown) => requestGateway<T>('PATCH', path, body),
-    delete: <T>(path: string) => requestGateway<T>('DELETE', path)
+    delete: <T>(path: string) => requestGateway<T>('DELETE', path),
   };
 }
 

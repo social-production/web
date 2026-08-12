@@ -9,6 +9,10 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [fastapi, supabase]
 
     steps:
       - uses: actions/checkout@v4
@@ -31,5 +35,7 @@ jobs:
       - name: Smoke test
         run: npm run smoke
         env:
-          VITE_BACKEND: fastapi
+          VITE_BACKEND: ${{ matrix.backend }}
           VITE_API_URL: http://localhost:8000
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: test-anon-key

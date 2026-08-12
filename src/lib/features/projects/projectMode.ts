@@ -28,26 +28,28 @@ export const projectCreateTypeOptions: ProjectCreateTypeOption[] = [
   {
     value: 'productive',
     label: 'Productive project',
-    summary: 'Build or produce something new — e.g. construction, materials, tools, or software from scratch.',
+    summary:
+      'Build or produce something new — e.g. construction, materials, tools, or software from scratch.',
     bestFor: [
       'Creating shared capacity, goods, or tools',
       'Designing and building something that does not exist yet',
-      'Work that needs demand and planning before production'
+      'Work that needs demand and planning before production',
     ],
     lifecycleNote:
-      'Starts in Proposal, then moves through production and distribution planning before activity.'
+      'Starts in Proposal, then moves through production and distribution planning before activity.',
   },
   {
     value: 'collective-service',
     label: 'Collective service',
-    summary: 'Maintain, update, or operate something already in use — e.g. keep software running, dinner service, shared care.',
+    summary:
+      'Maintain, update, or operate something already in use — e.g. keep software running, dinner service, shared care.',
     bestFor: [
       'Ongoing services delivered directly to people',
       'Maintaining and improving existing tools or systems',
-      'Recurring operations rather than one-off production'
+      'Recurring operations rather than one-off production',
     ],
     lifecycleNote:
-      'Starts in Proposal, then moves through operations and access planning before the service opens for activity.'
+      'Starts in Proposal, then moves through operations and access planning before the service opens for activity.',
   },
   {
     value: 'personal-service',
@@ -56,11 +58,11 @@ export const projectCreateTypeOptions: ProjectCreateTypeOption[] = [
     bestFor: [
       'Individual help you can schedule or request directly',
       'Skills offered without collective planning phases',
-      'Small-scale mutual aid from a single provider'
+      'Small-scale mutual aid from a single provider',
     ],
     lifecycleNote:
-      'Skips collective planning and opens directly into availability, requests, and scheduling.'
-  }
+      'Skips collective planning and opens directly into availability, requests, and scheduling.',
+  },
 ];
 
 export const serviceRequestModeOptions: ServiceRequestModeOption[] = [
@@ -68,24 +70,26 @@ export const serviceRequestModeOptions: ServiceRequestModeOption[] = [
     value: 'calendar',
     label: 'Calendar booking',
     summary: 'Show availability on the calendar and let people request a slot.',
-    lifecycleNote: 'Best when the service happens at specific times you list in advance.'
+    lifecycleNote: 'Best when the service happens at specific times you list in advance.',
   },
   {
     value: 'direct',
     label: 'Direct requests',
     summary: 'Let people send written requests without calendar booking.',
-    lifecycleNote: 'Best when timing is flexible and requests can be handled as they arrive.'
+    lifecycleNote: 'Best when timing is flexible and requests can be handled as they arrive.',
   },
   {
     value: 'both',
     label: 'Calendar + direct',
     summary: 'Keep slot booking and allow standalone written requests.',
-    lifecycleNote: 'Use both when some work fits listed slots and some needs open-ended requests.'
-  }
+    lifecycleNote: 'Use both when some work fits listed slots and some needs open-ended requests.',
+  },
 ];
 
 export function projectCreateTypeOption(mode: ProjectMode) {
-  return projectCreateTypeOptions.find((option) => option.value === mode) ?? projectCreateTypeOptions[0];
+  return (
+    projectCreateTypeOptions.find((option) => option.value === mode) ?? projectCreateTypeOptions[0]
+  );
 }
 
 export function isProductiveProject(mode: ProjectMode) {
@@ -100,7 +104,10 @@ export function isPersonalServiceProject(mode: ProjectMode) {
   return mode === 'personal-service';
 }
 
-export function skipsDistributionPhase(mode: ProjectMode, subtype: ProjectSubtype | null | undefined) {
+export function skipsDistributionPhase(
+  mode: ProjectMode,
+  subtype: ProjectSubtype | null | undefined
+) {
   return isCollectiveServiceProject(mode) || subtype === 'software';
 }
 
@@ -171,7 +178,7 @@ export function projectFeedPhaseLabel(mode: ProjectMode, phaseId: ProjectLifecyc
     case 'phase-3':
       return 'Distribution Plan';
     case 'phase-4':
-      return 'Acquisition';
+      return 'Distribution Plan';
     case 'phase-5':
       return 'Activity';
     case 'phase-6':
@@ -204,13 +211,13 @@ export function projectSubtypeOptions(mode: ProjectMode): ProjectSubtypeOption[]
       {
         value: 'standard',
         label: 'Standard project',
-        description: 'Use the ordinary productive project path.'
+        description: 'Use the ordinary productive project path.',
       },
       {
         value: 'software',
         label: 'Software project',
-        description: 'Use software-specific governance with the default open-source release path.'
-      }
+        description: 'Use software-specific governance with the default open-source release path.',
+      },
     ];
   }
 
@@ -218,12 +225,12 @@ export function projectSubtypeOptions(mode: ProjectMode): ProjectSubtypeOption[]
     {
       value: 'standard',
       label: 'Standard service',
-      description: 'Use the ordinary collective-service path.'
+      description: 'Use the ordinary collective-service path.',
     },
     {
       value: 'software',
       label: 'Software service',
-      description: 'Use the software service path with the default open-source release rules.'
-    }
+      description: 'Use the software service path with the default open-source release rules.',
+    },
   ];
 }

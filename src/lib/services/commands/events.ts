@@ -1,4 +1,5 @@
 import { currentAdapter } from '$lib/services/adapters';
+import { invalidateFeedEngagementCache } from '$lib/utils/feedSignals';
 import type {
   EventLifecyclePhaseId,
   EventPlanInput,
@@ -18,7 +19,7 @@ import type {
   ProjectSoftwareMergeCapabilityChangeInput,
   ProjectSoftwarePullRequestInput,
   ProjectSoftwareRepositoryReplacementInput,
-  ProjectServiceRequestStatus
+  ProjectServiceRequestStatus,
 } from '$lib/types/detail';
 
 export function toggleEventMembership(eventSlug: string) {
@@ -122,7 +123,10 @@ export function setEventPhaseChangeVote(
 }
 
 export function requestEventUpdate(eventSlug: string, body: string) {
-  return currentAdapter.requestEventUpdate(eventSlug, body);
+  return currentAdapter.requestEventUpdate(eventSlug, body).then(async (result) => {
+    await invalidateFeedEngagementCache();
+    return result;
+  });
 }
 
 export function setEventUpdateVote(
@@ -130,11 +134,17 @@ export function setEventUpdateVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setEventUpdateVote(eventSlug, requestId, vote);
+  return currentAdapter.setEventUpdateVote(eventSlug, requestId, vote).then(async (result) => {
+    await invalidateFeedEngagementCache();
+    return result;
+  });
 }
 
 export function requestEventEdit(eventSlug: string, title: string, description: string) {
-  return currentAdapter.requestEventEdit(eventSlug, title, description);
+  return currentAdapter.requestEventEdit(eventSlug, title, description).then(async (result) => {
+    await invalidateFeedEngagementCache();
+    return result;
+  });
 }
 
 export function setEventEditVote(
@@ -142,7 +152,10 @@ export function setEventEditVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setEventEditVote(eventSlug, requestId, vote);
+  return currentAdapter.setEventEditVote(eventSlug, requestId, vote).then(async (result) => {
+    await invalidateFeedEngagementCache();
+    return result;
+  });
 }
 
 export function createEventManualLinkRequest(

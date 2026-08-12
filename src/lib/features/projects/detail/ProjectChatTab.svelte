@@ -5,6 +5,7 @@
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import { addComment } from '$lib/services/commands/shared';
+  import { subscribeToSubjectComments } from '$lib/api/drivers/supabase/realtime';
   import { registerEntityType } from '$lib/services/governanceEntityRegistry';
   import type { DetailComment, ProjectPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
@@ -14,7 +15,7 @@
     createOptimisticComment,
     mergeDiscussion,
     pruneOptimisticComments,
-    syncIncomingDiscussion
+    syncIncomingDiscussion,
   } from '$lib/utils/discussionState';
 
   export let data: ProjectPageData;
@@ -54,12 +55,16 @@
     media.addEventListener('change', syncCompact);
     const stopPolling = startVisibilityPoll(refreshDiscussion, {
       activeMs: 8_000,
-      idleMs: 45_000
+      idleMs: 45_000,
+    });
+    const stopRealtime = subscribeToSubjectComments('project', data.id, () => {
+      void refreshDiscussion();
     });
 
     return () => {
       media.removeEventListener('change', syncCompact);
       stopPolling();
+      stopRealtime();
     };
   });
 
@@ -82,7 +87,11 @@
   }
 </script>
 
-<section class="chat-shell" class:chat-shell-compact={isCompact || fullscreen} class:chat-shell-fullscreen={fullscreen}>
+<section
+  class="chat-shell"
+  class:chat-shell-compact={isCompact || fullscreen}
+  class:chat-shell-fullscreen={fullscreen}
+>
   <LinkedChatReadMarker subjectType="project" subjectId={data.id} />
   <LiveChatPanel
     comments={discussion}

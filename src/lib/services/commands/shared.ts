@@ -1,9 +1,5 @@
 import { currentAdapter } from '$lib/services/adapters';
-import type {
-  CommentSubjectRef,
-  ReportTargetRef,
-  VoteTargetRef
-} from '$lib/types/governance';
+import type { CommentSubjectRef, ReportTargetRef, VoteTargetRef } from '$lib/types/governance';
 import type { VoteDirection } from '$lib/types/feed';
 import { page } from '$app/stores';
 import { get } from 'svelte/store';
@@ -29,14 +25,18 @@ export function setReportVote(targetId: string, vote: 'yes' | 'no') {
   return currentAdapter.setReportVote(targetId, vote);
 }
 
-export function setVote(target: VoteTargetRef, vote: VoteDirection) {
+export async function setVote(target: VoteTargetRef, vote: VoteDirection) {
   const viewer = get(page).data.bootstrap?.viewer ?? null;
 
   if (!requireViewer(viewer)) {
-    return Promise.resolve();
+    return;
   }
 
-  return measureAsync(`mutation:vote:${target.type}`, () => currentAdapter.setVote(target, vote));
+  const result = await measureAsync(`mutation:vote:${target.type}`, () =>
+    currentAdapter.setVote(target, vote)
+  );
+  void invalidateFeedEngagementCache();
+  return result;
 }
 
 export async function castFeedVote(

@@ -1,11 +1,21 @@
-import { isPersonalServiceProject, isProductiveProject, skipsDistributionPhase, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
-import type { EventPageData, EventPlan, ProjectPageData, ProjectServiceHistoryItem } from '$lib/types/detail';
+import {
+  isPersonalServiceProject,
+  isProductiveProject,
+  skipsDistributionPhase,
+  supportsProjectDemandSignals,
+} from '$lib/features/projects/projectMode';
+import type {
+  EventPageData,
+  EventPlan,
+  ProjectPageData,
+  ProjectServiceHistoryItem,
+} from '$lib/types/detail';
 import { canProposeEventActivity } from '$lib/utils/eventSchedule';
 import {
   activateParticipationActivityPhase,
   focusActivitySignupTargets,
   focusHistoryFollowUpTargets,
-  getHistoryItemsNeedingFollowUp
+  getHistoryItemsNeedingFollowUp,
 } from '$lib/utils/participationActivityFocus';
 import { pendingVoteCardId, type PendingVoteItem } from '$lib/utils/pendingVotes';
 
@@ -13,7 +23,7 @@ export {
   activateParticipationActivityPhase,
   focusActivitySignupTargets,
   focusHistoryFollowUpTargets,
-  getHistoryItemsNeedingFollowUp
+  getHistoryItemsNeedingFollowUp,
 };
 
 export interface ParticipationStep {
@@ -46,7 +56,9 @@ function isProposalPhase(data: ProjectPageData | EventPageData) {
 
 function isPlanPhase(data: ProjectPageData | EventPageData) {
   if ('projectMode' in data) {
-    return data.lifecycle.currentPhaseId === 'phase-2' || data.lifecycle.currentPhaseId === 'phase-3';
+    return (
+      data.lifecycle.currentPhaseId === 'phase-2' || data.lifecycle.currentPhaseId === 'phase-3'
+    );
   }
 
   return data.lifecycle.currentPhaseId === 'event-plan';
@@ -60,7 +72,10 @@ function isActivityPhase(data: ProjectPageData | EventPageData) {
   return data.lifecycle.currentPhaseId === 'activity';
 }
 
-function viewerHasAdvanceProposal(data: ProjectPageData | EventPageData, viewerUsername: string | null) {
+function viewerHasAdvanceProposal(
+  data: ProjectPageData | EventPageData,
+  viewerUsername: string | null
+) {
   if (!viewerUsername) {
     return false;
   }
@@ -215,7 +230,7 @@ function projectAdvanceGateHelper(data: ProjectPageData): string | null {
   }
 
   if (phaseId === 'phase-4') {
-    return `When acquisition and inventory for this phase are complete, open the phase-change controls to propose advancing to ${nextLabel}.`;
+    return `This legacy phase is treated as planning. Open the phase-change controls to propose advancing to ${nextLabel}.`;
   }
 
   if (phaseId === 'phase-5') {
@@ -348,20 +363,17 @@ function viewerSubmittedPlan(data: ProjectPageData | EventPageData, viewerUserna
   if ('projectMode' in data) {
     if (data.lifecycle.currentPhaseId === 'phase-2') {
       return data.lifecycle.phaseTwo.plans.some(
-        (plan) => ('viewerCanEdit' in plan && plan.viewerCanEdit) || matchesViewer(plan.authorUsername)
+        (plan) =>
+          ('viewerCanEdit' in plan && plan.viewerCanEdit) || matchesViewer(plan.authorUsername)
       );
     }
     if (data.lifecycle.currentPhaseId === 'phase-3') {
-      return data.lifecycle.phaseThree.plans.some(
-        (plan) => matchesViewer(plan.authorUsername)
-      );
+      return data.lifecycle.phaseThree.plans.some((plan) => matchesViewer(plan.authorUsername));
     }
     return false;
   }
 
-  return data.lifecycle.phaseTwo.plans.some(
-    (plan) => matchesViewer(plan.authorUsername)
-  );
+  return data.lifecycle.phaseTwo.plans.some((plan) => matchesViewer(plan.authorUsername));
 }
 
 function eventWinningPlan(data: EventPageData): EventPlan | null {
@@ -408,7 +420,9 @@ function hasScheduledActivities(data: ProjectPageData | EventPageData) {
 
 export function getActivitiesNeedingSignup(data: ProjectPageData | EventPageData) {
   const activities =
-    'projectMode' in data ? data.lifecycle.phaseFive.activities : data.lifecycle.activity.activities;
+    'projectMode' in data
+      ? data.lifecycle.phaseFive.activities
+      : data.lifecycle.activity.activities;
 
   return activities.filter((activity) => {
     if (activity.viewerAssignedRoleLabel) {
@@ -425,7 +439,9 @@ export function getActivitiesNeedingSignup(data: ProjectPageData | EventPageData
 
 function viewerNeedsActivitySignup(data: ProjectPageData | EventPageData) {
   const activities =
-    'projectMode' in data ? data.lifecycle.phaseFive.activities : data.lifecycle.activity.activities;
+    'projectMode' in data
+      ? data.lifecycle.phaseFive.activities
+      : data.lifecycle.activity.activities;
 
   return activities.some((activity) => !activity.viewerAssignedRoleLabel);
 }
@@ -470,7 +486,7 @@ function buildSignalStep(
     return {
       id: 'signal',
       label: 'Signal',
-      done: true
+      done: true,
     };
   }
 
@@ -478,15 +494,17 @@ function buildSignalStep(
     id: 'signal',
     label: 'Signal',
     done: signaled,
-    helper: signalHelper(data, signaled, Boolean(options.signalRemovalNudge))
+    helper: signalHelper(data, signaled, Boolean(options.signalRemovalNudge)),
   };
 }
 
 function historyFollowUpHelper(items: ProjectServiceHistoryItem[]) {
   const needsCompletion = items.some(
     (item) =>
-      (item.requesterCompletion?.viewerCanSet && item.requesterCompletion.viewerSelection == null) ||
-      (item.participantCompletion.viewerCanSet && item.participantCompletion.viewerSelection == null)
+      (item.requesterCompletion?.viewerCanSet &&
+        item.requesterCompletion.viewerSelection == null) ||
+      (item.participantCompletion.viewerCanSet &&
+        item.participantCompletion.viewerSelection == null)
   );
   const needsRating = items.some((item) => item.viewerCanRate && item.viewerRating == null);
 
@@ -510,7 +528,7 @@ function buildHistoryFollowUpStep(items: ProjectServiceHistoryItem[]): Participa
     id: 'history-follow-up',
     label: 'Wrap up',
     done: false,
-    helper: historyFollowUpHelper(items)
+    helper: historyFollowUpHelper(items),
   };
 }
 
@@ -547,7 +565,8 @@ function buildParticipationSteps(
 
   const joined = data.viewerIsMember;
   const signaled =
-    data.lifecycle.phaseOne.viewerHasDemandSignal || data.lifecycle.phaseOne.viewerHasOppositionSignal;
+    data.lifecycle.phaseOne.viewerHasDemandSignal ||
+    data.lifecycle.phaseOne.viewerHasOppositionSignal;
   const rated = valuesRated(data.lifecycle.phaseOne.values);
   const viewerUsername = options.viewerUsername ?? null;
 
@@ -568,7 +587,7 @@ function buildParticipationSteps(
       id: 'join',
       label: 'Join',
       done: joined,
-      helper: joinHelper
+      helper: joinHelper,
     });
   }
 
@@ -593,16 +612,19 @@ function buildParticipationSteps(
         ? hasSoftwareActions
           ? 'Handle open votes, merges, and confirmations — do not start a new one.'
           : 'Approve or reject open decisions — do not start a new one.'
-        : undefined
+        : undefined,
     });
   }
 
-  if (isProposalPhase(data) && ('projectMode' in data || data.governance !== 'organizer_controlled')) {
+  if (
+    isProposalPhase(data) &&
+    ('projectMode' in data || data.governance !== 'organizer_controlled')
+  ) {
     steps.push({
       id: 'rate',
       label: data.lifecycle.phaseOne.values.length === 0 ? 'Add values' : 'Rate values',
       done: rated,
-      helper: rateValuesHelper(data.lifecycle.phaseOne.values, joined, signaled, rated)
+      helper: rateValuesHelper(data.lifecycle.phaseOne.values, joined, signaled, rated),
     });
   }
 
@@ -613,13 +635,13 @@ function buildParticipationSteps(
       done: viewerSubmittedPlan(data, viewerUsername),
       helper: joined
         ? 'Contribute your own plan and assess plans from others in this phase.'
-        : undefined
+        : undefined,
     });
     steps.push({
       id: 'assess-plans',
       label: 'Assess',
       done: !viewerHasPendingPlanAssessments(data),
-      helper: joined ? 'Rate other members’ plans before casting final approval votes.' : undefined
+      helper: joined ? 'Rate other members’ plans before casting final approval votes.' : undefined,
     });
   }
 
@@ -630,14 +652,14 @@ function buildParticipationSteps(
         id: 'activity',
         label: 'Sign up',
         done: !viewerNeedsActivitySignup(data),
-        helper: joined ? 'Take a role on scheduled activity others have proposed.' : undefined
+        helper: joined ? 'Take a role on scheduled activity others have proposed.' : undefined,
       });
     }
     steps.push({
       id: 'propose-activity',
       label: 'Add activity',
       done: false,
-      helper: proposeActivityHelper(data, joined, activitiesExist)
+      helper: proposeActivityHelper(data, joined, activitiesExist),
     });
 
     if (isSoftwareActivityPhase(data) && 'projectMode' in data) {
@@ -645,7 +667,7 @@ function buildParticipationSteps(
         id: 'make-pull-request',
         label: 'Add PR',
         done: false,
-        helper: makePullRequestHelper(data, joined)
+        helper: makePullRequestHelper(data, joined),
       });
     }
   }
@@ -655,7 +677,7 @@ function buildParticipationSteps(
       id: 'propose-advance',
       label: proposePhaseChangeStepLabel(data),
       done: false,
-      helper: joined ? proposeAdvanceHelper(data) : undefined
+      helper: joined ? proposeAdvanceHelper(data) : undefined,
     });
   }
 
@@ -699,7 +721,7 @@ export function resolveCurrentParticipationStep(steps: ParticipationStep[]) {
     'propose-activity',
     'make-pull-request',
     'propose-advance',
-    'history-follow-up'
+    'history-follow-up',
   ];
   for (const id of priority) {
     const match = steps.find((step) => step.id === id && !step.done);
@@ -765,7 +787,9 @@ export function getParticipationStepActionTarget(
     case 'plan':
       return '[data-participation-action="submit-plan"]';
     case 'assess-plans': {
-      const assessItem = pendingVotes.find((item) => item.voteKind === 'plan' && item.planCriterionId);
+      const assessItem = pendingVotes.find(
+        (item) => item.voteKind === 'plan' && item.planCriterionId
+      );
       if (assessItem) {
         return `#${pendingVoteCardId(
           assessItem.voteKind,

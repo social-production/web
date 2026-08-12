@@ -15,14 +15,25 @@
   import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
   import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
   import PlanAssessmentWizard from '$lib/components/shared/PlanAssessmentWizard.svelte';
-  import { setEventEditVote, setEventPhaseChangeVote, setEventPlanCriterionRating, setEventPlanOverallVote, setEventPlanValueVote, setEventUpdateVote } from '$lib/services/commands/events';
+  import {
+    setEventEditVote,
+    setEventPhaseChangeVote,
+    setEventPlanCriterionRating,
+    setEventPlanOverallVote,
+    setEventPlanValueVote,
+    setEventUpdateVote,
+  } from '$lib/services/commands/events';
   import type { EventPageData, PlanCriterionRating, ProjectApprovalVote } from '$lib/types/detail';
   import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
   import {
     buildEventParticipationSteps,
-    resolveCurrentParticipationStep
+    resolveCurrentParticipationStep,
   } from '$lib/utils/participationSteps';
-  import { collectEventPendingVotes, scrollToPendingVote, type PendingVoteItem } from '$lib/utils/pendingVotes';
+  import {
+    collectEventPendingVotes,
+    scrollToPendingVote,
+    type PendingVoteItem,
+  } from '$lib/utils/pendingVotes';
   import { applySignalToggleToDetailPhaseOneImmutable } from '$lib/utils/feedSignals';
   import type { SignalToggleResult } from '$lib/types/feed';
 
@@ -81,7 +92,9 @@
       return;
     }
 
-    document.getElementById('pending-votes-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document
+      .getElementById('pending-votes-panel')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function readCommentTarget(url: URL) {
@@ -145,7 +158,7 @@
     void goto(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`, {
       replaceState: true,
       noScroll: true,
-      keepFocus: true
+      keepFocus: true,
     });
   }
 
@@ -154,13 +167,14 @@
       return;
     }
 
-    const topbarHeight = document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
+    const topbarHeight =
+      document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
     const topOffset = topbarHeight + 28;
     const nextTop = window.scrollY + element.getBoundingClientRect().top - topOffset;
 
     window.scrollTo({
       top: Math.max(nextTop, 0),
-      behavior: 'smooth'
+      behavior: 'smooth',
     });
   }
 
@@ -189,17 +203,21 @@
         ? 'chat'
         : highlightedDecisionId
           ? 'history'
-        : highlightedLinkRequestId || requestedTab === 'links'
-          ? 'links'
-        : requestedTab === 'history'
-          ? 'history'
-        : requestedTab === 'chat'
-            ? 'chat'
-            : 'overview';
+          : highlightedLinkRequestId || requestedTab === 'links'
+            ? 'links'
+            : requestedTab === 'history'
+              ? 'history'
+              : requestedTab === 'chat'
+                ? 'chat'
+                : 'overview';
     }
     autoExpandVoteCards = $page.url.searchParams.get('open') === 'vote';
-    autoExpandVoteKind = autoExpandVoteCards ? ($page.url.searchParams.get('voteKind') || null) : null;
-    autoExpandVoteTarget = autoExpandVoteCards ? ($page.url.searchParams.get('voteTarget') || null) : null;
+    autoExpandVoteKind = autoExpandVoteCards
+      ? $page.url.searchParams.get('voteKind') || null
+      : null;
+    autoExpandVoteTarget = autoExpandVoteCards
+      ? $page.url.searchParams.get('voteTarget') || null
+      : null;
     autoAssess = $page.url.searchParams.get('assess') === '1';
     autoAssessCriterionId = $page.url.searchParams.get('criterionId') || null;
     if ($page.url.hash === '#pending-votes-panel') {
@@ -213,12 +231,12 @@
   $: pendingAssessmentPlan =
     pendingAssessmentPlanId == null
       ? null
-      : data.lifecycle.phaseTwo.plans.find((plan) => plan.id === pendingAssessmentPlanId) ?? null;
+      : (data.lifecycle.phaseTwo.plans.find((plan) => plan.id === pendingAssessmentPlanId) ?? null);
 
   $: pendingVotes = collectEventPendingVotes(pageData);
   $: participationSteps = buildEventParticipationSteps(pageData, pendingVotes, {
     signalRemovalNudge,
-    viewerUsername: $page.data.bootstrap?.viewer?.username ?? null
+    viewerUsername: $page.data.bootstrap?.viewer?.username ?? null,
   });
   $: currentParticipationStep = resolveCurrentParticipationStep(participationSteps);
   $: if (
@@ -255,7 +273,10 @@
     pendingAssessmentCriterionId = null;
   }
 
-  async function handlePendingCriterionRate(criterionId: string, rating: PlanCriterionRating | null) {
+  async function handlePendingCriterionRate(
+    criterionId: string,
+    rating: PlanCriterionRating | null
+  ) {
     if (!pendingAssessmentPlanId) {
       return;
     }
@@ -304,18 +325,14 @@
 
 <section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
   <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
-    <DetailTopTabs
-      {activeTab}
-      ariaLabel="Event detail tabs"
-      {selectTab}
-    />
+    <DetailTopTabs {activeTab} ariaLabel="Event detail tabs" {selectTab} />
 
     {#if activeTab === 'overview'}
       <ParticipationSteps
         steps={participationSteps}
         currentStepId={currentParticipationStep}
         {pendingVotes}
-        pageData={pageData}
+        {pageData}
         placement="lead"
         on:dismiss={handleParticipationDismiss}
       />
@@ -324,7 +341,11 @@
         signalChange={handleSignalChange}
         onMembershipChange={handleMembershipChange}
       />
-      <PendingVotesPanel items={pendingVotes} onVote={handlePendingVote} onAssess={handlePendingAssess} />
+      <PendingVotesPanel
+        items={pendingVotes}
+        onVote={handlePendingVote}
+        onAssess={handlePendingAssess}
+      />
       <EventUpdatesSection
         {data}
         {highlightedUpdateId}
@@ -349,11 +370,11 @@
         />
       </div>
     {:else if activeTab === 'chat'}
-      <EventChatTab {data} highlightedCommentId={highlightedCommentId} fullscreen={isCompact} />
+      <EventChatTab {data} {highlightedCommentId} fullscreen={isCompact} />
     {:else if activeTab === 'links'}
       <DetailLinksTab frame={data.linksFrame} highlightedRequestId={highlightedLinkRequestId} />
     {:else}
-      <EventHistoryTab {data} highlightedDecisionId={highlightedDecisionId} />
+      <EventHistoryTab {data} {highlightedDecisionId} />
     {/if}
   </section>
 
@@ -400,7 +421,10 @@
     .page-chat {
       grid-template-rows: minmax(0, 1fr);
       gap: 0;
-      height: calc(100dvh - var(--topbar-height) - var(--shell-bottom-nav-offset));
+      height: calc(
+        var(--shell-visual-viewport-height, 100dvh) - var(--topbar-height) -
+          var(--shell-bottom-nav-offset)
+      );
       min-height: 0;
       overflow: hidden;
     }

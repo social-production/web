@@ -8,12 +8,12 @@
 </script>
 
 {#if href}
-  <a class="scope-chip" {href}>
+  <a class="scope-chip" {href} title={label} aria-label={label}>
     <SurfaceIcon {icon} size="sm" />
     <span>{label}</span>
   </a>
 {:else}
-  <span class="scope-chip">
+  <span class="scope-chip" title={label} aria-label={label}>
     <SurfaceIcon {icon} size="sm" />
     <span>{label}</span>
   </span>
@@ -24,6 +24,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    min-width: 0;
     max-width: 100%;
     padding: 3px 8px;
     border: 1px solid var(--panel-border);
@@ -43,7 +44,16 @@
   }
 
   .scope-chip span {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  @media (max-width: 760px) {
+    .scope-chip {
+      gap: 3px;
+      padding: 2px 5px;
+      font-size: clamp(8px, 2.6vw, 10px);
+    }
   }
 </style>

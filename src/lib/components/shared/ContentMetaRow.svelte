@@ -4,7 +4,7 @@
   import {
     activityStampInstant,
     describeUpdateTime,
-    formatRelativeTimeCompact
+    formatRelativeTimeCompact,
   } from '$lib/utils/time';
 
   /** Shared author / members / activity meta chips for feed and detail cards. */
@@ -19,18 +19,14 @@
   $: activityLabel = createdAt ? describeUpdateTime(createdAt, updatedAt) : '';
   $: activityInstant = createdAt ? activityStampInstant(createdAt, updatedAt) : '';
   $: resolvedAuthorHref = authorHref ?? (authorUsername ? `/profile/${authorUsername}` : null);
-  $: isUpdated = Boolean(
-    createdAt &&
-      updatedAt &&
-      +new Date(updatedAt) > +new Date(createdAt)
-  );
+  $: isUpdated = Boolean(createdAt && updatedAt && +new Date(updatedAt) > +new Date(createdAt));
 </script>
 
 <span class="content-meta-row" class:time-only={timeOnly}>
   {#if !timeOnly && authorUsername && resolvedAuthorHref}
-    <a class="inline-link" href={resolvedAuthorHref}>{authorUsername}</a>
+    <a class="inline-link" href={resolvedAuthorHref} title={authorUsername}>{authorUsername}</a>
   {:else if !timeOnly && authorUsername}
-    <span class="inline-link">{authorUsername}</span>
+    <span class="inline-link" title={authorUsername}>{authorUsername}</span>
   {/if}
 
   {#if memberCount != null}
@@ -66,6 +62,9 @@
   }
 
   .inline-link {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--text-main);
     font-weight: 700;
   }
@@ -94,5 +93,32 @@
 
   .activity-stamp {
     white-space: nowrap;
+  }
+
+  @media (max-width: 760px) {
+    .content-meta-row {
+      width: 100%;
+      max-width: 100%;
+      gap: 4px;
+      overflow: hidden;
+      font-size: clamp(8px, 2.6vw, 11px);
+    }
+
+    .inline-link {
+      flex: 1 1 auto;
+    }
+
+    .meta-chip {
+      flex: 0 0 auto;
+      gap: 2px;
+    }
+
+    .meta-chip :global(.meta-icon),
+    .meta-icon-wrap,
+    .meta-icon-wrap :global(.toolbar-icon),
+    .meta-icon-wrap :global(svg) {
+      width: 12px;
+      height: 12px;
+    }
   }
 </style>

@@ -8,6 +8,7 @@
   import HelpRequestOverviewHeader from '$lib/features/help-requests/detail/HelpRequestOverviewHeader.svelte';
   import HelpRequestRolesSection from '$lib/features/help-requests/detail/HelpRequestRolesSection.svelte';
   import { addComment } from '$lib/services/commands/shared';
+  import { subscribeToSubjectComments } from '$lib/api/drivers/supabase/realtime';
   import { registerEntityType } from '$lib/services/governanceEntityRegistry';
   import type { DetailComment, HelpRequestPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
@@ -17,7 +18,7 @@
     createOptimisticComment,
     mergeDiscussion,
     pruneOptimisticComments,
-    syncIncomingDiscussion
+    syncIncomingDiscussion,
   } from '$lib/utils/discussionState';
 
   export let data: HelpRequestPageData;
@@ -38,6 +39,16 @@
 
   $: discussion = mergeDiscussion(serverDiscussion, optimisticComments);
 
+  async function refreshDiscussion() {
+    try {
+      const refreshed = await refreshSubjectDiscussion('help_request', data.id);
+      serverDiscussion = refreshed;
+      optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
+    } catch {
+      // Keep current discussion until the next successful refresh.
+    }
+  }
+
   onMount(() => {
     const media = window.matchMedia('(max-width: 1080px)');
     const syncCompact = () => {
@@ -46,26 +57,19 @@
 
     syncCompact();
     media.addEventListener('change', syncCompact);
-    const stopPolling = startVisibilityPoll(
-      async () => {
-        try {
-          const refreshed = await refreshSubjectDiscussion('help_request', data.id);
-          serverDiscussion = refreshed;
-          optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
-        } catch {
-          // Keep current discussion until the next successful refresh.
-        }
-      },
-      {
-        activeMs: 8_000,
-        idleMs: 45_000,
-        isActive: () => activeTab === 'chat'
-      }
-    );
+    const stopPolling = startVisibilityPoll(refreshDiscussion, {
+      activeMs: 8_000,
+      idleMs: 45_000,
+      isActive: () => activeTab === 'chat',
+    });
+    const stopRealtime = subscribeToSubjectComments('help_request', data.id, () => {
+      if (activeTab === 'chat') void refreshDiscussion();
+    });
 
     return () => {
       media.removeEventListener('change', syncCompact);
       stopPolling();
+      stopRealtime();
     };
   });
 
@@ -95,7 +99,7 @@
     void goto(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`, {
       replaceState: true,
       noScroll: true,
-      keepFocus: true
+      keepFocus: true,
     });
   }
 
@@ -169,7 +173,7 @@
           embedded={activeTab === 'chat' && isCompact}
           emptyCopy="No help request chat yet."
           fitViewport={activeTab === 'chat' && isCompact}
-          highlightedCommentId={highlightedCommentId}
+          {highlightedCommentId}
           onModerated={async () => {
             const refreshed = await refreshSubjectDiscussion('help_request', data.id);
             serverDiscussion = refreshed;
@@ -269,7 +273,10 @@
     .page-chat {
       grid-template-rows: minmax(0, 1fr);
       gap: 0;
-      height: calc(100dvh - var(--topbar-height) - var(--shell-bottom-nav-offset));
+      height: calc(
+        var(--shell-visual-viewport-height, 100dvh) - var(--topbar-height) -
+          var(--shell-bottom-nav-offset)
+      );
       min-height: 0;
       overflow: hidden;
     }

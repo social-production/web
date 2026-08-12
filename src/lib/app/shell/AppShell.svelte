@@ -298,6 +298,10 @@
 
     const viewport = window.visualViewport;
     const syncKeyboardState = () => {
+      document.documentElement.style.setProperty(
+        '--shell-visual-viewport-height',
+        `${Math.round(viewport?.height ?? window.innerHeight)}px`
+      );
       // Firefox fires visualViewport resize for URL-bar show/hide. Only treat a
       // shrink as keyboard when a text field is focused.
       const viewportShrunk = Boolean(viewport && window.innerHeight - viewport.height > 120);
@@ -373,6 +377,7 @@
       window.removeEventListener('scroll', handleFeedChromeScroll);
       viewport?.removeEventListener('resize', syncKeyboardState);
       viewport?.removeEventListener('scroll', syncKeyboardState);
+      document.documentElement.style.removeProperty('--shell-visual-viewport-height');
       window.clearInterval(badgePoll);
       resizeObserver.disconnect();
       media.removeEventListener('change', syncLayout);

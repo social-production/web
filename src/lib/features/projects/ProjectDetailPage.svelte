@@ -16,14 +16,32 @@
   import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
   import PlanAssessmentWizard from '$lib/components/shared/PlanAssessmentWizard.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
-  import { setProjectEditVote, setProjectMergeCapabilityChangeVote, setProjectPhaseChangeVote, setProjectPlanCriterionRating, setProjectPlanOverallVote, setProjectPlanValueVote, setProjectPullRequestVote, setProjectRepositoryReplacementVote, setProjectUpdateVote } from '$lib/services/commands/projects';
-  import type { PlanCriterionRating, ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
+  import {
+    setProjectEditVote,
+    setProjectMergeCapabilityChangeVote,
+    setProjectPhaseChangeVote,
+    setProjectPlanCriterionRating,
+    setProjectPlanOverallVote,
+    setProjectPlanValueVote,
+    setProjectPullRequestVote,
+    setProjectRepositoryReplacementVote,
+    setProjectUpdateVote,
+  } from '$lib/services/commands/projects';
+  import type {
+    PlanCriterionRating,
+    ProjectApprovalVote,
+    ProjectPageData,
+  } from '$lib/types/detail';
   import { invalidateProjectDetail } from '$lib/utils/detailInvalidation';
   import {
     buildProjectParticipationSteps,
-    resolveCurrentParticipationStep
+    resolveCurrentParticipationStep,
   } from '$lib/utils/participationSteps';
-  import { collectProjectPendingVotes, scrollToPendingVote, type PendingVoteItem } from '$lib/utils/pendingVotes';
+  import {
+    collectProjectPendingVotes,
+    scrollToPendingVote,
+    type PendingVoteItem,
+  } from '$lib/utils/pendingVotes';
   import { applySignalToggleToDetailPhaseOneImmutable } from '$lib/utils/feedSignals';
   import type { SignalToggleResult } from '$lib/types/feed';
 
@@ -92,7 +110,9 @@
       return;
     }
 
-    document.getElementById('pending-votes-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document
+      .getElementById('pending-votes-panel')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function readCommentTarget(url: URL) {
@@ -156,7 +176,7 @@
     void goto(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`, {
       replaceState: true,
       noScroll: true,
-      keepFocus: true
+      keepFocus: true,
     });
   }
 
@@ -165,13 +185,14 @@
       return;
     }
 
-    const topbarHeight = document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
+    const topbarHeight =
+      document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
     const topOffset = topbarHeight + 28;
     const nextTop = window.scrollY + element.getBoundingClientRect().top - topOffset;
 
     window.scrollTo({
       top: Math.max(nextTop, 0),
-      behavior: 'smooth'
+      behavior: 'smooth',
     });
   }
 
@@ -204,17 +225,21 @@
         ? 'chat'
         : highlightedDecisionId
           ? 'history'
-        : highlightedLinkRequestId || requestedTab === 'links'
-          ? 'links'
-        : requestedTab === 'history'
-          ? 'history'
-        : requestedTab === 'chat'
-          ? 'chat'
-          : 'overview';
+          : highlightedLinkRequestId || requestedTab === 'links'
+            ? 'links'
+            : requestedTab === 'history'
+              ? 'history'
+              : requestedTab === 'chat'
+                ? 'chat'
+                : 'overview';
     }
     autoExpandVoteCards = $page.url.searchParams.get('open') === 'vote';
-    autoExpandVoteKind = autoExpandVoteCards ? ($page.url.searchParams.get('voteKind') || null) : null;
-    autoExpandVoteTarget = autoExpandVoteCards ? ($page.url.searchParams.get('voteTarget') || null) : null;
+    autoExpandVoteKind = autoExpandVoteCards
+      ? $page.url.searchParams.get('voteKind') || null
+      : null;
+    autoExpandVoteTarget = autoExpandVoteCards
+      ? $page.url.searchParams.get('voteTarget') || null
+      : null;
     autoAssess = $page.url.searchParams.get('assess') === '1';
     autoAssessCriterionId = $page.url.searchParams.get('criterionId') || null;
     if (
@@ -225,7 +250,7 @@
     ) {
       softwareWizardRequest = {
         mode: autoExpandVoteKind === 'pull_request_merge' ? 'record-merge' : 'vote-pr',
-        requestId: autoExpandVoteTarget
+        requestId: autoExpandVoteTarget,
       };
     }
     if ($page.url.hash === '#pending-votes-panel') {
@@ -268,7 +293,7 @@
   $: pendingVotes = collectProjectPendingVotes(pageData);
   $: participationSteps = buildProjectParticipationSteps(pageData, pendingVotes, {
     signalRemovalNudge,
-    viewerUsername: $page.data.bootstrap?.viewer?.username ?? null
+    viewerUsername: $page.data.bootstrap?.viewer?.username ?? null,
   });
   $: currentParticipationStep = resolveCurrentParticipationStep(participationSteps);
   $: if (
@@ -307,17 +332,15 @@
     pendingAssessmentCriterionId = null;
   }
 
-  async function handlePendingCriterionRate(criterionId: string, rating: PlanCriterionRating | null) {
+  async function handlePendingCriterionRate(
+    criterionId: string,
+    rating: PlanCriterionRating | null
+  ) {
     if (!pendingAssessmentPlanId || !pendingAssessmentPhaseId) {
       return;
     }
 
-    await setProjectPlanCriterionRating(
-      data.slug,
-      pendingAssessmentPlanId,
-      criterionId,
-      rating
-    );
+    await setProjectPlanCriterionRating(data.slug, pendingAssessmentPlanId, criterionId, rating);
     await invalidateProjectDetail(data.slug);
   }
 
@@ -326,7 +349,12 @@
       return;
     }
 
-    await setProjectPlanOverallVote(data.slug, pendingAssessmentPhaseId, pendingAssessmentPlanId, vote);
+    await setProjectPlanOverallVote(
+      data.slug,
+      pendingAssessmentPhaseId,
+      pendingAssessmentPlanId,
+      vote
+    );
     await invalidateProjectDetail(data.slug);
     closePendingAssessment();
   }
@@ -357,7 +385,13 @@
           break;
         }
         if (item.planPhaseId && item.planValueId) {
-          await setProjectPlanValueVote(data.slug, item.planPhaseId, item.id, item.planValueId, vote);
+          await setProjectPlanValueVote(
+            data.slug,
+            item.planPhaseId,
+            item.id,
+            item.planValueId,
+            vote
+          );
         } else if (item.planPhaseId) {
           await setProjectPlanOverallVote(data.slug, item.planPhaseId, item.id, vote);
         }
@@ -389,18 +423,14 @@
 
 <section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
   <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
-    <DetailTopTabs
-      {activeTab}
-      ariaLabel="Project detail tabs"
-      {selectTab}
-    />
+    <DetailTopTabs {activeTab} ariaLabel="Project detail tabs" {selectTab} />
 
     {#if activeTab === 'overview'}
       <ParticipationSteps
         steps={participationSteps}
         currentStepId={currentParticipationStep}
         {pendingVotes}
-        pageData={pageData}
+        {pageData}
         placement="lead"
         on:dismiss={handleParticipationDismiss}
       />
@@ -436,7 +466,7 @@
           {participationAssessPlanId}
           {participationAssessCriterionId}
           votesRenderedInHub={pendingVotes.length > 0}
-          softwareWizardRequest={softwareWizardRequest}
+          {softwareWizardRequest}
           onSoftwareWizardRequestHandled={() => {
             softwareWizardRequest = null;
           }}
@@ -447,7 +477,7 @@
     {:else if activeTab === 'links'}
       <DetailLinksTab frame={data.linksFrame} highlightedRequestId={highlightedLinkRequestId} />
     {:else}
-      <ProjectHistoryTab {data} highlightedDecisionId={highlightedDecisionId} />
+      <ProjectHistoryTab {data} {highlightedDecisionId} />
     {/if}
   </section>
 
@@ -457,11 +487,9 @@
       plan={pendingAssessmentPlan}
       planTitle={pendingAssessmentPlan.title}
       criteria={pendingAssessmentPlan.criterionAssessments ?? []}
-      canVote={
-        pendingAssessmentPhaseId === 'phase-3'
-          ? data.lifecycle.phaseThree.viewerCanVoteOnPlans
-          : data.lifecycle.phaseTwo.viewerCanVoteOnPlans
-      }
+      canVote={pendingAssessmentPhaseId === 'phase-3'
+        ? data.lifecycle.phaseThree.viewerCanVoteOnPlans
+        : data.lifecycle.phaseTwo.viewerCanVoteOnPlans}
       initialCriterionId={pendingAssessmentCriterionId}
       overallActiveVote={pendingAssessmentPlan.overallApproval.activeVote}
       onRate={handlePendingCriterionRate}
@@ -498,7 +526,10 @@
     .page-chat {
       grid-template-rows: minmax(0, 1fr);
       gap: 0;
-      height: calc(100dvh - var(--topbar-height) - var(--shell-bottom-nav-offset));
+      height: calc(
+        var(--shell-visual-viewport-height, 100dvh) - var(--topbar-height) -
+          var(--shell-bottom-nav-offset)
+      );
       min-height: 0;
       overflow: hidden;
     }

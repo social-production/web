@@ -1,7 +1,6 @@
 import { invalidate } from '$app/navigation';
 import { writable } from 'svelte/store';
 import { currentAdapter } from '$lib/services/adapters';
-import { fetchActivityRail } from '$lib/api/drivers/supabase/domains/bootstrap';
 import type { RightRailActivityItem } from '$lib/types/bootstrap';
 
 export function getBootstrap() {
@@ -12,19 +11,20 @@ export async function getActivityRail(): Promise<{
   activityRail: RightRailActivityItem[];
   activityRailHistory: RightRailActivityItem[];
 }> {
-  // Supabase serves a deferred rail endpoint; FastAPI embeds the rail in bootstrap.
-  try {
-    return await fetchActivityRail();
-  } catch (err) {
-    if ((err as { status?: number }).status !== 404) {
-      throw err;
+  if (currentAdapter.getActivityRail) {
+    try {
+      return await currentAdapter.getActivityRail();
+    } catch (err) {
+      if ((err as { status?: number }).status !== 404) {
+        throw err;
+      }
     }
-    const bootstrap = await getBootstrap();
-    return {
-      activityRail: bootstrap.activityRail ?? [],
-      activityRailHistory: bootstrap.activityRailHistory ?? []
-    };
   }
+  const bootstrap = await getBootstrap();
+  return {
+    activityRail: bootstrap.activityRail ?? [],
+    activityRailHistory: bootstrap.activityRailHistory ?? [],
+  };
 }
 
 /** Bumped by rail mutations so AppShell can reload deferred activity-rail state. */

@@ -6,7 +6,7 @@ import type {
   SignInInput,
   SignUpInput,
   SettingsPageData,
-  SettingsUpdateInput
+  SettingsUpdateInput,
 } from '$lib/types/account';
 import type {
   EventPageData,
@@ -34,7 +34,7 @@ import type {
   ShareTargetResult,
   ProjectServiceRequestStatus,
   ThreadPageData,
-  HelpRequestPageData
+  HelpRequestPageData,
 } from '$lib/types/detail';
 import type { PlatformAssetsPageData } from '$lib/types/assets';
 import type {
@@ -43,7 +43,7 @@ import type {
   MessageConversationResult,
   MessageLinkedChat,
   MessagesPageData,
-  NotificationsPageData
+  NotificationsPageData,
 } from '$lib/types/inbox';
 import type {
   CreateChannelInput,
@@ -57,13 +57,13 @@ import type {
   PersonalFeedItem,
   PublicFeedItem,
   SignalToggleResult,
-  VoteDirection
+  VoteDirection,
 } from '$lib/types/feed';
 import type {
   CommentSubjectRef,
   CommentSubjectType,
   ReportTargetRef,
-  VoteTargetRef
+  VoteTargetRef,
 } from '$lib/types/governance';
 import type { FeedPageResult } from '$lib/types/pagination';
 import type { SearchPageData } from '$lib/types/search';
@@ -72,13 +72,17 @@ import type { LocationPrecision, LocationRecord } from '$lib/types/location';
 import type {
   CommunityDirectInviteResult,
   ScopeInviteCreateResult,
-  ScopeInviteRedeemResult
+  ScopeInviteRedeemResult,
 } from '$lib/types/invites';
 import type { DetailComment } from '$lib/types/detail';
 
 export interface AppAdapter {
   getBootstrap(): Promise<BootstrapPayload>;
   getBootstrapSummary(): Promise<Pick<BootstrapPayload, 'unreadCounts'>>;
+  getActivityRail?(): Promise<{
+    activityRail: BootstrapPayload['activityRail'];
+    activityRailHistory: BootstrapPayload['activityRailHistory'];
+  }>;
   hydrateClientState?(): Promise<boolean>;
   getPublicFeed(options?: {
     sort?: 'trending' | 'recent' | 'popular';
@@ -199,12 +203,12 @@ export interface AppAdapter {
   }): Promise<FeedPageResult<PublicFeedItem>>;
   getUserFeedPage(options: {
     username: string;
-  sort?: 'trending' | 'recent' | 'popular' | 'oldest' | 'top';
-  window?: string;
-  filter?: string;
-  limit?: number;
-  offset?: number;
-}): Promise<FeedPageResult<PersonalFeedItem>>;
+    sort?: 'trending' | 'recent' | 'popular' | 'oldest' | 'top';
+    window?: string;
+    filter?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<FeedPageResult<PersonalFeedItem>>;
   getChannel(slug: string): Promise<ScopePageData | null>;
   getCommunity(slug: string): Promise<ScopePageData | null>;
   getPlatform(): Promise<ScopePageData | null>;
@@ -250,7 +254,10 @@ export interface AppAdapter {
   getMessageContacts(query: string, limit?: number): Promise<ViewerSummary[]>;
   getSearch(
     query: string,
-    options?: { entityTypes?: Array<'project' | 'event' | 'thread' | 'channel' | 'community' | 'user'>; limit?: number }
+    options?: {
+      entityTypes?: Array<'project' | 'event' | 'thread' | 'channel' | 'community' | 'user'>;
+      limit?: number;
+    }
   ): Promise<SearchPageData>;
   getProject(slug: string): Promise<ProjectPageData | null>;
   getThread(slug: string): Promise<ThreadPageData | null>;
@@ -268,8 +275,14 @@ export interface AppAdapter {
   ): Promise<{ channels: ScopeDirectoryItem[]; communities: ScopeDirectoryItem[] }>;
   getPost(id: string): Promise<PostPageData | null>;
   getHelpRequest(id: string): Promise<HelpRequestPageData | null>;
-  commitHelpRequestRole(helpRequestId: string, roleId: string): Promise<{ ok: boolean; error?: string }>;
-  uncommitHelpRequestRole(helpRequestId: string, roleId: string): Promise<{ ok: boolean; error?: string }>;
+  commitHelpRequestRole(
+    helpRequestId: string,
+    roleId: string
+  ): Promise<{ ok: boolean; error?: string }>;
+  uncommitHelpRequestRole(
+    helpRequestId: string,
+    roleId: string
+  ): Promise<{ ok: boolean; error?: string }>;
   getEvent(slug: string): Promise<EventPageData | null>;
   toggleEventMembership(eventSlug: string): Promise<void>;
   toggleProjectMembership(projectSlug: string): Promise<void>;
@@ -417,16 +430,8 @@ export interface AppAdapter {
     requestId: string,
     vote: ProjectApprovalVote | null
   ): Promise<void>;
-  updateProjectDetails(
-    projectSlug: string,
-    title: string,
-    description: string
-  ): Promise<void>;
-  requestProjectEdit(
-    projectSlug: string,
-    title: string,
-    description: string
-  ): Promise<void>;
+  updateProjectDetails(projectSlug: string, title: string, description: string): Promise<void>;
+  requestProjectEdit(projectSlug: string, title: string, description: string): Promise<void>;
   setProjectEditVote(
     projectSlug: string,
     requestId: string,
@@ -465,19 +470,16 @@ export interface AppAdapter {
     slug: string,
     inviteValue: string
   ): Promise<ScopeInviteRedeemResult>;
-  createScopeInvite(
-    kind: 'channel' | 'community',
-    slug: string
-  ): Promise<ScopeInviteCreateResult>;
-  inviteUserToCommunity(
-    slug: string,
-    username: string
-  ): Promise<CommunityDirectInviteResult>;
+  createScopeInvite(kind: 'channel' | 'community', slug: string): Promise<ScopeInviteCreateResult>;
+  inviteUserToCommunity(slug: string, username: string): Promise<CommunityDirectInviteResult>;
   volunteerForBoard(): Promise<boolean>;
   removeVolunteer(): Promise<boolean>;
   castModeratorVote(targetUserId: string, vote: string): Promise<boolean>;
   setVote(target: VoteTargetRef, vote: VoteDirection): Promise<void>;
-  getComments(subjectType: CommentSubjectType | string, subjectId: string): Promise<DetailComment[]>;
+  getComments(
+    subjectType: CommentSubjectType | string,
+    subjectId: string
+  ): Promise<DetailComment[]>;
   addComment(subject: CommentSubjectRef, body: string, parentId?: string): Promise<void>;
   submitReport(
     subjectId: string,
@@ -485,7 +487,10 @@ export interface AppAdapter {
     reason: string,
     details: string
   ): Promise<ContentReportSummary | null | void>;
-  setReportVote(targetId: string, vote: ContentReportVote): Promise<ContentReportSummary | null | void>;
+  setReportVote(
+    targetId: string,
+    vote: ContentReportVote
+  ): Promise<ContentReportSummary | null | void>;
   addProjectUpdate(projectSlug: string, title: string, body: string): Promise<void>;
   setEventSignal(eventSlug: string, signal: GovernanceSignalType): Promise<SignalToggleResult>;
   addEventValue(eventSlug: string, label: string): Promise<void>;
@@ -564,7 +569,10 @@ export interface AppAdapter {
   sendMessage(conversationId: string, body: string): Promise<void>;
   startDirectMessage(participantUsername: string, body: string): Promise<MessageConversationResult>;
   createGroupConversation(input: CreateGroupMessageInput): Promise<MessageConversationResult>;
-  renameGroupConversation(conversationId: string, title: string): Promise<MessageConversationResult>;
+  renameGroupConversation(
+    conversationId: string,
+    title: string
+  ): Promise<MessageConversationResult>;
   addGroupConversationMember(
     conversationId: string,
     username: string

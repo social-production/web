@@ -5,8 +5,7 @@ type FeatureFlags = {
 export const phaseOneDeferredFeatures = {
   assets: true,
   inventory: true,
-  acquisition: true,
-  assetManagementSubtype: true
+  assetManagementSubtype: true,
 } as const;
 
 export function isAssetsSurfaceEnabled(featureFlags?: FeatureFlags) {
@@ -15,10 +14,6 @@ export function isAssetsSurfaceEnabled(featureFlags?: FeatureFlags) {
 
 export function isInventorySurfaceEnabled() {
   return !phaseOneDeferredFeatures.inventory;
-}
-
-export function isAcquisitionSurfaceEnabled() {
-  return !phaseOneDeferredFeatures.acquisition;
 }
 
 export function isAssetManagementSubtypeEnabled() {

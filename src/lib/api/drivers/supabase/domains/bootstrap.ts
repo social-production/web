@@ -28,5 +28,6 @@ export async function fetchOnboarding(): Promise<OnboardingPageData> {
 export const bootstrapDomain: Partial<AppAdapter> = {
   getBootstrap: fetchBootstrap,
   getBootstrapSummary: fetchBootstrapSummary,
-  getOnboarding: fetchOnboarding
+  getActivityRail: fetchActivityRail,
+  getOnboarding: fetchOnboarding,
 };

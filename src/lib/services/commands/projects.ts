@@ -1,4 +1,5 @@
 import { currentAdapter } from '$lib/services/adapters';
+import { invalidateFeedEngagementCache } from '$lib/utils/feedSignals';
 import type {
   EventLifecyclePhaseId,
   EventPlanInput,
@@ -18,7 +19,7 @@ import type {
   ProjectSoftwareMergeCapabilityChangeInput,
   ProjectSoftwarePullRequestInput,
   ProjectSoftwareRepositoryReplacementInput,
-  ProjectServiceRequestStatus
+  ProjectServiceRequestStatus,
 } from '$lib/types/detail';
 
 export function toggleProjectMembership(projectSlug: string) {
@@ -213,7 +214,12 @@ export function toggleProjectServiceHistoryCompletion(
   role: ProjectServiceHistoryCompletionRole,
   selection?: ProjectServiceHistoryCompletionChoice
 ) {
-  return currentAdapter.toggleProjectServiceHistoryCompletion(projectSlug, historyId, role, selection);
+  return currentAdapter.toggleProjectServiceHistoryCompletion(
+    projectSlug,
+    historyId,
+    role,
+    selection
+  );
 }
 
 export function requestProjectPhaseChange(
@@ -234,7 +240,10 @@ export function setProjectPhaseChangeVote(
 }
 
 export function requestProjectUpdate(projectSlug: string, body: string) {
-  return currentAdapter.requestProjectUpdate(projectSlug, body);
+  return currentAdapter.requestProjectUpdate(projectSlug, body).then(async (result) => {
+    await invalidateFeedEngagementCache();
+    return result;
+  });
 }
 
 export function setProjectUpdateVote(
@@ -242,23 +251,26 @@ export function setProjectUpdateVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setProjectUpdateVote(projectSlug, requestId, vote);
+  return currentAdapter.setProjectUpdateVote(projectSlug, requestId, vote).then(async (result) => {
+    await invalidateFeedEngagementCache();
+    return result;
+  });
 }
 
-export function updateProjectDetails(
-  projectSlug: string,
-  title: string,
-  description: string
-) {
-  return currentAdapter.updateProjectDetails(projectSlug, title, description);
+export function updateProjectDetails(projectSlug: string, title: string, description: string) {
+  return currentAdapter
+    .updateProjectDetails(projectSlug, title, description)
+    .then(async (result) => {
+      await invalidateFeedEngagementCache();
+      return result;
+    });
 }
 
-export function requestProjectEdit(
-  projectSlug: string,
-  title: string,
-  description: string
-) {
-  return currentAdapter.requestProjectEdit(projectSlug, title, description);
+export function requestProjectEdit(projectSlug: string, title: string, description: string) {
+  return currentAdapter.requestProjectEdit(projectSlug, title, description).then(async (result) => {
+    await invalidateFeedEngagementCache();
+    return result;
+  });
 }
 
 export function setProjectEditVote(
@@ -266,7 +278,10 @@ export function setProjectEditVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setProjectEditVote(projectSlug, requestId, vote);
+  return currentAdapter.setProjectEditVote(projectSlug, requestId, vote).then(async (result) => {
+    await invalidateFeedEngagementCache();
+    return result;
+  });
 }
 
 export function setProjectPullRequestVote(
@@ -314,11 +329,11 @@ export function revertProjectPhase(
   return currentAdapter.revertProjectPhase(projectSlug, targetPhaseId, reason);
 }
 
-
-
-
 export function addProjectUpdate(projectSlug: string, title: string, body: string) {
-  return currentAdapter.addProjectUpdate(projectSlug, title, body);
+  return currentAdapter.addProjectUpdate(projectSlug, title, body).then(async (result) => {
+    await invalidateFeedEngagementCache();
+    return result;
+  });
 }
 
 export function shareProjectWithUser(projectSlug: string, username: string) {

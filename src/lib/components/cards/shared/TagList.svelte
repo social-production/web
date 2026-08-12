@@ -24,7 +24,11 @@
 </script>
 
 {#if tags.length > 0}
-  <div class:grid-layout={!!columns} class="tag-list" style:--tag-columns={columns ? `${columns}` : undefined}>
+  <div
+    class:grid-layout={!!columns}
+    class="tag-list"
+    style:--tag-columns={columns ? `${columns}` : undefined}
+  >
     {#each tags as tag}
       <ScopeChip href={hrefFor(tag)} icon={iconFor(tag)} label={tag.label} />
     {/each}
@@ -45,9 +49,21 @@
   }
 
   @media (max-width: 760px) {
+    .tag-list {
+      width: 100%;
+      min-width: 0;
+      gap: 4px;
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+
+    .tag-list :global(.scope-chip) {
+      flex: 1 1 0;
+    }
+
     .tag-list.grid-layout {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       justify-content: flex-start;
     }
   }

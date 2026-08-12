@@ -6,7 +6,10 @@
   import { localDateTimeInputToIso } from '$lib/utils/eventSchedule';
   import { onDestroy, onMount, tick } from 'svelte';
   import { preserveScrollDuring } from '$lib/utils/time';
-  import { composeActivityLocationLabel, normalizedRoleRequirements } from '$lib/utils/activityCreationSteps';
+  import {
+    composeActivityLocationLabel,
+    normalizedRoleRequirements,
+  } from '$lib/utils/activityCreationSteps';
   import { softwareLicenseLabelForSubtype } from '$lib/copy/softwareLicensePolicy';
   import ProductiveLifecycleContent from './lifecycle/productive/ProductiveLifecycleContent.svelte';
   import CollectiveServiceLifecycleContent from './lifecycle/collective-service/CollectiveServiceLifecycleContent.svelte';
@@ -18,7 +21,7 @@
   import {
     PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
     PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT,
-    type HistoryFollowUpFocusDetail
+    type HistoryFollowUpFocusDetail,
   } from '$lib/utils/participationActivityFocus';
   import {
     focusActivityCard as focusProjectActivityCard,
@@ -30,7 +33,7 @@
   } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
   import {
     isCollectiveServiceProject,
-    isPersonalServiceProject
+    isPersonalServiceProject,
   } from '$lib/features/projects/projectMode';
   import { resolveProjectPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
   import {
@@ -62,7 +65,7 @@
     setProjectServiceRequestSettingsChangeVote,
     setProjectServiceRequestStatus,
     toggleProjectServiceHistoryCompletion,
-    setProjectValueImportance
+    setProjectValueImportance,
   } from '$lib/services/commands/projects';
   import type { ProjectSubtype } from '$lib/types/feed';
   import type {
@@ -79,7 +82,7 @@
     ProjectSoftwareRepositoryReplacementInput,
     ProjectServiceRequestPlanInput,
     ProjectServiceRequestSettingsChangeInput,
-    ProjectServiceRequestStatus
+    ProjectServiceRequestStatus,
   } from '$lib/types/detail';
 
   type LifecycleTabItem = {
@@ -96,7 +99,8 @@
 
       return {
         value,
-        label: value === 1 ? 'Unnecessary' : value === 10 ? 'Required' : `Importance ${value} of 10`
+        label:
+          value === 1 ? 'Unnecessary' : value === 10 ? 'Required' : `Importance ${value} of 10`,
       };
     }
   );
@@ -111,7 +115,8 @@
   export let autoAssessCriterionId: string | null = null;
   export let participationAssessPlanId: string | null = null;
   export let participationAssessCriterionId: string | null = null;
-  export let softwareWizardRequest: { mode: 'record-merge' | 'vote-pr'; requestId: string } | null = null;
+  export let softwareWizardRequest: { mode: 'record-merge' | 'vote-pr'; requestId: string } | null =
+    null;
   export let onSoftwareWizardRequestHandled: () => void = () => {};
 
   type DraftPlanPhase = {
@@ -165,7 +170,7 @@
     return {
       title: '',
       details: '',
-      materials: []
+      materials: [],
     };
   }
 
@@ -178,7 +183,7 @@
   function createDraftActivityRole(): ProjectActivityRoleInput {
     return {
       label: '',
-      requiredCount: 1
+      requiredCount: 1,
     };
   }
 
@@ -263,7 +268,9 @@
     if (!hasAnyCompleteStage) {
       validationMessages.push('Add at least one stage with a title and description.');
     } else if (hasPartialStage) {
-      validationMessages.push('Finish every stage you start. Each stage needs a title and description.');
+      validationMessages.push(
+        'Finish every stage you start. Each stage needs a title and description.'
+      );
     }
 
     return validationMessages;
@@ -282,7 +289,7 @@
       locationId: null,
       locationLabel: '',
       locationIsOnline: false,
-      validationMessages: []
+      validationMessages: [],
     };
   }
 
@@ -303,7 +310,7 @@
       requestSystemEnabled: false,
       requestMode: 'both',
       allowOffScheduleRequests: false,
-      validationMessages: []
+      validationMessages: [],
     };
   }
 
@@ -343,13 +350,13 @@
     onlineDetail: '',
     roleRequirements: [createDraftActivityRole()],
     linkedPlanPhaseId: '' as string | null,
-    note: ''
+    note: '',
   };
   let serviceRequestForm = {
     title: '',
     body: '',
     scheduledAt: '',
-    endsAt: ''
+    endsAt: '',
   };
   let showPhaseTwoComposer = false;
   let showPhaseThreeComposer = false;
@@ -508,9 +515,10 @@
     highlightedRequestId = null;
   }
 
-  $: activePhase =
-    visibleLifecyclePhases.find((phase) => phase.id === activePhaseId) ??
-    visibleLifecyclePhases.find((phase) => phase.id === resolvedActivePhaseId(data.lifecycle.currentPhaseId)) ??
+  $: activePhase = visibleLifecyclePhases.find((phase) => phase.id === activePhaseId) ??
+    visibleLifecyclePhases.find(
+      (phase) => phase.id === resolvedActivePhaseId(data.lifecycle.currentPhaseId)
+    ) ??
     visibleLifecyclePhases[0] ?? {
       id: resolvedActivePhaseId(data.lifecycle.currentPhaseId),
       order: 1,
@@ -519,7 +527,7 @@
       summary: '',
       progressState: 'current',
       projectStatus: 'active',
-      mechanics: []
+      mechanics: [],
     };
   $: targetedPhaseChangeGroup =
     autoExpandVoteCards && autoExpandVoteKind === 'phase_change' && autoExpandVoteTarget
@@ -534,9 +542,10 @@
   }
 
   $: {
-    const voteSignature = autoExpandVoteCards && autoExpandVoteKind && autoExpandVoteTarget
-      ? `${autoExpandVoteKind}:${autoExpandVoteTarget}`
-      : '';
+    const voteSignature =
+      autoExpandVoteCards && autoExpandVoteKind && autoExpandVoteTarget
+        ? `${autoExpandVoteKind}:${autoExpandVoteTarget}`
+        : '';
 
     if (voteSignature && voteSignature !== lastVoteTargetSignature) {
       lastVoteTargetSignature = voteSignature;
@@ -549,14 +558,14 @@
   $: if (!showPhaseTwoComposer && productionForm.validationMessages.length > 0) {
     productionForm = {
       ...productionForm,
-      validationMessages: []
+      validationMessages: [],
     };
   }
 
   $: if (!showPhaseThreeComposer && distributionForm.validationMessages.length > 0) {
     distributionForm = {
       ...distributionForm,
-      validationMessages: []
+      validationMessages: [],
     };
   }
 
@@ -564,7 +573,7 @@
     phase,
     title: phaseTabTitle(phase),
     progressLabel: phaseProgressLabel(phase),
-    isFuture: isFuturePhase(phase)
+    isFuture: isFuturePhase(phase),
   }));
 
   $: lifecycleContentPhaseId = resolvedActivePhaseId(activePhaseId);
@@ -615,7 +624,7 @@
     }
 
     if (phase.progressState === 'locked') {
-      return 'Unavailable in beta';
+      return 'Upcoming';
     }
 
     return 'Not unlocked yet';
@@ -722,13 +731,13 @@
   async function submitProductionPlan() {
     const validationMessages = validateProjectPlanForm(productionForm, {
       requireSoftwareRepository: productionForm.projectSubtype === 'software',
-      requireProductionLocation: productionForm.projectSubtype !== 'software'
+      requireProductionLocation: productionForm.projectSubtype !== 'software',
     });
 
     if (validationMessages.length > 0) {
       productionForm = {
         ...productionForm,
-        validationMessages
+        validationMessages,
       };
       return;
     }
@@ -739,7 +748,7 @@
         title: phase.title,
         details: phase.details,
         materialsLabel: materialListLabel(phase),
-        costLabel: 'Cost moved to acquisition'
+        costLabel: 'Resources listed by stage',
       }));
     const input = {
       title: productionForm.title,
@@ -753,10 +762,10 @@
           : undefined,
       demandConsiderationNote: productionForm.demandConsiderationNote,
       valueConsiderationNotes: productionForm.valueConsiderationNotes,
-      totalCostLabel: 'Cost moved to acquisition',
+      totalCostLabel: 'Resources listed by stage',
       locationId: productionForm.locationId ?? null,
       locationLabel: productionForm.locationLabel,
-      planPhases
+      planPhases,
     };
     const created = editingProductionPlanId
       ? await updateProjectProductionPlan(data.slug, editingProductionPlanId, input)
@@ -769,8 +778,8 @@
           created.error ??
             (editingProductionPlanId
               ? 'This production plan could not be updated from the current state.'
-              : 'This production plan could not be submitted from the current state.')
-        ]
+              : 'This production plan could not be submitted from the current state.'),
+        ],
       };
       return;
     }
@@ -784,13 +793,13 @@
   async function submitDistributionPlan() {
     const validationMessages = validateProjectPlanForm(distributionForm, {
       distributionLockedToSoftware: data.lifecycle.currentSubtype === 'software',
-      requireDistributionLocation: data.lifecycle.currentSubtype !== 'software'
+      requireDistributionLocation: data.lifecycle.currentSubtype !== 'software',
     });
 
     if (validationMessages.length > 0) {
       distributionForm = {
         ...distributionForm,
-        validationMessages
+        validationMessages,
       };
       return;
     }
@@ -801,7 +810,7 @@
         title: phase.title,
         details: phase.details,
         materialsLabel: materialListLabel(phase),
-        costLabel: 'Cost moved to acquisition'
+        costLabel: 'Resources listed by stage',
       }));
     const created = await addProjectDistributionPlan(
       data.slug,
@@ -810,18 +819,16 @@
         description: distributionForm.description,
         demandConsiderationNote: distributionForm.demandConsiderationNote,
         valueConsiderationNotes: distributionForm.valueConsiderationNotes,
-        totalCostLabel: 'Cost moved to acquisition',
-        locationId:
-          distributionForm.distributionLocationId ?? distributionForm.locationId ?? null,
-        locationLabel:
-          distributionForm.distributionLocationLabel ?? distributionForm.locationLabel,
+        totalCostLabel: 'Resources listed by stage',
+        locationId: distributionForm.distributionLocationId ?? distributionForm.locationId ?? null,
+        locationLabel: distributionForm.distributionLocationLabel ?? distributionForm.locationLabel,
         projectLocationId: distributionForm.projectLocationId ?? null,
         projectLocationLabel: distributionForm.projectLocationLabel,
         sameAsProductionLocation: distributionForm.sameAsProductionLocation ?? false,
         planPhases,
         requestSystemEnabled: distributionForm.requestSystemEnabled,
         requestMode: distributionForm.requestMode,
-        allowOffScheduleRequests: distributionForm.allowOffScheduleRequests
+        allowOffScheduleRequests: distributionForm.allowOffScheduleRequests,
       },
       data.projectMode
     );
@@ -829,7 +836,9 @@
     if (!created.ok) {
       distributionForm = {
         ...distributionForm,
-        validationMessages: [created.error ?? 'This distribution plan could not be submitted from the current state.']
+        validationMessages: [
+          created.error ?? 'This distribution plan could not be submitted from the current state.',
+        ],
       };
       return;
     }
@@ -844,7 +853,11 @@
     const endsAtValue = activityEndInputElement?.value || activityForm.endsAt;
 
     if (isPersonalServiceProject(data.projectMode)) {
-      if (!scheduledAtValue || !endsAtValue || new Date(endsAtValue).getTime() <= new Date(scheduledAtValue).getTime()) {
+      if (
+        !scheduledAtValue ||
+        !endsAtValue ||
+        new Date(endsAtValue).getTime() <= new Date(scheduledAtValue).getTime()
+      ) {
         return;
       }
 
@@ -859,7 +872,7 @@
           locationLabel: data.locationLabel,
           roleRequirements: [{ label: 'Service lead', requiredCount: 1 }],
           linkedPlanPhaseId: null,
-          note: 'Availability shared by the service creator.'
+          note: 'Availability shared by the service creator.',
         })
       );
       activityForm = {
@@ -872,7 +885,7 @@
         onlineDetail: '',
         roleRequirements: [createDraftActivityRole()],
         linkedPlanPhaseId: '',
-        note: ''
+        note: '',
       };
       showPersonalActivityComposer = false;
       return;
@@ -897,17 +910,17 @@
     activityForm.endsAt = endsAtValue;
 
     await refreshAfter(() =>
-        addProjectActivity(data.slug, {
-          title: activityForm.title,
-          scheduledAt: localDateTimeInputToIso(scheduledAtValue),
-          endsAt: localDateTimeInputToIso(endsAtValue),
-          isOnline: activityForm.isOnline,
-          locationLabel,
-          locationId: activityForm.locationId,
-          roleRequirements,
-          linkedPlanPhaseId: activityForm.linkedPlanPhaseId || null,
-          note: activityForm.note
-        })
+      addProjectActivity(data.slug, {
+        title: activityForm.title,
+        scheduledAt: localDateTimeInputToIso(scheduledAtValue),
+        endsAt: localDateTimeInputToIso(endsAtValue),
+        isOnline: activityForm.isOnline,
+        locationLabel,
+        locationId: activityForm.locationId,
+        roleRequirements,
+        linkedPlanPhaseId: activityForm.linkedPlanPhaseId || null,
+        note: activityForm.note,
+      })
     );
     activityForm = {
       title: '',
@@ -919,7 +932,7 @@
       onlineDetail: '',
       roleRequirements: [createDraftActivityRole()],
       linkedPlanPhaseId: '',
-      note: ''
+      note: '',
     };
     showPersonalActivityComposer = false;
     showPhaseFiveComposer = false;
@@ -931,9 +944,9 @@
     const scheduledAtValue = serviceRequestForm.scheduledAt;
     const endsAtValue = serviceRequestForm.endsAt;
     const requiresSchedule =
-      isCollectiveServiceProject(data.projectMode) || (data.lifecycle.requestSystem?.requiresSchedule ?? false);
-    const usesScheduledRequest =
-      requiresSchedule || !!(scheduledAtValue && endsAtValue);
+      isCollectiveServiceProject(data.projectMode) ||
+      (data.lifecycle.requestSystem?.requiresSchedule ?? false);
+    const usesScheduledRequest = requiresSchedule || !!(scheduledAtValue && endsAtValue);
 
     serviceRequestFeedback = '';
 
@@ -957,7 +970,7 @@
         title: serviceRequestForm.title,
         body: serviceRequestForm.body,
         scheduledAt: scheduledAtValue ? localDateTimeInputToIso(scheduledAtValue) : undefined,
-        endsAt: endsAtValue ? localDateTimeInputToIso(endsAtValue) : undefined
+        endsAt: endsAtValue ? localDateTimeInputToIso(endsAtValue) : undefined,
       });
     });
     resetServiceRequestForm();
@@ -975,7 +988,9 @@
     await refreshAfter(() => planProjectServiceRequest(data.slug, requestId, input));
   }
 
-  async function submitServiceRequestSettingsChange(input: ProjectServiceRequestSettingsChangeInput) {
+  async function submitServiceRequestSettingsChange(
+    input: ProjectServiceRequestSettingsChangeInput
+  ) {
     await refreshAfter(() => requestProjectServiceRequestSettingsChange(data.slug, input));
   }
 
@@ -983,7 +998,9 @@
     requestId: string,
     vote: ProjectApprovalVote | null
   ) {
-    await refreshAfter(() => setProjectServiceRequestSettingsChangeVote(data.slug, requestId, vote));
+    await refreshAfter(() =>
+      setProjectServiceRequestSettingsChangeVote(data.slug, requestId, vote)
+    );
   }
 
   async function toggleServiceHistoryCompletion(
@@ -996,11 +1013,7 @@
     );
   }
 
-  async function saveActivityRating(
-    activityId: string,
-    rating: number,
-    comment: string | null
-  ) {
+  async function saveActivityRating(activityId: string, rating: number, comment: string | null) {
     await refreshAfter(() => setProjectActivityRating(data.slug, activityId, rating, comment));
   }
 
@@ -1019,7 +1032,9 @@
     await refreshAfter(() => revertProjectPhase(data.slug, targetPhaseId, reason));
   }
 
-  async function submitSoftwarePullRequest(input: import('$lib/types/detail').ProjectSoftwarePullRequestInput) {
+  async function submitSoftwarePullRequest(
+    input: import('$lib/types/detail').ProjectSoftwarePullRequestInput
+  ) {
     await refreshAfter(() => addProjectPullRequest(data.slug, input));
   }
 
@@ -1035,19 +1050,31 @@
     await refreshAfter(() => requestProjectRepositoryReplacement(data.slug, input));
   }
 
-  async function recordSoftwarePullRequestMerge(requestId: string, mergeId: string, mergeUrl: string) {
-    await refreshAfter(() => recordProjectPullRequestMerge(data.slug, requestId, mergeId, mergeUrl));
+  async function recordSoftwarePullRequestMerge(
+    requestId: string,
+    mergeId: string,
+    mergeUrl: string
+  ) {
+    await refreshAfter(() =>
+      recordProjectPullRequestMerge(data.slug, requestId, mergeId, mergeUrl)
+    );
   }
 
   async function voteSoftwarePullRequest(requestId: string, vote: ProjectApprovalVote | null) {
     await refreshAfter(() => setProjectPullRequestVote(data.slug, requestId, vote));
   }
 
-  async function voteSoftwareMergeCapabilityChange(requestId: string, vote: ProjectApprovalVote | null) {
+  async function voteSoftwareMergeCapabilityChange(
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ) {
     await refreshAfter(() => setProjectMergeCapabilityChangeVote(data.slug, requestId, vote));
   }
 
-  async function voteSoftwareRepositoryReplacement(requestId: string, vote: ProjectApprovalVote | null) {
+  async function voteSoftwareRepositoryReplacement(
+    requestId: string,
+    vote: ProjectApprovalVote | null
+  ) {
     await refreshAfter(() => setProjectRepositoryReplacementVote(data.slug, requestId, vote));
   }
 
@@ -1056,7 +1083,9 @@
   }
 
   function removeProductionPlanPhase(index: number) {
-    productionForm.planPhases = productionForm.planPhases.filter((_, phaseIndex) => phaseIndex !== index);
+    productionForm.planPhases = productionForm.planPhases.filter(
+      (_, phaseIndex) => phaseIndex !== index
+    );
   }
 
   function openProductionPlanEditor(planId: string) {
@@ -1081,9 +1110,9 @@
         materials: phase.materialsLabel
           .split(/\r?\n|,|;/)
           .map((material) => material.trim())
-          .filter(Boolean)
+          .filter(Boolean),
       })),
-      validationMessages: []
+      validationMessages: [],
     };
     showPhaseTwoComposer = true;
   }
@@ -1099,7 +1128,9 @@
   }
 
   function removeDistributionPlanPhase(index: number) {
-    distributionForm.planPhases = distributionForm.planPhases.filter((_, phaseIndex) => phaseIndex !== index);
+    distributionForm.planPhases = distributionForm.planPhases.filter(
+      (_, phaseIndex) => phaseIndex !== index
+    );
   }
 
   function toggleExpandedPlan(list: 'phase-2' | 'phase-3', planId: string) {
@@ -1117,7 +1148,9 @@
   }
 
   function isExpandedPlan(list: 'phase-2' | 'phase-3', planId: string) {
-    return (list === 'phase-2' ? expandedPhaseTwoPlanIds : expandedPhaseThreePlanIds).includes(planId);
+    return (list === 'phase-2' ? expandedPhaseTwoPlanIds : expandedPhaseThreePlanIds).includes(
+      planId
+    );
   }
 
   async function updateActivityCommitment(activityId: string, roleLabel: string | null) {
@@ -1175,13 +1208,14 @@
       title: '',
       body: '',
       scheduledAt: '',
-      endsAt: ''
+      endsAt: '',
     };
   }
 
   function setDefaultServiceRequestTimes(isoDay?: string) {
     const requiresSchedule =
-      isCollectiveServiceProject(data.projectMode) || (data.lifecycle.requestSystem?.requiresSchedule ?? false);
+      isCollectiveServiceProject(data.projectMode) ||
+      (data.lifecycle.requestSystem?.requiresSchedule ?? false);
 
     if (!requiresSchedule) {
       if (!selectedCollectiveRequestActivityId) {
@@ -1230,7 +1264,7 @@
     activityForm = {
       ...activityForm,
       locationLabel: '',
-      locationId: null
+      locationId: null,
     };
     showCollectiveRequestComposer = false;
     selectedCollectiveRequestActivityId = null;
@@ -1242,7 +1276,7 @@
     activityForm = {
       ...activityForm,
       locationLabel: '',
-      locationId: null
+      locationId: null,
     };
     showCollectiveRequestComposer = false;
     selectedCollectiveRequestActivityId = null;
@@ -1334,7 +1368,7 @@
       },
       setHandle: (handle) => {
         activityHighlightResetHandle = handle;
-      }
+      },
     });
   }
 
@@ -1364,7 +1398,7 @@
       },
       setHistoryHandle: (handle) => {
         historyHighlightResetHandle = handle;
-      }
+      },
     });
   }
 
@@ -1383,13 +1417,25 @@
   }
 
   onMount(() => {
-    document.addEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
-    document.addEventListener(PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT, handleParticipationHistoryFocus);
+    document.addEventListener(
+      PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
+      handleParticipationActivitiesFocus
+    );
+    document.addEventListener(
+      PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT,
+      handleParticipationHistoryFocus
+    );
   });
 
   onDestroy(() => {
-    document.removeEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
-    document.removeEventListener(PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT, handleParticipationHistoryFocus);
+    document.removeEventListener(
+      PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
+      handleParticipationActivitiesFocus
+    );
+    document.removeEventListener(
+      PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT,
+      handleParticipationHistoryFocus
+    );
   });
 
   async function focusRequestCard(requestId: string) {
@@ -1406,7 +1452,7 @@
       },
       setHandle: (handle) => {
         requestHighlightResetHandle = handle;
-      }
+      },
     });
   }
 </script>
@@ -1419,10 +1465,10 @@
 
     {#if isPersonalServiceProject(data.projectMode)}
       <IndividualServiceLifecycleContent
-        data={data}
+        {data}
         activePhaseId={lifecycleContentPhaseId}
-        activityForm={activityForm}
-        serviceRequestForm={serviceRequestForm}
+        {activityForm}
+        {serviceRequestForm}
         bind:showPersonalActivityComposer
         bind:showPersonalServiceRequestComposer
         bind:activityComposerElement
@@ -1432,12 +1478,12 @@
         {highlightedActivityId}
         {highlightedRequestId}
         bind:highlightedHistoryId
-        openPersonalActivityComposer={openPersonalActivityComposer}
-        openPersonalServiceRequestComposer={openPersonalServiceRequestComposer}
-        openPersonalServiceRequestComposerForDay={openPersonalServiceRequestComposerForDay}
-        submitActivity={submitActivity}
-        submitServiceRequest={submitServiceRequest}
-        updateRequestStatus={updateRequestStatus}
+        {openPersonalActivityComposer}
+        {openPersonalServiceRequestComposer}
+        {openPersonalServiceRequestComposerForDay}
+        {submitActivity}
+        {submitServiceRequest}
+        {updateRequestStatus}
         requestServiceRequestSettingsChange={submitServiceRequestSettingsChange}
         voteOnRequestSettingsChange={voteOnServiceRequestSettingsChange}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}
@@ -1446,7 +1492,7 @@
       />
     {:else if isCollectiveServiceProject(data.projectMode)}
       <CollectiveServiceLifecycleContent
-        data={data}
+        {data}
         activePhaseId={lifecycleContentPhaseId}
         {importanceOptions}
         bind:draftValue
@@ -1455,45 +1501,45 @@
         bind:showPhaseThreeComposer
         bind:showPhaseFiveComposer
         bind:showRequestComposer={showCollectiveRequestComposer}
-        productionForm={productionForm}
-        distributionForm={distributionForm}
-        activityForm={activityForm}
-        serviceRequestForm={serviceRequestForm}
-        serviceRequestFeedback={serviceRequestFeedback}
+        {productionForm}
+        {distributionForm}
+        {activityForm}
+        {serviceRequestForm}
+        {serviceRequestFeedback}
         {highlightedActivityId}
         {highlightedRequestId}
         bind:highlightedHistoryId
         bind:selectedRequestActivityId={selectedCollectiveRequestActivityId}
         bind:activityComposerElement
         bind:serviceRequestComposerElement
-        submitValue={submitValue}
+        {submitValue}
         setProjectValueVote={handleProjectValueVote}
-        addProductionPlanPhase={addProductionPlanPhase}
-        submitProductionPlan={submitProductionPlan}
-        editingProductionPlanId={editingProductionPlanId}
+        {addProductionPlanPhase}
+        {submitProductionPlan}
+        {editingProductionPlanId}
         startEditingProductionPlan={openProductionPlanEditor}
         cancelEditingProductionPlan={cancelProductionPlanEdit}
         setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
         setPhaseTwoPlanCriterionRating={handlePhaseTwoPlanCriterionRating}
-        addDistributionPlanPhase={addDistributionPlanPhase}
-        submitDistributionPlan={submitDistributionPlan}
+        {addDistributionPlanPhase}
+        {submitDistributionPlan}
         setPhaseThreePlanOverallVote={handlePhaseThreePlanOverallVote}
         setPhaseThreePlanCriterionRating={handlePhaseThreePlanCriterionRating}
-        isExpandedPlan={isExpandedPlan}
+        {isExpandedPlan}
         autoAssessPlanId={resolvedAutoAssessPlanId}
         autoAssessCriterionId={resolvedAutoAssessCriterionId}
-        openActivityComposer={openActivityComposer}
-        openActivityComposerForDay={openActivityComposerForDay}
+        {openActivityComposer}
+        {openActivityComposerForDay}
         openRequestComposer={openCollectiveServiceRequestComposer}
         openRequestComposerForDay={openCollectiveServiceRequestComposerForDay}
         openRequestComposerForActivity={openCollectiveServiceRequestComposerForActivity}
         closeRequestComposer={closeCollectiveServiceRequestComposer}
-        focusActivityCard={focusActivityCard}
-        planServiceRequest={planServiceRequest}
-        submitActivity={submitActivity}
-        submitServiceRequest={submitServiceRequest}
-        updateRequestStatus={updateRequestStatus}
-        updateActivityCommitment={updateActivityCommitment}
+        {focusActivityCard}
+        {planServiceRequest}
+        {submitActivity}
+        {submitServiceRequest}
+        {updateRequestStatus}
+        {updateActivityCommitment}
         requestServiceRequestSettingsChange={submitServiceRequestSettingsChange}
         voteOnRequestSettingsChange={voteOnServiceRequestSettingsChange}
         createPullRequest={submitSoftwarePullRequest}
@@ -1511,7 +1557,7 @@
       />
     {:else}
       <ProductiveLifecycleContent
-        data={data}
+        {data}
         activePhaseId={lifecycleContentPhaseId}
         {importanceOptions}
         bind:draftValue
@@ -1519,32 +1565,32 @@
         bind:showPhaseTwoComposer
         bind:showPhaseThreeComposer
         bind:showPhaseFiveComposer
-        productionForm={productionForm}
-        distributionForm={distributionForm}
-        activityForm={activityForm}
+        {productionForm}
+        {distributionForm}
+        {activityForm}
         {highlightedActivityId}
         bind:highlightedHistoryId
-        submitValue={submitValue}
+        {submitValue}
         setProjectValueVote={handleProjectValueVote}
-        addProductionPlanPhase={addProductionPlanPhase}
-        submitProductionPlan={submitProductionPlan}
-        editingProductionPlanId={editingProductionPlanId}
+        {addProductionPlanPhase}
+        {submitProductionPlan}
+        {editingProductionPlanId}
         startEditingProductionPlan={openProductionPlanEditor}
         cancelEditingProductionPlan={cancelProductionPlanEdit}
         setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
         setPhaseTwoPlanCriterionRating={handlePhaseTwoPlanCriterionRating}
-        addDistributionPlanPhase={addDistributionPlanPhase}
-        submitDistributionPlan={submitDistributionPlan}
+        {addDistributionPlanPhase}
+        {submitDistributionPlan}
         setPhaseThreePlanOverallVote={handlePhaseThreePlanOverallVote}
         setPhaseThreePlanCriterionRating={handlePhaseThreePlanCriterionRating}
-        isExpandedPlan={isExpandedPlan}
+        {isExpandedPlan}
         autoAssessPlanId={resolvedAutoAssessPlanId}
         autoAssessCriterionId={resolvedAutoAssessCriterionId}
-        openActivityComposer={openActivityComposer}
-        openActivityComposerForDay={openActivityComposerForDay}
-        focusActivityCard={focusActivityCard}
-        submitActivity={submitActivity}
-        updateActivityCommitment={updateActivityCommitment}
+        {openActivityComposer}
+        {openActivityComposerForDay}
+        {focusActivityCard}
+        {submitActivity}
+        {updateActivityCommitment}
         createPullRequest={submitSoftwarePullRequest}
         requestMergeCapabilityChange={submitSoftwareMergeCapabilityChange}
         requestRepositoryReplacement={submitSoftwareRepositoryReplacement}
@@ -1561,7 +1607,7 @@
     {/if}
 
     <ProjectPhaseChangeSection
-      data={data}
+      {data}
       {activePhaseId}
       {advancePhase}
       {revertPhase}

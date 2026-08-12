@@ -13,6 +13,7 @@
     setProjectPullRequestVote,
     setProjectRepositoryReplacementVote,
     setProjectUpdateVote,
+    toggleProjectMembership,
   } from '$lib/services/commands/projects';
   import {
     setEventActivityCommitment,
@@ -403,7 +404,11 @@
     pendingSubjectId = item.subjectId;
 
     try {
-      await toggleEventMembership(item.eventSlug ?? item.subjectId);
+      if (item.kind === 'project') {
+        await toggleProjectMembership(item.projectSlug ?? item.subjectId);
+      } else {
+        await toggleEventMembership(item.eventSlug ?? item.subjectId);
+      }
       markRailItemSeen(seenStorageKey, item.id);
       requestActivityRailRefresh();
       await invalidateRailSubject(item);
