@@ -497,8 +497,11 @@
       </div>
       <div class="setting-item">
         <div>
-          <strong>Device location</strong>
-          <p>Opt in to use GPS when you choose “Use my location”.</p>
+          <strong>Device location (GPS)</strong>
+          <p>
+            Permission for the map’s “Use my location” button. Uses your device GPS when you tap it — not applied
+            automatically in the background.
+          </p>
         </div>
         <button class="toggle" class:on={deviceLocationEnabled} type="button" on:click={() => void toggleDeviceLocation()}>
           {deviceLocationEnabled ? 'On' : 'Off'}
@@ -506,11 +509,14 @@
       </div>
       <div class="setting-item">
         <div>
-          <strong>Approximate IP location</strong>
-          <p>One-time opt-in. Never applied automatically.</p>
+          <strong>Approximate network location</strong>
+          <p>
+            One-time set of your default place from your public IP when GPS isn’t available or you don’t want it.
+            Different from GPS — coarser, and only runs when you press the button.
+          </p>
         </div>
         <button class="button-secondary" type="button" on:click={() => void useIpLocation()}>
-          Use IP location
+          Set from network
         </button>
       </div>
       {#if regionalMessage}

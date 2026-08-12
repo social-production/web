@@ -69,7 +69,7 @@
   }
 </script>
 
-<section class="page">
+<section class="page notifications-page">
   <PageHeader description={m.notifications_page_intro()} title={m.notifications_page_title()}>
     <svelte:fragment slot="actions">
       <button class="secondary-button" type="button" on:click={readAll}>{m.notifications_mark_all_read()}</button>

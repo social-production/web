@@ -22,14 +22,8 @@
     voteMessage = '';
     try {
       await onVote(member, vote);
-    } catch (err) {
-      const status = (err as { status?: number }).status;
-      const body = (err as { body?: { error?: string } }).body;
-      if (status === 403 || body?.error === 'cannot_vote_self') {
-        voteMessage = 'You cannot vote for your own standing.';
-      } else {
-        voteMessage = 'Could not record that standing vote. Try again.';
-      }
+    } catch {
+      voteMessage = 'Could not record that standing vote. Try again.';
     }
   }
 

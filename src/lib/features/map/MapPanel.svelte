@@ -452,11 +452,23 @@
     }
 
     beginRadiusSync();
+    // Always jump camera to the chosen center first so desktop search/select
+    // cannot leave only the marker updated while the viewport stays put.
+    const zoomHint =
+      radiusKm === GLOBAL_RADIUS_VALUE
+        ? WORLD_ZOOM
+        : effectiveRadiusKm(radiusKm) <= 25
+          ? 12
+          : effectiveRadiusKm(radiusKm) <= 100
+            ? 10
+            : 8;
+    adapter.setViewport({
+      center: { latitude: lat, longitude: lon },
+      zoom: zoomHint
+    });
+    adapter.setCenterMarker?.({ latitude: lat, longitude: lon });
+
     if (radiusKm === GLOBAL_RADIUS_VALUE) {
-      adapter.setViewport({
-        center: { latitude: lat, longitude: lon },
-        zoom: WORLD_ZOOM
-      });
       endRadiusSync();
       onComplete?.();
     } else {
@@ -675,14 +687,13 @@
     if (lat != null && lon != null) {
       void (async () => {
         await mountMapIfNeeded({ lat, lon });
-        // Always reload markers for the chosen center. Do not wait only on
-        // fitToRadius completion — tile/network stalls used to leave an empty map
-        // until the panel was reopened.
-        scheduleLoadMarkers({ lat, lon });
-        syncRadiusToMapAt(lat, lon, () => {
-          updateCurrentRadiusFromViewport();
-          void loadMarkersWithInitialBroadening({ lat, lon });
+        await tick();
+        await new Promise<void>((resolve) => {
+          syncRadiusToMapAt(lat, lon, resolve);
         });
+        scheduleLoadMarkers({ lat, lon });
+        updateCurrentRadiusFromViewport();
+        void loadMarkersWithInitialBroadening({ lat, lon });
       })();
     }
   }

@@ -74,25 +74,29 @@
 </nav>
 
 <style>
+  /*
+    Height comes from row min-height + safe-area padding only.
+    A fixed height of (base + safe-area) PLUS padding-bottom safe-area
+    left an empty toolbar-colored strip under the icons (the "blank footer").
+  */
   .mobile-bottom-nav {
     position: fixed;
     left: 0;
+    right: 0;
     bottom: 0;
     z-index: 55;
     width: 100%;
-    max-width: 100vw;
-    max-width: 100dvw;
+    max-width: 100%;
     box-sizing: border-box;
     overflow: hidden;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 2px;
     min-height: var(--shell-bottom-nav-base);
-    height: var(--shell-bottom-nav-height);
-    padding: 4px var(--shell-safe-right) calc(4px + var(--shell-safe-bottom)) var(--shell-safe-left);
+    padding: 4px var(--shell-safe-right) var(--shell-safe-bottom) var(--shell-safe-left);
     border-top: 1px solid var(--panel-border);
     background: var(--toolbar-background);
-    transition: transform 0.22s ease;
+    transition: transform 0.22s ease, visibility 0.22s ease;
     will-change: transform;
   }
 
@@ -106,7 +110,7 @@
     position: relative;
     display: grid;
     place-items: center;
-    min-height: var(--shell-touch-min);
+    min-height: calc(var(--shell-bottom-nav-base) - 8px);
     padding: 6px 2px;
     border: none;
     border-radius: var(--radius-sm);

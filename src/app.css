@@ -175,12 +175,16 @@ body {
 }
 
 .shell-compact .main-content-compact:has(.conversation-page),
-.shell-compact .main-content-compact:has(.page-chat) {
+.shell-compact .main-content-compact:has(.page-chat),
+.shell-compact .main-content-compact:has(.messages-shell),
+.shell-compact .main-content-compact:has(.notifications-page) {
   padding-bottom: 0;
 }
 
 .shell-compact .main-content-compact:has(.conversation-page) .main-frame,
-.shell-compact .main-content-compact:has(.page-chat) .main-frame {
+.shell-compact .main-content-compact:has(.page-chat) .main-frame,
+.shell-compact .main-content-compact:has(.messages-shell) .main-frame,
+.shell-compact .main-content-compact:has(.notifications-page) .main-frame {
   padding-bottom: 0;
 }
 
