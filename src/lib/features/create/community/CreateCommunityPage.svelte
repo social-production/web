@@ -34,7 +34,8 @@
       const result = await createCommunity({
         name: handleCheck.display,
         description,
-        joinPolicy: openness
+        joinPolicy: openness,
+        slug: handleCheck.canonical
       });
 
       if (!result.ok || !result.slug) {
@@ -62,7 +63,7 @@
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
         <label>
           <RequiredFieldLabel>Community handle</RequiredFieldLabel>
-          <input bind:value={name} aria-required="true" placeholder="e.g. Dog-Man" />
+          <input bind:value={name} aria-required="true" placeholder="e.g. neighborhood-group" />
         </label>
         {#if name.trim()}
           {#if !handleCheck.ok}

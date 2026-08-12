@@ -102,12 +102,14 @@ export interface CreatePostInput {
 export interface CreateChannelInput {
   name: string;
   description: string;
+  slug?: string;
 }
 
 export interface CreateCommunityInput {
   name: string;
   description: string;
   joinPolicy: 'open' | 'invite_only';
+  slug?: string;
 }
 
 export interface HelpRequestRoleInput {

@@ -15,7 +15,7 @@
 
   let { item }: { item: PublicEventItem } = $props();
 
-  const orderedTags = $derived([...item.channelTags, ...item.communityTags]);
+  const orderedTags = $derived([...(item.channelTags ?? []), ...(item.communityTags ?? [])]);
   const scheduleTime = $derived(
     item.scheduledAt
       ? formatLocalDateTime(item.scheduledAt)

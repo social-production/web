@@ -9,10 +9,20 @@ import type {
 } from '$lib/types/invites';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
 import type { PlatformAssetsPageData } from '$lib/types/assets';
+import { mapGatewayPublicItems } from '../mappers/feed';
+
+function normalizeScopePage(page: ScopePageData): ScopePageData {
+  return {
+    ...page,
+    feed: mapGatewayPublicItems(page.feed ?? [])
+  };
+}
 
 export async function fetchChannel(slug: string): Promise<ScopePageData | null> {
   try {
-    return await apiClient.get<ScopePageData>(`/scopes/channels/${encodeURIComponent(slug)}`);
+    return normalizeScopePage(
+      await apiClient.get<ScopePageData>(`/scopes/channels/${encodeURIComponent(slug)}`)
+    );
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
     throw err;
@@ -21,7 +31,9 @@ export async function fetchChannel(slug: string): Promise<ScopePageData | null> 
 
 export async function fetchCommunity(slug: string): Promise<ScopePageData | null> {
   try {
-    return await apiClient.get<ScopePageData>(`/scopes/communities/${encodeURIComponent(slug)}`);
+    return normalizeScopePage(
+      await apiClient.get<ScopePageData>(`/scopes/communities/${encodeURIComponent(slug)}`)
+    );
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
     throw err;
@@ -30,7 +42,7 @@ export async function fetchCommunity(slug: string): Promise<ScopePageData | null
 
 export async function fetchPlatform(): Promise<ScopePageData | null> {
   try {
-    return await apiClient.get<ScopePageData>('/scopes/platform');
+    return normalizeScopePage(await apiClient.get<ScopePageData>('/scopes/platform'));
   } catch (err) {
     if ((err as { status?: number }).status === 404) return null;
     throw err;

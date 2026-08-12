@@ -13,7 +13,7 @@
 
   export let item: PersonalHelpRequestItem;
 
-  $: orderedTags = [...item.channelTags, ...item.communityTags];
+  $: orderedTags = [...(item.channelTags ?? []), ...(item.communityTags ?? [])];
   $: whenLabel = formatLocalDateTime(item.neededAt);
   $: roleCount = item.roles.length;
   $: signupSummary =

@@ -12,7 +12,7 @@
 
   export let item: PublicHelpRequestItem;
 
-  $: orderedTags = [...item.channelTags, ...item.communityTags];
+  $: orderedTags = [...(item.channelTags ?? []), ...(item.communityTags ?? [])];
   $: whenLabel = formatLocalDateTime(item.neededAt);
   $: signupSummary =
     item.signupCount != null && item.slotsNeeded != null && item.slotsNeeded > 0

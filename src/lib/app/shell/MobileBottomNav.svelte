@@ -80,6 +80,10 @@
     right: 0;
     bottom: 0;
     z-index: 55;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 2px;

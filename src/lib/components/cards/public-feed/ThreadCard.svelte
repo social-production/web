@@ -13,7 +13,7 @@
 
   export let item: PublicThreadItem;
 
-  $: orderedTags = [...item.channelTags, ...item.communityTags];
+  $: orderedTags = [...(item.channelTags ?? []), ...(item.communityTags ?? [])];
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
     const confirmed = await castFeedVote(

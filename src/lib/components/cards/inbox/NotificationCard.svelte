@@ -14,7 +14,7 @@
   export let onAcceptFollowRequest: ((username: string) => void) | undefined = undefined;
   export let onRejectFollowRequest: ((username: string) => void) | undefined = undefined;
 
-  $: orderedTags = [...item.channelTags, ...item.communityTags];
+  $: orderedTags = [...(item.channelTags ?? []), ...(item.communityTags ?? [])];
   $: isFollowRequest = item.kind === 'follow-request' && !!item.actorUsername;
   $: isSocialFollowNotice =
     item.kind === 'follow-request' || item.kind === 'follow-accepted' || item.kind === 'new-follower';

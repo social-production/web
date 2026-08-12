@@ -14,7 +14,7 @@
 
   let { item }: { item: PublicProjectItem } = $props();
 
-  const orderedTags = $derived([...item.channelTags, ...item.communityTags]);
+  const orderedTags = $derived([...(item.channelTags ?? []), ...(item.communityTags ?? [])]);
   const participantLabel = $derived(item.memberCount === 1 ? 'member' : 'members');
   const signalsDisabled = $derived(Boolean(item.isClosed) || item.projectMode === 'personal-service');
 

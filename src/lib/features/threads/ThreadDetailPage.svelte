@@ -24,7 +24,7 @@
 </script>
 
 <section class="page">
-  <FeedSurface tone="public" accent={surfaceTypeAccent('thread')} isLast>
+  <FeedSurface tone="public" accent={surfaceTypeAccent('thread')} isLast clampExcerpts={false}>
     <ThreadOverviewPanel {data} bind:sortMode />
 
     <div class="comments-divider" aria-hidden="true"></div>

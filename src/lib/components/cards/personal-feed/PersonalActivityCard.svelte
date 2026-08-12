@@ -32,7 +32,7 @@
     return `${url.pathname}${url.search}${url.hash}`;
   }
 
-  const orderedTags = $derived([...item.channelTags, ...item.communityTags]);
+  const orderedTags = $derived([...(item.channelTags ?? []), ...(item.communityTags ?? [])]);
   const commentHref = $derived(buildCommentHref(item.href, item.subjectKind));
   const usesSignals = $derived(item.subjectKind === 'project' || item.subjectKind === 'event');
   const subjectSlug = $derived(

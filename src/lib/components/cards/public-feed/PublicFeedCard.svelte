@@ -17,6 +17,6 @@
   <ThreadCard {item} />
 {:else if item.kind === 'help-request'}
   <HelpRequestCard {item} />
-{:else}
+{:else if item.kind === 'event'}
   <EventCard {item} />
 {/if}

@@ -58,7 +58,7 @@
 </script>
 
 <section class="page">
-  <FeedSurface tone={feedTone} accent={surfaceTypeAccent('post')} isLast>
+  <FeedSurface tone={feedTone} accent={surfaceTypeAccent('post')} isLast clampExcerpts={false}>
     <div class="identity-row">
       <div class="identity-main">
         <AvatarBadge size="md" username={data.authorUsername} imageUrl={data.authorProfileImageUrl ?? null} />

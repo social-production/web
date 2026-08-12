@@ -8,6 +8,8 @@
   export let isLast = false;
   /** Serious-harm restriction: keep card in feed but blur text/media with a warning. */
   export let contentRestricted = false;
+  /** Feed cards clamp body/summary; detail surfaces that embed discussion should not. */
+  export let clampExcerpts = true;
 
   let revealRestricted = false;
 
@@ -49,7 +51,7 @@
     </div>
   {/if}
 
-  <div class:blurred={blurContent} class="content">
+  <div class:blurred={blurContent} class:clamp-excerpts={clampExcerpts} class="content">
     <slot />
   </div>
 </article>
@@ -132,17 +134,18 @@
   }
 
   .content :global(.title),
-  .content :global(a.title) {
+  .content :global(a.title),
+  .content :global(.subject-title) {
     display: block;
     max-width: 100%;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
 
-  .content :global(.body),
-  .content :global(.summary),
-  .content :global(.comment-excerpt),
-  .content :global(.linked-body.feed) {
+  .content.clamp-excerpts :global(.body),
+  .content.clamp-excerpts :global(.summary),
+  .content.clamp-excerpts :global(.comment-excerpt),
+  .content.clamp-excerpts :global(.linked-body.feed) {
     max-width: 100%;
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -153,14 +156,7 @@
     -webkit-line-clamp: 3;
   }
 
-  .content :global(.subject-title) {
-    display: block;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  .content :global(.latest-summary) {
+  .content.clamp-excerpts :global(.latest-summary) {
     max-width: 100%;
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -169,6 +165,16 @@
     overflow: hidden;
     line-clamp: 2;
     -webkit-line-clamp: 2;
+  }
+
+  .content:not(.clamp-excerpts) :global(.body),
+  .content:not(.clamp-excerpts) :global(.summary),
+  .content:not(.clamp-excerpts) :global(.comment-excerpt),
+  .content:not(.clamp-excerpts) :global(.linked-body),
+  .content:not(.clamp-excerpts) :global(.latest-summary) {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .content :global(a),

@@ -31,7 +31,8 @@
 
       const result = await createChannel({
         name: handleCheck.display,
-        description
+        description,
+        slug: handleCheck.canonical
       });
 
       if (!result.ok || !result.slug) {
@@ -59,7 +60,7 @@
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
         <label>
           <span class="field-label">Channel handle</span>
-          <input bind:value={name} placeholder="e.g. Dog-Man" />
+          <input bind:value={name} placeholder="e.g. local-gardening" />
         </label>
         {#if name.trim()}
           {#if !handleCheck.ok}

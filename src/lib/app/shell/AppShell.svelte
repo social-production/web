@@ -733,6 +733,8 @@
     background: var(--page-background);
     color: var(--text-main);
     overscroll-behavior: none;
+    overflow-x: clip;
+    max-width: 100%;
   }
 
   .topbar {
