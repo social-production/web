@@ -40,7 +40,7 @@
     "prettier": "^3.5.3",
     "prettier-plugin-svelte": "^3.3.3",
     "svelte": "^5.56.5",
-    "svelte-check": "^3.8.6",
+    "svelte-check": "^4.7.5",
     "typescript": "^5.4.5",
     "vite": "^6.4.3",
     "vitest": "^4.1.10"
