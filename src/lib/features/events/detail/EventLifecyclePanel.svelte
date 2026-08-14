@@ -2,8 +2,8 @@
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import { onDestroy, onMount, tick } from 'svelte';
-  import { preserveScrollDuring } from '$lib/utils/time';
   import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
+  import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
   import { composeActivityLocationLabel, normalizedRoleRequirements } from '$lib/utils/activityCreationSteps';
   import { resolveEventPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
   import EventLifecycleMechanicsCard from './components/EventLifecycleMechanicsCard.svelte';
@@ -57,6 +57,7 @@
   export let autoAssessCriterionId: string | null = null;
   export let assessPlanId: string | null = null;
   export let assessCriterionId: string | null = null;
+  export let onPhaseAdvanced: (phaseId: EventLifecyclePhaseId) => void = () => {};
 
   function currentWinningPlan() {
     return data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ?? null;
@@ -421,14 +422,14 @@
     await addEventValue(data.slug, draftValue);
     draftValue = '';
     showValueComposer = false;
-    await invalidateEventDetail(data.slug);
+    void invalidateEventDetail(data.slug);
+    requestActivityRailRefresh();
   }
 
   async function voteOnValue(valueId: string, vote: ProjectImportanceVoteValue) {
-    await preserveScrollDuring(async () => {
-      await setEventValueImportance(data.slug, valueId, vote);
-      await invalidateEventDetail(data.slug);
-    });
+    await setEventValueImportance(data.slug, valueId, vote);
+    void invalidateEventDetail(data.slug);
+    requestActivityRailRefresh();
   }
 
   function addPlanPhase() {
@@ -472,7 +473,8 @@
 
     resetPlanForm();
     showPlanComposer = false;
-    await invalidateEventDetail(data.slug);
+    void invalidateEventDetail(data.slug);
+    requestActivityRailRefresh();
   }
 
   async function ratePlanCriterion(
@@ -480,17 +482,15 @@
     criterionId: string,
     rating: import('$lib/types/detail').PlanCriterionRating | null
   ) {
-    await preserveScrollDuring(async () => {
-      await setEventPlanCriterionRating(data.slug, planId, criterionId, rating);
-      await invalidateEventDetail(data.slug);
-    });
+    await setEventPlanCriterionRating(data.slug, planId, criterionId, rating);
+    void invalidateEventDetail(data.slug);
+    requestActivityRailRefresh();
   }
 
   async function voteOnPlanOverall(planId: string, vote: ProjectApprovalVote | null) {
-    await preserveScrollDuring(async () => {
-      await setEventPlanOverallVote(data.slug, planId, vote);
-      await invalidateEventDetail(data.slug);
-    });
+    await setEventPlanOverallVote(data.slug, planId, vote);
+    void invalidateEventDetail(data.slug);
+    requestActivityRailRefresh();
   }
 
   async function openActivityComposerForDay(isoDay = selectedDayIso) {
@@ -561,12 +561,14 @@
     });
     resetActivityForm();
     showActivityComposer = false;
-    await invalidateEventDetail(data.slug);
+    void invalidateEventDetail(data.slug);
+    requestActivityRailRefresh();
   }
 
   async function changeCommitment(activityId: string, roleLabel: string | null) {
     await setEventActivityCommitment(data.slug, activityId, roleLabel);
-    await invalidateEventDetail(data.slug);
+    void invalidateEventDetail(data.slug);
+    requestActivityRailRefresh();
   }
 
   async function saveActivityRating(
@@ -575,12 +577,14 @@
     comment: string | null
   ) {
     await setEventActivityRating(data.slug, activityId, rating, comment);
-    await invalidateEventDetail(data.slug, true);
+    void invalidateEventDetail(data.slug);
+    requestActivityRailRefresh();
   }
 
   async function deleteActivityRating(activityId: string) {
     await deleteEventActivityRating(data.slug, activityId);
-    await invalidateEventDetail(data.slug, true);
+    void invalidateEventDetail(data.slug);
+    requestActivityRailRefresh();
   }
 
   async function toggleHistoryCompletion(
@@ -589,7 +593,8 @@
     selection?: ProjectServiceHistoryCompletionChoice
   ) {
     await toggleEventHistoryCompletion(data.slug, historyId, role, selection);
-    await invalidateEventDetail(data.slug, true);
+    void invalidateEventDetail(data.slug);
+    requestActivityRailRefresh();
   }
 
   async function requestPhaseChange(targetPhaseId: EventLifecyclePhaseId, reason: string) {
@@ -604,15 +609,20 @@
     try {
       await requestEventPhaseChange(data.slug, targetPhaseId, reason);
       phaseChangeReason = '';
-      await invalidateEventDetail(data.slug, true);
+      void invalidateEventDetail(data.slug);
+      requestActivityRailRefresh();
     } catch {
       // Phase change failed — demand threshold may not be met
     }
   }
 
   async function voteOnPhaseChange(requestId: string, vote: ProjectApprovalVote | null) {
-    await setEventPhaseChangeVote(data.slug, requestId, vote);
-    await invalidateEventDetail(data.slug, true);
+    const result = await setEventPhaseChangeVote(data.slug, requestId, vote);
+    if (result?.passed && result.targetPhaseId) {
+      onPhaseAdvanced(result.targetPhaseId as EventLifecyclePhaseId);
+    }
+    void invalidateEventDetail(data.slug);
+    requestActivityRailRefresh();
   }
 </script>
 

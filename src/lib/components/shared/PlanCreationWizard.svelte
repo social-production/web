@@ -1,6 +1,7 @@
 <script lang="ts">
   import PlanWizardShell from '$lib/components/shared/PlanWizardShell.svelte';
   import LocationPicker from '$lib/components/shared/LocationPicker.svelte';
+  import TimePicker from '$lib/components/shared/TimePicker.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import SoftwareLicenseNotice from '$lib/components/shared/SoftwareLicenseNotice.svelte';
   import { softwareLicenseLabelForSubtype } from '$lib/copy/softwareLicensePolicy';
@@ -398,11 +399,11 @@
         <div class="field-grid">
           <label>
             <span>Start time</span>
-            <input bind:value={form.startTimeLabel} type="time" />
+            <TimePicker bind:value={form.startTimeLabel} />
           </label>
           <label>
             <span>Finish time</span>
-            <input bind:value={form.finishTimeLabel} type="time" />
+            <TimePicker bind:value={form.finishTimeLabel} />
           </label>
         </div>
       {:else if currentStep.type === 'location'}

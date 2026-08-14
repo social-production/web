@@ -26,6 +26,8 @@
   let serverDiscussion: DetailComment[] = data.discussion ?? [];
   let optimisticComments: DetailComment[] = [];
   let lastPropDiscussion = data.discussion;
+  let chatStarted = false;
+  let stopChatLive: (() => void) | null = null;
 
   $: if (data.discussion !== lastPropDiscussion) {
     lastPropDiscussion = data.discussion;
@@ -45,7 +47,9 @@
     }
   }
 
-  onMount(() => {
+  function startChatLive() {
+    if (chatStarted) return;
+    chatStarted = true;
     const stopPolling = startVisibilityPoll(refreshDiscussion, {
       activeMs: 8_000,
       idleMs: 45_000,
@@ -55,10 +59,17 @@
       void refreshDiscussion();
     });
     void refreshDiscussion();
-    return () => {
+    stopChatLive = () => {
       stopPolling();
       stopRealtime();
     };
+  }
+
+  $: if (active) startChatLive();
+
+  onMount(() => {
+    if (active) startChatLive();
+    return () => stopChatLive?.();
   });
 
   async function submitEventMessage(body: string) {

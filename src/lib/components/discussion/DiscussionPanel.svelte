@@ -60,7 +60,7 @@
           ? `app:thread:${data.slug}`
           : null;
     if (dependency) {
-      await invalidate(dependency);
+      void invalidate(dependency);
     }
   }
 

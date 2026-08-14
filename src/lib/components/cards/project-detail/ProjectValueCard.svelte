@@ -7,13 +7,21 @@
   export let options: Array<{ value: ProjectImportanceVoteValue; label: string }> = [];
   export let vote: (valueId: string, voteValue: ProjectImportanceVoteValue) => void = () => {};
 
-  $: hasUserVote = value.activeImportanceVote > 0;
+  let localVote = value.activeImportanceVote;
+  let heldVote: ProjectImportanceVoteValue | 0 | null = null;
+
+  $: if (heldVote == null || value.activeImportanceVote === heldVote) {
+    localVote = value.activeImportanceVote;
+    heldVote = null;
+  }
+
+  $: hasUserVote = localVote > 0;
   $: averageLabel =
     value.voteCount === 0
       ? 'No community rating yet'
       : `Community average: ${value.importanceScore.toFixed(1).replace(/\.0$/, '')}/10`;
   $: userVoteLabel = hasUserVote
-    ? `Your vote: ${value.activeImportanceVote}/10`
+    ? `Your vote: ${localVote}/10`
     : 'Vote to rate this value';
   $: voteLabel = `${value.voteCount} vote${value.voteCount === 1 ? '' : 's'}`;
 </script>
@@ -25,10 +33,15 @@
     averageValue={hasUserVote ? value.importanceScore : 0}
     disabled={!canVote}
     leftLabel="Unnecessary"
-    onSelect={(selectedValue) => vote(value.id, selectedValue as ProjectImportanceVoteValue)}
+    onSelect={(selectedValue) => {
+      const next = selectedValue as ProjectImportanceVoteValue;
+      localVote = next;
+      heldVote = next;
+      vote(value.id, next);
+    }}
     options={options}
     rightLabel="Required"
-    selectedValue={value.activeImportanceVote}
+    selectedValue={localVote}
   />
 
   <div class="value-footer">

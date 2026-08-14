@@ -111,7 +111,7 @@
 
     try {
       await toggleEventMembership(data.slug);
-      await invalidateEventDetail(data.slug);
+      void invalidateEventDetail(data.slug);
     } catch {
       onMembershipChange?.({
         viewerIsMember: wasMember,
@@ -124,7 +124,7 @@
     const result = await shareEventWithUser(data.slug, username);
 
     if (result.ok) {
-      await invalidateEventDetail(data.slug);
+      void invalidateEventDetail(data.slug);
     }
 
     return result;

@@ -430,7 +430,7 @@ export interface AppAdapter {
     projectSlug: string,
     requestId: string,
     vote: ProjectApprovalVote | null
-  ): Promise<void>;
+  ): Promise<{ passed?: boolean; targetPhaseId?: string | null } | void>;
   requestProjectUpdate(projectSlug: string, body: string): Promise<void>;
   setProjectUpdateVote(
     projectSlug: string,
@@ -552,7 +552,7 @@ export interface AppAdapter {
     eventSlug: string,
     requestId: string,
     vote: ProjectApprovalVote | null
-  ): Promise<void>;
+  ): Promise<{ passed?: boolean; targetPhaseId?: string | null } | void>;
   requestEventUpdate(eventSlug: string, body: string): Promise<void>;
   setEventUpdateVote(
     eventSlug: string,

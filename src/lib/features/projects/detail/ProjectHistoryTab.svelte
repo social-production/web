@@ -52,8 +52,8 @@
         return;
     }
 
-    await invalidateProjectDetail(data.slug);
-    await onReload();
+    void invalidateProjectDetail(data.slug);
+    void onReload();
   }
 </script>
 

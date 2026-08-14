@@ -35,8 +35,8 @@
         return;
     }
 
-    await invalidateEventDetail(data.slug);
-    await onReload();
+    void invalidateEventDetail(data.slug);
+    void onReload();
   }
 </script>
 

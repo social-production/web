@@ -3,6 +3,7 @@
   import EventCard from '$lib/components/cards/public-feed/EventCard.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
+  import TimePicker from '$lib/components/shared/TimePicker.svelte';
   import CreateScopeTagSelector from '$lib/features/create/shared/CreateScopeTagSelector.svelte';
   import { commitSingleSuggestion, mergeScopeOptions } from '$lib/features/create/shared/createFormActions';
   import { loadTaggableScopeOptions } from '$lib/features/create/shared/taggableScopes';
@@ -744,11 +745,11 @@
                 <div class="schedule-fields is-range">
                   <label>
                     <RequiredFieldLabel>Start time</RequiredFieldLabel>
-                    <input type="time" bind:value={planForm.startTimeLabel} />
+                    <TimePicker bind:value={planForm.startTimeLabel} />
                   </label>
                   <label>
                     <RequiredFieldLabel>Finish time</RequiredFieldLabel>
-                    <input type="time" bind:value={planForm.finishTimeLabel} />
+                    <TimePicker bind:value={planForm.finishTimeLabel} />
                   </label>
                 </div>
               </fieldset>

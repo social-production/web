@@ -21,7 +21,7 @@
 
     try {
       await grantEventEditAccess(data.slug, userId);
-      await invalidateEventDetail(data.slug);
+      void invalidateEventDetail(data.slug);
     } finally {
       editorActionPendingId = null;
     }
@@ -32,7 +32,7 @@
 
     try {
       await revokeEventEditAccess(data.slug, userId);
-      await invalidateEventDetail(data.slug);
+      void invalidateEventDetail(data.slug);
     } finally {
       editorActionPendingId = null;
     }
@@ -41,7 +41,7 @@
   async function handleInvite(username: string) {
     const result = await shareEventWithUser(data.slug, username);
     if (result.ok) {
-      await invalidateEventDetail(data.slug);
+      void invalidateEventDetail(data.slug);
     }
     return result;
   }

@@ -27,6 +27,8 @@
   let serverDiscussion: DetailComment[] = data.discussion ?? [];
   let optimisticComments: DetailComment[] = [];
   let lastPropDiscussion = data.discussion;
+  let chatStarted = false;
+  let stopChatLive: (() => void) | null = null;
 
   $: if (data.discussion !== lastPropDiscussion) {
     lastPropDiscussion = data.discussion;
@@ -46,14 +48,9 @@
     }
   }
 
-  onMount(() => {
-    const media = window.matchMedia('(max-width: 1080px)');
-    const syncCompact = () => {
-      isCompact = media.matches;
-    };
-
-    syncCompact();
-    media.addEventListener('change', syncCompact);
+  function startChatLive() {
+    if (chatStarted) return;
+    chatStarted = true;
     const stopPolling = startVisibilityPoll(refreshDiscussion, {
       activeMs: 8_000,
       idleMs: 45_000,
@@ -63,11 +60,27 @@
       void refreshDiscussion();
     });
     void refreshDiscussion();
+    stopChatLive = () => {
+      stopPolling();
+      stopRealtime();
+    };
+  }
+
+  $: if (active) startChatLive();
+
+  onMount(() => {
+    const media = window.matchMedia('(max-width: 1080px)');
+    const syncCompact = () => {
+      isCompact = media.matches;
+    };
+
+    syncCompact();
+    media.addEventListener('change', syncCompact);
+    if (active) startChatLive();
 
     return () => {
       media.removeEventListener('change', syncCompact);
-      stopPolling();
-      stopRealtime();
+      stopChatLive?.();
     };
   });
 

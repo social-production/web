@@ -60,12 +60,12 @@ function configuredSupabaseUrl(): string {
 }
 
 /**
- * In local Supabase DEV, prefer same-origin (Vite proxies /auth/v1 + /functions/v1 → :54321).
- * Direct browser calls to 127.0.0.1:54321 are a common source of “always 503” (Private Network
- * Access, LAN-origin pages, strict browsers). Opt out with VITE_SUPABASE_SAME_ORIGIN=false.
+ * Prefer same-origin /functions/v1 + /auth/v1 so the browser skips CORS preflight.
+ * Local Vite and production Vercel both proxy those paths to hosted/local Supabase.
+ * Direct browser calls to 127.0.0.1:54321 are a common source of “always 503”.
+ * Opt out with VITE_SUPABASE_SAME_ORIGIN=false.
  */
 function useSameOriginSupabase(): boolean {
-  if (!import.meta.env.DEV) return false;
   if (typeof window === 'undefined') return false;
   if ((import.meta.env.VITE_BACKEND ?? '').trim().toLowerCase() !== 'supabase') return false;
   if (import.meta.env.VITE_SUPABASE_SAME_ORIGIN === 'false') return false;

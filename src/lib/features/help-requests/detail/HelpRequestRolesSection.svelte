@@ -38,7 +38,7 @@
         return;
       }
 
-      await invalidate(`app:help_request:${data.id}`);
+      void invalidate(`app:help_request:${data.id}`);
     } catch {
       roleMessage = 'Could not update role signup. Reload and try again.';
     } finally {

@@ -117,8 +117,10 @@ export function setProjectPlanOverallVote(
   return currentAdapter.setProjectPlanOverallVote(projectSlug, phaseId, planId, vote);
 }
 
-export function addProjectActivity(projectSlug: string, input: ProjectActivityInput) {
-  return currentAdapter.addProjectActivity(projectSlug, input);
+export async function addProjectActivity(projectSlug: string, input: ProjectActivityInput) {
+  const result = await currentAdapter.addProjectActivity(projectSlug, input);
+  requestActivityRailRefresh();
+  return result;
 }
 
 export async function setProjectActivityCommitment(
@@ -248,7 +250,7 @@ export function setProjectPhaseChangeVote(
 
 export function requestProjectUpdate(projectSlug: string, body: string) {
   return currentAdapter.requestProjectUpdate(projectSlug, body).then(async (result) => {
-    await invalidateFeedEngagementCache();
+    void invalidateFeedEngagementCache();
     return result;
   });
 }
@@ -259,7 +261,7 @@ export function setProjectUpdateVote(
   vote: ProjectApprovalVote | null
 ) {
   return currentAdapter.setProjectUpdateVote(projectSlug, requestId, vote).then(async (result) => {
-    await invalidateFeedEngagementCache();
+    void invalidateFeedEngagementCache();
     return result;
   });
 }
@@ -268,14 +270,14 @@ export function updateProjectDetails(projectSlug: string, title: string, descrip
   return currentAdapter
     .updateProjectDetails(projectSlug, title, description)
     .then(async (result) => {
-      await invalidateFeedEngagementCache();
+      void invalidateFeedEngagementCache();
       return result;
     });
 }
 
 export function requestProjectEdit(projectSlug: string, title: string, description: string) {
   return currentAdapter.requestProjectEdit(projectSlug, title, description).then(async (result) => {
-    await invalidateFeedEngagementCache();
+    void invalidateFeedEngagementCache();
     return result;
   });
 }
@@ -286,7 +288,7 @@ export function setProjectEditVote(
   vote: ProjectApprovalVote | null
 ) {
   return currentAdapter.setProjectEditVote(projectSlug, requestId, vote).then(async (result) => {
-    await invalidateFeedEngagementCache();
+    void invalidateFeedEngagementCache();
     return result;
   });
 }
@@ -338,7 +340,7 @@ export function revertProjectPhase(
 
 export function addProjectUpdate(projectSlug: string, title: string, body: string) {
   return currentAdapter.addProjectUpdate(projectSlug, title, body).then(async (result) => {
-    await invalidateFeedEngagementCache();
+    void invalidateFeedEngagementCache();
     return result;
   });
 }

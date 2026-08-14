@@ -122,9 +122,6 @@
         {/if}
       </span>
       <span class="plan-description">{plan.description}</span>
-      {#if scheduleLabel}
-        <span class="plan-schedule-preview">{scheduleLabel}</span>
-      {/if}
       {#if !open}
         <span class="plan-footer-meta base-footer">
           <span>{plan.overallApproval.approvalPercent}% approved</span>
@@ -311,7 +308,6 @@
   }
 
   .plan-description,
-  .plan-schedule-preview,
   .approval-summary,
   .meta-row span:last-child,
   .meta-block p,
@@ -320,10 +316,6 @@
     color: var(--text-soft);
     font-size: 13px;
     line-height: 1.45;
-  }
-
-  .plan-schedule-preview {
-    font-size: 12px;
   }
 
   .rating-progress {

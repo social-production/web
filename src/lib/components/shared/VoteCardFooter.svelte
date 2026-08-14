@@ -35,8 +35,10 @@
     holdOptimistic = false;
 
     try {
-      await onVote(next);
+      const pending = onVote(next);
       holdOptimistic = true;
+      voting = false;
+      await pending;
     } catch (error) {
       displayVote = previous;
       holdOptimistic = false;

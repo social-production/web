@@ -422,7 +422,7 @@
     }
 
     await setProjectPlanCriterionRating(data.slug, pendingAssessmentPlanId, criterionId, rating);
-    await invalidateProjectDetail(data.slug);
+    void invalidateProjectDetail(data.slug);
   }
 
   async function handlePendingOverallVote(vote: ProjectApprovalVote | null) {
@@ -436,15 +436,25 @@
       pendingAssessmentPlanId,
       vote
     );
-    await invalidateProjectDetail(data.slug);
+    void invalidateProjectDetail(data.slug);
     closePendingAssessment();
   }
 
   async function handlePendingVote(item: PendingVoteItem, vote: ProjectApprovalVote) {
     switch (item.voteKind) {
-      case 'phase_change':
-        await setProjectPhaseChangeVote(data.slug, item.id, vote);
+      case 'phase_change': {
+        const result = await setProjectPhaseChangeVote(data.slug, item.id, vote);
+        if (result?.passed && result.targetPhaseId) {
+          pageData = {
+            ...pageData,
+            lifecycle: {
+              ...pageData.lifecycle,
+              currentPhaseId: result.targetPhaseId as typeof pageData.lifecycle.currentPhaseId
+            }
+          };
+        }
         break;
+      }
       case 'update':
         await setProjectUpdateVote(data.slug, item.id, vote);
         break;
@@ -481,7 +491,7 @@
         return;
     }
 
-    await invalidateProjectDetail(data.slug);
+    void invalidateProjectDetail(data.slug);
   }
 
   async function handlePendingAction(item: PendingVoteItem) {
@@ -555,6 +565,12 @@
           {softwareWizardRequest}
           onSoftwareWizardRequestHandled={() => {
             softwareWizardRequest = null;
+          }}
+          onPhaseAdvanced={(phaseId) => {
+            pageData = {
+              ...pageData,
+              lifecycle: { ...pageData.lifecycle, currentPhaseId: phaseId }
+            };
           }}
         />
       </div>

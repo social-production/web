@@ -65,6 +65,7 @@
     const stopRealtime = subscribeToSubjectComments('help_request', data.id, () => {
       if (activeTab === 'chat') void refreshDiscussion();
     });
+    if (activeTab === 'chat') void refreshDiscussion();
 
     return () => {
       media.removeEventListener('change', syncCompact);
@@ -83,6 +84,7 @@
 
   function selectTab(tab: 'overview' | 'chat') {
     activeTab = tab;
+    if (tab === 'chat') void refreshDiscussion();
 
     if (!browser) {
       return;
@@ -111,6 +113,7 @@
       highlightedCommentId = readCommentTarget($page.url);
       const requestedTab = $page.url.searchParams.get('tab');
       activeTab = highlightedCommentId ? 'chat' : requestedTab === 'chat' ? 'chat' : 'overview';
+      if (activeTab === 'chat') void refreshDiscussion();
     }
   }
 

@@ -139,7 +139,7 @@
         scheduledAt,
         endsAt
       });
-      await invalidateProjectDetail(frame.projectSlug);
+      void invalidateProjectDetail(frame.projectSlug);
       requestedAssetQuantities = {};
       closeRequestComposer();
     } finally {

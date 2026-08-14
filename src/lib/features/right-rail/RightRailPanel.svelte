@@ -347,7 +347,7 @@
 
       markRailItemSeen(seenStorageKey, item.id);
       requestActivityRailRefresh();
-      await invalidateRailSubject(item);
+      void invalidateRailSubject(item);
       if (item.voteKindLabel === 'link' || item.voteKindLabel === 'link_sever') {
         await goto(item.href);
       } else {
@@ -388,7 +388,7 @@
 
           markRailItemSeen(seenStorageKey, item.id);
           requestActivityRailRefresh();
-          await invalidateRailSubject(item);
+          void invalidateRailSubject(item);
         } finally {
           pendingSubjectId = '';
         }
@@ -411,7 +411,7 @@
       }
       markRailItemSeen(seenStorageKey, item.id);
       requestActivityRailRefresh();
-      await invalidateRailSubject(item);
+      void invalidateRailSubject(item);
     } finally {
       pendingSubjectId = '';
     }

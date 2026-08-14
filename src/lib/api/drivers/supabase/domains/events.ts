@@ -148,8 +148,12 @@ export async function fetchSetEventPhaseChangeVote(
   eventSlug: string,
   requestId: string,
   vote: ProjectApprovalVote | null
-): Promise<void> {
-  await eventAction(eventSlug, 'phase-change/vote', { requestId, vote });
+): Promise<{ passed?: boolean; targetPhaseId?: string | null }> {
+  return eventAction<{ passed?: boolean; targetPhaseId?: string | null }>(
+    eventSlug,
+    'phase-change/vote',
+    { requestId, vote }
+  );
 }
 
 export async function fetchRequestEventUpdate(eventSlug: string, body: string): Promise<void> {

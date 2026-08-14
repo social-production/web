@@ -366,7 +366,7 @@
     }
 
     await setEventPlanCriterionRating(data.slug, pendingAssessmentPlanId, criterionId, rating);
-    await invalidateEventDetail(data.slug);
+    void invalidateEventDetail(data.slug);
   }
 
   async function handlePendingOverallVote(vote: ProjectApprovalVote | null) {
@@ -375,15 +375,25 @@
     }
 
     await setEventPlanOverallVote(data.slug, pendingAssessmentPlanId, vote);
-    await invalidateEventDetail(data.slug);
+    void invalidateEventDetail(data.slug);
     closePendingAssessment();
   }
 
   async function handlePendingVote(item: PendingVoteItem, vote: ProjectApprovalVote) {
     switch (item.voteKind) {
-      case 'phase_change':
-        await setEventPhaseChangeVote(data.slug, item.id, vote);
+      case 'phase_change': {
+        const result = await setEventPhaseChangeVote(data.slug, item.id, vote);
+        if (result?.passed && result.targetPhaseId) {
+          pageData = {
+            ...pageData,
+            lifecycle: {
+              ...pageData.lifecycle,
+              currentPhaseId: result.targetPhaseId as typeof pageData.lifecycle.currentPhaseId
+            }
+          };
+        }
         break;
+      }
       case 'update':
         await setEventUpdateVote(data.slug, item.id, vote);
         break;
@@ -403,7 +413,7 @@
         break;
     }
 
-    await invalidateEventDetail(data.slug);
+    void invalidateEventDetail(data.slug);
   }
 </script>
 
@@ -456,6 +466,12 @@
           assessPlanId={participationAssessPlanId}
           assessCriterionId={participationAssessCriterionId}
           votesRenderedInHub={pendingVotes.length > 0}
+          onPhaseAdvanced={(phaseId) => {
+            pageData = {
+              ...pageData,
+              lifecycle: { ...pageData.lifecycle, currentPhaseId: phaseId }
+            };
+          }}
         />
       </div>
     </div>

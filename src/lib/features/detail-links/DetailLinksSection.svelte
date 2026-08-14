@@ -89,7 +89,7 @@
       } else {
         await setEventManualLinkVote(slug, requestId, vote);
       }
-      await invalidateDetail(ownerKind, ownerSlug);
+      void invalidateDetail(ownerKind, ownerSlug);
     } finally {
       activeVotePendingId = null;
     }
@@ -104,7 +104,7 @@
       } else {
         await createEventManualLinkSeverRequest(ownerSlug, item.id);
       }
-      await invalidateDetail(ownerKind, ownerSlug);
+      void invalidateDetail(ownerKind, ownerSlug);
       expandedById = { ...expandedById, [item.id]: true };
     } finally {
       severPendingId = null;

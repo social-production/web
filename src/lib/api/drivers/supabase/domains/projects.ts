@@ -278,8 +278,12 @@ export async function fetchSetProjectPhaseChangeVote(
   projectSlug: string,
   requestId: string,
   vote: ProjectApprovalVote | null
-): Promise<void> {
-  await projectAction(projectSlug, 'phase-change/vote', { requestId, vote });
+): Promise<{ passed?: boolean; targetPhaseId?: string | null }> {
+  return projectAction<{ passed?: boolean; targetPhaseId?: string | null }>(
+    projectSlug,
+    'phase-change/vote',
+    { requestId, vote }
+  );
 }
 
 export async function fetchAdvanceProjectPhase(projectSlug: string, closeNote?: string): Promise<void> {

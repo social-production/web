@@ -74,7 +74,7 @@
 
     try {
       await toggleProjectMembership(data.slug);
-      await invalidateProjectDetail(data.slug);
+      void invalidateProjectDetail(data.slug);
     } catch {
       onMembershipChange?.({
         viewerIsMember: wasMember,
@@ -87,7 +87,7 @@
     const result = await shareProjectWithUser(data.slug, username);
 
     if (result.ok) {
-      await invalidateProjectDetail(data.slug);
+      void invalidateProjectDetail(data.slug);
     }
 
     return result;

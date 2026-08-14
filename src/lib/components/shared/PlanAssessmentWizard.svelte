@@ -191,11 +191,11 @@
       ...localRatings,
       [currentCriterion.criterionId]: nextRating
     };
-    await onRate(currentCriterion.criterionId, nextRating);
+    void onRate(currentCriterion.criterionId, nextRating);
 
     if (!reviewMode && nextRating != null && stepIndex < totalSteps - 1) {
       stepIndex += 1;
-      await scrollToTop();
+      void scrollToTop();
     }
   }
 
@@ -206,7 +206,7 @@
 
     const nextVote = effectiveOverallVote === vote ? null : vote;
     localOverallVote = nextVote;
-    await onOverallVote(nextVote);
+    void onOverallVote(nextVote);
   }
 </script>
 

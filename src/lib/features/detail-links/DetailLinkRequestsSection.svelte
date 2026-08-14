@@ -185,7 +185,7 @@
       } else {
         await createEventManualLinkRequest(ownerSlug, target.kind, target.slug, summary.trim());
       }
-      await invalidateDetail(ownerKind, ownerSlug);
+      void invalidateDetail(ownerKind, ownerSlug);
       closeComposer();
     } finally {
       createPending = false;
@@ -208,7 +208,7 @@
       } else {
         await setEventManualLinkVote(slug, requestId, vote);
       }
-      await invalidateDetail(ownerKind, ownerSlug);
+      void invalidateDetail(ownerKind, ownerSlug);
     } finally {
       activeVotePendingId = null;
     }

@@ -67,6 +67,7 @@
     toggleProjectServiceHistoryCompletion,
     setProjectValueImportance,
   } from '$lib/services/commands/projects';
+  import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
   import type { ProjectSubtype } from '$lib/types/feed';
   import type {
     ProjectActivityRoleInput,
@@ -118,6 +119,7 @@
   export let softwareWizardRequest: { mode: 'record-merge' | 'vote-pr'; requestId: string } | null =
     null;
   export let onSoftwareWizardRequestHandled: () => void = () => {};
+  export let onPhaseAdvanced: (phaseId: ProjectLifecyclePhaseId) => void = () => {};
 
   type DraftPlanPhase = {
     title: string;
@@ -643,9 +645,10 @@
     return phase.title;
   }
 
-  async function refreshAfter(action: () => Promise<void>) {
+  async function refreshAfter(action: () => Promise<unknown>): Promise<void> {
     await action();
-    await invalidateProjectDetail(data.slug, true);
+    void invalidateProjectDetail(data.slug);
+    requestActivityRailRefresh();
   }
 
   function handlePhaseChangeRequest(
@@ -657,7 +660,13 @@
   }
 
   function handlePhaseChangeVote(requestId: string, vote: ProjectApprovalVote | null) {
-    return refreshAfter(() => setProjectPhaseChangeVote(data.slug, requestId, vote));
+    return refreshAfter(async () => {
+      const result = await setProjectPhaseChangeVote(data.slug, requestId, vote);
+      if (result?.passed && result.targetPhaseId) {
+        onPhaseAdvanced(result.targetPhaseId as ProjectLifecyclePhaseId);
+      }
+      return result;
+    });
   }
 
   function handleProjectValueVote(valueId: string, voteValue: ProjectImportanceVoteValue) {
@@ -784,7 +793,7 @@
       return;
     }
 
-    await invalidateProjectDetail(data.slug, true);
+    void invalidateProjectDetail(data.slug);
     productionForm = resetProductionForm();
     editingProductionPlanId = null;
     showPhaseTwoComposer = false;
@@ -843,7 +852,7 @@
       return;
     }
 
-    await invalidateProjectDetail(data.slug, true);
+    void invalidateProjectDetail(data.slug);
     distributionForm = resetDistributionForm();
     showPhaseThreeComposer = false;
   }

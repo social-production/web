@@ -73,8 +73,10 @@ export function setEventPlanOverallVote(
   return currentAdapter.setEventPlanOverallVote(eventSlug, planId, vote);
 }
 
-export function addEventActivity(eventSlug: string, input: ProjectActivityInput) {
-  return currentAdapter.addEventActivity(eventSlug, input);
+export async function addEventActivity(eventSlug: string, input: ProjectActivityInput) {
+  const result = await currentAdapter.addEventActivity(eventSlug, input);
+  requestActivityRailRefresh();
+  return result;
 }
 
 export async function setEventActivityCommitment(
@@ -127,7 +129,7 @@ export function setEventPhaseChangeVote(
 
 export function requestEventUpdate(eventSlug: string, body: string) {
   return currentAdapter.requestEventUpdate(eventSlug, body).then(async (result) => {
-    await invalidateFeedEngagementCache();
+    void invalidateFeedEngagementCache();
     return result;
   });
 }
@@ -138,14 +140,14 @@ export function setEventUpdateVote(
   vote: ProjectApprovalVote | null
 ) {
   return currentAdapter.setEventUpdateVote(eventSlug, requestId, vote).then(async (result) => {
-    await invalidateFeedEngagementCache();
+    void invalidateFeedEngagementCache();
     return result;
   });
 }
 
 export function requestEventEdit(eventSlug: string, title: string, description: string) {
   return currentAdapter.requestEventEdit(eventSlug, title, description).then(async (result) => {
-    await invalidateFeedEngagementCache();
+    void invalidateFeedEngagementCache();
     return result;
   });
 }
@@ -156,7 +158,7 @@ export function setEventEditVote(
   vote: ProjectApprovalVote | null
 ) {
   return currentAdapter.setEventEditVote(eventSlug, requestId, vote).then(async (result) => {
-    await invalidateFeedEngagementCache();
+    void invalidateFeedEngagementCache();
     return result;
   });
 }

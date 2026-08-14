@@ -126,18 +126,23 @@
       return;
     }
     const viewerId = bootstrap.viewer.id;
+    const applyRail = (rail: { activityRail?: typeof activityRailItems; activityRailHistory?: typeof activityRailHistoryItems }) => {
+      activityRailItems = rail.activityRail ?? [];
+      activityRailHistoryItems = rail.activityRailHistory ?? [];
+      lastActivityRailViewerId = viewerId;
+      activityRailLoaded = true;
+    };
     void getActivityRail()
-      .then((rail) => {
-        activityRailItems = rail.activityRail ?? [];
-        activityRailHistoryItems = rail.activityRailHistory ?? [];
-        lastActivityRailViewerId = viewerId;
-        activityRailLoaded = true;
-      })
-      .catch(() => {
-        activityRailItems = bootstrap.activityRail ?? [];
-        activityRailHistoryItems = bootstrap.activityRailHistory ?? [];
-        activityRailLoaded = true;
-      });
+      .then(applyRail)
+      .catch(() =>
+        getActivityRail()
+          .then(applyRail)
+          .catch(() => {
+            activityRailItems = bootstrap.activityRail ?? [];
+            activityRailHistoryItems = bootstrap.activityRailHistory ?? [];
+            activityRailLoaded = true;
+          })
+      );
   }
 
   $: if ($activityRailRefreshNonce > 0) {
