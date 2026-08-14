@@ -60,6 +60,7 @@
     const stopRealtime = subscribeToSubjectComments('project', data.id, () => {
       void refreshDiscussion();
     });
+    void refreshDiscussion();
 
     return () => {
       media.removeEventListener('change', syncCompact);

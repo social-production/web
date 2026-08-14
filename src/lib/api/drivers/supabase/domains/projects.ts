@@ -32,6 +32,20 @@ export async function fetchProject(slug: string): Promise<ProjectPageData | null
   }
 }
 
+export async function fetchProjectHistory(slug: string) {
+  const payload = await apiClient.get<{ history?: ProjectPageData['history'] }>(
+    `/projects/${encodeURIComponent(slug)}/history`
+  );
+  return payload.history ?? [];
+}
+
+export async function fetchProjectLinks(slug: string) {
+  const payload = await apiClient.get<{ linksFrame: ProjectPageData['linksFrame'] }>(
+    `/projects/${encodeURIComponent(slug)}/links`
+  );
+  return payload.linksFrame;
+}
+
 export async function fetchCreateProject(input: CreateProjectInput): Promise<CreateResult> {
   return apiClient.post<CreateResult>('/projects', input);
 }
@@ -359,6 +373,8 @@ export async function fetchShareProjectWithUser(
 
 export const projectsDomain: Partial<AppAdapter> = {
   getProject: fetchProject,
+  getProjectHistory: fetchProjectHistory,
+  getProjectLinks: fetchProjectLinks,
   createProject: fetchCreateProject,
   toggleProjectMembership: fetchToggleProjectMembership,
   toggleProjectDemandSignal: fetchToggleProjectDemandSignal,

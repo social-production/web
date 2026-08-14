@@ -3,18 +3,14 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount, tick } from 'svelte';
-  import EventChatTab from '$lib/features/events/detail/EventChatTab.svelte';
-  import EventHistoryTab from '$lib/features/events/detail/EventHistoryTab.svelte';
   import EventLifecyclePanel from '$lib/features/events/detail/EventLifecyclePanel.svelte';
   import EventMembersPanel from '$lib/features/events/detail/EventMembersPanel.svelte';
   import EventOverviewHeader from '$lib/features/events/detail/EventOverviewHeader.svelte';
   import EventUpdatesSection from '$lib/features/events/detail/EventUpdatesSection.svelte';
-  import DetailLinksTab from '$lib/features/detail-links/DetailLinksTab.svelte';
   import DetailTopTabs from '$lib/features/detail/DetailTopTabs.svelte';
   import type { DetailTabId } from '$lib/features/detail/detailTabs';
   import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
   import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
-  import PlanAssessmentWizard from '$lib/components/shared/PlanAssessmentWizard.svelte';
   import {
     setEventEditVote,
     setEventPhaseChangeVote,
@@ -23,7 +19,14 @@
     setEventPlanValueVote,
     setEventUpdateVote,
   } from '$lib/services/commands/events';
-  import type { EventPageData, PlanCriterionRating, ProjectApprovalVote } from '$lib/types/detail';
+  import type {
+    DetailLinksFrameData,
+    EventPageData,
+    PlanCriterionRating,
+    ProjectApprovalVote
+  } from '$lib/types/detail';
+  import { getEventLinks } from '$lib/services/queries/details';
+  import { emptyLinksFrame } from '$lib/utils/emptyLinksFrame';
   import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
   import {
     buildEventParticipationSteps,
@@ -45,6 +48,9 @@
   $: if (data !== lastLoaderData) {
     lastLoaderData = data;
     pageData = data;
+    if (activeTab === 'links') {
+      linksSlug = '';
+    }
   }
 
   let highlightedCommentId: string | null = null;
@@ -55,6 +61,42 @@
   let activeTab: DetailTabId = 'overview';
   let highlightedLinkRequestId: string | null = null;
   let autoExpandVoteCards = false;
+  let ChatTab: typeof import('$lib/features/events/detail/EventChatTab.svelte').default | null = null;
+  let HistoryTab: typeof import('$lib/features/events/detail/EventHistoryTab.svelte').default | null =
+    null;
+  let LinksTab: typeof import('$lib/features/detail-links/DetailLinksTab.svelte').default | null = null;
+  let Wizard: typeof import('$lib/components/shared/PlanAssessmentWizard.svelte').default | null =
+    null;
+  let linksFrame: DetailLinksFrameData = data.linksFrame ?? emptyLinksFrame('event', data.slug);
+  let linksSlug = '';
+
+  async function ensureTabComponent(tab: DetailTabId) {
+    if (tab === 'chat' && !ChatTab) {
+      ChatTab = (await import('$lib/features/events/detail/EventChatTab.svelte')).default;
+    } else if (tab === 'history' && !HistoryTab) {
+      HistoryTab = (await import('$lib/features/events/detail/EventHistoryTab.svelte')).default;
+    } else if (tab === 'links' && !LinksTab) {
+      LinksTab = (await import('$lib/features/detail-links/DetailLinksTab.svelte')).default;
+    }
+  }
+
+  async function loadLinks() {
+    const slug = data.slug;
+    try {
+      linksFrame = await getEventLinks(slug);
+      linksSlug = slug;
+    } catch {
+      linksFrame = data.linksFrame ?? emptyLinksFrame('event', slug);
+      linksSlug = slug;
+    }
+  }
+
+  $: if (activeTab !== 'overview') {
+    void ensureTabComponent(activeTab);
+  }
+  $: if (activeTab === 'links' && linksSlug !== data.slug) {
+    void loadLinks();
+  }
   let autoExpandVoteKind: string | null = null;
   let autoExpandVoteTarget: string | null = null;
   let autoAssess = false;
@@ -123,6 +165,7 @@
 
   function selectTab(tab: DetailTabId) {
     activeTab = tab;
+    void ensureTabComponent(tab);
 
     if (!browser) {
       return;
@@ -232,6 +275,11 @@
     pendingAssessmentPlanId == null
       ? null
       : (data.lifecycle.phaseTwo.plans.find((plan) => plan.id === pendingAssessmentPlanId) ?? null);
+  $: if (pendingAssessmentPlan && !Wizard) {
+    void import('$lib/components/shared/PlanAssessmentWizard.svelte').then((module) => {
+      Wizard = module.default;
+    });
+  }
 
   $: pendingVotes = collectEventPendingVotes(pageData);
   $: participationSteps = buildEventParticipationSteps(pageData, pendingVotes, {
@@ -370,16 +418,31 @@
         />
       </div>
     {:else if activeTab === 'chat'}
-      <EventChatTab {data} {highlightedCommentId} fullscreen={isCompact} />
+      {#if ChatTab}
+        <svelte:component this={ChatTab} {data} {highlightedCommentId} fullscreen={isCompact} />
+      {:else}
+        <p class="tab-loading">Loading chat…</p>
+      {/if}
     {:else if activeTab === 'links'}
-      <DetailLinksTab frame={data.linksFrame} highlightedRequestId={highlightedLinkRequestId} />
+      {#if LinksTab}
+        <svelte:component
+          this={LinksTab}
+          frame={linksFrame}
+          highlightedRequestId={highlightedLinkRequestId}
+        />
+      {:else}
+        <p class="tab-loading">Loading links…</p>
+      {/if}
+    {:else if HistoryTab}
+      <svelte:component this={HistoryTab} {data} {highlightedDecisionId} />
     {:else}
-      <EventHistoryTab {data} {highlightedDecisionId} />
+      <p class="tab-loading">Loading history…</p>
     {/if}
   </section>
 
-  {#if pendingAssessmentPlan}
-    <PlanAssessmentWizard
+  {#if pendingAssessmentPlan && Wizard}
+    <svelte:component
+      this={Wizard}
       open={pendingAssessmentOpen}
       plan={pendingAssessmentPlan}
       planTitle={pendingAssessmentPlan.title}
@@ -398,6 +461,11 @@
   .page {
     display: grid;
     gap: 20px;
+  }
+
+  .tab-loading {
+    margin: 16px 4px;
+    color: var(--text-muted);
   }
 
   .hero-card {

@@ -9,6 +9,8 @@ import type {
   SettingsUpdateInput,
 } from '$lib/types/account';
 import type {
+  DecisionHistoryEntry,
+  DetailLinksFrameData,
   EventPageData,
   EventPlanInput,
   GovernanceSignalType,
@@ -23,6 +25,7 @@ import type {
   ProjectImportanceVoteValue,
   ProjectPhaseChangeRequestOptions,
   ProjectLifecyclePhaseId,
+  ProjectLinksFrameData,
   ProjectPageData,
   ProjectProductionPlanInput,
   ProjectServiceRequestInput,
@@ -260,6 +263,8 @@ export interface AppAdapter {
     }
   ): Promise<SearchPageData>;
   getProject(slug: string): Promise<ProjectPageData | null>;
+  getProjectHistory(slug: string): Promise<DecisionHistoryEntry[]>;
+  getProjectLinks(slug: string): Promise<ProjectLinksFrameData>;
   getThread(slug: string): Promise<ThreadPageData | null>;
   createProject(input: CreateProjectInput): Promise<CreateResult>;
   createThread(input: CreateThreadInput): Promise<CreateResult>;
@@ -284,6 +289,8 @@ export interface AppAdapter {
     roleId: string
   ): Promise<{ ok: boolean; error?: string }>;
   getEvent(slug: string): Promise<EventPageData | null>;
+  getEventHistory(slug: string): Promise<DecisionHistoryEntry[]>;
+  getEventLinks(slug: string): Promise<DetailLinksFrameData>;
   toggleEventMembership(eventSlug: string): Promise<void>;
   toggleProjectMembership(projectSlug: string): Promise<void>;
   toggleProjectDemandSignal(projectSlug: string): Promise<void>;

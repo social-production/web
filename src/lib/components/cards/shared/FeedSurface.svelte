@@ -33,7 +33,7 @@
       aria-label="Open item"
       class="surface-link"
       data-sveltekit-noscroll={skipScrollOnNavigate || undefined}
-      data-sveltekit-preload-data="off"
+      data-sveltekit-preload-data="hover"
       {href}
     ></a>
   {/if}

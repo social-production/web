@@ -56,7 +56,7 @@
     </div>
   </div>
 
-  <a class="title" data-sveltekit-preload-data="off" href={item.href}>{item.title}</a>
+  <a class="title" data-sveltekit-preload-data="hover" href={item.href}>{item.title}</a>
   <p class="summary">{item.summary}</p>
 
   {#if item.latestDescription}

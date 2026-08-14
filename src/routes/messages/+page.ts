@@ -28,7 +28,7 @@ export const load = (async ({ url, depends, parent }) => {
       messages: {
         viewer: messages.viewer,
         conversations: Array.isArray(messages.conversations) ? messages.conversations : [],
-        linkedChats: Array.isArray(messages.linkedChats) ? messages.linkedChats : [],
+        linkedChats: [],
         suggestedContacts: Array.isArray(messages.suggestedContacts)
           ? messages.suggestedContacts
           : [],

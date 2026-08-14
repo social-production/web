@@ -48,7 +48,7 @@
     </div>
   </div>
 
-  <a class="subject-title" data-sveltekit-noscroll data-sveltekit-preload-data="off" href={item.href}>{item.subjectTitle}</a>
+  <a class="subject-title" data-sveltekit-noscroll data-sveltekit-preload-data="hover" href={item.href}>{item.subjectTitle}</a>
   <p class="comment-excerpt">{item.commentExcerpt}</p>
 
   <div class="footer">

@@ -16,6 +16,10 @@ function canSubscribe() {
   );
 }
 
+export function isInboxRealtimeEnabled() {
+  return canSubscribe();
+}
+
 function realtimeClient() {
   const token = getAccessToken();
   if (!token) return null;
@@ -54,9 +58,7 @@ export function subscribeToViewerInbox(onChange: () => void): RealtimeCleanup {
         { event: 'INSERT', schema: 'public', table: 'notifications' },
         onChange
       )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') onChange();
-      });
+      .subscribe();
   });
   return () => {
     active = false;

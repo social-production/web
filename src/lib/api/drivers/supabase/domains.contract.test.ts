@@ -149,6 +149,8 @@ describe('supabase domain gateway routes', () => {
     const locations = await import('$lib/api/drivers/supabase/domains/locations');
     await projects.fetchCreateProject({ title: 'p', description: 'd', projectMode: 'productive' } as never);
     await projects.fetchProject('p1');
+    await projects.fetchProjectHistory('p1');
+    await projects.fetchProjectLinks('p1');
     await projects.fetchToggleProjectMembership('p1');
     await projects.fetchSetProjectSignal('p1', 'demand');
     await projects.fetchSetProjectPlanOverallVote('p1', 'phase-2', 'plan1', 'yes');
@@ -164,6 +166,8 @@ describe('supabase domain gateway routes', () => {
       invitedUsernames: []
     });
     await events.fetchEvent('e1');
+    await events.fetchEventHistory('e1');
+    await events.fetchEventLinks('e1');
     await events.fetchToggleEventMembership('e1');
     await events.fetchSetEventPlanOverallVote('e1', 'plan1', 'yes');
     await help.fetchCreateHelpRequest({ title: 'h', body: 'b' } as never);
@@ -172,6 +176,10 @@ describe('supabase domain gateway routes', () => {
     await locations.fetchLocationSearch('mel');
     await locations.fetchLocationReverse(-37.8, 144.9);
     expect(hasCall('POST', '/projects')).toBe(true);
+    expect(hasCall('GET', '/projects/p1/history')).toBe(true);
+    expect(hasCall('GET', '/projects/p1/links')).toBe(true);
+    expect(hasCall('GET', '/events/e1/history')).toBe(true);
+    expect(hasCall('GET', '/events/e1/links')).toBe(true);
     expect(hasCall('POST', '/projects/p1/membership')).toBe(true);
     expect(hasCall('POST', '/projects/p1/plans/overall-vote')).toBe(true);
     expect(hasCall('POST', '/projects/p1/phase-change/vote')).toBe(true);

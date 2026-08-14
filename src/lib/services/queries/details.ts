@@ -4,6 +4,14 @@ export function getProject(slug: string) {
   return currentAdapter.getProject(slug);
 }
 
+export function getProjectHistory(slug: string) {
+  return currentAdapter.getProjectHistory(slug);
+}
+
+export function getProjectLinks(slug: string) {
+  return currentAdapter.getProjectLinks(slug);
+}
+
 export function getThread(slug: string) {
   return currentAdapter.getThread(slug);
 }
@@ -18,4 +26,12 @@ export function getHelpRequest(id: string) {
 
 export function getEvent(slug: string) {
   return currentAdapter.getEvent(slug);
+}
+
+export function getEventHistory(slug: string) {
+  return currentAdapter.getEventHistory(slug);
+}
+
+export function getEventLinks(slug: string) {
+  return currentAdapter.getEventLinks(slug);
 }

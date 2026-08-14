@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto, afterNavigate } from '$app/navigation';
-  import { page } from '$app/stores';
+  import { navigating, page } from '$app/stores';
   import brandIcon from '$lib/assets/brand/app-icon-no-background-full-white.png';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import AuthActionNotice from '$lib/components/shared/AuthActionNotice.svelte';
@@ -74,6 +74,12 @@
   }
 
   $: feedChromeActive = isCompact;
+  $: navigatingTo = $navigating?.to?.url.pathname ?? null;
+  $: showNavProgress = Boolean($navigating);
+  $: showDetailSkeleton = Boolean(
+    navigatingTo &&
+      /^\/(projects|events|threads|posts|help-requests)\//.test(navigatingTo)
+  );
   $: dedicatedMapPage = $page.url.pathname === '/map';
   $: mapSurfaceActive = mapPanelOpen || dedicatedMapPage;
   $: if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded) {
@@ -849,6 +855,11 @@
         {/if}
       </nav>
     {/if}
+    {#if showNavProgress}
+      <div class="nav-progress" aria-hidden="true">
+        <span class="nav-progress-bar"></span>
+      </div>
+    {/if}
   </header>
 
   {#if isCompact && (leftRailOpen || rightRailOpen)}
@@ -880,6 +891,14 @@
     <main class="main-content" class:main-content-compact={isCompact}>
       <div class="main-frame">
         <slot />
+        {#if showDetailSkeleton}
+          <section class="detail-open-skeleton" aria-busy="true" aria-live="polite">
+            <div class="skeleton-tabs"></div>
+            <div class="skeleton-title"></div>
+            <div class="skeleton-meta"></div>
+            <div class="skeleton-body"></div>
+          </section>
+        {/if}
       </div>
 
       {#if showCreateFab}
@@ -956,6 +975,74 @@
     transform: translateY(-100%);
     margin-top: calc(-1 * var(--topbar-natural-height, var(--topbar-height, 53px)));
     pointer-events: none;
+  }
+
+  .nav-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 2px;
+    overflow: hidden;
+    z-index: 61;
+    pointer-events: none;
+  }
+
+  .nav-progress-bar {
+    display: block;
+    height: 100%;
+    width: 40%;
+    background: var(--brand-strong);
+    transform-origin: left;
+    animation: nav-progress-slide 0.9s ease-in-out infinite;
+  }
+
+  @keyframes nav-progress-slide {
+    0% {
+      transform: translateX(-120%);
+    }
+    100% {
+      transform: translateX(350%);
+    }
+  }
+
+  .detail-open-skeleton {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    padding: 32px 16px 16px;
+    background: var(--page-background);
+  }
+
+  .skeleton-tabs,
+  .skeleton-title,
+  .skeleton-meta,
+  .skeleton-body {
+    border-radius: 6px;
+    background: var(--panel-soft);
+  }
+
+  .skeleton-tabs {
+    height: 28px;
+    width: 220px;
+  }
+
+  .skeleton-title {
+    height: 28px;
+    width: min(70%, 420px);
+  }
+
+  .skeleton-meta {
+    height: 16px;
+    width: min(50%, 280px);
+  }
+
+  .skeleton-body {
+    height: 160px;
+    width: 100%;
   }
 
   .topbar.topbar-map-pinned {
@@ -1392,6 +1479,7 @@
   }
 
   .main-frame {
+    position: relative;
     width: 100%;
     min-width: 0;
     max-width: var(--main-frame-max-width);

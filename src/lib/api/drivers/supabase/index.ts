@@ -31,6 +31,8 @@ import {
   fetchCreateEventManualLinkSeverRequest,
   fetchDeleteEventActivityRating,
   fetchEvent,
+  fetchEventHistory,
+  fetchEventLinks,
   fetchGrantEventEditAccess,
   fetchRequestEventEdit,
   fetchRequestEventPhaseChange,
@@ -111,6 +113,8 @@ import {
   fetchDeleteProjectActivityRating,
   fetchPlanProjectServiceRequest,
   fetchProject,
+  fetchProjectHistory,
+  fetchProjectLinks,
   fetchRecordProjectPullRequestMerge,
   fetchRequestProjectEdit,
   fetchRequestProjectMergeCapabilityChange,
@@ -317,6 +321,12 @@ export function createSupabaseDriver(): AppAdapter {
     async getEvent(slug) {
       return fetchEvent(slug);
     },
+    async getEventHistory(slug) {
+      return fetchEventHistory(slug);
+    },
+    async getEventLinks(slug) {
+      return fetchEventLinks(slug);
+    },
     async createEvent(input) {
       return fetchCreateEvent(input);
     },
@@ -398,6 +408,12 @@ export function createSupabaseDriver(): AppAdapter {
 
     async getProject(slug) {
       return fetchProject(slug);
+    },
+    async getProjectHistory(slug) {
+      return fetchProjectHistory(slug);
+    },
+    async getProjectLinks(slug) {
+      return fetchProjectLinks(slug);
     },
     async createProject(input) {
       return fetchCreateProject(input);

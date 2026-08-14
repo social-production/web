@@ -20,6 +20,20 @@ export async function fetchEvent(slug: string): Promise<EventPageData | null> {
   }
 }
 
+export async function fetchEventHistory(slug: string) {
+  const payload = await apiClient.get<{ history?: EventPageData['history'] }>(
+    `/events/${encodeURIComponent(slug)}/history`
+  );
+  return payload.history ?? [];
+}
+
+export async function fetchEventLinks(slug: string) {
+  const payload = await apiClient.get<{ linksFrame: EventPageData['linksFrame'] }>(
+    `/events/${encodeURIComponent(slug)}/links`
+  );
+  return payload.linksFrame;
+}
+
 export async function fetchCreateEvent(input: CreateEventInput): Promise<CreateResult> {
   return apiClient.post<CreateResult>('/events', input);
 }
@@ -209,6 +223,8 @@ export async function fetchShareEventWithUser(
 
 export const eventsDomain: Partial<AppAdapter> = {
   getEvent: fetchEvent,
+  getEventHistory: fetchEventHistory,
+  getEventLinks: fetchEventLinks,
   createEvent: fetchCreateEvent,
   toggleEventMembership: fetchToggleEventMembership,
   setEventSignal: fetchSetEventSignal,

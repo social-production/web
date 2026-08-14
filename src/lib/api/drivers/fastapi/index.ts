@@ -80,7 +80,7 @@ import {
   fetchMarkLinkedChatRead
 } from './domains/messages';
 import {
-  fetchProject, fetchCreateProject, fetchToggleProjectMembership,
+  fetchProject, fetchProjectHistory, fetchProjectLinks, fetchCreateProject, fetchToggleProjectMembership,
   fetchToggleProjectDemandSignal, fetchSetProjectSignal,
   fetchAddProjectValue, fetchSetProjectValueImportance,
   fetchAddProjectProductionPlan, fetchUpdateProjectProductionPlan, fetchAddProjectDistributionPlan,
@@ -102,7 +102,7 @@ import {
   fetchShareProjectWithUser,
 } from './domains/projects';
 import {
-  fetchEvent, fetchCreateEvent, fetchToggleEventMembership,
+  fetchEvent, fetchEventHistory, fetchEventLinks, fetchCreateEvent, fetchToggleEventMembership,
   fetchSetEventSignal, fetchAddEventValue, fetchSetEventValueImportance,
   fetchAddEventPlan, fetchSetEventPlanOverallVote, fetchSetEventPlanValueVote, fetchSetEventPlanCriterionRating,
   fetchAddEventActivity, fetchSetEventActivityCommitment, fetchSetEventActivityRating, fetchDeleteEventActivityRating, fetchToggleEventHistoryCompletion,
@@ -277,6 +277,8 @@ export function createFastApiDriver(): AppAdapter {
     },
 
     async getEvent(slug) { return fetchEvent(slug); },
+    async getEventHistory(slug) { return fetchEventHistory(slug); },
+    async getEventLinks(slug) { return fetchEventLinks(slug); },
     async createEvent(input) { return fetchCreateEvent(input); },
     async toggleEventMembership(eventSlug) { return fetchToggleEventMembership(eventSlug); },
     async setEventSignal(slug, signal) { return fetchSetEventSignal(slug, signal); },
@@ -305,6 +307,8 @@ export function createFastApiDriver(): AppAdapter {
     async shareEventWithUser(slug, username) { return fetchShareEventWithUser(slug, username); },
 
     async getProject(slug) { return fetchProject(slug); },
+    async getProjectHistory(slug) { return fetchProjectHistory(slug); },
+    async getProjectLinks(slug) { return fetchProjectLinks(slug); },
     async createProject(input) { return fetchCreateProject(input); },
     async toggleProjectMembership(slug) { return fetchToggleProjectMembership(slug); },
     async toggleProjectDemandSignal(slug) { return fetchToggleProjectDemandSignal(slug); },

@@ -90,6 +90,20 @@ export async function fetchEvent(slug: string): Promise<EventPageData | null> {
   }
 }
 
+export async function fetchEventHistory(slug: string) {
+  const payload = await apiClient.get<{ history?: EventPageData['history'] }>(
+    `/events/${slug}/history`
+  );
+  return payload.history ?? [];
+}
+
+export async function fetchEventLinks(slug: string) {
+  const payload = await apiClient.get<{ linksFrame: EventPageData['linksFrame'] }>(
+    `/events/${slug}/links`
+  );
+  return payload.linksFrame;
+}
+
 // -- Create ------------------------------------------------------------------
 
 export async function fetchCreateEvent(input: CreateEventInput): Promise<CreateResult> {

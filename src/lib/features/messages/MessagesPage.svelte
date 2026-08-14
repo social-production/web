@@ -21,6 +21,7 @@
     getConversationMessages,
     getLinkedChats,
     getMessageContacts,
+    getMessages,
     getSubjectComments,
   } from '$lib/services/queries/inbox';
   import {
@@ -39,7 +40,7 @@
   import { tick } from 'svelte';
   import { formatRelativeTime } from '$lib/utils/time';
   import { startVisibilityPoll } from '$lib/utils/visibilityPoll';
-  import { subscribeToViewerInbox } from '$lib/api/drivers/supabase/realtime';
+  import { isInboxRealtimeEnabled, subscribeToViewerInbox } from '$lib/api/drivers/supabase/realtime';
 
   export let data: MessagesPageData;
   export let openConversationId: string | null = null;
@@ -51,6 +52,8 @@
   let linkedChats: MessageLinkedChat[] = data.linkedChats ?? [];
   let linkedChatsLoading = false;
   let linkedChatsHydrated = false;
+  let conversations = data.conversations;
+  let lastLoaderConversations = data.conversations;
   let showComposer = false;
   let composerMode: 'direct' | 'group' = 'direct';
   let recipientDraft = '';
@@ -92,18 +95,22 @@
   let cachedTopbarPx = 0;
 
   $: linkedChatDiscussion = mergeDiscussion(linkedChatComments, linkedChatOptimisticComments);
+  $: if (data.conversations !== lastLoaderConversations) {
+    lastLoaderConversations = data.conversations;
+    conversations = data.conversations;
+  }
   $: if (data.linkedChats?.length) {
     linkedChats = data.linkedChats;
     linkedChatsHydrated = true;
   }
   $: activeConversation =
-    data.conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
+    conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
   $: activeLinkedChat = linkedChats.find((chat) => chat.id === activeLinkedChatId) ?? null;
   $: projectEventLinkedChats = linkedChats.filter(
     (chat) => chat.kind === 'project' || chat.kind === 'event'
   );
   $: helpRequestLinkedChats = linkedChats.filter((chat) => chat.kind === 'help_request');
-  $: directGroupUnreadTotal = data.conversations.reduce(
+  $: directGroupUnreadTotal = conversations.reduce(
     (sum, conversation) => sum + conversation.unreadCount,
     0
   );
@@ -350,11 +357,18 @@
     }
 
     lastInboxRefreshAt = now;
-    inboxRefreshInFlight = invalidate('inbox:messages')
-      .catch(() => undefined)
-      .finally(() => {
-        inboxRefreshInFlight = null;
-      });
+    inboxRefreshInFlight = (async () => {
+      try {
+        const page = await getMessages();
+        if (page) {
+          conversations = Array.isArray(page.conversations) ? page.conversations : [];
+        }
+      } catch {
+        // Keep the current inbox until the next successful refresh.
+      }
+    })().finally(() => {
+      inboxRefreshInFlight = null;
+    });
     return inboxRefreshInFlight;
   }
 
@@ -379,37 +393,42 @@
     }
 
     void refreshActiveThread();
-    // Avoid full inbox invalidation on every focus; cool-downed soft refresh only.
     void refreshMessagesInbox();
-    void hydrateLinkedChats();
+    if (activeListTab !== 'messages') {
+      void hydrateLinkedChats();
+    }
   }
 
   onMount(() => {
     lastKnownUnreadMessages = get(unreadCounts)?.messages ?? 0;
-    void hydrateLinkedChats();
+    const realtimeEnabled = isInboxRealtimeEnabled();
 
-    const stopThreadPolling = startVisibilityPoll(refreshActiveThread, {
-      activeMs: THREAD_POLL_MS,
-      idleMs: 60_000,
-    });
-    const stopInboxPolling = startVisibilityPoll(
-      async () => {
-        await Promise.all([
-          refreshMessagesInbox({ force: true }),
-          hydrateLinkedChats({ force: true }),
-        ]);
-      },
-      {
-        activeMs: INBOX_REFRESH_MS,
-        idleMs: INBOX_REFRESH_MS * 3,
-      }
-    );
+    const stopThreadPolling = realtimeEnabled
+      ? () => {}
+      : startVisibilityPoll(refreshActiveThread, {
+          activeMs: THREAD_POLL_MS,
+          idleMs: 60_000,
+        });
+    const stopInboxPolling = realtimeEnabled
+      ? () => {}
+      : startVisibilityPoll(
+          async () => {
+            await refreshMessagesInbox({ force: true });
+            if (activeListTab !== 'messages') {
+              await hydrateLinkedChats({ force: true });
+            }
+          },
+          {
+            activeMs: INBOX_REFRESH_MS,
+            idleMs: INBOX_REFRESH_MS * 3,
+          }
+        );
     const stopRealtime = subscribeToViewerInbox(() => {
-      void Promise.all([
-        refreshActiveThread(),
-        refreshMessagesInbox({ force: true }),
-        hydrateLinkedChats({ force: true }),
-      ]);
+      void refreshActiveThread();
+      void refreshMessagesInbox({ force: true });
+      if (activeListTab !== 'messages') {
+        void hydrateLinkedChats({ force: true });
+      }
     });
 
     window.addEventListener('focus', handleVisibilityOrFocus);
@@ -435,7 +454,7 @@
       void Promise.all([
         refreshActiveThread(),
         refreshMessagesInbox({ force: true }),
-        hydrateLinkedChats({ force: true }),
+        ...(activeListTab !== 'messages' ? [hydrateLinkedChats({ force: true })] : []),
       ]);
     });
 
@@ -460,7 +479,7 @@
     conversationId: string,
     options: { silent?: boolean } = {}
   ) {
-    const conversation = data.conversations.find((item) => item.id === conversationId);
+    const conversation = conversations.find((item) => item.id === conversationId);
 
     if (!conversation) {
       return false;
@@ -699,7 +718,7 @@
   }
 
   async function openConversation(conversationId: string, unreadCount: number) {
-    const conversation = data.conversations.find((item) => item.id === conversationId);
+    const conversation = conversations.find((item) => item.id === conversationId);
 
     if (!conversation) {
       return false;
@@ -746,7 +765,7 @@
       return;
     }
 
-    const conversation = data.conversations.find((item) => item.id === openConversationId);
+    const conversation = conversations.find((item) => item.id === openConversationId);
 
     if (!conversation) {
       if (!deepLinkRefreshAttempted) {
@@ -1591,10 +1610,10 @@
 
       <div class="conversation-list">
         {#if activeListTab === 'messages'}
-          {#if data.conversations.length === 0}
+          {#if conversations.length === 0}
             <div class="empty-state">No messages yet. Start with the + button.</div>
           {:else}
-            {#each data.conversations as conversation}
+            {#each conversations as conversation}
               <button
                 class:unread={conversation.unreadCount > 0}
                 class="conversation-row"

@@ -83,7 +83,7 @@
     {#if isActivity && parentTitle?.trim()}
       <p class="parent-title" class:past={isPast}>{parentTitle}</p>
     {/if}
-    <a class="title" class:past={isPast} data-sveltekit-preload-data="off" {href}>{title}</a>
+    <a class="title" class:past={isPast} data-sveltekit-preload-data="hover" {href}>{title}</a>
     {#if statusLine}
       <p class="detail-row status" class:past={isPast}>{statusLine}</p>
     {/if}

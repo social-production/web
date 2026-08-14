@@ -11,6 +11,8 @@ const domain = 'events' as const;
 
 export const eventsDomain: Partial<AppAdapter> = {
   getEvent: stubMethod(provider, domain, 'getEvent') as AppAdapter['getEvent'],
+  getEventHistory: stubMethod(provider, domain, 'getEventHistory') as AppAdapter['getEventHistory'],
+  getEventLinks: stubMethod(provider, domain, 'getEventLinks') as AppAdapter['getEventLinks'],
   createEvent: stubMethod(provider, domain, 'createEvent') as AppAdapter['createEvent'],
   toggleEventMembership: stubMethod(provider, domain, 'toggleEventMembership') as AppAdapter['toggleEventMembership'],
   setEventSignal: stubMethod(provider, domain, 'setEventSignal') as AppAdapter['setEventSignal'],

@@ -52,6 +52,7 @@
     const stopRealtime = subscribeToSubjectComments('event', data.id, () => {
       void refreshDiscussion();
     });
+    void refreshDiscussion();
     return () => {
       stopPolling();
       stopRealtime();

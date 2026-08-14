@@ -11,6 +11,8 @@ const domain = 'projects' as const;
 
 export const projectsDomain: Partial<AppAdapter> = {
   getProject: stubMethod(provider, domain, 'getProject') as AppAdapter['getProject'],
+  getProjectHistory: stubMethod(provider, domain, 'getProjectHistory') as AppAdapter['getProjectHistory'],
+  getProjectLinks: stubMethod(provider, domain, 'getProjectLinks') as AppAdapter['getProjectLinks'],
   createProject: stubMethod(provider, domain, 'createProject') as AppAdapter['createProject'],
   toggleProjectMembership: stubMethod(provider, domain, 'toggleProjectMembership') as AppAdapter['toggleProjectMembership'],
   toggleProjectDemandSignal: stubMethod(provider, domain, 'toggleProjectDemandSignal') as AppAdapter['toggleProjectDemandSignal'],

@@ -25,6 +25,17 @@
   }
 
   onMount(() => {
+    if (data.servedFromCache) {
+      const refresh = () => {
+        void invalidate('app:bootstrap');
+      };
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(refresh, { timeout: 400 });
+      } else {
+        window.setTimeout(refresh, 0);
+      }
+    }
+
     function recoverStaleAuthState() {
       // Cookies cleared while bootstrap still shows a viewer (or the reverse).
       if (!hasRememberedAuthCookie() && data.bootstrap.viewer) {

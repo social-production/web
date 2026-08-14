@@ -20,7 +20,7 @@
   {#if item.parentTitle}
     <p class="parent-title">{item.parentTitle}</p>
   {/if}
-  <a class="title" data-sveltekit-preload-data="off" href={item.href}>{item.title}</a>
+  <a class="title" data-sveltekit-preload-data="hover" href={item.href}>{item.title}</a>
   {#if scheduleTime}
     <p class="detail-row time">{scheduleTime}</p>
   {/if}

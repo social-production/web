@@ -93,6 +93,20 @@ export async function fetchProject(slug: string): Promise<ProjectPageData | null
   }
 }
 
+export async function fetchProjectHistory(slug: string) {
+  const payload = await apiClient.get<{ history?: ProjectPageData['history'] }>(
+    `/projects/${slug}/history`
+  );
+  return payload.history ?? [];
+}
+
+export async function fetchProjectLinks(slug: string) {
+  const payload = await apiClient.get<{ linksFrame: ProjectPageData['linksFrame'] }>(
+    `/projects/${slug}/links`
+  );
+  return payload.linksFrame;
+}
+
 // -- Create -----------------------------------------------------------------
 
 export async function fetchCreateProject(input: CreateProjectInput): Promise<CreateResult> {

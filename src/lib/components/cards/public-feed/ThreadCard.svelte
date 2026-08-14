@@ -58,7 +58,7 @@
     {/if}
   </div>
 
-  <a class="title" data-sveltekit-preload-data="off" href={item.href}>{item.title}</a>
+  <a class="title" data-sveltekit-preload-data="hover" href={item.href}>{item.title}</a>
   <p class="body">{item.body}</p>
 
   <div class="footer">
