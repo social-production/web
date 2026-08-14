@@ -21,6 +21,7 @@
   export let data: EventPageData;
   export let highlightedCommentId: string | null = null;
   export let fullscreen = false;
+  export let active = true;
 
   let serverDiscussion: DetailComment[] = data.discussion ?? [];
   let optimisticComments: DetailComment[] = [];
@@ -48,6 +49,7 @@
     const stopPolling = startVisibilityPoll(refreshDiscussion, {
       activeMs: 8_000,
       idleMs: 45_000,
+      isActive: () => active,
     });
     const stopRealtime = subscribeToSubjectComments('event', data.id, () => {
       void refreshDiscussion();

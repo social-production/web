@@ -21,11 +21,12 @@
   } from '$lib/services/commands/events';
   import type {
     DetailLinksFrameData,
+    DecisionHistoryEntry,
     EventPageData,
     PlanCriterionRating,
     ProjectApprovalVote
   } from '$lib/types/detail';
-  import { getEventLinks } from '$lib/services/queries/details';
+  import { getEventHistory, getEventLinks } from '$lib/services/queries/details';
   import { emptyLinksFrame } from '$lib/utils/emptyLinksFrame';
   import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
   import {
@@ -48,8 +49,12 @@
   $: if (data !== lastLoaderData) {
     lastLoaderData = data;
     pageData = data;
-    if (activeTab === 'links') {
+    if (data.slug !== linksSlug) {
       linksSlug = '';
+    }
+    if (data.slug !== historySlug) {
+      historySlug = '';
+      historyEntries = [];
     }
   }
 
@@ -69,6 +74,9 @@
     null;
   let linksFrame: DetailLinksFrameData = data.linksFrame ?? emptyLinksFrame('event', data.slug);
   let linksSlug = '';
+  let historyEntries: DecisionHistoryEntry[] = data.history ?? [];
+  let historySlug = '';
+  let historyLoading = false;
 
   async function ensureTabComponent(tab: DetailTabId) {
     if (tab === 'chat' && !ChatTab) {
@@ -77,6 +85,16 @@
       HistoryTab = (await import('$lib/features/events/detail/EventHistoryTab.svelte')).default;
     } else if (tab === 'links' && !LinksTab) {
       LinksTab = (await import('$lib/features/detail-links/DetailLinksTab.svelte')).default;
+    }
+  }
+
+  function prefetchTab(tab: DetailTabId) {
+    void ensureTabComponent(tab);
+    if (tab === 'links' && linksSlug !== data.slug) {
+      void loadLinks();
+    }
+    if (tab === 'history' && historySlug !== data.slug) {
+      void loadHistory();
     }
   }
 
@@ -91,11 +109,29 @@
     }
   }
 
+  async function loadHistory() {
+    const slug = data.slug;
+    historyLoading = historyEntries.length === 0 || historySlug !== slug;
+    try {
+      historyEntries = await getEventHistory(slug);
+      historySlug = slug;
+    } catch {
+      if (historySlug !== slug) {
+        historyEntries = data.history ?? [];
+      }
+    } finally {
+      historyLoading = false;
+    }
+  }
+
   $: if (activeTab !== 'overview') {
     void ensureTabComponent(activeTab);
   }
-  $: if (activeTab === 'links' && linksSlug !== data.slug) {
+  $: if ((activeTab === 'links' || LinksTab) && linksSlug !== data.slug) {
     void loadLinks();
+  }
+  $: if ((activeTab === 'history' || HistoryTab) && historySlug !== data.slug) {
+    void loadHistory();
   }
   let autoExpandVoteKind: string | null = null;
   let autoExpandVoteTarget: string | null = null;
@@ -373,9 +409,14 @@
 
 <section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
   <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
-    <DetailTopTabs {activeTab} ariaLabel="Event detail tabs" {selectTab} />
+    <DetailTopTabs {activeTab} ariaLabel="Event detail tabs" {selectTab} {prefetchTab} />
 
-    {#if activeTab === 'overview'}
+    <div
+      class="tab-panel"
+      class:tab-panel-hidden={activeTab !== 'overview'}
+      hidden={activeTab !== 'overview'}
+      inert={activeTab !== 'overview'}
+    >
       <ParticipationSteps
         steps={participationSteps}
         currentStepId={currentParticipationStep}
@@ -417,25 +458,52 @@
           votesRenderedInHub={pendingVotes.length > 0}
         />
       </div>
+    </div>
+    {#if ChatTab}
+      <div
+        class="tab-panel"
+        class:tab-panel-hidden={activeTab !== 'chat'}
+        hidden={activeTab !== 'chat'}
+        inert={activeTab !== 'chat'}
+      >
+        <svelte:component this={ChatTab} {data} {highlightedCommentId} fullscreen={isCompact} active={activeTab === 'chat'} />
+      </div>
     {:else if activeTab === 'chat'}
-      {#if ChatTab}
-        <svelte:component this={ChatTab} {data} {highlightedCommentId} fullscreen={isCompact} />
-      {:else}
-        <p class="tab-loading">Loading chat…</p>
-      {/if}
-    {:else if activeTab === 'links'}
-      {#if LinksTab}
+      <p class="tab-loading">Loading chat…</p>
+    {/if}
+    {#if LinksTab}
+      <div
+        class="tab-panel"
+        class:tab-panel-hidden={activeTab !== 'links'}
+        hidden={activeTab !== 'links'}
+        inert={activeTab !== 'links'}
+      >
         <svelte:component
           this={LinksTab}
           frame={linksFrame}
           highlightedRequestId={highlightedLinkRequestId}
         />
-      {:else}
-        <p class="tab-loading">Loading links…</p>
-      {/if}
-    {:else if HistoryTab}
-      <svelte:component this={HistoryTab} {data} {highlightedDecisionId} />
-    {:else}
+      </div>
+    {:else if activeTab === 'links'}
+      <p class="tab-loading">Loading links…</p>
+    {/if}
+    {#if HistoryTab}
+      <div
+        class="tab-panel"
+        class:tab-panel-hidden={activeTab !== 'history'}
+        hidden={activeTab !== 'history'}
+        inert={activeTab !== 'history'}
+      >
+        <svelte:component
+          this={HistoryTab}
+          {data}
+          {highlightedDecisionId}
+          entries={historyEntries}
+          loading={historyLoading}
+          onReload={loadHistory}
+        />
+      </div>
+    {:else if activeTab === 'history'}
       <p class="tab-loading">Loading history…</p>
     {/if}
   </section>
@@ -466,6 +534,10 @@
   .tab-loading {
     margin: 16px 4px;
     color: var(--text-muted);
+  }
+
+  .tab-panel-hidden {
+    display: none !important;
   }
 
   .hero-card {
@@ -525,7 +597,15 @@
       flex-shrink: 0;
     }
 
-    .chat-tab-active > :global(.chat-shell) {
+    .chat-tab-active > :global(.tab-panel:not([hidden])) {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat-tab-active > :global(.tab-panel:not([hidden]) .chat-shell) {
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;

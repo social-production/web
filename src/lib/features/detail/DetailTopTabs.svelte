@@ -5,6 +5,7 @@
   export let activeTab: DetailTabId = 'overview';
   export let ariaLabel = 'Detail tabs';
   export let selectTab: (tab: DetailTabId) => void = () => {};
+  export let prefetchTab: (tab: DetailTabId) => void = () => {};
 
   const tabs: Array<{
     id: DetailTabId;
@@ -27,6 +28,7 @@
       type="button"
       aria-label={tab.label}
       aria-selected={activeTab === tab.id}
+      on:pointerdown={() => prefetchTab(tab.id)}
       on:click={() => selectTab(tab.id)}
     >
       <span class="tab-icon" aria-hidden="true">

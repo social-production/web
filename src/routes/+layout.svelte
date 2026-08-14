@@ -1,8 +1,18 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { invalidate } from '$app/navigation';
+  import { afterNavigate, invalidate } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { getSettings } from '$lib/services/queries/account';
+  import { getBootstrap } from '$lib/services/queries/bootstrap';
+  import {
+    beginBootstrapBackgroundRefresh,
+    endBootstrapBackgroundRefresh,
+    readBootstrapCacheRecord,
+    shouldBackgroundRefreshBootstrap,
+    writeBootstrapCache
+  } from '$lib/services/bootstrapCache';
   import { hasRememberedAuthCookie } from '$lib/services/session';
+  import { syncUnreadCountsFromBootstrap } from '$lib/services/commands/inbox';
   import '../app.css';
   import AppShell from '$lib/app/shell/AppShell.svelte';
   import { detectShellMode } from '$lib/platform/shellMode';
@@ -24,10 +34,44 @@
     }
   }
 
+  async function refreshBootstrapInBackground() {
+    const record = readBootstrapCacheRecord();
+    if (!shouldBackgroundRefreshBootstrap(record)) {
+      return;
+    }
+    if (!beginBootstrapBackgroundRefresh()) {
+      return;
+    }
+
+    try {
+      const bootstrap = await getBootstrap();
+      let settings = data.settings ?? record?.settings ?? null;
+      if (bootstrap.viewer) {
+        try {
+          settings = await getSettings();
+        } catch {
+          // Keep the cached settings until the next successful refresh.
+        }
+      }
+      writeBootstrapCache(bootstrap, settings);
+      syncUnreadCountsFromBootstrap(bootstrap.unreadCounts);
+
+      const previousViewerId = data.bootstrap.viewer?.id ?? null;
+      const nextViewerId = bootstrap.viewer?.id ?? null;
+      if (previousViewerId !== nextViewerId) {
+        void invalidate('app:bootstrap');
+      }
+    } catch {
+      // Keep serving the last good cache.
+    } finally {
+      endBootstrapBackgroundRefresh();
+    }
+  }
+
   onMount(() => {
     if (data.servedFromCache) {
       const refresh = () => {
-        void invalidate('app:bootstrap');
+        void refreshBootstrapInBackground();
       };
       if (typeof requestIdleCallback === 'function') {
         requestIdleCallback(refresh, { timeout: 400 });
@@ -47,6 +91,7 @@
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         recoverStaleAuthState();
+        void refreshBootstrapInBackground();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -55,6 +100,12 @@
       window.removeEventListener('focus', recoverStaleAuthState);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
+  });
+
+  afterNavigate(() => {
+    if (data.servedFromCache) {
+      void refreshBootstrapInBackground();
+    }
   });
 </script>
 

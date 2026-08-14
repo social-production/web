@@ -3,15 +3,18 @@ import type { SettingsPageData } from '$lib/types/account';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
 
 const CACHE_PREFIX = 'sp_bootstrap_cache_';
-const RECORD_VERSION = 2 as const;
+const RECORD_VERSION = 3 as const;
+export const BOOTSTRAP_REFRESH_TTL_MS = 30_000;
 
 export interface BootstrapCacheRecord {
   version: typeof RECORD_VERSION;
+  cachedAt: number;
   bootstrap: BootstrapPayload;
   settings: SettingsPageData | null;
 }
 
-let allowStaleServe = true;
+let lastBackgroundRefreshAt = 0;
+let backgroundRefreshInFlight = false;
 
 export function bootstrapCacheKey(viewerId: string | null = null): string {
   return viewerId ? `${CACHE_PREFIX}${viewerId}` : `${CACHE_PREFIX}anon`;
@@ -19,16 +22,31 @@ export function bootstrapCacheKey(viewerId: string | null = null): string {
 
 function parseRecord(raw: string): BootstrapCacheRecord | null {
   try {
-    const parsed = JSON.parse(raw) as BootstrapCacheRecord | BootstrapPayload | null;
+    const parsed = JSON.parse(raw) as {
+      version?: number;
+      cachedAt?: number;
+      bootstrap?: BootstrapPayload;
+      settings?: SettingsPageData | null;
+      viewer?: BootstrapPayload['viewer'];
+    } | null;
     if (!parsed || typeof parsed !== 'object') {
       return null;
     }
-    if ('version' in parsed && parsed.version === RECORD_VERSION && parsed.bootstrap) {
-      return parsed;
+    if (
+      parsed.bootstrap &&
+      (parsed.version === RECORD_VERSION || parsed.version === 2)
+    ) {
+      return {
+        version: RECORD_VERSION,
+        cachedAt: typeof parsed.cachedAt === 'number' ? parsed.cachedAt : 0,
+        bootstrap: parsed.bootstrap,
+        settings: parsed.settings ?? null
+      };
     }
     if ('viewer' in parsed) {
       return {
         version: RECORD_VERSION,
+        cachedAt: 0,
         bootstrap: parsed as BootstrapPayload,
         settings: null
       };
@@ -107,9 +125,11 @@ export function writeBootstrapCache(
   try {
     const record: BootstrapCacheRecord = {
       version: RECORD_VERSION,
+      cachedAt: Date.now(),
       bootstrap: payload,
       settings
     };
+    lastBackgroundRefreshAt = record.cachedAt;
     sessionStorage.setItem(bootstrapCacheKey(payload.viewer?.id ?? null), JSON.stringify(record));
   } catch {
     // ignore quota errors
@@ -152,15 +172,46 @@ export function isBootstrapCacheConsistentWithAuth(
   return !cached.viewer;
 }
 
-export function consumeStaleBootstrapServe(): boolean {
-  if (!allowStaleServe) {
+export function isBootstrapCacheFresh(
+  record: BootstrapCacheRecord,
+  ttlMs = BOOTSTRAP_REFRESH_TTL_MS
+): boolean {
+  return Date.now() - (record.cachedAt || 0) < ttlMs;
+}
+
+export function shouldBackgroundRefreshBootstrap(
+  record: BootstrapCacheRecord | null,
+  ttlMs = BOOTSTRAP_REFRESH_TTL_MS
+): boolean {
+  if (!record || backgroundRefreshInFlight) {
     return false;
   }
-  allowStaleServe = false;
+  if (isBootstrapCacheFresh(record, ttlMs) && Date.now() - lastBackgroundRefreshAt < ttlMs) {
+    return false;
+  }
   return true;
 }
 
-/** Test helper — reset the one-shot stale serve guard. */
+export function beginBootstrapBackgroundRefresh(): boolean {
+  if (backgroundRefreshInFlight) {
+    return false;
+  }
+  backgroundRefreshInFlight = true;
+  lastBackgroundRefreshAt = Date.now();
+  return true;
+}
+
+export function endBootstrapBackgroundRefresh(): void {
+  backgroundRefreshInFlight = false;
+}
+
+/** @deprecated Cache is now reused on every navigation; kept for tests. */
+export function consumeStaleBootstrapServe(): boolean {
+  return true;
+}
+
+/** Test helper — reset background-refresh guards. */
 export function resetBootstrapCacheStaleGuardForTests(): void {
-  allowStaleServe = true;
+  lastBackgroundRefreshAt = 0;
+  backgroundRefreshInFlight = false;
 }

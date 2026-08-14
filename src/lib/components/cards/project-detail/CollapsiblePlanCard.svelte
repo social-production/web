@@ -1,5 +1,4 @@
 <script lang="ts">
-  import PlanAssessmentWizard from '$lib/components/shared/PlanAssessmentWizard.svelte';
   import type {
     EventPlan,
     PlanCriterionRating,
@@ -31,6 +30,14 @@
   let initialCriterionId: string | null = null;
   let openAtOverallStep = false;
   let didAutoOpen = false;
+  let Wizard: typeof import('$lib/components/shared/PlanAssessmentWizard.svelte').default | null =
+    null;
+
+  async function ensureWizard() {
+    if (!Wizard) {
+      Wizard = (await import('$lib/components/shared/PlanAssessmentWizard.svelte')).default;
+    }
+  }
 
   $: if (expanded) {
     open = true;
@@ -63,6 +70,7 @@
     initialCriterionId = options.criterionId ?? null;
     openAtOverallStep = Boolean(options.openAtOverall);
     assessmentOpen = true;
+    void ensureWizard();
   }
 
   function closeAssessmentWizard() {
@@ -227,20 +235,23 @@
       </span>
     </div>
 
-    <PlanAssessmentWizard
-      open={assessmentOpen}
-      {plan}
-      planTitle={plan.title}
-      {criteria}
-      {reviewMode}
-      {canVote}
-      {initialCriterionId}
-      {openAtOverallStep}
-      overallActiveVote={plan.overallApproval.activeVote}
-      onRate={handleCriterionRate}
-      onOverallVote={handleOverallVote}
-      onClose={closeAssessmentWizard}
-    />
+    {#if Wizard}
+      <svelte:component
+        this={Wizard}
+        open={assessmentOpen}
+        {plan}
+        planTitle={plan.title}
+        {criteria}
+        {reviewMode}
+        {canVote}
+        {initialCriterionId}
+        {openAtOverallStep}
+        overallActiveVote={plan.overallApproval.activeVote}
+        onRate={handleCriterionRate}
+        onOverallVote={handleOverallVote}
+        onClose={closeAssessmentWizard}
+      />
+    {/if}
 
     <div class="plan-footer-meta">
       {#if canEdit}

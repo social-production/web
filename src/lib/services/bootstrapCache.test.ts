@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   clearBootstrapCache,
-  consumeStaleBootstrapServe,
   isBootstrapCacheConsistentWithAuth,
+  isBootstrapCacheFresh,
   readBootstrapCache,
   readCachedSettings,
   resetBootstrapCacheStaleGuardForTests,
+  shouldBackgroundRefreshBootstrap,
   writeBootstrapCache
 } from './bootstrapCache';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
@@ -49,8 +50,21 @@ describe('bootstrapCache', () => {
     expect(isBootstrapCacheConsistentWithAuth(sampleBootstrap('user-1'), true)).toBe(true);
   });
 
-  it('only serves stale bootstrap once per JS lifetime', () => {
-    expect(consumeStaleBootstrapServe()).toBe(true);
-    expect(consumeStaleBootstrapServe()).toBe(false);
+  it('reuses bootstrap cache across navigations until the TTL expires', () => {
+    writeBootstrapCache(sampleBootstrap('user-1'), null);
+    const record = {
+      version: 3 as const,
+      cachedAt: Date.now(),
+      bootstrap: sampleBootstrap('user-1'),
+      settings: null
+    };
+    expect(isBootstrapCacheFresh(record)).toBe(true);
+    expect(shouldBackgroundRefreshBootstrap(record, 60_000)).toBe(false);
+    expect(
+      isBootstrapCacheFresh({
+        ...record,
+        cachedAt: Date.now() - 60_000
+      })
+    ).toBe(false);
   });
 });

@@ -1,7 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import DecisionHistoryList from '$lib/components/shared/DecisionHistoryList.svelte';
-  import { getEventHistory } from '$lib/services/queries/details';
   import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
   import {
     setEventEditVote,
@@ -13,33 +11,9 @@
 
   export let data: EventPageData;
   export let highlightedDecisionId: string | null = null;
-
-  let entries: DecisionHistoryEntry[] = data.history ?? [];
-  let loading = entries.length === 0;
-  let loadedForSlug = '';
-
-  async function loadHistory() {
-    const slug = data.slug;
-    loading = entries.length === 0;
-    try {
-      entries = await getEventHistory(slug);
-      loadedForSlug = slug;
-    } catch {
-      if (loadedForSlug !== slug) {
-        entries = data.history ?? [];
-      }
-    } finally {
-      loading = false;
-    }
-  }
-
-  $: if (data.slug && data.slug !== loadedForSlug) {
-    void loadHistory();
-  }
-
-  onMount(() => {
-    void loadHistory();
-  });
+  export let entries: DecisionHistoryEntry[] = [];
+  export let loading = false;
+  export let onReload: () => Promise<void> = async () => {};
 
   async function handleVote(entry: DecisionHistoryEntry, vote: ProjectApprovalVote | null) {
     switch (entry.kind) {
@@ -62,15 +36,14 @@
     }
 
     await invalidateEventDetail(data.slug);
-    loadedForSlug = '';
-    await loadHistory();
+    await onReload();
   }
 </script>
 
 <DecisionHistoryList
   title="History"
   description="Open, approved, and rejected event decisions stay here in one timeline. Open decisions can still be voted from this tab."
-  entries={entries}
+  {entries}
   {highlightedDecisionId}
   emptyMessage={loading ? 'Loading event history…' : 'No event decision history yet.'}
   onVote={handleVote}

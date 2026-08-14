@@ -4,7 +4,6 @@ import { getSettings, hydrateClientSettingsState } from '$lib/services/queries/a
 import { getBootstrap } from '$lib/services/queries/bootstrap';
 import {
   clearBootstrapCache,
-  consumeStaleBootstrapServe,
   isBootstrapCacheConsistentWithAuth,
   isBootstrapCacheUsable,
   readBootstrapCacheRecord,
@@ -119,8 +118,7 @@ export const load = (async ({ url, depends }) => {
   const canServeStale =
     browser &&
     Boolean(cachedRecord) &&
-    isBootstrapCacheConsistentWithAuth(cachedRecord!.bootstrap, rememberedAuth) &&
-    consumeStaleBootstrapServe();
+    isBootstrapCacheConsistentWithAuth(cachedRecord!.bootstrap, rememberedAuth);
 
   if (canServeStale && cachedRecord) {
     if (

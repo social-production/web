@@ -21,6 +21,7 @@
   export let data: ProjectPageData;
   export let highlightedCommentId: string | null = null;
   export let fullscreen = false;
+  export let active = true;
 
   let isCompact = false;
   let serverDiscussion: DetailComment[] = data.discussion ?? [];
@@ -56,6 +57,7 @@
     const stopPolling = startVisibilityPoll(refreshDiscussion, {
       activeMs: 8_000,
       idleMs: 45_000,
+      isActive: () => active,
     });
     const stopRealtime = subscribeToSubjectComments('project', data.id, () => {
       void refreshDiscussion();

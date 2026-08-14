@@ -129,9 +129,7 @@ export function subscribeToSubjectComments(
           if (payload.new.subject_type === subjectType) onChange();
         }
       )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') onChange();
-      });
+      .subscribe();
   });
   return () => {
     active = false;
