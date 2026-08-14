@@ -87,13 +87,36 @@ export function getSupabaseAnonKey(): string {
   return import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ?? '';
 }
 
+function directSupabaseUrl(): string {
+  return configuredSupabaseUrl();
+}
+
+function directFunctionsBaseUrl(): string {
+  const configured = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL?.trim();
+  if (configured) return configured.replace(/\/$/, '');
+  return `${directSupabaseUrl()}/functions/v1`;
+}
+
 export function getFunctionsBaseUrl(): string {
   if (useSameOriginSupabase()) {
     return `${window.location.origin}/functions/v1`;
   }
-  const configured = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL?.trim();
-  if (configured) return configured.replace(/\/$/, '');
-  return `${getSupabaseUrl()}/functions/v1`;
+  return directFunctionsBaseUrl();
+}
+
+async function fetchJsonOrDirectSupabase(url: string, options: RequestInit): Promise<Response> {
+  const response = await fetch(url, options);
+  if (!useSameOriginSupabase() || typeof window === 'undefined') return response;
+  if (isJsonContentType(response)) return response;
+  const origin = window.location.origin;
+  if (!url.startsWith(`${origin}/`)) return response;
+  const fallbackUrl = `${directSupabaseUrl()}${url.slice(origin.length)}`;
+  if (fallbackUrl === url) return response;
+  try {
+    return await fetch(fallbackUrl, options);
+  } catch {
+    return response;
+  }
 }
 
 function gatewayUrl(path: string): string {
@@ -231,7 +254,7 @@ export async function refreshSession(): Promise<boolean> {
 
     let response: Response;
     try {
-      response = await fetch(authUrl('/token?grant_type=refresh_token'), {
+      response = await fetchJsonOrDirectSupabase(authUrl('/token?grant_type=refresh_token'), {
         method: 'POST',
         headers: buildHeaders('POST', {}, null),
         body: JSON.stringify({ refresh_token: refreshToken }),
@@ -293,7 +316,7 @@ async function requestGateway<T>(
   const url = gatewayUrl(path);
   let response: Response;
   try {
-    response = await fetch(url, options);
+    response = await fetchJsonOrDirectSupabase(url, options);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     throw new TypeError(`Network request failed for ${url}: ${detail}`);
@@ -330,7 +353,7 @@ export async function authSignUp(
   password: string,
   metadata: Record<string, unknown>
 ) {
-  const response = await fetch(authUrl('/signup'), {
+  const response = await fetchJsonOrDirectSupabase(authUrl('/signup'), {
     method: 'POST',
     headers: buildHeaders('POST', {}),
     body: JSON.stringify({
@@ -361,7 +384,7 @@ export async function authSignUp(
 }
 
 export async function authSignIn(email: string, password: string) {
-  const response = await fetch(authUrl('/token?grant_type=password'), {
+  const response = await fetchJsonOrDirectSupabase(authUrl('/token?grant_type=password'), {
     method: 'POST',
     headers: buildHeaders('POST', {}),
     body: JSON.stringify({ email, password }),
@@ -387,7 +410,7 @@ export async function authSignOut(): Promise<void> {
   const token = getAccessToken();
   try {
     if (token) {
-      await fetch(authUrl('/logout'), {
+      await fetchJsonOrDirectSupabase(authUrl('/logout'), {
         method: 'POST',
         headers: buildHeaders('POST', {}, token),
       });

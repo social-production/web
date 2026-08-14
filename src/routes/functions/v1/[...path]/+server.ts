@@ -1,9 +1,10 @@
 import type { RequestHandler } from './$types';
 import { proxyToSupabase } from '$lib/server/supabaseProxy';
 
+export const prerender = false;
+
 const handler: RequestHandler = ({ request, params }) => {
-  const rest = params.path ?? '';
-  return proxyToSupabase(request, '/functions/v1', rest);
+  return proxyToSupabase(request, '/functions/v1', params.path);
 };
 
 export const GET = handler;
