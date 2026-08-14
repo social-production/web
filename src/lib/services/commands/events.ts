@@ -1,4 +1,5 @@
 import { currentAdapter } from '$lib/services/adapters';
+import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
 import { invalidateFeedEngagementCache } from '$lib/utils/feedSignals';
 import type {
   EventLifecyclePhaseId,
@@ -76,12 +77,14 @@ export function addEventActivity(eventSlug: string, input: ProjectActivityInput)
   return currentAdapter.addEventActivity(eventSlug, input);
 }
 
-export function setEventActivityCommitment(
+export async function setEventActivityCommitment(
   eventSlug: string,
   activityId: string,
   roleLabel: string | null
 ) {
-  return currentAdapter.setEventActivityCommitment(eventSlug, activityId, roleLabel);
+  const result = await currentAdapter.setEventActivityCommitment(eventSlug, activityId, roleLabel);
+  requestActivityRailRefresh();
+  return result;
 }
 
 export function setEventActivityRating(

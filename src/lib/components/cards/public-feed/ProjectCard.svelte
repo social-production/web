@@ -114,10 +114,10 @@
 
   .footer {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: space-between;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     margin-top: 12px;
     padding-top: 10px;
     border-top: 1px solid var(--panel-border);
@@ -235,15 +235,16 @@
     gap: 8px;
     flex-wrap: nowrap;
     min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
     margin-left: auto;
     text-align: right;
     white-space: nowrap;
   }
 
   @media (max-width: 760px) {
-    .footer-meta {
-      margin-left: 0;
-      text-align: left;
+    .title {
+      font-size: 17px;
     }
   }
 </style>

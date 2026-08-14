@@ -42,36 +42,35 @@
   tone="personal"
   accent={surfaceTypeAccent('help-request')}
 >
-  <div class="header-row">
-    <div class="identity-row">
-      <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
-      <div class="identity-copy">
-        <div class="name-line">
-          <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-          <SurfaceTypeLabel kind="help-request" />
-          <ReportControl
-            hasActiveReport={item.hasActiveReport}
-            isUnderReview={item.isUnderReview}
-            itemLabel="help request"
-            moderationState={item.moderationState}
-            ownerUsername={item.author.username}
-            report={item.report ?? null}
-            subjectId={item.id}
+  <div class="card-header">
+    <div class="context-row">
+      <SurfaceTypeLabel kind="help-request" />
+      {#if item.feedSource === 'discovery'}
+        <span class="meta-note">· Popular</span>
+      {/if}
+      <ReportControl
+        hasActiveReport={item.hasActiveReport}
+        isUnderReview={item.isUnderReview}
+        itemLabel="help request"
+        moderationState={item.moderationState}
+        ownerUsername={item.author.username}
+        report={item.report ?? null}
+        subjectId={item.id}
         targetId={item.id}
         targetType="help_request"
       />
-          {#if item.feedSource === 'discovery'}
-            <span class="meta-note">· Popular</span>
-          {/if}
-        </div>
-      </div>
     </div>
-
-    {#if orderedTags.length > 0}
-      <div class="tag-stack">
-        <TagList tags={orderedTags} />
+    <div class="header-row">
+      <div class="identity-row">
+        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
+        <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
       </div>
-    {/if}
+      {#if orderedTags.length > 0}
+        <div class="tag-stack">
+          <TagList tags={orderedTags} />
+        </div>
+      {/if}
+    </div>
   </div>
 
   <a class="title" data-sveltekit-preload-data="hover" href={item.href}>{item.title}</a>
@@ -97,39 +96,43 @@
 </FeedSurface>
 
 <style>
+  .card-header {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .context-row,
+  .header-row,
+  .identity-row,
+  .footer,
+  .engagement-row {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .context-row {
+    gap: 6px;
+    color: var(--text-soft);
+  }
+
   .header-row,
   .footer {
-    display: flex;
-    gap: 0.75rem;
+    gap: 8px;
     justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .identity-row {
-    display: flex;
     gap: 0.6rem;
-    align-items: center;
     flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .name-line {
-    display: flex;
-    gap: 0.45rem;
-    align-items: center;
-    flex-wrap: wrap;
-    min-width: 0;
-  }
-
-  .identity-copy,
-  .tag-stack {
-    min-width: 0;
   }
 
   .tag-stack {
     margin-left: auto;
     flex: 0 1 auto;
+    min-width: 0;
   }
 
   .name,
@@ -191,10 +194,9 @@
   }
 
   .engagement-row {
-    display: flex;
     gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
   }
 
   .comment-link {
@@ -204,18 +206,18 @@
   }
 
   .footer-meta {
+    margin-left: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
     text-align: right;
     white-space: nowrap;
   }
 
   @media (max-width: 760px) {
     .header-name {
-      max-width: 7rem;
+      max-width: min(7rem, 28vw);
       font-size: 15px;
-    }
-
-    .footer-meta {
-      text-align: left;
     }
   }
 </style>

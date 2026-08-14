@@ -69,30 +69,29 @@
   tone="personal"
   accent={surfaceTypeAccent(item.subjectKind, item.subjectProjectMode ?? 'productive')}
 >
-  <div class="header-row">
-    <div class="identity-row">
-      <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
-      <div class="identity-copy">
-        <div class="name-line">
-          <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-          <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.subjectProjectMode ?? 'productive'} />
-          <ReportControl
-            hasActiveReport={item.hasActiveReport}
-            interactive={false}
-            isUnderReview={item.isUnderReview}
-            itemLabel={item.subjectKind}
-            moderationState={item.moderationState}
-            report={item.report ?? null}
-          />
-        </div>
-      </div>
+  <div class="card-header">
+    <div class="context-row">
+      <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.subjectProjectMode ?? 'productive'} />
+      <ReportControl
+        hasActiveReport={item.hasActiveReport}
+        interactive={false}
+        isUnderReview={item.isUnderReview}
+        itemLabel={item.subjectKind}
+        moderationState={item.moderationState}
+        report={item.report ?? null}
+      />
     </div>
-
-    {#if orderedTags.length > 0}
-      <div class="tag-stack">
-        <TagList tags={orderedTags} />
+    <div class="header-row">
+      <div class="identity-row">
+        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
+        <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
       </div>
-    {/if}
+      {#if orderedTags.length > 0}
+        <div class="tag-stack">
+          <TagList tags={orderedTags} />
+        </div>
+      {/if}
+    </div>
   </div>
 
   <a class="title" data-sveltekit-preload-data="hover" href={item.href}>{item.title}</a>
@@ -138,20 +137,38 @@
 </FeedSurface>
 
 <style>
-  .header-row {
+  .card-header {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .context-row,
+  .header-row,
+  .identity-row,
+  .engagement-row {
     display: flex;
-    gap: 0.75rem;
-    justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .context-row {
+    gap: 6px;
+    color: var(--text-soft);
+  }
+
+  .header-row {
+    gap: 8px;
+    justify-content: space-between;
+    flex-wrap: nowrap;
   }
 
   .footer {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: space-between;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     margin-top: 12px;
     padding-top: 10px;
     border-top: 1px solid var(--panel-border);
@@ -160,29 +177,14 @@
   }
 
   .identity-row {
-    display: flex;
     gap: 0.6rem;
-    align-items: center;
     flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .name-line {
-    display: flex;
-    gap: 0.45rem;
-    align-items: center;
-    flex-wrap: wrap;
-    min-width: 0;
-  }
-
-  .identity-copy,
-  .tag-stack {
-    min-width: 0;
   }
 
   .tag-stack {
     margin-left: auto;
     flex: 0 1 auto;
+    min-width: 0;
   }
 
   .name,
@@ -250,9 +252,8 @@
   }
 
   .engagement-row {
-    display: flex;
     gap: 8px;
-    align-items: center;
+    flex: 0 0 auto;
     flex-wrap: nowrap;
   }
 
@@ -264,23 +265,21 @@
 
   .footer-meta {
     margin-left: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
     text-align: right;
     white-space: nowrap;
   }
 
   @media (max-width: 760px) {
     .header-name {
-      max-width: 7rem;
+      max-width: min(7rem, 28vw);
       font-size: 15px;
     }
 
     .title {
       font-size: 17px;
-    }
-
-    .footer-meta {
-      margin-left: 0;
-      text-align: left;
     }
   }
 </style>

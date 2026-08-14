@@ -35,15 +35,15 @@
 </script>
 
 <FeedSurface href={item.href} tone="personal" accent={surfaceTypeAccent(item.subjectKind)}>
-  <div class="header-row">
-    <div class="identity-row">
-      <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
-      <div class="identity-copy">
-        <div class="name-line">
-          <a class="name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-          <span class="action">- commented on</span>
-          <SurfaceTypeLabel kind={item.subjectKind} />
-        </div>
+  <div class="card-header">
+    <div class="context-row">
+      <span class="action">commented on</span>
+      <SurfaceTypeLabel kind={item.subjectKind} />
+    </div>
+    <div class="header-row">
+      <div class="identity-row">
+        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
+        <a class="name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
       </div>
     </div>
   </div>
@@ -58,46 +58,44 @@
         <CountPill label={replyLabel} />
       </a>
     </div>
-    <ContentMetaRow timeOnly createdAt={item.createdAt} />
+    <div class="footer-meta">
+      <ContentMetaRow timeOnly createdAt={item.createdAt} />
+    </div>
   </div>
 </FeedSurface>
 
 <style>
+  .card-header {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .context-row,
   .header-row,
   .identity-row,
-  .name-line,
-  .footer {
+  .footer,
+  .engagement-row {
     display: flex;
-    gap: 10px;
     align-items: center;
+    min-width: 0;
+  }
+
+  .context-row {
+    gap: 6px;
+    color: var(--text-soft);
   }
 
   .header-row,
   .footer {
+    gap: 8px;
     justify-content: space-between;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .identity-row {
-    display: flex;
     gap: 0.6rem;
-    align-items: center;
     flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .name-line {
-    display: flex;
-    gap: 0.45rem;
-    align-items: center;
-    flex-wrap: nowrap;
-    min-width: 0;
-  }
-
-  .identity-copy {
-    display: grid;
-    gap: 4px;
-    min-width: 0;
   }
 
   .name {
@@ -135,10 +133,9 @@
   }
 
   .engagement-row {
-    display: flex;
     gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
   }
 
   .comment-link {
@@ -147,9 +144,18 @@
     border-radius: var(--radius-sm);
   }
 
+  .footer-meta {
+    margin-left: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-align: right;
+    white-space: nowrap;
+  }
+
   @media (max-width: 760px) {
     .name {
-      max-width: 7rem;
+      max-width: min(7rem, 28vw);
       font-size: 14px;
     }
 

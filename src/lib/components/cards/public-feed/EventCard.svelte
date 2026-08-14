@@ -111,11 +111,15 @@
     display: flex;
     gap: 0.75rem;
     align-items: center;
-    flex-wrap: wrap;
   }
 
-  .header-row,
+  .header-row {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
   .footer {
+    flex-wrap: nowrap;
     justify-content: space-between;
   }
 
@@ -189,7 +193,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .comment-link {
@@ -204,13 +208,10 @@
     gap: 8px;
     flex-wrap: nowrap;
     min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    margin-left: auto;
     text-align: right;
     white-space: nowrap;
-  }
-
-  @media (max-width: 760px) {
-    .footer-meta {
-      text-align: left;
-    }
   }
 </style>

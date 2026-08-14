@@ -159,7 +159,7 @@
   </div>
 
   <div class="header-actions">
-    <TagList tags={combinedTags} />
+    <TagList tags={combinedTags} maxVisible={null} />
   </div>
 </div>
 

@@ -40,25 +40,25 @@
   tone="personal"
   accent={surfaceTypeAccent('post')}
 >
-  <div class="header-row">
-    <div class="identity-row">
-      <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
-      <div class="identity-copy">
-        <div class="name-line">
-          <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-          <SurfaceTypeLabel kind="post" />
-          <ReportControl
-            hasActiveReport={item.hasActiveReport}
-            isUnderReview={item.isUnderReview}
-            itemLabel="post"
-            moderationState={item.moderationState}
-            ownerUsername={item.author.username}
-            report={item.report ?? null}
-            subjectId={item.id}
+  <div class="card-header">
+    <div class="context-row">
+      <SurfaceTypeLabel kind="post" />
+      <ReportControl
+        hasActiveReport={item.hasActiveReport}
+        isUnderReview={item.isUnderReview}
+        itemLabel="post"
+        moderationState={item.moderationState}
+        ownerUsername={item.author.username}
+        report={item.report ?? null}
+        subjectId={item.id}
         targetId={item.id}
         targetType="post"
       />
-        </div>
+    </div>
+    <div class="header-row">
+      <div class="identity-row">
+        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
+        <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
       </div>
     </div>
   </div>
@@ -79,35 +79,37 @@
 </FeedSurface>
 
 <style>
-  .header-row,
-  .footer {
-    display: flex;
-    gap: 0.75rem;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .identity-row {
-    display: flex;
-    gap: 0.6rem;
-    align-items: center;
-    flex-wrap: nowrap;
-    min-width: 0;
-  }
-
-  .name-line {
-    display: flex;
-    gap: 0.6rem;
-    align-items: center;
-    flex-wrap: wrap;
-    min-width: 0;
-  }
-
-  .identity-copy {
+  .card-header {
     display: grid;
     gap: 6px;
     min-width: 0;
+  }
+
+  .context-row,
+  .header-row,
+  .identity-row,
+  .footer,
+  .engagement-row {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .context-row {
+    gap: 6px;
+    color: var(--text-soft);
+  }
+
+  .header-row,
+  .footer {
+    gap: 8px;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+  }
+
+  .identity-row {
+    gap: 0.6rem;
+    flex: 1 1 auto;
   }
 
   .header-name {
@@ -127,21 +129,17 @@
   }
 
   .footer {
-    color: var(--text-soft);
-  }
-
-  .footer {
     margin-top: 12px;
     padding-top: 10px;
     border-top: 1px solid var(--panel-border);
+    color: var(--text-soft);
     font-size: 13px;
   }
 
   .engagement-row {
-    display: flex;
     gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
   }
 
   .comment-link {
@@ -151,18 +149,18 @@
   }
 
   .footer-meta {
+    margin-left: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
     text-align: right;
     white-space: nowrap;
   }
 
   @media (max-width: 760px) {
     .header-name {
-      max-width: 7rem;
+      max-width: min(7rem, 28vw);
       font-size: 15px;
-    }
-
-    .footer-meta {
-      text-align: left;
     }
   }
 </style>

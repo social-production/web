@@ -84,8 +84,15 @@
     display: flex;
     gap: 0.75rem;
     align-items: center;
-    flex-wrap: wrap;
     justify-content: space-between;
+  }
+
+  .header-row {
+    flex-wrap: wrap;
+  }
+
+  .footer {
+    flex-wrap: nowrap;
   }
 
   .chips {
@@ -141,7 +148,11 @@
 
   .footer-meta {
     margin-left: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
     text-align: right;
+    white-space: nowrap;
   }
 
   @media (max-width: 760px) {
@@ -151,11 +162,6 @@
 
     .body {
       font-size: 15px;
-    }
-
-    .footer-meta {
-      margin-left: 0;
-      text-align: left;
     }
   }
 </style>

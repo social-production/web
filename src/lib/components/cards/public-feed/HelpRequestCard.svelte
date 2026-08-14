@@ -93,10 +93,10 @@
     display: flex;
     gap: 0.75rem;
     align-items: center;
-    flex-wrap: wrap;
   }
 
   .header-row {
+    flex-wrap: wrap;
     justify-content: space-between;
   }
 
@@ -116,6 +116,7 @@
   }
 
   .footer {
+    flex-wrap: nowrap;
     justify-content: space-between;
     margin-top: 12px;
     padding-top: 10px;
@@ -153,7 +154,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .comment-link {
@@ -163,12 +164,11 @@
   }
 
   .footer-meta {
+    margin-left: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
     text-align: right;
-  }
-
-  @media (max-width: 760px) {
-    .footer-meta {
-      text-align: left;
-    }
+    white-space: nowrap;
   }
 </style>

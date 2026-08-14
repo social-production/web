@@ -394,13 +394,19 @@
 
     void refreshActiveThread();
     void refreshMessagesInbox();
-    if (activeListTab !== 'messages') {
-      void hydrateLinkedChats();
-    }
+    void hydrateLinkedChats();
   }
 
   onMount(() => {
     lastKnownUnreadMessages = get(unreadCounts)?.messages ?? 0;
+    const hydrateLinked = () => {
+      void hydrateLinkedChats();
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(hydrateLinked, { timeout: 400 });
+    } else {
+      window.setTimeout(hydrateLinked, 0);
+    }
     const realtimeEnabled = isInboxRealtimeEnabled();
 
     const stopThreadPolling = realtimeEnabled
@@ -414,9 +420,7 @@
       : startVisibilityPoll(
           async () => {
             await refreshMessagesInbox({ force: true });
-            if (activeListTab !== 'messages') {
-              await hydrateLinkedChats({ force: true });
-            }
+            await hydrateLinkedChats({ force: true });
           },
           {
             activeMs: INBOX_REFRESH_MS,
@@ -426,9 +430,7 @@
     const stopRealtime = subscribeToViewerInbox(() => {
       void refreshActiveThread();
       void refreshMessagesInbox({ force: true });
-      if (activeListTab !== 'messages') {
-        void hydrateLinkedChats({ force: true });
-      }
+      void hydrateLinkedChats({ force: true });
     });
 
     window.addEventListener('focus', handleVisibilityOrFocus);
@@ -454,7 +456,7 @@
       void Promise.all([
         refreshActiveThread(),
         refreshMessagesInbox({ force: true }),
-        ...(activeListTab !== 'messages' ? [hydrateLinkedChats({ force: true })] : []),
+        hydrateLinkedChats({ force: true }),
       ]);
     });
 
