@@ -168,6 +168,8 @@
 
   .footer-author-row {
     margin-left: auto;
+    min-width: 0;
+    overflow: hidden;
     color: var(--text-soft);
   }
 
@@ -177,9 +179,17 @@
   }
 
   @media (max-width: 760px) {
+    .overview-footer-row {
+      flex-wrap: nowrap;
+      gap: 8px;
+      align-items: center;
+    }
+
     .footer-author-row {
-      margin-left: 0;
-      width: 100%;
+      margin-left: auto;
+      width: auto;
+      min-width: 0;
+      flex: 1 1 auto;
     }
   }
 </style>

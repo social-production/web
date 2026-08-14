@@ -163,4 +163,16 @@
     font-size: 16px;
     font-weight: 800;
   }
+
+  @media (max-width: 760px) {
+    .engagement-row {
+      flex-wrap: nowrap;
+      gap: 8px;
+    }
+
+    .engagement-actions {
+      flex-wrap: nowrap;
+      min-width: 0;
+    }
+  }
 </style>

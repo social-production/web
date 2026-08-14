@@ -97,8 +97,9 @@
 
   @media (max-width: 760px) {
     .content-meta-row {
-      width: 100%;
+      width: auto;
       max-width: 100%;
+      min-width: 0;
       gap: 4px;
       overflow: hidden;
       font-size: clamp(8px, 2.6vw, 11px);
