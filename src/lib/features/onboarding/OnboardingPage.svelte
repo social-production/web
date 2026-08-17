@@ -88,65 +88,67 @@
     {/if}
   </section>
 
-  <section class="panel">
-    <p class="mode-hint">Choose <strong>Sign up</strong> for a new account, or <strong>Log in</strong> if you already have one.</p>
-    <div class="choice-row" role="tablist" aria-label="Account mode">
-      {#each accountModes as option}
-        <button
-          class:active={mode === option.value}
-          class="toggle-chip"
-          type="button"
-          role="tab"
-          aria-selected={mode === option.value}
-          on:click={() => (mode = option.value as 'login' | 'signup')}
-        >
-          {option.label}
-        </button>
-      {/each}
-    </div>
-    {#if activeMode?.description}
-      <p class="helper-text">{activeMode.description}</p>
-    {/if}
-
-    <form class="stack" on:submit|preventDefault={handleSubmit}>
-      <label>
-        <span class="field-label">Username</span>
-        <input bind:value={username} autocomplete="username" />
-      </label>
-      {#if mode === 'signup' && username.trim()}
-        {#if handleCheck && !handleCheck.ok}
-          <p class="status-note">{handleCheck.error}</p>
-        {:else if canonicalPreview}
-          <p class="helper-text">Profile URL: <code>{canonicalPreview}</code></p>
-        {/if}
-      {/if}
-
-      <label>
-        <span class="field-label">Password</span>
-        <input bind:value={password} type="password" autocomplete="current-password" />
-      </label>
-
-      <div class="button-row">
-        <button
-          class="button-primary"
-          disabled={isSubmitting || (mode === 'signup' && Boolean(handleCheck && !handleCheck.ok))}
-          type="submit"
-        >
-          {#if isSubmitting}
-            Working...
-          {:else if mode === 'login'}
-            Log in
-          {:else}
-            Create account
-          {/if}
-        </button>
+  {#if !viewer}
+    <section class="panel">
+      <p class="mode-hint">Choose <strong>Sign up</strong> for a new account, or <strong>Log in</strong> if you already have one.</p>
+      <div class="choice-row" role="tablist" aria-label="Account mode">
+        {#each accountModes as option}
+          <button
+            class:active={mode === option.value}
+            class="toggle-chip"
+            type="button"
+            role="tab"
+            aria-selected={mode === option.value}
+            on:click={() => (mode = option.value as 'login' | 'signup')}
+          >
+            {option.label}
+          </button>
+        {/each}
       </div>
-
-      {#if statusMessage}
-        <p class="status-note">{statusMessage}</p>
+      {#if activeMode?.description}
+        <p class="helper-text">{activeMode.description}</p>
       {/if}
-    </form>
-  </section>
+
+      <form class="stack" on:submit|preventDefault={handleSubmit}>
+        <label>
+          <span class="field-label">Username</span>
+          <input bind:value={username} autocomplete="username" />
+        </label>
+        {#if mode === 'signup' && username.trim()}
+          {#if handleCheck && !handleCheck.ok}
+            <p class="status-note">{handleCheck.error}</p>
+          {:else if canonicalPreview}
+            <p class="helper-text">Profile URL: <code>{canonicalPreview}</code></p>
+          {/if}
+        {/if}
+
+        <label>
+          <span class="field-label">Password</span>
+          <input bind:value={password} type="password" autocomplete="current-password" />
+        </label>
+
+        <div class="button-row">
+          <button
+            class="button-primary"
+            disabled={isSubmitting || (mode === 'signup' && Boolean(handleCheck && !handleCheck.ok))}
+            type="submit"
+          >
+            {#if isSubmitting}
+              Working...
+            {:else if mode === 'login'}
+              Log in
+            {:else}
+              Create account
+            {/if}
+          </button>
+        </div>
+
+        {#if statusMessage}
+          <p class="status-note">{statusMessage}</p>
+        {/if}
+      </form>
+    </section>
+  {/if}
 </section>
 
 <style>

@@ -3,6 +3,7 @@ import {
   clearAuthenticatedSession,
   getCsrfToken,
   markAuthenticatedSession,
+  setCsrfToken,
   shouldAttemptSessionRefresh
 } from './auth';
 import { clearBootstrapCache } from '$lib/services/bootstrapCache';
@@ -70,11 +71,20 @@ export async function refreshSession(): Promise<boolean> {
     }
 
     if (response.ok) {
+      const body = await readResponseBody(response);
+      const csrfToken =
+        body && typeof body === 'object' && 'csrf_token' in body
+          ? (body as { csrf_token?: unknown }).csrf_token
+          : null;
+      if (typeof csrfToken === 'string') {
+        setCsrfToken(csrfToken);
+      }
       markAuthenticatedSession();
       return true;
     }
 
     if (response.status === 401 || response.status === 403) {
+      setCsrfToken(null);
       return false;
     }
 
