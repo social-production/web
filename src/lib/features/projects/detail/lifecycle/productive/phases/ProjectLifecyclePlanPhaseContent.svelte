@@ -31,6 +31,12 @@
     requestMode?: 'calendar' | 'direct' | 'both';
     allowOffScheduleRequests?: boolean;
     validationMessages?: string[];
+    locationId?: string | null;
+    locationLabel?: string;
+    locationIsOnline?: boolean;
+    distributionLocationId?: string | null;
+    distributionLocationLabel?: string;
+    distributionLocationIsOnline?: boolean;
   };
 
   export let data: ProjectPageData;

@@ -533,6 +533,7 @@
       criteria={pendingAssessmentPlan.criterionAssessments ?? []}
       canVote={data.lifecycle.phaseTwo.viewerCanVoteOnPlans}
       initialCriterionId={pendingAssessmentCriterionId}
+      openAtOverallStep={!pendingAssessmentCriterionId}
       overallActiveVote={pendingAssessmentPlan.overallApproval.activeVote}
       onRate={handlePendingCriterionRate}
       onOverallVote={handlePendingOverallVote}

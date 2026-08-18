@@ -31,6 +31,9 @@
     requestSystemEnabled?: boolean;
     requestMode?: 'calendar' | 'direct' | 'both';
     allowOffScheduleRequests?: boolean;
+    locationId?: string | null;
+    locationLabel?: string;
+    locationIsOnline?: boolean;
   };
 
   type DraftActivityForm = {
@@ -149,7 +152,7 @@
 {:else if activePhaseId === 'phase-2'}
   <ProductiveLifecyclePhaseTwo
     {data}
-    form={productionForm}
+    bind:form={productionForm}
     bind:showComposer={showPhaseTwoComposer}
     addPlanPhase={addProductionPlanPhase}
     submitPlan={submitProductionPlan}
@@ -165,7 +168,7 @@
 {:else if activePhaseId === 'phase-3'}
   <ProductiveLifecyclePhaseThree
     {data}
-    form={distributionForm}
+    bind:form={distributionForm}
     bind:showComposer={showPhaseThreeComposer}
     addPlanPhase={addDistributionPlanPhase}
     submitPlan={submitDistributionPlan}

@@ -9,6 +9,7 @@ import { scrollElementIntoViewWithOffset, scrollToPageAnchor } from '$lib/utils/
 
 export const PARTICIPATION_FOCUS_ACTIVITIES_EVENT = 'participation:focus-activities';
 export const PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT = 'participation:focus-history-activity';
+export const PARTICIPATION_FOCUS_ACTIVITY_CARD_EVENT = 'participation:focus-activity-card';
 
 export type HistoryFollowUpFocusDetail = {
   activityId: string;
@@ -37,6 +38,18 @@ export function viewerNeedsHistoryRating(item: ProjectServiceHistoryItem) {
 export function getHistoryItemsNeedingFollowUp(data: ProjectPageData | EventPageData) {
   return projectHistoryItems(data).filter(
     (item) => viewerNeedsHistoryCompletion(item) || viewerNeedsHistoryRating(item)
+  );
+}
+
+export function dispatchFocusActivityCard(activityId: string) {
+  if (typeof document === 'undefined' || !activityId) {
+    return;
+  }
+
+  document.dispatchEvent(
+    new CustomEvent(PARTICIPATION_FOCUS_ACTIVITY_CARD_EVENT, {
+      detail: { activityId }
+    })
   );
 }
 

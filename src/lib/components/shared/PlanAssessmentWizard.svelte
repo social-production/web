@@ -78,13 +78,12 @@
     const next = { ...localRatings };
     for (const entry of criteria) {
       const local = next[entry.criterionId];
-      // Prefer server value once it catches up to the optimistic rating.
-      if (entry.activeRating === local || local == null) {
-        next[entry.criterionId] = entry.activeRating;
-      } else if (entry.activeRating != null && local == null) {
+      if (entry.activeRating != null) {
         next[entry.criterionId] = entry.activeRating;
       } else if (!(entry.criterionId in next)) {
         next[entry.criterionId] = entry.activeRating;
+      } else if (local == null && entry.activeRating == null) {
+        next[entry.criterionId] = null;
       }
     }
     localRatings = next;
@@ -141,6 +140,8 @@
     localOverallVote = undefined;
   }
 
+  let overallVoteInFlight: Promise<void> | null = null;
+
   $: if (open && stepIndex !== lastScrolledStep) {
     lastScrolledStep = stepIndex;
     void scrollToTop();
@@ -161,6 +162,10 @@
 
       if (canVote && effectiveOverallVote == null) {
         return;
+      }
+
+      if (overallVoteInFlight) {
+        await overallVoteInFlight;
       }
 
       handleClose();
@@ -193,8 +198,18 @@
     };
     void onRate(currentCriterion.criterionId, nextRating);
 
+    const ratedAfter = assessmentSteps.every((entry) => {
+      if (entry.criterionId === currentCriterion.criterionId) {
+        return nextRating != null;
+      }
+      return effectiveRating(entry) != null;
+    });
+
     if (!reviewMode && nextRating != null && stepIndex < totalSteps - 1) {
       stepIndex += 1;
+      void scrollToTop();
+    } else if (!reviewMode && nextRating != null && ratedAfter && includeOverallStep) {
+      stepIndex = assessmentSteps.length;
       void scrollToTop();
     }
   }
@@ -206,7 +221,10 @@
 
     const nextVote = effectiveOverallVote === vote ? null : vote;
     localOverallVote = nextVote;
-    void onOverallVote(nextVote);
+    overallVoteInFlight = Promise.resolve(onOverallVote(nextVote)).finally(() => {
+      overallVoteInFlight = null;
+    });
+    await overallVoteInFlight;
   }
 </script>
 

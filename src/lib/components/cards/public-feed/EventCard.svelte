@@ -203,14 +203,10 @@
   }
 
   .footer-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: nowrap;
-    min-width: 0;
-    flex: 1 1 auto;
-    overflow: hidden;
     margin-left: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
     text-align: right;
     white-space: nowrap;
   }

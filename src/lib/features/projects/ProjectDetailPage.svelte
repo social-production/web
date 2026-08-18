@@ -635,6 +635,7 @@
         ? data.lifecycle.phaseThree.viewerCanVoteOnPlans
         : data.lifecycle.phaseTwo.viewerCanVoteOnPlans}
       initialCriterionId={pendingAssessmentCriterionId}
+      openAtOverallStep={!pendingAssessmentCriterionId}
       overallActiveVote={pendingAssessmentPlan.overallApproval.activeVote}
       onRate={handlePendingCriterionRate}
       onOverallVote={handlePendingOverallVote}

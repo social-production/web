@@ -12,6 +12,7 @@
   import {
     PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
     PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT,
+    PARTICIPATION_FOCUS_ACTIVITY_CARD_EVENT,
     type HistoryFollowUpFocusDetail
   } from '$lib/utils/participationActivityFocus';
   import { scrollToPendingVote } from '$lib/utils/pendingVotes';
@@ -123,14 +124,27 @@
     void focusActivityTarget(detail.activityId);
   }
 
+  function handleParticipationActivityCardFocus(event: Event) {
+    const activityId = (event as CustomEvent<{ activityId?: string }>).detail?.activityId;
+    if (!activityId) {
+      return;
+    }
+
+    lastActivityTargetId = activityId;
+    activePhaseId = 'activity';
+    void focusActivityTarget(activityId);
+  }
+
   onMount(() => {
     document.addEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
     document.addEventListener(PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT, handleParticipationHistoryFocus);
+    document.addEventListener(PARTICIPATION_FOCUS_ACTIVITY_CARD_EVENT, handleParticipationActivityCardFocus);
   });
 
   onDestroy(() => {
     document.removeEventListener(PARTICIPATION_FOCUS_ACTIVITIES_EVENT, handleParticipationActivitiesFocus);
     document.removeEventListener(PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT, handleParticipationHistoryFocus);
+    document.removeEventListener(PARTICIPATION_FOCUS_ACTIVITY_CARD_EVENT, handleParticipationActivityCardFocus);
   });
 
   function phaseChangeVoteGroup(requestId: string): 'return' | 'advance' | 'close' | null {

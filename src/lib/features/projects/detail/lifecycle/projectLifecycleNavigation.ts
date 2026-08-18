@@ -1,3 +1,5 @@
+import { highlightParticipationTarget } from '$lib/utils/participationHighlight';
+
 export function readActivityTarget(url: URL): string | null {
   if (url.hash.startsWith('#activity-card-')) {
     return url.hash.slice('#activity-card-'.length) || null;
@@ -132,12 +134,14 @@ export async function focusEndedActivityCard(
     });
   }
 
+  highlightParticipationTarget(`#history-card-${activityId} .activity-card-shell, #history-card-${activityId}`);
+
   options.setHandle(
     setTimeout(() => {
       if (options.getHighlighted() === activityId) {
         options.setHighlighted(null);
       }
-    }, 1800)
+    }, 2600)
   );
 }
 
@@ -202,12 +206,14 @@ export async function focusActivityCard(
     });
   }
 
+  highlightParticipationTarget(`#activity-card-${activityId} .activity-card-shell, #activity-card-${activityId}`);
+
   options.setHandle(
     setTimeout(() => {
       if (options.getHighlighted() === activityId) {
         options.setHighlighted(null);
       }
-    }, 1800)
+    }, 2600)
   );
 }
 

@@ -25,6 +25,7 @@
     toggleEventMembership,
   } from '$lib/services/commands/events';
   import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
+  import { dispatchFocusActivityCard } from '$lib/utils/participationActivityFocus';
   import type { RightRailActivityItem } from '$lib/types/bootstrap';
   import {
     dismissRailItemId,
@@ -239,6 +240,11 @@
     markRailItemSeen(seenStorageKey, item.id);
     requestClose();
     await goto(item.href);
+    const href = new URL(item.href, typeof window !== 'undefined' ? window.location.origin : 'https://local.invalid');
+    const activityId = href.searchParams.get('activity') ?? href.hash.replace(/^#activity-card-/, '');
+    if (activityId) {
+      dispatchFocusActivityCard(activityId);
+    }
   }
 
   function slugFromVoteItem(item: RightRailActivityItem) {

@@ -17,6 +17,11 @@
     requestSystemEnabled?: boolean;
     requestMode?: 'calendar' | 'direct' | 'both';
     allowOffScheduleRequests?: boolean;
+    locationId?: string | null;
+    locationLabel?: string;
+    locationIsOnline?: boolean;
+    distributionLocationId?: string | null;
+    distributionLocationLabel?: string;
   };
 
   export let data: ProjectPageData;
@@ -42,7 +47,7 @@
 <ProjectLifecyclePlanPhaseContent
   data={data}
   phaseId="phase-3"
-  {form}
+  bind:form
   bind:showComposer
   {submitLabel}
   {addPlanPhase}

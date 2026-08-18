@@ -8,10 +8,11 @@
   import type { PlanCreationStep, PlanCreationForm } from '$lib/utils/planRubric';
   import type { ProjectSubtype } from '$lib/types/feed';
   import type { GovernanceSignalSummary } from '$lib/types/detail';
-  import { emptyLocationPickerValue, type LocationPickerValue } from '$lib/types/locationPicker';
+  import { emptyLocationPickerValue, onlineLocationPickerValue, type LocationPickerValue } from '$lib/types/locationPicker';
 
   let locationPickerValue: LocationPickerValue = emptyLocationPickerValue();
   let distributionLocationPickerValue: LocationPickerValue = emptyLocationPickerValue();
+  let pickerSeededForOpen = false;
 
   export let open = false;
   export let title = 'Create plan';
@@ -30,6 +31,46 @@
   export let onCancel: () => void = () => {};
 
   let stepIndex = 0;
+
+  function resolvedPickerLabel(value: LocationPickerValue) {
+    if (value.mode === 'online' || value.isOnline) {
+      return value.displayLabel.trim() || 'Online';
+    }
+    return value.displayLabel;
+  }
+
+  function seedPickersFromForm() {
+    if (form.locationIsOnline || (form.locationLabel ?? '').trim().toLowerCase() === 'online') {
+      locationPickerValue = onlineLocationPickerValue(form.locationLabel || 'Online');
+    } else if (form.locationId || form.locationLabel) {
+      locationPickerValue = {
+        ...emptyLocationPickerValue('physical'),
+        displayLabel: form.locationLabel ?? '',
+        locationId: form.locationId ?? null
+      };
+    } else {
+      locationPickerValue = emptyLocationPickerValue();
+    }
+
+    if (form.distributionLocationId || form.distributionLocationLabel) {
+      distributionLocationPickerValue = {
+        ...emptyLocationPickerValue('physical'),
+        displayLabel: form.distributionLocationLabel ?? '',
+        locationId: form.distributionLocationId ?? null
+      };
+    } else {
+      distributionLocationPickerValue = emptyLocationPickerValue();
+    }
+  }
+
+  $: if (open && !pickerSeededForOpen) {
+    seedPickersFromForm();
+    pickerSeededForOpen = true;
+  }
+
+  $: if (!open && pickerSeededForOpen) {
+    pickerSeededForOpen = false;
+  }
 
   $: if (form.projectSubtype === 'software') {
     const nextLabel = softwareLicenseLabelForSubtype(form.projectSubtype);
@@ -62,9 +103,9 @@
     locationPickerValue = event.detail;
     form = {
       ...form,
-      locationLabel: locationPickerValue.displayLabel,
+      locationLabel: resolvedPickerLabel(locationPickerValue),
       locationId: locationPickerValue.locationId,
-      locationIsOnline: locationPickerValue.isOnline
+      locationIsOnline: locationPickerValue.mode === 'online' || locationPickerValue.isOnline
     };
   }
 
@@ -72,12 +113,13 @@
     distributionLocationPickerValue = event.detail;
     form = {
       ...form,
-      distributionLocationLabel: distributionLocationPickerValue.displayLabel,
+      distributionLocationLabel: resolvedPickerLabel(distributionLocationPickerValue),
       distributionLocationId: distributionLocationPickerValue.locationId,
-      distributionLocationIsOnline: distributionLocationPickerValue.isOnline,
-      locationLabel: distributionLocationPickerValue.displayLabel,
+      distributionLocationIsOnline:
+        distributionLocationPickerValue.mode === 'online' || distributionLocationPickerValue.isOnline,
+      locationLabel: resolvedPickerLabel(distributionLocationPickerValue),
       locationId: distributionLocationPickerValue.locationId,
-      locationIsOnline: distributionLocationPickerValue.isOnline
+      locationIsOnline: distributionLocationPickerValue.mode === 'online' || distributionLocationPickerValue.isOnline
     };
   }
 
@@ -141,7 +183,7 @@
       case 'demand-note':
         return !!target.demandConsiderationNote.trim();
       case 'location':
-        if (locationPickerValue.mode === 'online') {
+        if (locationPickerValue.mode === 'online' || locationPickerValue.isOnline) {
           return true;
         }
         return Boolean(target.locationLabel?.trim() || locationPickerValue.locationId);
@@ -196,12 +238,13 @@
   function flushLocationIntoForm() {
     form = {
       ...form,
-      locationLabel: locationPickerValue.displayLabel,
+      locationLabel: resolvedPickerLabel(locationPickerValue),
       locationId: locationPickerValue.locationId,
-      locationIsOnline: locationPickerValue.isOnline,
-      distributionLocationLabel: distributionLocationPickerValue.displayLabel,
+      locationIsOnline: locationPickerValue.mode === 'online' || locationPickerValue.isOnline,
+      distributionLocationLabel: resolvedPickerLabel(distributionLocationPickerValue),
       distributionLocationId: distributionLocationPickerValue.locationId,
-      distributionLocationIsOnline: distributionLocationPickerValue.isOnline
+      distributionLocationIsOnline:
+        distributionLocationPickerValue.mode === 'online' || distributionLocationPickerValue.isOnline
     };
     if (form.sameAsProductionLocation && productionPlanLocation) {
       form = {

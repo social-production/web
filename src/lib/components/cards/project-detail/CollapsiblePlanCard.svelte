@@ -54,13 +54,18 @@
   $: hasCompletedAssessment = allCriteriaComplete && plan.overallApproval.activeVote != null;
   $: pendingCriterionCount = criteria.length - ratedCount;
 
-  $: if (!autoOpenAssessment) {
+  $: if (!autoOpenAssessment && !assessmentOpen) {
     didAutoOpen = false;
   }
 
   $: if (autoOpenAssessment && open && !didAutoOpen) {
     didAutoOpen = true;
-    openAssessmentWizard({ criterionId: autoAssessCriterionId });
+    if (!assessmentOpen) {
+      openAssessmentWizard({
+        criterionId: autoAssessCriterionId,
+        openAtOverall: !autoAssessCriterionId && allCriteriaComplete
+      });
+    }
   }
 
   function openAssessmentWizard(

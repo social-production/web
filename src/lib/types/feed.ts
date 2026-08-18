@@ -57,6 +57,13 @@ export interface CreateProjectInput {
   description: string;
   locationLabel: string;
   locationId?: string | null;
+  locationIsOnline?: boolean;
+  providerPlaceId?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  region?: string | null;
+  country?: string | null;
+  precision?: string;
   projectMode: ProjectMode;
   channelTags: TagRef[];
   communityTags: TagRef[];

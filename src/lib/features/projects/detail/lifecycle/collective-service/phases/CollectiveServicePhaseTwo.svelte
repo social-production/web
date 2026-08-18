@@ -15,6 +15,9 @@
     demandConsiderationNote: string;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;
+    locationId?: string | null;
+    locationLabel?: string;
+    locationIsOnline?: boolean;
   };
 
   export let data: ProjectPageData;
@@ -50,7 +53,7 @@
   <ProjectLifecyclePlanPhaseContent
     data={data}
     phaseId="phase-2"
-    {form}
+    bind:form
     bind:showComposer
     {submitLabel}
     {addPlanPhase}

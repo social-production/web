@@ -21,6 +21,7 @@
   import {
     PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
     PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT,
+    PARTICIPATION_FOCUS_ACTIVITY_CARD_EVENT,
     type HistoryFollowUpFocusDetail,
   } from '$lib/utils/participationActivityFocus';
   import {
@@ -214,6 +215,7 @@
       repositoryUrl?: string;
       locationId?: string | null;
       locationLabel?: string;
+      locationIsOnline?: boolean;
       distributionLocationId?: string | null;
       distributionLocationLabel?: string;
       sameAsProductionLocation?: boolean;
@@ -252,7 +254,12 @@
       );
     }
 
-    if (options.requireProductionLocation && !form.locationId && !form.locationLabel?.trim()) {
+    if (
+      options.requireProductionLocation &&
+      !form.locationIsOnline &&
+      !form.locationId &&
+      !form.locationLabel?.trim()
+    ) {
       validationMessages.push('Choose where production or operations will happen.');
     }
 
@@ -278,6 +285,16 @@
     return validationMessages;
   }
 
+  function prefillLocationFromProject() {
+    const label = (data.locationLabel ?? '').trim();
+    const isOnline = label.toLowerCase() === 'online';
+    return {
+      locationId: isOnline ? null : (data.locationId ?? null),
+      locationLabel: label,
+      locationIsOnline: isOnline
+    };
+  }
+
   function resetProductionForm(): DraftProductionForm {
     return {
       title: '',
@@ -288,27 +305,26 @@
       demandConsiderationNote: '',
       valueConsiderationNotes: {},
       planPhases: [createDraftPlanPhase()],
-      locationId: null,
-      locationLabel: '',
-      locationIsOnline: false,
+      ...prefillLocationFromProject(),
       validationMessages: [],
     };
   }
 
   function resetDistributionForm(): DraftDistributionForm {
+    const projectLocation = prefillLocationFromProject();
     return {
       title: '',
       description: '',
       demandConsiderationNote: '',
       valueConsiderationNotes: {},
       planPhases: [createDraftPlanPhase()],
-      locationId: null,
-      locationLabel: '',
-      distributionLocationId: null,
-      distributionLocationLabel: '',
-      sameAsProductionLocation: false,
-      projectLocationId: null,
-      projectLocationLabel: '',
+      locationId: projectLocation.locationId,
+      locationLabel: projectLocation.locationLabel,
+      distributionLocationId: projectLocation.locationId,
+      distributionLocationLabel: projectLocation.locationLabel,
+      sameAsProductionLocation: Boolean(projectLocation.locationId || projectLocation.locationLabel),
+      projectLocationId: projectLocation.locationId,
+      projectLocationLabel: projectLocation.locationLabel,
       requestSystemEnabled: false,
       requestMode: 'both',
       allowOffScheduleRequests: false,
@@ -1121,6 +1137,9 @@
           .map((material) => material.trim())
           .filter(Boolean),
       })),
+      locationId: plan.locationId ?? data.locationId ?? null,
+      locationLabel: plan.locationLabel ?? data.locationLabel ?? '',
+      locationIsOnline: (plan.locationLabel ?? data.locationLabel ?? '').trim().toLowerCase() === 'online',
       validationMessages: [],
     };
     showPhaseTwoComposer = true;
@@ -1425,6 +1444,20 @@
     void focusActivityTarget(detail.activityId);
   }
 
+  function handleParticipationActivityCardFocus(event: Event) {
+    const activityId = (event as CustomEvent<{ activityId?: string }>).detail?.activityId;
+    if (!activityId) {
+      return;
+    }
+
+    lastActivityTargetId = activityId;
+    activePhaseId = isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5';
+    if (!expandedActivityIds.includes(activityId)) {
+      expandedActivityIds = [...expandedActivityIds, activityId];
+    }
+    void focusActivityTarget(activityId);
+  }
+
   onMount(() => {
     document.addEventListener(
       PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
@@ -1433,6 +1466,10 @@
     document.addEventListener(
       PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT,
       handleParticipationHistoryFocus
+    );
+    document.addEventListener(
+      PARTICIPATION_FOCUS_ACTIVITY_CARD_EVENT,
+      handleParticipationActivityCardFocus
     );
   });
 
@@ -1444,6 +1481,10 @@
     document.removeEventListener(
       PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT,
       handleParticipationHistoryFocus
+    );
+    document.removeEventListener(
+      PARTICIPATION_FOCUS_ACTIVITY_CARD_EVENT,
+      handleParticipationActivityCardFocus
     );
   });
 
@@ -1510,8 +1551,8 @@
         bind:showPhaseThreeComposer
         bind:showPhaseFiveComposer
         bind:showRequestComposer={showCollectiveRequestComposer}
-        {productionForm}
-        {distributionForm}
+        bind:productionForm
+        bind:distributionForm
         {activityForm}
         {serviceRequestForm}
         {serviceRequestFeedback}
@@ -1574,8 +1615,8 @@
         bind:showPhaseTwoComposer
         bind:showPhaseThreeComposer
         bind:showPhaseFiveComposer
-        {productionForm}
-        {distributionForm}
+        bind:productionForm
+        bind:distributionForm
         {activityForm}
         {highlightedActivityId}
         bind:highlightedHistoryId
