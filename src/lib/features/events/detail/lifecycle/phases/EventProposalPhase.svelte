@@ -46,6 +46,7 @@
       <div class="composer-toggle-row">
         <RoundPlusButton
           active={showValueComposer}
+          label="Add value"
           ariaLabel="Add event value"
           participationAction="add-value"
           action={() => (showValueComposer = !showValueComposer)}

@@ -237,6 +237,9 @@
     canSubmitPullRequest={canSubmitPullRequest}
     openPullRequestWizard={openSoftwarePullRequestWizard}
     {changecommitment}
+    viewerCanSuggest={data.viewerIsMember}
+    entityKind="project"
+    entitySlug={data.slug}
     {toggleHistoryCompletion}
     {saveActivityRating}
     {deleteActivityRating}

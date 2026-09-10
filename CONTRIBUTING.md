@@ -11,12 +11,11 @@ Thank you for helping improve the frontend. This repo is the SvelteKit client fo
 ## Setup
 
 ```bash
-cp .env.example .env
 npm install
 npm run dev
 ```
 
-Set `VITE_BACKEND=fastapi` and `VITE_API_URL=http://localhost:8000` in `.env`.
+`npm run dev` copies `.env.example` to `.env.local` if it is missing. Set `VITE_BACKEND=fastapi` and `VITE_USE_DEV_PROXY=true` in `.env.local` (the default Option A).
 
 ## Architecture
 

@@ -48,6 +48,8 @@
     addProjectServiceRequest,
     addProjectValue,
     advanceProjectPhase,
+    createProjectAvailabilityRule,
+    deleteProjectAvailabilityRule,
     planProjectServiceRequest,
     recordProjectPullRequestMerge,
     revertProjectPhase,
@@ -135,6 +137,7 @@
     repositoryUrl: string;
     licenseLabel?: string;
     demandConsiderationNote: string;
+    valuesNote?: string;
     valueConsiderationNotes: Record<string, string>;
     planPhases: DraftPlanPhase[];
     locationId?: string | null;
@@ -147,6 +150,7 @@
     title: string;
     description: string;
     demandConsiderationNote: string;
+    valuesNote?: string;
     valueConsiderationNotes: Record<string, string>;
     planPhases: DraftPlanPhase[];
     locationId?: string | null;
@@ -303,6 +307,7 @@
       repositoryUrl: '',
       licenseLabel: undefined,
       demandConsiderationNote: '',
+      valuesNote: '',
       valueConsiderationNotes: {},
       planPhases: [createDraftPlanPhase()],
       ...prefillLocationFromProject(),
@@ -316,6 +321,7 @@
       title: '',
       description: '',
       demandConsiderationNote: '',
+      valuesNote: '',
       valueConsiderationNotes: {},
       planPhases: [createDraftPlanPhase()],
       locationId: projectLocation.locationId,
@@ -663,8 +669,8 @@
 
   async function refreshAfter(action: () => Promise<unknown>): Promise<void> {
     await action();
-    void invalidateProjectDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateProjectDetail(data.slug);
   }
 
   function handlePhaseChangeRequest(
@@ -1002,11 +1008,29 @@
     showPersonalServiceRequestComposer = false;
     showCollectiveRequestComposer = false;
     selectedCollectiveRequestActivityId = null;
-    serviceRequestFeedback = 'Request sent. The project owner can review it from the overview.';
+    serviceRequestFeedback = 'Request sent. A chat with the creator is open in Messages.';
   }
 
-  async function updateRequestStatus(requestId: string, status: ProjectServiceRequestStatus) {
-    await refreshAfter(() => setProjectServiceRequestStatus(data.slug, requestId, status));
+  async function updateRequestStatus(
+    requestId: string,
+    status: ProjectServiceRequestStatus,
+    holdSlot = false
+  ) {
+    await refreshAfter(() => setProjectServiceRequestStatus(data.slug, requestId, status, holdSlot));
+  }
+
+  async function createAvailabilityRule(input: {
+    weekday: number;
+    startTime: string;
+    endTime: string;
+    timezone?: string;
+    note?: string;
+  }) {
+    await refreshAfter(() => createProjectAvailabilityRule(data.slug, input));
+  }
+
+  async function deleteAvailabilityRule(ruleId: string) {
+    await refreshAfter(() => deleteProjectAvailabilityRule(data.slug, ruleId));
   }
 
   async function planServiceRequest(requestId: string, input: ProjectServiceRequestPlanInput) {
@@ -1534,6 +1558,8 @@
         {submitActivity}
         {submitServiceRequest}
         {updateRequestStatus}
+        {createAvailabilityRule}
+        {deleteAvailabilityRule}
         requestServiceRequestSettingsChange={submitServiceRequestSettingsChange}
         voteOnRequestSettingsChange={voteOnServiceRequestSettingsChange}
         toggleHistoryCompletion={toggleServiceHistoryCompletion}

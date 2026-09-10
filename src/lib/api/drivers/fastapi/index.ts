@@ -10,6 +10,7 @@ import {
   fetchAcceptFollowRequest,
   fetchFollowRequests,
   fetchFollowUser,
+  fetchPeopleSuggestions,
   fetchProfile,
   fetchRejectFollowRequest,
   fetchSettings,
@@ -90,6 +91,8 @@ import {
   fetchRequestProjectMergeCapabilityChange, fetchSetProjectMergeCapabilityChangeVote,
   fetchRequestProjectRepositoryReplacement, fetchSetProjectRepositoryReplacementVote,
   fetchAddProjectServiceRequest, fetchSetProjectServiceRequestStatus,
+  fetchCreateProjectAvailabilityRule, fetchDeleteProjectAvailabilityRule,
+  fetchSuggestProjectActivityRole, fetchDeclineProjectActivityRoleSuggestion,
   fetchPlanProjectServiceRequest, fetchRequestProjectServiceRequestSettingsChange,
   fetchSetProjectServiceRequestSettingsChangeVote, fetchToggleProjectServiceHistoryCompletion,
   fetchRequestProjectPhaseChange, fetchSetProjectPhaseChangeVote,
@@ -113,6 +116,7 @@ import {
   fetchCreateEventManualLinkSeverRequest,
   fetchGrantEventEditAccess, fetchRevokeEventEditAccess,
   fetchShareEventWithUser,
+  fetchSuggestEventActivityRole, fetchDeclineEventActivityRoleSuggestion,
 } from './domains/events';
 
 const bootstrapFallback: BootstrapPayload = {
@@ -305,6 +309,8 @@ export function createFastApiDriver(): AppAdapter {
     async grantEventEditAccess(slug, userId) { return fetchGrantEventEditAccess(slug, userId); },
     async revokeEventEditAccess(slug, userId) { return fetchRevokeEventEditAccess(slug, userId); },
     async shareEventWithUser(slug, username) { return fetchShareEventWithUser(slug, username); },
+    async suggestEventActivityRole(slug, activityId, roleId, userId) { return fetchSuggestEventActivityRole(slug, activityId, roleId, userId); },
+    async declineEventActivityRoleSuggestion(slug, activityId, roleId) { return fetchDeclineEventActivityRoleSuggestion(slug, activityId, roleId); },
 
     async getProject(slug) { return fetchProject(slug); },
     async getProjectHistory(slug) { return fetchProjectHistory(slug); },
@@ -337,7 +343,11 @@ export function createFastApiDriver(): AppAdapter {
     async requestProjectRepositoryReplacement(slug, input) { return fetchRequestProjectRepositoryReplacement(slug, input); },
     async setProjectRepositoryReplacementVote(slug, decisionId, vote) { return fetchSetProjectRepositoryReplacementVote(slug, decisionId, vote); },
     async addProjectServiceRequest(slug, input) { return fetchAddProjectServiceRequest(slug, input); },
-    async setProjectServiceRequestStatus(slug, requestId, status) { return fetchSetProjectServiceRequestStatus(slug, requestId, status); },
+    async setProjectServiceRequestStatus(slug, requestId, status, holdSlot) { return fetchSetProjectServiceRequestStatus(slug, requestId, status, holdSlot); },
+    async createProjectAvailabilityRule(slug, input) { return fetchCreateProjectAvailabilityRule(slug, input); },
+    async deleteProjectAvailabilityRule(slug, ruleId) { return fetchDeleteProjectAvailabilityRule(slug, ruleId); },
+    async suggestProjectActivityRole(slug, activityId, roleId, userId) { return fetchSuggestProjectActivityRole(slug, activityId, roleId, userId); },
+    async declineProjectActivityRoleSuggestion(slug, activityId, roleId) { return fetchDeclineProjectActivityRoleSuggestion(slug, activityId, roleId); },
     async planProjectServiceRequest(slug, requestId, input) { return fetchPlanProjectServiceRequest(slug, requestId, input); },
     async requestProjectServiceRequestSettingsChange(slug, input) { return fetchRequestProjectServiceRequestSettingsChange(slug, input); },
     async setProjectServiceRequestSettingsChangeVote(slug, requestId, vote) { return fetchSetProjectServiceRequestSettingsChangeVote(slug, requestId, vote); },
@@ -495,6 +505,10 @@ export function createFastApiDriver(): AppAdapter {
 
     async getFollowRequests() {
       return fetchFollowRequests();
+    },
+
+    async searchPeopleSuggestions(query) {
+      return fetchPeopleSuggestions(query);
     },
 
     async searchLocations(query, limit = 5, options = {}) {

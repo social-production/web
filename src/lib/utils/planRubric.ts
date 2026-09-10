@@ -29,6 +29,7 @@ export type PlanCreationForm = {
   title: string;
   description: string;
   demandConsiderationNote: string;
+  valuesNote?: string;
   valueConsiderationNotes?: Record<string, string>;
   planPhases: Array<{ title: string; details: string; materials?: string[] }>;
   validationMessages?: string[];
@@ -86,7 +87,7 @@ export type PlanCreationStepType =
   | 'description'
   | 'plan-overview'
   | 'demand-note'
-  | 'value-note'
+  | 'values-note'
   | 'schedule-mode'
   | 'schedule-date'
   | 'schedule-range'
@@ -96,9 +97,7 @@ export type PlanCreationStepType =
   | 'subtype'
   | 'repository'
   | 'request-settings'
-  | 'stage-title'
-  | 'stage-details'
-  | 'stage-materials'
+  | 'stages'
   | 'review';
 
 export interface PlanCreationStep {
@@ -106,9 +105,8 @@ export interface PlanCreationStep {
   question: string;
   helper?: string;
   type: PlanCreationStepType;
-  valueId?: string;
-  valueLabel?: string;
-  stageIndex?: number;
+  values?: Array<{ id: string; label: string }>;
+  includeMaterials?: boolean;
 }
 
 const SHARED_RUBRIC: PlanRubricCriterion[] = [
@@ -221,42 +219,50 @@ export function buildAssessmentCriteria(
   return criteria;
 }
 
-function stageSteps(stageCount: number, includeMaterials: boolean): PlanCreationStep[] {
-  const steps: PlanCreationStep[] = [];
+const DEMAND_NOTE_HELPER =
+  'Demand signals show how many people want this to exist right now. Assessors compare every plan against that need, so say whether your plan meets it and what gap remains.';
 
-  for (let index = 0; index < stageCount; index += 1) {
-    steps.push({
-      id: `stage-${index}-title`,
-      question: `What is stage ${index + 1} called?`,
-      helper: 'Give this stage a short, specific title.',
-      type: 'stage-title',
-      stageIndex: index
-    });
-    steps.push({
-      id: `stage-${index}-details`,
-      question: `What happens in stage ${index + 1}?`,
-      helper: 'Describe what this stage delivers or accomplishes.',
-      type: 'stage-details',
-      stageIndex: index
-    });
+const VALUES_NOTE_HELPER =
+  'These are the values the community rated most important for this proposal. One short note is enough — assessors see it when they rate your plan against each value.';
 
-    if (includeMaterials) {
-      steps.push({
-        id: `stage-${index}-materials`,
-        question: `What materials or resources does stage ${index + 1} need?`,
-        helper: 'List materials one at a time. You can add more than one.',
-        type: 'stage-materials',
-        stageIndex: index
-      });
-    }
+function demandNoteStep(): PlanCreationStep {
+  return {
+    id: 'demand-note',
+    question: 'How does this plan respond to current demand?',
+    helper: DEMAND_NOTE_HELPER,
+    type: 'demand-note'
+  };
+}
+
+function valuesNoteStep(prominentValues: ProjectValueItem[]): PlanCreationStep[] {
+  if (prominentValues.length === 0) {
+    return [];
   }
+  return [
+    {
+      id: 'values-note',
+      question: 'How does this plan serve the shared values?',
+      helper: VALUES_NOTE_HELPER,
+      type: 'values-note',
+      values: prominentValues.map((value) => ({ id: value.id, label: value.label }))
+    }
+  ];
+}
 
-  return steps;
+function stagesStep(includeMaterials: boolean): PlanCreationStep {
+  return {
+    id: 'stages',
+    question: 'What are the stages of this plan?',
+    helper: includeMaterials
+      ? 'Break the work into stages. Each stage needs a title and details; add materials where they matter. You can add, remove, and reorder stages.'
+      : 'Break the work into stages. Each stage needs a title and details. You can add, remove, and reorder stages.',
+    type: 'stages',
+    includeMaterials
+  };
 }
 
 export function buildEventPlanCreationSteps(
-  prominentValues: ProjectValueItem[],
-  stageCount: number
+  prominentValues: ProjectValueItem[]
 ): PlanCreationStep[] {
   const steps: PlanCreationStep[] = [
     {
@@ -292,26 +298,11 @@ export function buildEventPlanCreationSteps(
       question: 'Where will this event happen?',
       type: 'location'
     },
-    {
-      id: 'demand-note',
-      question: 'How does this plan respond to current demand signals?',
-      helper: 'State whether this plan meets demand and explain any gap.',
-      type: 'demand-note'
-    }
+    demandNoteStep()
   ];
 
-  for (const value of prominentValues) {
-    steps.push({
-      id: `value-note-${value.id}`,
-      question: `How does this plan address “${value.label}”?`,
-      helper: 'Optional, but helps assessors understand your reasoning.',
-      type: 'value-note',
-      valueId: value.id,
-      valueLabel: value.label
-    });
-  }
-
-  steps.push(...stageSteps(stageCount, false));
+  steps.push(...valuesNoteStep(prominentValues));
+  steps.push(stagesStep(false));
   steps.push({
     id: 'review',
     question: 'Review your plan before submitting',
@@ -324,7 +315,6 @@ export function buildEventPlanCreationSteps(
 
 export function buildProjectProductionCreationSteps(
   prominentValues: ProjectValueItem[],
-  stageCount: number,
   options: { includeSubtype?: boolean; includeRepository?: boolean; includeLocation?: boolean } = {}
 ): PlanCreationStep[] {
   const steps: PlanCreationStep[] = [
@@ -363,25 +353,9 @@ export function buildProjectProductionCreationSteps(
     });
   }
 
-  steps.push({
-    id: 'demand-note',
-    question: 'How does this plan respond to current demand signals?',
-    helper: 'State whether this plan meets demand and explain any gap.',
-    type: 'demand-note'
-  });
-
-  for (const value of prominentValues) {
-    steps.push({
-      id: `value-note-${value.id}`,
-      question: `How does this plan address “${value.label}”?`,
-      helper: 'Optional, but helps assessors understand your reasoning.',
-      type: 'value-note',
-      valueId: value.id,
-      valueLabel: value.label
-    });
-  }
-
-  steps.push(...stageSteps(stageCount, true));
+  steps.push(demandNoteStep());
+  steps.push(...valuesNoteStep(prominentValues));
+  steps.push(stagesStep(true));
   steps.push({
     id: 'review',
     question: 'Review your plan before submitting',
@@ -394,7 +368,6 @@ export function buildProjectProductionCreationSteps(
 
 export function buildProjectDistributionCreationSteps(
   prominentValues: ProjectValueItem[],
-  stageCount: number,
   options: { includeRequestSettings?: boolean; includeDistributionLocation?: boolean } = {}
 ): PlanCreationStep[] {
   const steps: PlanCreationStep[] = [
@@ -424,25 +397,9 @@ export function buildProjectDistributionCreationSteps(
     });
   }
 
-  steps.push({
-    id: 'demand-note',
-    question: 'How does this plan respond to current demand signals?',
-    helper: 'State whether this plan meets demand and explain any gap.',
-    type: 'demand-note'
-  });
-
-  for (const value of prominentValues) {
-    steps.push({
-      id: `value-note-${value.id}`,
-      question: `How does this plan address “${value.label}”?`,
-      helper: 'Optional, but helps assessors understand your reasoning.',
-      type: 'value-note',
-      valueId: value.id,
-      valueLabel: value.label
-    });
-  }
-
-  steps.push(...stageSteps(stageCount, false));
+  steps.push(demandNoteStep());
+  steps.push(...valuesNoteStep(prominentValues));
+  steps.push(stagesStep(false));
   steps.push({
     id: 'review',
     question: 'Review your plan before submitting',

@@ -260,6 +260,7 @@ export async function fetchAddEventActivity(
       label: r.label,
       required_count: r.requiredCount,
       maximum_count: r.maximumCount ?? null,
+      suggested_user_id: r.suggestedUserId ?? null,
     })),
     linked_plan_phase_id: input.linkedPlanPhaseId ?? null,
   });
@@ -420,4 +421,26 @@ export async function fetchShareEventWithUser(
   } catch (err) {
     return { ok: false, error: extractErrorMessage(err, 'Could not share') };
   }
+}
+
+export async function fetchSuggestEventActivityRole(
+  eventSlug: string,
+  activityId: string,
+  roleId: string,
+  suggestedUserId: string
+): Promise<void> {
+  await apiClient.post(
+    `/events/${eventSlug}/activities/${activityId}/roles/${roleId}/suggest`,
+    { suggested_user_id: suggestedUserId }
+  );
+}
+
+export async function fetchDeclineEventActivityRoleSuggestion(
+  eventSlug: string,
+  activityId: string,
+  roleId: string
+): Promise<void> {
+  await apiClient.post(
+    `/events/${eventSlug}/activities/${activityId}/roles/${roleId}/suggestion/decline`
+  );
 }

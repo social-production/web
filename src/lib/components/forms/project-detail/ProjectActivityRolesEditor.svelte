@@ -1,9 +1,14 @@
 <script lang="ts">
   import type { ProjectActivityRoleInput } from '$lib/types/detail';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
+  import { searchPeopleSuggestions } from '$lib/services/queries/account';
 
   export let roles: ProjectActivityRoleInput[] = [{ label: '', requiredCount: 1 }];
   export let title = 'Roles needed';
+
+  let suggestionQuery: Record<number, string> = {};
+  let suggestionResults: Record<number, Array<{ id: string; username: string }>> = {};
+  let suggestionTimers: Record<number, ReturnType<typeof setTimeout>> = {};
 
   function normalizeRequiredCount(value: number) {
     return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 1;
@@ -68,6 +73,37 @@
   function removeRole(index: number) {
     roles = ensureAtLeastOneRole(roles.filter((_, roleIndex) => roleIndex !== index));
   }
+
+  function selectSuggestedUser(index: number, user: { id: string; username: string }) {
+    roles = roles.map((role, roleIndex) =>
+      roleIndex === index ? { ...role, suggestedUserId: user.id } : role
+    );
+    suggestionQuery = { ...suggestionQuery, [index]: user.username };
+    suggestionResults = { ...suggestionResults, [index]: [] };
+  }
+
+  function clearSuggestedUser(index: number) {
+    roles = roles.map((role, roleIndex) =>
+      roleIndex === index ? { ...role, suggestedUserId: null } : role
+    );
+    suggestionQuery = { ...suggestionQuery, [index]: '' };
+  }
+
+  function handleSuggestionInput(index: number, value: string) {
+    suggestionQuery = { ...suggestionQuery, [index]: value };
+    if (suggestionTimers[index]) {
+      clearTimeout(suggestionTimers[index]);
+    }
+    if (!value.trim()) {
+      suggestionResults = { ...suggestionResults, [index]: [] };
+      return;
+    }
+    suggestionTimers[index] = setTimeout(() => {
+      void searchPeopleSuggestions(value.trim()).then((items) => {
+        suggestionResults = { ...suggestionResults, [index]: items };
+      });
+    }, 200);
+  }
 </script>
 
 <div class="role-editor-shell">
@@ -124,11 +160,37 @@
           {/if}
         </div>
       </div>
+      <label class="role-field role-suggest-field">
+        <span class="field-inline-label">Suggest someone (optional)</span>
+        {#if role.suggestedUserId}
+          <div class="suggested-chip-row">
+            <span class="suggested-chip">suggested: @{suggestionQuery[index] || 'user'}</span>
+            <button class="text-button" type="button" on:click={() => clearSuggestedUser(index)}>Clear</button>
+          </div>
+        {:else}
+          <input
+            placeholder="Search username"
+            type="text"
+            value={suggestionQuery[index] ?? ''}
+            on:input={(event) =>
+              handleSuggestionInput(index, (event.currentTarget as HTMLInputElement).value)}
+          />
+          {#if (suggestionResults[index] ?? []).length > 0}
+            <div class="suggestion-list">
+              {#each suggestionResults[index] as person}
+                <button class="suggestion-item" type="button" on:click={() => selectSuggestedUser(index, person)}>
+                  @{person.username}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        {/if}
+      </label>
     {/each}
   </div>
 
   <div class="role-add-row">
-    <RoundPlusButton ariaLabel="Add role" action={addRole} />
+    <RoundPlusButton label="Add role" action={addRole} />
   </div>
 </div>
 
@@ -150,6 +212,36 @@
     grid-template-columns: minmax(0, 1fr) 132px 132px auto;
     gap: 12px;
     align-items: end;
+  }
+
+  .role-suggest-field {
+    grid-column: 1 / -1;
+  }
+
+  .suggested-chip-row,
+  .suggestion-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .suggested-chip,
+  .suggestion-item {
+    padding: 6px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .text-button {
+    border: 0;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
   }
 
   .role-field {

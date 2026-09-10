@@ -218,3 +218,12 @@ export async function fetchFollowRequests(): Promise<ViewerSummary[]> {
   const res = await apiClient.get<BackendFollowRequestList>('/users/me/follow-requests');
   return res.items.map(mapUser);
 }
+
+export async function fetchPeopleSuggestions(
+  query: string
+): Promise<Array<{ id: string; username: string }>> {
+  const res = await apiClient.get<{ items: Array<{ id: string; username: string }> }>(
+    `/users/suggestions?q=${encodeURIComponent(query)}&limit=8`
+  );
+  return (res.items ?? []).map((item) => ({ id: item.id, username: item.username }));
+}

@@ -44,6 +44,11 @@
     ProjectSoftwareRepositoryReplacementInput
   } from '$lib/types/detail';
   import { buildActivityLocationQuickPicks } from '$lib/utils/activityLocationQuickPicks';
+  import {
+    declineProjectActivityRoleSuggestion,
+    suggestProjectActivityRole
+  } from '$lib/services/commands/projects';
+  import { invalidateProjectDetail } from '$lib/utils/detailInvalidation';
 
   const SOFTWARE_GOVERNANCE_HISTORY_KINDS = new Set([
     'project-pull-request-approval',
@@ -115,6 +120,16 @@
     status: ProjectServiceRequestStatus
   ) => void | Promise<void> = () => {};
   export let changecommitment: (activityId: string, roleLabel: string | null) => void | Promise<void> = () => {};
+
+  async function suggestRole(activityId: string, roleId: string, userId: string) {
+    await suggestProjectActivityRole(data.slug, activityId, roleId, userId);
+    await invalidateProjectDetail(data.slug);
+  }
+
+  async function declineRoleSuggestion(activityId: string, roleId: string) {
+    await declineProjectActivityRoleSuggestion(data.slug, activityId, roleId);
+    await invalidateProjectDetail(data.slug);
+  }
   export let requestServiceRequestSettingsChange: (
     input: ProjectServiceRequestSettingsChangeInput
   ) => void | Promise<void> = () => {};
@@ -785,6 +800,7 @@
     canCreate={hasQuickAction}
     createActive={showComposer || showRequestComposer || calendarActionTarget?.kind === 'general'}
     createAriaLabel="Open activity or request actions"
+    createButtonLabel="Add"
     selectedDayIso={calendarSelectedDayIso}
     selectedActivityId={calendarSelectedActivityId}
     daySelect={handleDaySelection}
@@ -1131,6 +1147,9 @@
                 expanded={highlightedActivityId === activity.id}
                 highlighted={highlightedActivityId === activity.id}
                 changecommitment={changecommitment}
+                viewerCanSuggest={data.viewerIsMember}
+                onSuggestRole={suggestRole}
+                onDeclineRoleSuggestion={declineRoleSuggestion}
               />
             </div>
           {/each}

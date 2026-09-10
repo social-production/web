@@ -1477,6 +1477,7 @@
 
         <RoundPlusButton
           active={activeListTab === 'messages' && showComposer}
+          label="New message"
           ariaLabel="Start a new message"
           action={handleComposeTrigger}
         />

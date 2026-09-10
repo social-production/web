@@ -13,6 +13,15 @@
     ProjectServiceHistoryItem
   } from '$lib/types/detail';
   import type { ActivityCreationForm, ActivityScheduleBounds } from '$lib/utils/activityCreationSteps';
+  import {
+    declineProjectActivityRoleSuggestion,
+    suggestProjectActivityRole
+  } from '$lib/services/commands/projects';
+  import {
+    declineEventActivityRoleSuggestion,
+    suggestEventActivityRole
+  } from '$lib/services/commands/events';
+  import { invalidateEventDetail, invalidateProjectDetail } from '$lib/utils/detailInvalidation';
 
   type CalendarInteractionAnchor = {
     clientX: number;
@@ -32,6 +41,7 @@
   export let showComposer = false;
   export let createActive = false;
   export let createAriaLabel = 'Add activity';
+  export let createButtonLabel = 'Add activity';
   export let selectedDayIso = '';
   export let selectedActivityId = '';
   export let highlightedActivityId: string | null = null;
@@ -53,6 +63,40 @@
   export let canSubmitPullRequest = false;
   export let openPullRequestWizard: () => void = () => {};
   export let changecommitment: (activityId: string, roleLabel: string | null) => void | Promise<void> = () => {};
+  export let viewerCanSuggest = false;
+  export let entityKind: 'project' | 'event' = 'project';
+  export let entitySlug = '';
+  export let onSuggestRole: (activityId: string, roleId: string, userId: string) => void | Promise<void> = async (
+    activityId,
+    roleId,
+    userId
+  ) => {
+    if (!entitySlug) {
+      return;
+    }
+    if (entityKind === 'event') {
+      await suggestEventActivityRole(entitySlug, activityId, roleId, userId);
+      await invalidateEventDetail(entitySlug);
+    } else {
+      await suggestProjectActivityRole(entitySlug, activityId, roleId, userId);
+      await invalidateProjectDetail(entitySlug);
+    }
+  };
+  export let onDeclineRoleSuggestion: (activityId: string, roleId: string) => void | Promise<void> = async (
+    activityId,
+    roleId
+  ) => {
+    if (!entitySlug) {
+      return;
+    }
+    if (entityKind === 'event') {
+      await declineEventActivityRoleSuggestion(entitySlug, activityId, roleId);
+      await invalidateEventDetail(entitySlug);
+    } else {
+      await declineProjectActivityRoleSuggestion(entitySlug, activityId, roleId);
+      await invalidateProjectDetail(entitySlug);
+    }
+  };
   export let toggleHistoryCompletion: (
     historyId: string,
     role: ProjectServiceHistoryCompletionRole,
@@ -146,6 +190,7 @@
     {canCreate}
     createActive={createActive || showSoftwareActionPicker}
     {createAriaLabel}
+    {createButtonLabel}
     {selectedDayIso}
     selectedActivityId={selectedActivityId || highlightedActivityId || ''}
     {daySelect}
@@ -210,6 +255,9 @@
               expanded={highlightedActivityId === activity.id}
               highlighted={highlightedActivityId === activity.id}
               {changecommitment}
+              {viewerCanSuggest}
+              {onSuggestRole}
+              {onDeclineRoleSuggestion}
             />
           </div>
         {/each}

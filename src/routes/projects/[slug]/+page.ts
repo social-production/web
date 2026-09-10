@@ -12,7 +12,6 @@ function projectLoadError(err: unknown, fallback: string): { project: null; load
 }
 
 export const load = (async ({ params, depends }) => {
-  depends('app:bootstrap');
   depends(`app:project:${params.slug}`);
 
   try {

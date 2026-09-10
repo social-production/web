@@ -13,12 +13,14 @@ import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
 export type DraftPlanPhase = {
   title: string;
   details: string;
+  materials?: string[];
 };
 
 export type EventPlanForm = {
   title: string;
   description: string;
   demandConsiderationNote: string;
+  valuesNote?: string;
   valueConsiderationNotes?: Record<string, string>;
   scheduleMode: EventPlanScheduleMode;
   scheduledDate: string;
@@ -84,6 +86,7 @@ export function createEventPlanForm(): EventPlanForm {
     title: '',
     description: '',
     demandConsiderationNote: '',
+    valuesNote: '',
     valueConsiderationNotes: {},
     scheduleMode: 'date',
     scheduledDate: '',

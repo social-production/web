@@ -164,6 +164,9 @@
     }}
     createAction={() => openActivityComposerForDay(selectedDayIso)}
     changecommitment={changeCommitment}
+    viewerCanSuggest={data.viewerIsMember}
+    entityKind="event"
+    entitySlug={data.slug}
     {toggleHistoryCompletion}
     {saveActivityRating}
     {deleteActivityRating}

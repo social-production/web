@@ -22,7 +22,6 @@
     planPhases: [{ title: '', details: '' }],
     validationMessages: []
   };
-  export let addPlanPhase: () => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
   export let targetedPlanId: string | null = null;
   export let autoAssess = false;
@@ -59,7 +58,7 @@
   }
 
   $: prominentValues = data.lifecycle.phaseOne.values.filter((value) => value.importanceScore >= 5);
-  $: creationSteps = buildEventPlanCreationSteps(prominentValues, planForm.planPhases.length);
+  $: creationSteps = buildEventPlanCreationSteps(prominentValues);
 </script>
 
 <section class="phase-surface">
@@ -74,7 +73,8 @@
     <div class="composer-toggle-row">
       <RoundPlusButton
         active={showPlanComposer}
-        ariaLabel={showPlanComposer ? 'Hide event plan composer' : 'Add event plan'}
+        label="Add event plan"
+        ariaLabel="Add event plan"
         participationAction="submit-plan"
         action={() => (showPlanComposer = !showPlanComposer)}
       />
@@ -88,9 +88,9 @@
       bind:form={planForm}
       submitLabel="Submit event plan"
       signalSummary={data.lifecycle.phaseOne.signalSummary}
-      {addPlanPhase}
       onSubmit={submitPlan}
       onCancel={() => (showPlanComposer = false)}
+      onDismiss={() => (showPlanComposer = false)}
     />
   {/if}
 

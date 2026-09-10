@@ -30,8 +30,17 @@ export async function getActivityRail(): Promise<{
 /** Bumped by rail mutations so AppShell can reload deferred activity-rail state. */
 export const activityRailRefreshNonce = writable(0);
 
+let railRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Coalesces bursts (action + command layer both request a refresh) into one rail reload. */
 export function requestActivityRailRefresh() {
-  activityRailRefreshNonce.update((value) => value + 1);
+  if (railRefreshTimer) {
+    return;
+  }
+  railRefreshTimer = setTimeout(() => {
+    railRefreshTimer = null;
+    activityRailRefreshNonce.update((value) => value + 1);
+  }, 200);
 }
 
 export async function refreshBootstrap() {

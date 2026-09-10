@@ -35,6 +35,7 @@
   type RequestSettingsForm = {
     enabled: boolean;
     requestMode: 'calendar' | 'direct' | 'both';
+    allowOffScheduleRequests: boolean;
     reason: string;
   };
 
@@ -57,7 +58,15 @@
   export let serviceRequestComposerElement: HTMLElement | null = null;
   export let activityStartInputElement: HTMLInputElement | null = null;
   export let activityEndInputElement: HTMLInputElement | null = null;
-  export let updateRequestStatus: (requestId: string, status: ProjectServiceRequestStatus) => void | Promise<void> = () => {};
+  export let updateRequestStatus: (requestId: string, status: ProjectServiceRequestStatus, holdSlot?: boolean) => void | Promise<void> = () => {};
+  export let createAvailabilityRule: (input: {
+    weekday: number;
+    startTime: string;
+    endTime: string;
+    timezone?: string;
+    note?: string;
+  }) => void | Promise<void> = () => {};
+  export let deleteAvailabilityRule: (ruleId: string) => void | Promise<void> = () => {};
   export let openPersonalActivityComposer: () => void | Promise<void> = () => {};
   export let openPersonalServiceRequestComposer: () => void | Promise<void> = () => {};
   export let openPersonalServiceRequestComposerForDay: (isoDay: string) => void | Promise<void> = () => {};
@@ -95,15 +104,28 @@
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   }
 
+  const WEEKDAYS = [
+    { value: 0, label: 'Monday' },
+    { value: 1, label: 'Tuesday' },
+    { value: 2, label: 'Wednesday' },
+    { value: 3, label: 'Thursday' },
+    { value: 4, label: 'Friday' },
+    { value: 5, label: 'Saturday' },
+    { value: 6, label: 'Sunday' }
+  ];
+
   function firstAvailabilityForDay(isoDay: string) {
     const dayStart = new Date(`${isoDay}T00:00:00`).getTime();
     const dayEnd = new Date(`${isoDay}T23:59:59`).getTime();
 
-    return data.lifecycle.phaseFive.activities.find((activity) => {
-      const activityStart = new Date(activity.startAt).getTime();
-      const activityEnd = new Date(activity.endAt).getTime();
+    return (data.lifecycle.personalService?.availabilitySlots ?? []).find((slot) => {
+      if (slot.held) {
+        return false;
+      }
 
-      return activityStart <= dayEnd && activityEnd >= dayStart;
+      const slotStart = new Date(slot.startAt).getTime();
+      const slotEnd = new Date(slot.endAt).getTime();
+      return slotStart <= dayEnd && slotEnd >= dayStart;
     });
   }
 
@@ -117,6 +139,7 @@
     return {
       enabled: settings?.enabled ?? true,
       requestMode: settings?.requestMode ?? 'calendar',
+      allowOffScheduleRequests: settings?.allowOffScheduleRequests ?? false,
       reason: ''
     };
   }
@@ -126,7 +149,8 @@
   ): ComparableRequestSettings {
     return {
       enabled: settings?.enabled ?? true,
-      requestMode: settings?.requestMode ?? 'calendar'
+      requestMode: settings?.requestMode ?? 'calendar',
+      allowOffScheduleRequests: settings?.allowOffScheduleRequests ?? false
     };
   }
 
@@ -134,7 +158,11 @@
     left: ComparableRequestSettings,
     right: ComparableRequestSettings
   ) {
-    return left.enabled === right.enabled && left.requestMode === right.requestMode;
+    return (
+      left.enabled === right.enabled &&
+      left.requestMode === right.requestMode &&
+      left.allowOffScheduleRequests === right.allowOffScheduleRequests
+    );
   }
 
   function historyItemByActivityId(activityId: string) {
@@ -185,6 +213,14 @@
     const slot = firstAvailabilityForDay(isoDay);
 
     if (!slot) {
+      if (!allowOffScheduleRequests) {
+        return;
+      }
+
+      selectedActivityId = '';
+      serviceRequestForm.scheduledAt = `${isoDay}T18:00`;
+      serviceRequestForm.endsAt = `${isoDay}T19:00`;
+      await openPersonalServiceRequestComposerForDay(isoDay);
       return;
     }
 
@@ -208,9 +244,9 @@
       return;
     }
 
-    const slot = activityById(activityId);
+    const slot = (data.lifecycle.personalService?.availabilitySlots ?? []).find((entry) => entry.id === activityId);
 
-    if (!slot) {
+    if (!slot || slot.held) {
       return;
     }
 
@@ -224,6 +260,26 @@
 
   function closePersonalActivityComposer() {
     showPersonalActivityComposer = false;
+    availabilityKind = 'one-off';
+  }
+
+  async function submitWeeklyRule() {
+    if (!weeklyStart || !weeklyEnd || weeklyEnd <= weeklyStart) {
+      return;
+    }
+
+    const timezone =
+      typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
+
+    await createAvailabilityRule({
+      weekday: weeklyWeekday,
+      startTime: weeklyStart,
+      endTime: weeklyEnd,
+      timezone: timezone || 'UTC',
+      note: weeklyNote
+    });
+    weeklyNote = '';
+    showPersonalActivityComposer = false;
   }
 
   function closePersonalServiceRequestComposer() {
@@ -234,8 +290,18 @@
   async function openDirectRequestComposer() {
     activeTab = 'live';
     selectedActivityId = '';
-    serviceRequestForm.scheduledAt = '';
-    serviceRequestForm.endsAt = '';
+    if (personalRequestMode === 'calendar') {
+      if (!serviceRequestForm.scheduledAt) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const isoDay = `${tomorrow.getFullYear()}-${`${tomorrow.getMonth() + 1}`.padStart(2, '0')}-${`${tomorrow.getDate()}`.padStart(2, '0')}`;
+        serviceRequestForm.scheduledAt = `${isoDay}T18:00`;
+        serviceRequestForm.endsAt = `${isoDay}T19:00`;
+      }
+    } else {
+      serviceRequestForm.scheduledAt = '';
+      serviceRequestForm.endsAt = '';
+    }
     await openPersonalServiceRequestComposer();
   }
 
@@ -295,7 +361,7 @@
       reason: '',
       enabled: requestSettingsForm.enabled,
       requestMode: requestSettingsForm.requestMode,
-      allowOffScheduleRequests: requestSettingsForm.requestMode === 'both'
+      allowOffScheduleRequests: requestSettingsForm.allowOffScheduleRequests
     });
 
     showRequestSettingsComposer = false;
@@ -309,9 +375,20 @@
   let requestSettingsForm: RequestSettingsForm = createRequestSettingsForm();
   let requestSettingsComposerElement: HTMLDivElement | null = null;
 
+  let availabilityKind: 'one-off' | 'weekly' = 'one-off';
+  let weeklyWeekday = 1;
+  let weeklyStart = '09:00';
+  let weeklyEnd = '12:00';
+  let weeklyNote = '';
+
   $: usesCalendar = data.lifecycle.personalService?.usesCalendar ?? true;
   $: personalRequestMode = data.lifecycle.personalService?.requestMode ?? 'calendar';
+  $: allowOffScheduleRequests = data.lifecycle.requestSystem?.settings.allowOffScheduleRequests ?? false;
+  $: availabilityRules = data.lifecycle.personalService?.availabilityRules ?? [];
   $: allowsDirectRequests = personalRequestMode === 'direct' || personalRequestMode === 'both';
+  $: showDirectRequestButton =
+    (data.lifecycle.requestSystem?.viewerCanSubmitRequests ?? false) &&
+    (allowsDirectRequests || allowOffScheduleRequests);
   $: requestScheduleRequired = data.lifecycle.requestSystem?.requiresSchedule ?? false;
   $: showRequestScheduleFields =
     requestScheduleRequired || !!serviceRequestForm.scheduledAt || !!selectedActivityId;
@@ -333,12 +410,26 @@
   $: selfPlannedHistory = data.lifecycle.phaseFive.history.filter(
     (item) => item.source === 'self-planned'
   );
-  $: calendarActivities = [
-    ...data.lifecycle.phaseFive.activities,
-    ...data.lifecycle.phaseFive.history
-      .filter((item) => item.historyState !== 'request-only' && item.activity.statusTone === 'green')
-      .map((item) => item.activity)
-  ];
+  $: calendarActivities = (data.lifecycle.personalService?.availabilitySlots ?? [])
+    .filter((slot) => data.lifecycle.phaseFive.viewerCanCreateActivities || !slot.held)
+    .map((slot) => ({
+    id: slot.id,
+    title: slot.held ? `${slot.title} (taken)` : slot.title,
+    authorUsername: data.authorUsername,
+    scheduledAt: slot.scheduledAt,
+    startAt: slot.startAt,
+    endAt: slot.endAt,
+    isOnline: true,
+    locationLabel: data.locationLabel,
+    minimumParticipants: 0,
+    committedCount: slot.bookings.length,
+    viewerAssignedRoleLabel: null,
+    linkedPlanPhaseLabel: null,
+    statusTone: slot.statusTone === 'muted' ? 'yellow' : slot.statusTone,
+    roles: [],
+    note: slot.bookings.map((booking) => `@${booking.requesterUsername}`).join(', '),
+    isActive: !slot.held
+  }));
   $: currentRequestSettings = resolveRequestSettings(data.lifecycle.requestSystem?.settings);
   $: draftRequestSettings = resolveRequestSettings(requestSettingsForm);
   $: requestSettingsChanged = !requestSettingsMatch(currentRequestSettings, draftRequestSettings);
@@ -361,8 +452,10 @@
   {#if usesCalendar}
     <ProjectActivityCalendarCard
       activities={calendarActivities}
-      canCreate={calendarCanCreate || (data.lifecycle.requestSystem?.viewerCanSubmitRequests ?? false)}
+      canCreate={calendarCanCreate}
       createActive={calendarCreateActive}
+      createButtonLabel="Add availability"
+      createAriaLabel="Add availability"
       selectedDayIso={calendarSelectedDayIso}
       selectedActivityId={selectedActivityId}
       daySelect={openCalendarComposerForDay}
@@ -370,9 +463,9 @@
       activitySelect={openCalendarComposerForActivity}
     />
 
-    {#if data.lifecycle.requestSystem?.viewerCanSubmitRequests && allowsDirectRequests && !requestScheduleRequired}
+    {#if showDirectRequestButton && usesCalendar}
       <div class="composer-actions request-action-row">
-        <button class="secondary-button" type="button" on:click={openDirectRequestComposer}>New direct request</button>
+        <button class="secondary-button" type="button" on:click={openDirectRequestComposer}>Direct request</button>
       </div>
     {/if}
   {:else}
@@ -486,7 +579,13 @@
                   <option value="both">Scheduled slots and message requests</option>
                 </select>
               </label>
-              <p class="field-help">Scheduled slots start from listed times. Message requests let people write in without choosing a listed slot.</p>
+              {#if requestSettingsForm.requestMode === 'calendar' || requestSettingsForm.requestMode === 'both'}
+                <label class="checkbox-row">
+                  <input bind:checked={requestSettingsForm.allowOffScheduleRequests} type="checkbox" />
+                  <span>Allow off-schedule requests</span>
+                </label>
+              {/if}
+              <p class="field-help">Scheduled slots start from listed times. Message requests let people write in without choosing a listed slot. Off-schedule requests can ask for a time that is not already listed.</p>
             {/if}
 
             {#if !requestSettingsChanged}
@@ -516,10 +615,11 @@
               <div>
                 <h3>Request service</h3>
                 <p>
+                  Sending a request opens a one-to-one chat with the creator in Messages.
                   {#if showRequestScheduleFields}
                     Start from the selected available time and add the details for the creator.
                   {:else}
-                    Describe what you need so the creator can review the request and reply in messages.
+                    Describe what you need so the creator can review the request and reply.
                   {/if}
                 </p>
               </div>
@@ -572,6 +672,15 @@
                         <button class="vote-chip" type="button" on:click={() => updateRequestStatus(request.id, 'accepted')}>
                           Accept
                         </button>
+                        {#if request.scheduledAt && request.endsAt}
+                          <button
+                            class="vote-chip"
+                            type="button"
+                            on:click={() => updateRequestStatus(request.id, 'accepted', true)}
+                          >
+                            Accept and mark slot taken
+                          </button>
+                        {/if}
                         <button
                           class="vote-chip negative"
                           type="button"
@@ -580,6 +689,9 @@
                           Decline
                         </button>
                       </div>
+                    {/if}
+                    {#if request.conversationId}
+                      <a class="conversation-link" href={`/messages?conversation=${request.conversationId}`}>Open conversation</a>
                     {/if}
                   </CollapsibleServiceRequestCard>
                 </div>
@@ -610,23 +722,81 @@
           <div class="request-header-row">
             <div>
               <h3>Add availability</h3>
-              <p>These slots are what other users can request.</p>
+              <p>One-off slots and weekly hours are what other people can request.</p>
             </div>
           </div>
-          <div class="number-grid">
-            <label>
-              <span class="field-inline-label">Start time</span>
-              <input bind:this={activityStartInputElement} bind:value={activityForm.scheduledAt} type="datetime-local" />
-            </label>
-            <label>
-              <span class="field-inline-label">Finish time</span>
-              <input bind:this={activityEndInputElement} bind:value={activityForm.endsAt} type="datetime-local" />
-            </label>
+          <div class="binary-row">
+            <button
+              class="vote-chip"
+              class:selected={availabilityKind === 'one-off'}
+              type="button"
+              on:click={() => (availabilityKind = 'one-off')}
+            >
+              One-off
+            </button>
+            <button
+              class="vote-chip"
+              class:selected={availabilityKind === 'weekly'}
+              type="button"
+              on:click={() => (availabilityKind = 'weekly')}
+            >
+              Weekly
+            </button>
           </div>
-          <div class="composer-actions">
-            <button class="secondary-button" type="button" on:click={closePersonalActivityComposer}>Cancel</button>
-            <button class="primary-button" type="button" on:click={submitActivity}>Add availability</button>
-          </div>
+          {#if availabilityKind === 'one-off'}
+            <div class="number-grid">
+              <label>
+                <span class="field-inline-label">Start time</span>
+                <input bind:this={activityStartInputElement} bind:value={activityForm.scheduledAt} type="datetime-local" />
+              </label>
+              <label>
+                <span class="field-inline-label">Finish time</span>
+                <input bind:this={activityEndInputElement} bind:value={activityForm.endsAt} type="datetime-local" />
+              </label>
+            </div>
+            <div class="composer-actions">
+              <button class="secondary-button" type="button" on:click={closePersonalActivityComposer}>Cancel</button>
+              <button class="primary-button" type="button" on:click={submitActivity}>Add availability</button>
+            </div>
+          {:else}
+            <label>
+              <span class="field-inline-label">Weekday</span>
+              <select bind:value={weeklyWeekday}>
+                {#each WEEKDAYS as day}
+                  <option value={day.value}>{day.label}</option>
+                {/each}
+              </select>
+            </label>
+            <div class="number-grid">
+              <label>
+                <span class="field-inline-label">Start</span>
+                <input bind:value={weeklyStart} type="time" />
+              </label>
+              <label>
+                <span class="field-inline-label">End</span>
+                <input bind:value={weeklyEnd} type="time" />
+              </label>
+            </div>
+            <input bind:value={weeklyNote} maxlength="120" placeholder="Optional note" />
+            <div class="composer-actions">
+              <button class="secondary-button" type="button" on:click={closePersonalActivityComposer}>Cancel</button>
+              <button class="primary-button" type="button" on:click={submitWeeklyRule}>Add weekly hours</button>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if data.lifecycle.phaseFive.viewerCanCreateActivities && availabilityRules.length > 0}
+        <div class="rules-list">
+          {#each availabilityRules as rule (rule.id)}
+            <div class="rule-row">
+              <span>{rule.weekdayLabel} {rule.startTime}–{rule.endTime} ({rule.timezone})</span>
+              {#if rule.note}
+                <span class="field-help">{rule.note}</span>
+              {/if}
+              <button class="text-button" type="button" on:click={() => deleteAvailabilityRule(rule.id)}>Remove</button>
+            </div>
+          {/each}
         </div>
       {/if}
 
@@ -923,6 +1093,42 @@
     border: 1px solid var(--panel-border);
     background: var(--panel);
     color: var(--text-soft);
+  }
+
+  .vote-chip.selected {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .rules-list,
+  .rule-row {
+    display: grid;
+    gap: 8px;
+  }
+
+  .rule-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .conversation-link,
+  .text-button {
+    color: var(--brand-strong);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .text-button {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
   }
 
   .secondary-button.active-toggle {

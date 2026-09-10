@@ -403,8 +403,43 @@ export interface AppAdapter {
   setProjectServiceRequestStatus(
     projectSlug: string,
     requestId: string,
-    status: ProjectServiceRequestStatus
+    status: ProjectServiceRequestStatus,
+    holdSlot?: boolean
   ): Promise<void>;
+  createProjectAvailabilityRule(
+    projectSlug: string,
+    input: {
+      weekday: number;
+      startTime: string;
+      endTime: string;
+      timezone?: string;
+      note?: string;
+    }
+  ): Promise<void>;
+  deleteProjectAvailabilityRule(projectSlug: string, ruleId: string): Promise<void>;
+  suggestProjectActivityRole(
+    projectSlug: string,
+    activityId: string,
+    roleId: string,
+    suggestedUserId: string
+  ): Promise<void>;
+  declineProjectActivityRoleSuggestion(
+    projectSlug: string,
+    activityId: string,
+    roleId: string
+  ): Promise<void>;
+  suggestEventActivityRole(
+    eventSlug: string,
+    activityId: string,
+    roleId: string,
+    suggestedUserId: string
+  ): Promise<void>;
+  declineEventActivityRoleSuggestion(
+    eventSlug: string,
+    activityId: string,
+    roleId: string
+  ): Promise<void>;
+  searchPeopleSuggestions(query: string): Promise<Array<{ id: string; username: string }>>;
   requestProjectServiceRequestSettingsChange(
     projectSlug: string,
     input: ProjectServiceRequestSettingsChangeInput

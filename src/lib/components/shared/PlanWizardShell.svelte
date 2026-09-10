@@ -12,6 +12,7 @@
 
   const dispatch = createEventDispatcher<{
     close: void;
+    dismiss: void;
     back: void;
     next: void;
   }>();
@@ -46,7 +47,7 @@
 
   function handleBackdropKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
-      dispatch('close');
+      dispatch('dismiss');
     }
   }
 </script>
@@ -57,7 +58,7 @@
     class="wizard-backdrop"
     class:compact
     role="presentation"
-    on:click|self={() => dispatch('close')}
+    on:click|self={() => dispatch('dismiss')}
     on:keydown={handleBackdropKeydown}
   >
     <div

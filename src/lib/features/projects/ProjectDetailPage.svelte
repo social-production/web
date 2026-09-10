@@ -161,8 +161,28 @@
     syncCompact();
     media.addEventListener('change', syncCompact);
 
+    // Keep phase/vote state fresh without manual reloads. Skips hidden tabs and
+    // moments where the viewer is typing into a composer.
+    const detailPoll = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+      const active = document.activeElement;
+      const typing =
+        active instanceof HTMLElement &&
+        (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+      if (typing) {
+        return;
+      }
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) {
+        return;
+      }
+      void invalidateProjectDetail(pageData.slug);
+    }, 45_000);
+
     return () => {
       media.removeEventListener('change', syncCompact);
+      window.clearInterval(detailPoll);
     };
   });
 

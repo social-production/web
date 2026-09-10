@@ -13,8 +13,7 @@
   export let selectedActivityId = '';
   export let canCreate = false;
   export let createActive = false;
-  export let createLabel = '';
-  export let createSubtitle = '';
+  export let createButtonLabel = 'Add activity';
   export let createAriaLabel = 'Add activity';
   export let daySelect: (isoDay: string, anchor?: CalendarInteractionAnchor) => void = () => {};
   export let activitySelect: (activityId: string, anchor?: CalendarInteractionAnchor) => void = () => {};
@@ -381,19 +380,10 @@
 
 {#if canCreate}
   <div class="create-row">
-    {#if createLabel || createSubtitle}
-      <div class="create-row-copy">
-        {#if createLabel}
-          <strong>{createLabel}</strong>
-        {/if}
-        {#if createSubtitle}
-          <span>{createSubtitle}</span>
-        {/if}
-      </div>
-    {/if}
     <RoundPlusButton
       action={(event) => createAction(event ? eventAnchor(event, event.currentTarget as HTMLElement) : undefined)}
       active={createActive}
+      label={createButtonLabel}
       ariaLabel={createAriaLabel}
       participationAction="propose-activity"
     />
@@ -411,30 +401,11 @@
     overflow-x: auto;
   }
 
-  .create-row,
-  .create-row-copy {
+  .create-row {
     display: flex;
     gap: 12px;
     align-items: center;
-  }
-
-  .create-row {
-    justify-content: space-between;
-  }
-
-  .create-row-copy {
-    flex-wrap: wrap;
-  }
-
-  .create-row-copy strong {
-    color: var(--text-main);
-    font-size: 14px;
-    font-weight: 700;
-  }
-
-  .create-row-copy span {
-    color: var(--text-soft);
-    font-size: 12px;
+    justify-content: flex-end;
   }
 
   .calendar-toolbar {

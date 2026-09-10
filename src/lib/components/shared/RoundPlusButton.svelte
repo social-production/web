@@ -1,35 +1,58 @@
 <script lang="ts">
   export let active = false;
+  export let label = '';
   export let ariaLabel = 'Add item';
   export let participationAction: string | undefined = undefined;
   export let action: (event?: MouseEvent) => unknown = () => {};
+
+  $: resolvedAriaLabel = label || ariaLabel;
 </script>
 
 <button
-  aria-label={ariaLabel}
+  aria-label={resolvedAriaLabel}
   aria-pressed={active}
   class:active
+  class:with-label={Boolean(label)}
   class="round-plus-button"
   data-participation-action={participationAction}
   type="button"
   on:click={(event) => action(event)}
 >
-  +
+  <span aria-hidden="true" class="plus-glyph">+</span>
+  {#if label}
+    <span class="plus-label">{label}</span>
+  {/if}
 </button>
 
 <style>
   .round-plus-button {
-    width: 40px;
     height: 40px;
+    min-width: 40px;
     border: 1px solid var(--panel-border);
     border-radius: 999px;
     background: var(--panel-strong);
     color: var(--text-main);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0;
+    transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  .round-plus-button.with-label {
+    padding: 0 14px 0 10px;
+  }
+
+  .plus-glyph {
     font-size: 24px;
     line-height: 1;
-    display: grid;
-    place-items: center;
-    transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  .plus-label {
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
   }
 
   .round-plus-button:hover,

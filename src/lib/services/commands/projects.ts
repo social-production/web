@@ -197,9 +197,38 @@ export function planProjectServiceRequest(
 export function setProjectServiceRequestStatus(
   projectSlug: string,
   requestId: string,
-  status: ProjectServiceRequestStatus
+  status: ProjectServiceRequestStatus,
+  holdSlot = false
 ) {
-  return currentAdapter.setProjectServiceRequestStatus(projectSlug, requestId, status);
+  return currentAdapter.setProjectServiceRequestStatus(projectSlug, requestId, status, holdSlot);
+}
+
+export function createProjectAvailabilityRule(
+  projectSlug: string,
+  input: { weekday: number; startTime: string; endTime: string; timezone?: string; note?: string }
+) {
+  return currentAdapter.createProjectAvailabilityRule(projectSlug, input);
+}
+
+export function deleteProjectAvailabilityRule(projectSlug: string, ruleId: string) {
+  return currentAdapter.deleteProjectAvailabilityRule(projectSlug, ruleId);
+}
+
+export function suggestProjectActivityRole(
+  projectSlug: string,
+  activityId: string,
+  roleId: string,
+  suggestedUserId: string
+) {
+  return currentAdapter.suggestProjectActivityRole(projectSlug, activityId, roleId, suggestedUserId);
+}
+
+export function declineProjectActivityRoleSuggestion(
+  projectSlug: string,
+  activityId: string,
+  roleId: string
+) {
+  return currentAdapter.declineProjectActivityRoleSuggestion(projectSlug, activityId, roleId);
 }
 
 export function requestProjectServiceRequestSettingsChange(

@@ -105,7 +105,6 @@
     {data}
     bind:showPlanComposer
     bind:planForm
-    {addPlanPhase}
     {submitPlan}
     {targetedPlanId}
     {autoAssess}

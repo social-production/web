@@ -2,6 +2,7 @@
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import type { ProjectActivityItem, ProjectActivityRole } from '$lib/types/detail';
   import { formatLocalDateTimeRange } from '$lib/utils/time';
+  import { searchPeopleSuggestions } from '$lib/services/queries/account';
 
   export let activity: ProjectActivityItem;
   export let expanded = false;
@@ -13,8 +14,15 @@
   export let historyRatingSummary: string | null = null;
   export let historyRatingMuted = false;
   export let changecommitment: (activityId: string, roleLabel: string | null) => void = () => {};
+  export let viewerCanSuggest = false;
+  export let onSuggestRole: (activityId: string, roleId: string, userId: string) => void | Promise<void> = () => {};
+  export let onDeclineRoleSuggestion: (activityId: string, roleId: string) => void | Promise<void> = () => {};
 
   let openAssigneeRole: string | null = null;
+  let suggestRoleId: string | null = null;
+  let suggestQuery = '';
+  let suggestResults: Array<{ id: string; username: string }> = [];
+  let suggestTimer: ReturnType<typeof setTimeout> | null = null;
 
   function timeLabel() {
     return formatLocalDateTimeRange(activity.startAt, activity.endAt);
@@ -48,9 +56,38 @@
     openAssigneeRole = null;
   }
 
+  function handleSuggestQuery(roleId: string, value: string) {
+    suggestRoleId = roleId;
+    suggestQuery = value;
+    if (suggestTimer) {
+      clearTimeout(suggestTimer);
+    }
+    if (!value.trim()) {
+      suggestResults = [];
+      return;
+    }
+    suggestTimer = setTimeout(() => {
+      void searchPeopleSuggestions(value.trim()).then((items) => {
+        suggestResults = items;
+      });
+    }, 200);
+  }
+
   let open = expanded;
 
-  $: resolvedBadgeLabel = badgeLabel ?? (activity.rolesLocked ? 'Ended' : activity.isActive ? 'Active' : 'Pending roles');
+  $: neededParticipants = Math.max(
+    0,
+    (activity.minimumParticipants ?? 0) - (activity.committedCount ?? 0)
+  );
+  $: resolvedBadgeLabel =
+    badgeLabel ??
+    (activity.rolesLocked
+      ? 'Ended'
+      : activity.isActive
+        ? 'Active'
+        : neededParticipants > 0
+          ? `Needs ${neededParticipants} more`
+          : 'Pending roles');
   $: resolvedBadgeClass = badgeClass ?? (activity.rolesLocked ? 'locked' : activity.isActive ? 'complete' : 'upcoming');
   $: hasOpenRolesForViewer =
     !readOnly &&
@@ -273,6 +310,41 @@
                     · Maximum {role.maximumCount}
                   {/if}
                 </span>
+                {#if role.suggestedUser}
+                  <span class="suggested-chip">suggested: @{role.suggestedUser.username}</span>
+                  {#if role.isViewerSuggested && role.id}
+                    <button class="text-button" type="button" on:click={() => onDeclineRoleSuggestion(activity.id, role.id ?? '')}>
+                      Decline
+                    </button>
+                  {/if}
+                {:else if viewerCanSuggest && role.id && !role.isViewerAssigned}
+                  <button class="text-button" type="button" on:click={() => (suggestRoleId = role.id ?? null)}>
+                    Suggest someone
+                  </button>
+                  {#if suggestRoleId === role.id}
+                    <input
+                      placeholder="Search username"
+                      type="text"
+                      value={suggestQuery}
+                      on:input={(event) =>
+                        handleSuggestQuery(role.id ?? '', (event.currentTarget as HTMLInputElement).value)}
+                    />
+                    {#each suggestResults as person}
+                      <button
+                        class="text-button"
+                        type="button"
+                        on:click={() => {
+                          void onSuggestRole(activity.id, role.id ?? '', person.id);
+                          suggestRoleId = null;
+                          suggestQuery = '';
+                          suggestResults = [];
+                        }}
+                      >
+                        @{person.username}
+                      </button>
+                    {/each}
+                  {/if}
+                {/if}
                 {#if !readOnly && activity.rolesLocked}
                   <span class="roles-locked-copy">Roles locked — activity ended</span>
                 {:else if !readOnly}
@@ -568,6 +640,24 @@
     background: var(--panel-strong);
     color: var(--text-soft);
     font-size: 11px;
+    font-weight: 700;
+  }
+
+  .suggested-chip {
+    display: inline-flex;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--brand-soft) 70%, var(--panel));
+    color: var(--brand-strong);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .text-button {
+    border: 0;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 12px;
     font-weight: 700;
   }
 

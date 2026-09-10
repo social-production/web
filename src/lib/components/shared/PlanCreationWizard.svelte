@@ -24,11 +24,10 @@
   export let productionPlanLocation: { locationId: string | null; locationLabel: string } | null = null;
   export let signalSummary: GovernanceSignalSummary | null = null;
   export let signalCount: number | null = null;
-  export let addPlanPhase: () => void = () => {};
-  export let addMaterial: (phaseIndex: number) => void = () => {};
-  export let removeMaterial: (phaseIndex: number, materialIndex: number) => void = () => {};
   export let onSubmit: () => void | Promise<void> = () => {};
   export let onCancel: () => void = () => {};
+  /** Backdrop click / Escape: hide the wizard but keep the draft and current step. */
+  export let onDismiss: () => void = () => onCancel();
 
   let stepIndex = 0;
 
@@ -39,7 +38,20 @@
     return value.displayLabel;
   }
 
+  function seedValuesNoteFromForm() {
+    if ((form.valuesNote ?? '').trim()) {
+      return;
+    }
+    const existing = Object.values(form.valueConsiderationNotes ?? {}).find((note) =>
+      (note ?? '').trim()
+    );
+    if (existing) {
+      form = { ...form, valuesNote: existing };
+    }
+  }
+
   function seedPickersFromForm() {
+    seedValuesNoteFromForm();
     if (form.locationIsOnline || (form.locationLabel ?? '').trim().toLowerCase() === 'online') {
       locationPickerValue = onlineLocationPickerValue(form.locationLabel || 'Online');
     } else if (form.locationId || form.locationLabel) {
@@ -158,17 +170,18 @@
     distributionLocationPickerValue = emptyLocationPickerValue();
   }
 
-  function valueNote(valueId: string) {
-    return form.valueConsiderationNotes?.[valueId] ?? '';
-  }
-
-  function updateValueNote(valueId: string, note: string) {
+  /** Fan the combined values note out to every prominent value so assessors see it in context. */
+  function flushValuesNoteIntoForm() {
+    const valuesStep = steps.find((step) => step.type === 'values-note');
+    if (!valuesStep?.values) {
+      return;
+    }
+    const note = (form.valuesNote ?? '').trim();
     form = {
       ...form,
-      valueConsiderationNotes: {
-        ...(form.valueConsiderationNotes ?? {}),
-        [valueId]: note
-      }
+      valueConsiderationNotes: note
+        ? Object.fromEntries(valuesStep.values.map((value) => [value.id, note]))
+        : {}
     };
   }
 
@@ -214,13 +227,12 @@
         return !!target.startTimeLabel?.trim() && !!target.finishTimeLabel?.trim();
       case 'subtype':
         return !!target.projectSubtype;
-      case 'stage-title':
-        return !!target.planPhases[step.stageIndex ?? 0]?.title.trim();
-      case 'stage-details':
-        return !!target.planPhases[step.stageIndex ?? 0]?.details.trim();
-      case 'stage-materials':
-        return true;
-      case 'value-note':
+      case 'stages':
+        return (
+          target.planPhases.length > 0 &&
+          target.planPhases.every((phase) => phase.title.trim() && phase.details.trim())
+        );
+      case 'values-note':
       case 'request-settings':
       case 'review':
         return true;
@@ -264,7 +276,12 @@
 
     if (isReviewStep) {
       flushLocationIntoForm();
+      flushValuesNoteIntoForm();
       await onSubmit();
+      if (!open) {
+        // Parent accepted the submission and closed the wizard.
+        stepIndex = 0;
+      }
       return;
     }
 
@@ -280,6 +297,11 @@
   function handleClose() {
     stepIndex = 0;
     onCancel();
+  }
+
+  function handleDismiss() {
+    // Keep the draft and step so reopening resumes where the author left off.
+    onDismiss();
   }
 
   function goToStep(stepId: string) {
@@ -310,22 +332,61 @@
   }
 
   $: includesRequestSettingsStep = steps.some((step) => step.type === 'request-settings');
-  $: prominentValuesFromSteps = steps
-    .filter((step) => step.type === 'value-note' && step.valueId)
-    .map((step) => ({ id: step.valueId as string, label: step.valueLabel ?? 'Shared value' }));
+  $: valuesStep = steps.find((step) => step.type === 'values-note') ?? null;
 
-  function prominentValueNotes() {
-    return prominentValuesFromSteps.map((entry) => ({
-      ...entry,
-      note: form.valueConsiderationNotes?.[entry.id] ?? ''
-    }));
+  // Steps can shrink while the wizard is closed (e.g. values change); keep the index valid.
+  $: if (visibleSteps.length > 0 && stepIndex >= visibleSteps.length) {
+    stepIndex = visibleSteps.length - 1;
   }
-  $: if (!open) {
-    stepIndex = 0;
+
+  function addStage() {
+    form = {
+      ...form,
+      planPhases: [...form.planPhases, { title: '', details: '', materials: [] }]
+    };
+  }
+
+  function removeStage(index: number) {
+    if (form.planPhases.length <= 1) {
+      return;
+    }
+    form = {
+      ...form,
+      planPhases: form.planPhases.filter((_, phaseIndex) => phaseIndex !== index)
+    };
+  }
+
+  function moveStage(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= form.planPhases.length) {
+      return;
+    }
+    const next = [...form.planPhases];
+    const [moved] = next.splice(index, 1);
+    next.splice(target, 0, moved);
+    form = { ...form, planPhases: next };
   }
 
   function materialsForPhase(stageIndex: number) {
     return form.planPhases[stageIndex]?.materials ?? [];
+  }
+
+  function addMaterial(stageIndex: number) {
+    const phase = form.planPhases[stageIndex];
+    if (!phase) {
+      return;
+    }
+    phase.materials = [...(phase.materials ?? []), ''];
+    form = { ...form, planPhases: [...form.planPhases] };
+  }
+
+  function removeMaterial(stageIndex: number, materialIndex: number) {
+    const phase = form.planPhases[stageIndex];
+    if (!phase) {
+      return;
+    }
+    phase.materials = (phase.materials ?? []).filter((_, index) => index !== materialIndex);
+    form = { ...form, planPhases: [...form.planPhases] };
   }
 
   function updateMaterial(stageIndex: number, materialIndex: number, value: string) {
@@ -350,6 +411,7 @@
   {canGoBack}
   {canGoNext}
   on:close={handleClose}
+  on:dismiss={handleDismiss}
   on:back={handleBack}
   on:next={handleNext}
 >
@@ -413,12 +475,18 @@
           </div>
         {/if}
         <textarea bind:value={form.demandConsiderationNote} rows="5" placeholder="Explain how this plan responds to demand"></textarea>
-      {:else if currentStep.type === 'value-note' && currentStep.valueId}
+      {:else if currentStep.type === 'values-note'}
+        {#if currentStep.values?.length}
+          <div class="value-chip-row" aria-label="Most important shared values">
+            {#each currentStep.values as value}
+              <span class="value-chip">{value.label}</span>
+            {/each}
+          </div>
+        {/if}
         <textarea
-          rows="4"
-          value={valueNote(currentStep.valueId)}
-          on:input={(event) => updateValueNote(currentStep.valueId ?? '', (event.currentTarget as HTMLTextAreaElement).value)}
-          placeholder="Optional explanation for this value"
+          bind:value={form.valuesNote}
+          rows="5"
+          placeholder="Optional: one short note on how this plan serves these values"
         ></textarea>
       {:else if currentStep.type === 'schedule-mode'}
         <select bind:value={form.scheduleMode}>
@@ -515,24 +583,56 @@
             <span>Allow off-schedule requests</span>
           </label>
         </div>
-      {:else if currentStep.type === 'stage-title' && currentStep.stageIndex != null}
-        <input bind:value={form.planPhases[currentStep.stageIndex].title} maxlength="120" placeholder="Stage title" />
-      {:else if currentStep.type === 'stage-details' && currentStep.stageIndex != null}
-        <textarea bind:value={form.planPhases[currentStep.stageIndex].details} rows="5" placeholder="Stage details"></textarea>
-      {:else if currentStep.type === 'stage-materials' && currentStep.stageIndex != null}
-        <div class="materials-stack">
-          {#each materialsForPhase(currentStep.stageIndex) as material, materialIndex}
-            <div class="material-row">
-              <input
-                value={material}
-                placeholder="Material or resource"
-                on:input={(event) =>
-                  updateMaterial(currentStep.stageIndex ?? 0, materialIndex, (event.currentTarget as HTMLInputElement).value)}
-              />
-              <button class="secondary-button" type="button" on:click={() => removeMaterial(currentStep.stageIndex ?? 0, materialIndex)}>Remove</button>
+      {:else if currentStep.type === 'stages'}
+        <div class="stages-stack">
+          {#each form.planPhases as phase, stageIndex (stageIndex)}
+            <div class="stage-editor">
+              <div class="stage-editor-head">
+                <strong>Stage {stageIndex + 1}</strong>
+                <div class="stage-editor-actions">
+                  <button
+                    aria-label={`Move stage ${stageIndex + 1} up`}
+                    class="icon-button"
+                    disabled={stageIndex === 0}
+                    type="button"
+                    on:click={() => moveStage(stageIndex, -1)}
+                  >↑</button>
+                  <button
+                    aria-label={`Move stage ${stageIndex + 1} down`}
+                    class="icon-button"
+                    disabled={stageIndex === form.planPhases.length - 1}
+                    type="button"
+                    on:click={() => moveStage(stageIndex, 1)}
+                  >↓</button>
+                  <button
+                    class="text-button danger"
+                    disabled={form.planPhases.length <= 1}
+                    type="button"
+                    on:click={() => removeStage(stageIndex)}
+                  >Remove</button>
+                </div>
+              </div>
+              <input bind:value={phase.title} maxlength="120" placeholder="Stage title" />
+              <textarea bind:value={phase.details} rows="3" placeholder="What happens in this stage?"></textarea>
+              {#if currentStep.includeMaterials}
+                <div class="materials-stack">
+                  {#each materialsForPhase(stageIndex) as material, materialIndex}
+                    <div class="material-row">
+                      <input
+                        value={material}
+                        placeholder="Material or resource"
+                        on:input={(event) =>
+                          updateMaterial(stageIndex, materialIndex, (event.currentTarget as HTMLInputElement).value)}
+                      />
+                      <button class="secondary-button" type="button" on:click={() => removeMaterial(stageIndex, materialIndex)}>Remove</button>
+                    </div>
+                  {/each}
+                  <button class="secondary-button" type="button" on:click={() => addMaterial(stageIndex)}>Add material</button>
+                </div>
+              {/if}
             </div>
           {/each}
-          <button class="secondary-button" type="button" on:click={() => addMaterial(currentStep.stageIndex ?? 0)}>Add material</button>
+          <button class="secondary-button" type="button" on:click={addStage}>Add stage</button>
         </div>
       {:else if currentStep.type === 'review'}
         <div class="review-stack">
@@ -608,15 +708,15 @@
             </div>
             <button class="text-button" type="button" on:click={() => goToStep('demand-note')}>Edit</button>
           </div>
-          {#each prominentValueNotes() as entry}
+          {#if valuesStep}
             <div class="review-row">
               <div class="review-copy">
-                <strong>Value: {entry.label}</strong>
-                <span>{entry.note || 'No note added'}</span>
+                <strong>Shared values</strong>
+                <span>{form.valuesNote?.trim() || 'No note added'}</span>
               </div>
-              <button class="text-button" type="button" on:click={() => goToStep(`value-note-${entry.id}`)}>Edit</button>
+              <button class="text-button" type="button" on:click={() => goToStep('values-note')}>Edit</button>
             </div>
-          {/each}
+          {/if}
           {#each form.planPhases as phase, index}
             <div class="review-stage">
               <div class="review-row">
@@ -627,11 +727,10 @@
                     <span class="materials-copy">{phase.materials.filter(Boolean).join(', ')}</span>
                   {/if}
                 </div>
-                <button class="text-button" type="button" on:click={() => goToStep(`stage-${index}-title`)}>Edit</button>
+                <button class="text-button" type="button" on:click={() => goToStep('stages')}>Edit</button>
               </div>
             </div>
           {/each}
-          <button class="secondary-button" type="button" on:click={addPlanPhase}>Add another stage</button>
         </div>
       {/if}
     </div>
@@ -763,6 +862,79 @@
   .review-stage {
     display: grid;
     gap: 0;
+  }
+
+  .value-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .value-chip {
+    padding: 4px 10px;
+    border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--panel-border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--brand-soft) 45%, var(--panel-strong));
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .stages-stack {
+    display: grid;
+    gap: 14px;
+  }
+
+  .stage-editor {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--panel-strong) 60%, var(--panel));
+  }
+
+  .stage-editor-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .stage-editor-head strong {
+    font-size: 13px;
+    color: var(--text-main);
+  }
+
+  .stage-editor-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .icon-button {
+    min-width: 28px;
+    min-height: 28px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+    color: var(--text-main);
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .icon-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .text-button.danger {
+    color: var(--tablet-community-text, #b91c1c);
+  }
+
+  .text-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .text-button {

@@ -43,15 +43,33 @@
     open = true;
   }
 
+  // Optimistic mirror of ratings/votes cast in the wizard so the action bar updates
+  // immediately instead of waiting for the detail invalidate to land.
+  let localRatings: Record<string, PlanCriterionRating | null> = {};
+  let localOverallVote: 'yes' | 'no' | null | undefined = undefined;
+  let lastPlanId = plan.id;
+
+  $: if (plan.id !== lastPlanId) {
+    lastPlanId = plan.id;
+    localRatings = {};
+    localOverallVote = undefined;
+  }
+
   $: scheduleLabel = 'schedule' in plan ? formatEventPlanSchedule(plan.schedule) : '';
   $: valueNotes = plan.valueConsiderationNotes ?? {};
-  $: criteria = plan.criterionAssessments ?? [];
+  $: criteria = (plan.criterionAssessments ?? []).map((entry) =>
+    Object.prototype.hasOwnProperty.call(localRatings, entry.criterionId)
+      ? { ...entry, activeRating: localRatings[entry.criterionId] ?? null }
+      : entry
+  );
+  $: effectiveOverallVote =
+    localOverallVote !== undefined ? localOverallVote : plan.overallApproval.activeVote;
   $: authorValueCommentaryEntries = Object.entries(valueNotes)
     .filter(([, note]) => note?.trim())
     .map(([valueId, note]) => ({ valueId, note: note.trim() }));
   $: allCriteriaComplete = allCriteriaRated(criteria);
   $: ratedCount = criteria.filter((entry) => entry.activeRating != null).length;
-  $: hasCompletedAssessment = allCriteriaComplete && plan.overallApproval.activeVote != null;
+  $: hasCompletedAssessment = allCriteriaComplete && effectiveOverallVote != null;
   $: pendingCriterionCount = criteria.length - ratedCount;
 
   $: if (!autoOpenAssessment && !assessmentOpen) {
@@ -86,10 +104,12 @@
   }
 
   async function handleCriterionRate(criterionId: string, rating: PlanCriterionRating | null) {
+    localRatings = { ...localRatings, [criterionId]: rating };
     await criterionvote(plan.id, criterionId, rating);
   }
 
   async function handleOverallVote(vote: 'yes' | 'no' | null) {
+    localOverallVote = vote;
     await overallvote(plan.id, vote);
   }
 
@@ -211,7 +231,7 @@
           <button class="primary-button" type="button" data-participation-action="assess-plan" on:click={() => openAssessmentWizard()}>
             {pendingCriterionCount > 0 ? `Assess plan (${pendingCriterionCount} left)` : 'Finish approval'}
           </button>
-        {:else if plan.overallApproval.activeVote == null}
+        {:else if effectiveOverallVote == null}
           <button
             class="primary-button"
             type="button"
@@ -248,7 +268,7 @@
         {canVote}
         {initialCriterionId}
         {openAtOverallStep}
-        overallActiveVote={plan.overallApproval.activeVote}
+        overallActiveVote={effectiveOverallVote}
         onRate={handleCriterionRate}
         onOverallVote={handleOverallVote}
         onClose={closeAssessmentWizard}

@@ -232,7 +232,7 @@
       </button>
     {/if}
     {#if canProposeUpdate}
-      <RoundPlusButton active={showUpdateComposer} ariaLabel="Add update" action={toggleComposer} />
+      <RoundPlusButton active={showUpdateComposer} label="Add update" action={toggleComposer} />
     {/if}
   </div>
 

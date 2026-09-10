@@ -20,7 +20,11 @@
   import type { BootstrapPayload, RightRailActivityItem } from '$lib/types/bootstrap';
   import type { SearchResultItem } from '$lib/types/search';
   import { countActionableRailItems } from '$lib/utils/activityRailCounts';
-  import { getActivityRail, activityRailRefreshNonce } from '$lib/services/queries/bootstrap';
+  import {
+    getActivityRail,
+    activityRailRefreshNonce,
+    requestActivityRailRefresh
+  } from '$lib/services/queries/bootstrap';
   import {
     dismissedRailRevision,
     dismissedRailStorageKey,
@@ -271,6 +275,7 @@
       ) {
         lastBadgeRefreshAt = now;
         void refreshUnreadCounts();
+        requestActivityRailRefresh();
       }
     };
 
@@ -677,7 +682,6 @@
           aria-label="Open schedule and votes"
           aria-expanded={rightRailOpen}
           class="panel-toggle panel-toggle-right"
-          class:panel-toggle-actionable={rightRailActionCount > 0}
           data-active={rightRailOpen}
           type="button"
           on:click={toggleRightRail}
@@ -1138,12 +1142,6 @@
     height: 20px;
   }
 
-  .panel-toggle-actionable:not([data-active='true']) {
-    border-color: color-mix(in srgb, var(--brand) 55%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 45%, transparent);
-    color: var(--brand-strong);
-  }
-
   .panel-toggle-badge {
     position: absolute;
     top: -5px;
@@ -1164,11 +1162,6 @@
   }
 
   .panel-toggle[data-active='true'] {
-    background: var(--panel-strong);
-    color: var(--brand);
-  }
-
-  .panel-toggle-map[data-active='true'] {
     border-color: var(--brand);
     background: color-mix(in srgb, var(--brand-soft) 65%, var(--panel-strong));
     color: var(--brand-strong);

@@ -56,7 +56,6 @@
     bind:form
     bind:showComposer
     {submitLabel}
-    {addPlanPhase}
     {submitPlan}
     {editingPlanId}
     {startEditingPlan}

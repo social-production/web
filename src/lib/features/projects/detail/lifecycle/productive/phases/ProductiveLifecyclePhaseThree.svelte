@@ -50,7 +50,6 @@
   bind:form
   bind:showComposer
   {submitLabel}
-  {addPlanPhase}
   {submitPlan}
   {isExpandedPlan}
   {autoAssessPlanId}

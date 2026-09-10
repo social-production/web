@@ -21,6 +21,10 @@ export function getFollowRequests() {
   return currentAdapter.getFollowRequests();
 }
 
+export function searchPeopleSuggestions(query: string) {
+  return currentAdapter.searchPeopleSuggestions(query);
+}
+
 /** @deprecated Import mutations from `$lib/services/commands/account`. */
 export {
   signIn,

@@ -13,7 +13,6 @@ function threadLoadError(err: unknown, fallback: string): { thread: null; loadEr
 }
 
 export const load = (async ({ params, depends }) => {
-  depends('app:bootstrap');
   depends(`app:thread:${params.slug}`);
 
   try {

@@ -299,6 +299,7 @@ export interface ProjectActivityRoleInput {
   label: string;
   requiredCount: number;
   maximumCount?: number;
+  suggestedUserId?: string | null;
 }
 
 export interface ProjectProductionPlan {
@@ -417,11 +418,15 @@ export interface ProjectActivityAssignee {
 }
 
 export interface ProjectActivityRole {
+  id?: string;
   label: string;
   filledCount: number;
   requiredCount: number;
   maximumCount?: number;
   isViewerAssigned: boolean;
+  suggestedUser?: { id: string; username: string } | null;
+  suggestionStatus?: string | null;
+  isViewerSuggested?: boolean;
   assignees?: ProjectActivityAssignee[];
 }
 
@@ -613,6 +618,8 @@ export interface ProjectServiceHistoryItem {
 export interface ProjectActivityPlanPhaseOption {
   id: string;
   label: string;
+  planKind?: string;
+  planKindLabel?: string;
 }
 
 export interface ProjectServiceRequestInput {
@@ -654,6 +661,7 @@ export interface ProjectServiceRequestItem {
   scheduledAt?: string;
   endsAt?: string;
   linkedActivityId?: string | null;
+  conversationId?: string | null;
 }
 
 export interface ProjectServiceRequestSettingsChangeRequest {
@@ -1270,11 +1278,37 @@ export interface ProjectServiceRequestState {
   settingsChangeRequests: ProjectServiceRequestSettingsChangeRequest[];
 }
 
+export interface PersonalServiceAvailabilityRule {
+  id: string;
+  weekday: number;
+  weekdayLabel: string;
+  startTime: string;
+  endTime: string;
+  timezone: string;
+  startsOn?: string | null;
+  endsOn?: string | null;
+  note: string;
+}
+
+export interface PersonalServiceAvailabilitySlot {
+  id: string;
+  source: 'rule' | 'activity';
+  title: string;
+  startAt: string;
+  endAt: string;
+  scheduledAt: string;
+  held: boolean;
+  bookings: Array<{ requestId: string; requesterUsername: string; title: string }>;
+  statusTone: 'red' | 'yellow' | 'green' | 'muted';
+}
+
 export interface PersonalServiceLifecycleData {
   availabilitySummary: string;
   travelRadiusLabel?: string;
   usesCalendar: boolean;
   requestMode?: 'calendar' | 'direct' | 'both';
+  availabilityRules?: PersonalServiceAvailabilityRule[];
+  availabilitySlots?: PersonalServiceAvailabilitySlot[];
 }
 
 export interface ProjectLifecyclePhase {

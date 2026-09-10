@@ -436,14 +436,14 @@
     await addEventValue(data.slug, draftValue);
     draftValue = '';
     showValueComposer = false;
-    void invalidateEventDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateEventDetail(data.slug);
   }
 
   async function voteOnValue(valueId: string, vote: ProjectImportanceVoteValue) {
     await setEventValueImportance(data.slug, valueId, vote);
-    void invalidateEventDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateEventDetail(data.slug);
   }
 
   function addPlanPhase() {
@@ -487,8 +487,8 @@
 
     resetPlanForm();
     showPlanComposer = false;
-    void invalidateEventDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateEventDetail(data.slug);
   }
 
   async function ratePlanCriterion(
@@ -497,14 +497,14 @@
     rating: import('$lib/types/detail').PlanCriterionRating | null
   ) {
     await setEventPlanCriterionRating(data.slug, planId, criterionId, rating);
-    void invalidateEventDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateEventDetail(data.slug);
   }
 
   async function voteOnPlanOverall(planId: string, vote: ProjectApprovalVote | null) {
     await setEventPlanOverallVote(data.slug, planId, vote);
-    void invalidateEventDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateEventDetail(data.slug);
   }
 
   async function openActivityComposerForDay(isoDay = selectedDayIso) {
@@ -575,14 +575,14 @@
     });
     resetActivityForm();
     showActivityComposer = false;
-    void invalidateEventDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateEventDetail(data.slug);
   }
 
   async function changeCommitment(activityId: string, roleLabel: string | null) {
     await setEventActivityCommitment(data.slug, activityId, roleLabel);
-    void invalidateEventDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateEventDetail(data.slug);
   }
 
   async function saveActivityRating(
@@ -591,14 +591,14 @@
     comment: string | null
   ) {
     await setEventActivityRating(data.slug, activityId, rating, comment);
-    void invalidateEventDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateEventDetail(data.slug);
   }
 
   async function deleteActivityRating(activityId: string) {
     await deleteEventActivityRating(data.slug, activityId);
-    void invalidateEventDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateEventDetail(data.slug);
   }
 
   async function toggleHistoryCompletion(
@@ -607,8 +607,8 @@
     selection?: ProjectServiceHistoryCompletionChoice
   ) {
     await toggleEventHistoryCompletion(data.slug, historyId, role, selection);
-    void invalidateEventDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateEventDetail(data.slug);
   }
 
   async function requestPhaseChange(targetPhaseId: EventLifecyclePhaseId, reason: string) {
@@ -623,8 +623,8 @@
     try {
       await requestEventPhaseChange(data.slug, targetPhaseId, reason);
       phaseChangeReason = '';
-      void invalidateEventDetail(data.slug);
       requestActivityRailRefresh();
+      await invalidateEventDetail(data.slug);
     } catch {
       // Phase change failed — demand threshold may not be met
     }
@@ -635,8 +635,8 @@
     if (result?.passed && result.targetPhaseId) {
       onPhaseAdvanced(result.targetPhaseId as EventLifecyclePhaseId);
     }
-    void invalidateEventDetail(data.slug);
     requestActivityRailRefresh();
+    await invalidateEventDetail(data.slug);
   }
 </script>
 

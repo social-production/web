@@ -328,6 +328,7 @@ export async function fetchAddProjectActivity(
       label: r.label,
       required_count: r.requiredCount,
       maximum_count: r.maximumCount ?? null,
+      suggested_user_id: r.suggestedUserId ?? null,
     })),
     linked_plan_phase_id: input.linkedPlanPhaseId ?? null,
   });
@@ -468,9 +469,55 @@ export async function fetchAddProjectServiceRequest(
 export async function fetchSetProjectServiceRequestStatus(
   projectSlug: string,
   requestId: string,
-  status: ProjectServiceRequestStatus
+  status: ProjectServiceRequestStatus,
+  holdSlot = false
 ): Promise<void> {
-  await apiClient.patch(`/projects/${projectSlug}/service-requests/${requestId}`, { status });
+  await apiClient.patch(`/projects/${projectSlug}/service-requests/${requestId}`, {
+    status,
+    hold_slot: holdSlot
+  });
+}
+
+export async function fetchCreateProjectAvailabilityRule(
+  projectSlug: string,
+  input: { weekday: number; startTime: string; endTime: string; timezone?: string; note?: string }
+): Promise<void> {
+  await apiClient.post(`/projects/${projectSlug}/service-availability`, {
+    weekday: input.weekday,
+    start_time: input.startTime,
+    end_time: input.endTime,
+    timezone: input.timezone ?? 'UTC',
+    note: input.note ?? ''
+  });
+}
+
+export async function fetchDeleteProjectAvailabilityRule(
+  projectSlug: string,
+  ruleId: string
+): Promise<void> {
+  await apiClient.delete(`/projects/${projectSlug}/service-availability/${ruleId}`);
+}
+
+export async function fetchSuggestProjectActivityRole(
+  projectSlug: string,
+  activityId: string,
+  roleId: string,
+  suggestedUserId: string
+): Promise<void> {
+  await apiClient.post(
+    `/projects/${projectSlug}/activities/${activityId}/roles/${roleId}/suggest`,
+    { suggested_user_id: suggestedUserId }
+  );
+}
+
+export async function fetchDeclineProjectActivityRoleSuggestion(
+  projectSlug: string,
+  activityId: string,
+  roleId: string
+): Promise<void> {
+  await apiClient.post(
+    `/projects/${projectSlug}/activities/${activityId}/roles/${roleId}/suggestion/decline`
+  );
 }
 
 export async function fetchPlanProjectServiceRequest(

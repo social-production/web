@@ -346,6 +346,7 @@
     {canGoNext}
     {showFooter}
     on:close={handleClose}
+    on:dismiss={handleClose}
     on:back={handleBack}
     on:next={handleNext}
   >

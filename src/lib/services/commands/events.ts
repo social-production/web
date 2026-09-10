@@ -206,3 +206,20 @@ export function revokeEventEditAccess(eventSlug: string, userId: string) {
 export function shareEventWithUser(eventSlug: string, username: string) {
   return currentAdapter.shareEventWithUser(eventSlug, username);
 }
+
+export function suggestEventActivityRole(
+  eventSlug: string,
+  activityId: string,
+  roleId: string,
+  suggestedUserId: string
+) {
+  return currentAdapter.suggestEventActivityRole(eventSlug, activityId, roleId, suggestedUserId);
+}
+
+export function declineEventActivityRoleSuggestion(
+  eventSlug: string,
+  activityId: string,
+  roleId: string
+) {
+  return currentAdapter.declineEventActivityRoleSuggestion(eventSlug, activityId, roleId);
+}

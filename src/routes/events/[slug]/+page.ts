@@ -12,7 +12,6 @@ function eventLoadError(err: unknown, fallback: string): { event: null; loadErro
 }
 
 export const load = (async ({ params, depends }) => {
-  depends('app:bootstrap');
   depends(`app:event:${params.slug}`);
 
   try {

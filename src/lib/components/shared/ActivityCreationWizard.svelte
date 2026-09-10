@@ -25,7 +25,12 @@
   export let open = false;
   export let title = 'Create activity';
   export let form: ActivityCreationForm;
-  export let selectablePlanPhases: Array<{ id: string; label: string }> = [];
+  export let selectablePlanPhases: Array<{
+    id: string;
+    label: string;
+    planKind?: string;
+    planKindLabel?: string;
+  }> = [];
   export let scheduleBounds: ActivityScheduleBounds | null = null;
   export let locationQuickPicks: LocationQuickPick[] = [];
   export let submitLabel = 'Create activity';
@@ -78,6 +83,23 @@
   $: locationSummary = composeActivityLocationLabel(form);
   $: linkedStageLabel =
     selectablePlanPhases.find((stage) => stage.id === form.linkedPlanPhaseId)?.label ?? '—';
+  $: planStageGroups = (() => {
+    const groups: Array<{ key: string; label: string; stages: typeof selectablePlanPhases }> = [];
+    for (const stage of selectablePlanPhases) {
+      const key = stage.planKind ?? '';
+      const existing = groups.find((group) => group.key === key);
+      if (existing) {
+        existing.stages.push(stage);
+      } else {
+        groups.push({
+          key,
+          label: stage.planKindLabel ?? (key ? key : 'Stages'),
+          stages: [stage]
+        });
+      }
+    }
+    return groups;
+  })();
 
   function scheduleSummary() {
     if (!form.scheduledAt || !form.endsAt) {
@@ -133,6 +155,7 @@
   {canGoBack}
   {canGoNext}
   on:close={handleClose}
+  on:dismiss={handleClose}
   on:back={handleBack}
   on:next={handleNext}
 >
@@ -180,9 +203,19 @@
       {:else if currentStep.type === 'plan-stage'}
         <select bind:value={form.linkedPlanPhaseId}>
           <option value="" disabled>Choose stage</option>
-          {#each selectablePlanPhases as stage}
-            <option value={stage.id}>{stage.label}</option>
-          {/each}
+          {#if planStageGroups.length > 1 || planStageGroups[0]?.key}
+            {#each planStageGroups as group}
+              <optgroup label={group.label}>
+                {#each group.stages as stage}
+                  <option value={stage.id}>{stage.label}</option>
+                {/each}
+              </optgroup>
+            {/each}
+          {:else}
+            {#each selectablePlanPhases as stage}
+              <option value={stage.id}>{stage.label}</option>
+            {/each}
+          {/if}
         </select>
       {:else if currentStep.type === 'roles'}
         <ProjectActivityRolesEditor bind:roles={form.roleRequirements} />

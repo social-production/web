@@ -25,6 +25,7 @@
     projectSubtype?: ProjectSubtype;
     repositoryUrl?: string;
     demandConsiderationNote: string;
+    valuesNote?: string;
     valueConsiderationNotes?: Record<string, string>;
     planPhases: DraftPlanPhase[];
     requestSystemEnabled?: boolean;
@@ -44,7 +45,6 @@
   export let form: DraftPlanForm;
   export let showComposer = false;
   export let submitLabel = 'Submit plan';
-  export let addPlanPhase: () => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
   export let editingPlanId: string | null = null;
   export let startEditingPlan: (planId: string) => void | Promise<void> = () => {};
@@ -88,12 +88,12 @@
     : null;
   $: includePhysicalLocation = selectedSubtype !== 'software';
   $: creationSteps = isPhaseTwo
-    ? buildProjectProductionCreationSteps(prominentValues, form.planPhases.length, {
+    ? buildProjectProductionCreationSteps(prominentValues, {
         includeSubtype: true,
         includeRepository: selectedSubtype === 'software',
         includeLocation: includePhysicalLocation
       })
-    : buildProjectDistributionCreationSteps(prominentValues, form.planPhases.length, {
+    : buildProjectDistributionCreationSteps(prominentValues, {
         includeRequestSettings: collectiveService,
         includeDistributionLocation: includePhysicalLocation
       });
@@ -116,20 +116,6 @@
 
   function demandPlaceholder() {
     return 'Explain whether this plan meets the current demand signal. If it does not, explain the gap and why.';
-  }
-
-  function valueNote(valueId: string) {
-    return form.valueConsiderationNotes?.[valueId] ?? '';
-  }
-
-  function updateValueNote(valueId: string, note: string) {
-    form = {
-      ...form,
-      valueConsiderationNotes: {
-        ...(form.valueConsiderationNotes ?? {}),
-        [valueId]: note
-      }
-    };
   }
 
   function statusLabel(planId: string) {
@@ -162,27 +148,6 @@
     showComposer = !showComposer;
   }
 
-  function addMaterial(index: number) {
-    const target = form.planPhases[index];
-
-    if (!target) {
-      return;
-    }
-
-    target.materials = [...target.materials, ''];
-    form = { ...form };
-  }
-
-  function removeMaterial(phaseIndex: number, materialIndex: number) {
-    const target = form.planPhases[phaseIndex];
-
-    if (!target) {
-      return;
-    }
-
-    target.materials = target.materials.filter((_, index) => index !== materialIndex);
-    form = { ...form };
-  }
 </script>
 
 <section class="phase-surface">
@@ -190,7 +155,7 @@
     <div class="composer-toggle-row">
       <RoundPlusButton
         active={showComposer}
-        ariaLabel={editingPlanId ? 'Edit plan' : 'Add plan'}
+        label={editingPlanId ? 'Edit plan' : 'Add plan'}
         participationAction="submit-plan"
         action={toggleComposer}
       />
@@ -207,9 +172,6 @@
       {productionPlanLocation}
       signalSummary={data.lifecycle.phaseOne.signalSummary}
       signalCount={data.signalCount}
-      {addPlanPhase}
-      {addMaterial}
-      {removeMaterial}
       onSubmit={submitPlan}
       onCancel={() => {
         if (editingPlanId) {
@@ -217,6 +179,9 @@
         } else {
           showComposer = false;
         }
+      }}
+      onDismiss={() => {
+        showComposer = false;
       }}
     />
   {/if}

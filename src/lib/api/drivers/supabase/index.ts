@@ -405,6 +405,12 @@ export function createSupabaseDriver(): AppAdapter {
     async shareEventWithUser(slug, username) {
       return fetchShareEventWithUser(slug, username);
     },
+    async suggestEventActivityRole() {
+      return Promise.resolve();
+    },
+    async declineEventActivityRoleSuggestion() {
+      return Promise.resolve();
+    },
 
     async getProject(slug) {
       return fetchProject(slug);
@@ -489,6 +495,18 @@ export function createSupabaseDriver(): AppAdapter {
     },
     async setProjectServiceRequestStatus(slug, requestId, status) {
       return fetchSetProjectServiceRequestStatus(slug, requestId, status);
+    },
+    async createProjectAvailabilityRule() {
+      return Promise.resolve();
+    },
+    async deleteProjectAvailabilityRule() {
+      return Promise.resolve();
+    },
+    async suggestProjectActivityRole() {
+      return Promise.resolve();
+    },
+    async declineProjectActivityRoleSuggestion() {
+      return Promise.resolve();
     },
     async planProjectServiceRequest(slug, requestId, input) {
       return fetchPlanProjectServiceRequest(slug, requestId, input);
@@ -651,6 +669,9 @@ export function createSupabaseDriver(): AppAdapter {
     },
     async getFollowRequests() {
       return fetchFollowRequests();
+    },
+    async searchPeopleSuggestions() {
+      return [];
     },
     async searchLocations(query, limit = 5, options = {}) {
       return fetchLocationSearch(query, limit, options);

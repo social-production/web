@@ -50,8 +50,17 @@
   export let submitServiceRequest: () => void | Promise<void> = () => {};
   export let updateRequestStatus: (
     requestId: string,
-    status: ProjectServiceRequestStatus
+    status: ProjectServiceRequestStatus,
+    holdSlot?: boolean
   ) => void | Promise<void> = () => {};
+  export let createAvailabilityRule: (input: {
+    weekday: number;
+    startTime: string;
+    endTime: string;
+    timezone?: string;
+    note?: string;
+  }) => void | Promise<void> = () => {};
+  export let deleteAvailabilityRule: (ruleId: string) => void | Promise<void> = () => {};
   export let requestServiceRequestSettingsChange: (
     input: ProjectServiceRequestSettingsChangeInput
   ) => void | Promise<void> = () => {};
@@ -92,6 +101,8 @@
     {submitActivity}
     {submitServiceRequest}
     {updateRequestStatus}
+    {createAvailabilityRule}
+    {deleteAvailabilityRule}
     {requestServiceRequestSettingsChange}
     {voteOnRequestSettingsChange}
     {toggleHistoryCompletion}

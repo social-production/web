@@ -85,7 +85,7 @@
 <section class="phase-surface">
   {#if canSubmitPlans}
     <div class="composer-toggle-row">
-      <RoundPlusButton active={showComposer} ariaLabel="Add plan" participationAction="submit-plan" action={() => (showComposer = !showComposer)} />
+      <RoundPlusButton active={showComposer} label="Add plan" participationAction="submit-plan" action={() => (showComposer = !showComposer)} />
     </div>
 
     {#if showComposer}
