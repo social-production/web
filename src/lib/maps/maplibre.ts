@@ -1,8 +1,12 @@
 /**
  * MapLibre-backed map adapter implementing the shared MapAdapter contract.
  */
-import maplibregl from 'maplibre-gl';
-import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
+import {
+  Map as MapLibreMap,
+  Marker,
+  NavigationControl,
+  type GeoJSONSource
+} from 'maplibre-gl';
 import { circlePolygon, radiusBounds, viewportRadiusKm } from './geo';
 import type { MapAdapter, MapMarker, MapViewport, MapViewportChange } from './types';
 import { formatMarkerScheduleRange } from '$lib/utils/time';
@@ -644,7 +648,7 @@ export function createMapLibreAdapter(): MapAdapter {
         if (forceExpandedMarkerIds.has(item.id) || highlighted) {
           element.style.zIndex = String(40 + stackIndex);
         }
-        const marker = new maplibregl.Marker({
+        const marker = new Marker({
           element,
           anchor: compact && !highlighted ? 'center' : 'bottom'
         })
@@ -728,13 +732,13 @@ export function createMapLibreAdapter(): MapAdapter {
           reject(new Error(message));
         };
 
-        map = new maplibregl.Map({
+        map = new MapLibreMap({
           container,
           style: DEFAULT_STYLE,
           center: [viewport.center.longitude, viewport.center.latitude],
           zoom: viewport.zoom
         });
-        map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right');
+        map.addControl(new NavigationControl({ visualizePitch: false }), 'top-right');
 
         map.once('load', finishOk);
 
@@ -835,7 +839,7 @@ export function createMapLibreAdapter(): MapAdapter {
         }
         ensureRadiusLayers();
         const polygon = circlePolygon(center.latitude, center.longitude, radiusKm);
-        const source = map.getSource(RADIUS_SOURCE_ID) as maplibregl.GeoJSONSource;
+        const source = map.getSource(RADIUS_SOURCE_ID) as GeoJSONSource;
         source?.setData({
           type: 'Feature',
           geometry: polygon,
@@ -848,7 +852,7 @@ export function createMapLibreAdapter(): MapAdapter {
       if (!map) {
         return;
       }
-      const source = map.getSource(RADIUS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+      const source = map.getSource(RADIUS_SOURCE_ID) as GeoJSONSource | undefined;
       source?.setData({ type: 'FeatureCollection', features: [] });
     },
 
@@ -860,7 +864,7 @@ export function createMapLibreAdapter(): MapAdapter {
       const element = document.createElement('div');
       element.className = 'sp-map-center-marker';
       element.setAttribute('aria-hidden', 'true');
-      centerMarker = new maplibregl.Marker({ element, anchor: 'bottom' })
+      centerMarker = new Marker({ element, anchor: 'bottom' })
         .setLngLat([center.longitude, center.latitude])
         .addTo(map);
     },
@@ -902,7 +906,7 @@ export function createMapLibreAdapter(): MapAdapter {
       clearMarkers();
       clearCenterMarker();
       if (map) {
-        const source = map.getSource(RADIUS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+        const source = map.getSource(RADIUS_SOURCE_ID) as GeoJSONSource | undefined;
         source?.setData({ type: 'FeatureCollection', features: [] });
       }
       map?.remove();
