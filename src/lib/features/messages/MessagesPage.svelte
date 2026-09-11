@@ -742,6 +742,14 @@
 
     activeConversationId = conversationId;
 
+    if (browser) {
+      void goto(`/messages?conversation=${encodeURIComponent(conversationId)}`, {
+        replaceState: true,
+        keepFocus: true,
+        noScroll: true
+      });
+    }
+
     if (unreadCount > 0) {
       await markConversationRead(conversationId, unreadCount);
       await refreshMessagesInbox();
@@ -1111,6 +1119,13 @@
     await invalidate('inbox:messages');
 
     if (activeConversationId) {
+      if (browser) {
+        await goto(`/messages?conversation=${encodeURIComponent(activeConversationId)}`, {
+          replaceState: true,
+          keepFocus: true,
+          noScroll: true
+        });
+      }
       await loadConversationMessages(activeConversationId);
     }
   }

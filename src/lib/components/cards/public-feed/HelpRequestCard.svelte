@@ -96,14 +96,15 @@
   }
 
   .header-row {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: space-between;
+    min-width: 0;
   }
 
   .chips {
     display: flex;
     gap: 0.5rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     flex: 1 1 auto;
     min-width: 0;
@@ -113,6 +114,7 @@
     margin-left: auto;
     flex: 0 1 auto;
     min-width: 0;
+    max-width: 48%;
   }
 
   .footer {

@@ -217,10 +217,47 @@
     }
   }
 
+  function commitCustomPhysical(label: string) {
+    const trimmed = label.trim();
+    if (!trimmed) {
+      return;
+    }
+    isEditing = false;
+    listOpen = false;
+    suggestions = [];
+    setValue({
+      ...value,
+      mode: 'physical',
+      displayLabel: trimmed,
+      locationId: null,
+      providerPlaceId: null,
+      latitude: null,
+      longitude: null,
+      region: null,
+      country: null,
+      isOnline: false
+    });
+  }
+
   function handleInput() {
     isEditing = true;
     listOpen = false;
     void runSearch(query);
+    const trimmed = query.trim();
+    if (value.mode === 'physical' && trimmed && !preserveCoordsWhileEditing) {
+      setValue({
+        ...value,
+        mode: 'physical',
+        displayLabel: trimmed,
+        locationId: null,
+        providerPlaceId: null,
+        latitude: null,
+        longitude: null,
+        region: null,
+        country: null,
+        isOnline: false
+      });
+    }
   }
 
   function handleBlur() {
@@ -306,22 +343,10 @@
       void selectSuggestion(suggestions[0]);
       return;
     }
-    // If suggestions just arrived / are still loading, wait for the search.
     const trimmed = query.trim();
-    if (trimmed.length >= 2) {
+    if (trimmed) {
       event.preventDefault();
-      void (async () => {
-        try {
-          const results = await searchLocations(trimmed, 8, { countryCodes, viewbox });
-          suggestions = results;
-          listOpen = results.length > 0;
-          if (results[0]) {
-            await selectSuggestion(results[0]);
-          }
-        } catch {
-          // Keep typed text; user can pick a suggestion when available.
-        }
-      })();
+      commitCustomPhysical(trimmed);
     }
   }
 
@@ -381,6 +406,11 @@
       {/if}
       {#if searchError}
         <p class="error" role="alert">{searchError}</p>
+      {/if}
+      {#if !compact && value.mode === 'physical' && query.trim() && query.trim() !== value.displayLabel.trim()}
+        <button class="use-typed-name" type="button" on:click={() => commitCustomPhysical(query)}>
+          Use “{query.trim()}” as the place name
+        </button>
       {/if}
       {#if listOpen && suggestions.length > 0}
         <ul
@@ -546,6 +576,18 @@
     margin: 4px 0 0;
     font-size: 12px;
     color: var(--danger, #c0392b);
+  }
+
+  .use-typed-name {
+    justify-self: start;
+    margin: 4px 0 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--brand-strong);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
   }
 
   .suggestions {

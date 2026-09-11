@@ -429,7 +429,7 @@
           {m.settings_remove_photo()}
         </button>
         <button class="button-primary" disabled={pendingKey === 'bio'} type="button" on:click={saveBio}>{m.settings_save_bio()}</button>
-        <button class="button-secondary" disabled={pendingKey === 'sign-out'} type="button" on:click={handleSignOut}>
+        <button class="button-danger" disabled={pendingKey === 'sign-out'} type="button" on:click={handleSignOut}>
           {pendingKey === 'sign-out' ? m.settings_signing_out() : m.settings_sign_out()}
         </button>
       </div>
@@ -771,6 +771,7 @@
 
   .button-primary,
   .button-secondary,
+  .button-danger,
   .toggle {
     border-radius: var(--radius-sm);
     font-weight: 700;
@@ -785,11 +786,18 @@
   }
 
   .button-secondary,
+  .button-danger,
   .toggle {
     padding: 8px 14px;
     border: 1px solid var(--panel-border);
     background: var(--panel-soft);
     color: var(--text-main);
+  }
+
+  .button-danger {
+    border-color: color-mix(in srgb, #b91c1c 50%, var(--panel-border));
+    background: color-mix(in srgb, #b91c1c 10%, var(--panel-soft));
+    color: #b91c1c;
   }
 
   .toggle.on {

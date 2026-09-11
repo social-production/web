@@ -431,10 +431,7 @@
       {#if activityItems.length === 0}
         <div class="snapshot-row">
           <strong>No activity yet</strong>
-          <span
-            >Tagged project activity, invites, and related events will appear here when they match
-            your memberships.</span
-          >
+          <span>Nothing scheduled in your memberships right now.</span>
         </div>
       {:else}
         {#each activityItems as item}
@@ -486,10 +483,7 @@
       {#if helpRequestItems.length === 0}
         <div class="snapshot-row">
           <strong>No help requests yet</strong>
-          <span
-            >Open requests in channels and communities you belong to, plus any you sign up for,
-            appear here.</span
-          >
+          <span>Open help in your memberships will show here.</span>
         </div>
       {:else}
         {#each helpRequestItems as item}
@@ -591,13 +585,13 @@
   </section>
 
   <section class="rail-section rail-section-votes">
-    <h2>Active Votes</h2>
+    <h2>Votes to cast</h2>
     <div class:snapshot-scroll={voteItems.length > 5} class="snapshot-stack">
       {#if voteItems.length === 0}
         <div class="snapshot-row">
-          <strong>No active votes</strong>
+          <strong>No votes waiting</strong>
           <span
-            >When your memberships have open decisions, they appear here for one-click voting.</span
+            >Open decisions you still need to cast appear here. Votes you already cast stay in History until they close.</span
           >
         </div>
       {:else}

@@ -11,7 +11,9 @@ const KIND_MAP: Record<string, SearchResultKind> = {
   channel: 'channel',
   community: 'community',
   user: 'profile',
-  profile: 'profile'
+  profile: 'profile',
+  help_request: 'help-request',
+  post: 'post'
 };
 
 export async function fetchSearch(

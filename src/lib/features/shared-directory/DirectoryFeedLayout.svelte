@@ -23,6 +23,7 @@
     normalizeFeedSort,
     normalizeFeedWindow
   } from '$lib/utils/feedQuery';
+  import { subscribeFeedToolbarLabels } from '$lib/utils/feedToolbarLabels';
 
   export let pageData: ScopePageData;
 
@@ -64,6 +65,7 @@
   let lastHydratedUrl = '';
   let isSyncingFeedUrl = false;
   let preferencesReady = false;
+  let showTriggerLabels = false;
   let showBoardPanel = false;
   let showInvitePanel = false;
   let membershipPending = false;
@@ -263,12 +265,18 @@
   }
 
   onMount(() => {
+    const stopToolbarLabels = subscribeFeedToolbarLabels((show) => {
+      showTriggerLabels = show;
+    });
     hydrateFromUrl();
     lastHydratedUrl = $page.url.search;
     preferencesReady = true;
     void syncFeedQueryToUrl();
     lastLoadedQuery = '';
     void loadFeedItems();
+    return () => {
+      stopToolbarLabels();
+    };
   });
 
   function meetsConfidenceThreshold(member: ScopeMemberSummary) {
@@ -391,6 +399,7 @@
           defaultValue="all"
           options={filterOptions}
           showOptionIcons
+          showTriggerLabel={showTriggerLabels}
           on:change={handleFeedQueryChange}
         >
           <FeedToolbarIcon name="filter" />
@@ -400,6 +409,7 @@
           bind:value={activeSort}
           ariaLabel={`Sort ${pageData.title} feed by`}
           options={sortOptions}
+          showTriggerLabel={showTriggerLabels}
           on:change={handleFeedQueryChange}
         >
           <FeedToolbarIcon name="sort" />
@@ -410,6 +420,7 @@
           ariaLabel={`${pageData.title} feed time window`}
           defaultValue="all"
           options={windowOptions}
+          showTriggerLabel={showTriggerLabels}
           on:change={handleFeedQueryChange}
         >
           <FeedToolbarIcon name="clock" />

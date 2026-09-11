@@ -6,13 +6,13 @@
     isCollectiveServiceProject,
     isPersonalServiceProject,
     projectSubjectLabel,
-    projectSubtypeLabel,
-    skipsDistributionPhase
+    projectSubtypeLabel
   } from '$lib/features/projects/projectMode';
   import {
     formatProjectVoteRequirement,
     formatProjectVoteSummary
   } from '$lib/utils/projectVotes';
+  import { projectPlanGateMessage } from '$lib/utils/participationSteps';
   import {
     phaseChangeDecisionTitle,
     resolveProjectPhaseChangeVoteKind
@@ -115,15 +115,7 @@
   );
   $: canDirectReturn = personalDirectPhaseChange && data.lifecycle.viewerCanRevertPhase;
   $: signalGatePasses = data.lifecycle.currentPhaseId !== 'phase-1' || (data.lifecycle.phaseOne?.signalSummary?.advancementUnlocked ?? false);
-  $: skipsDistribution = skipsDistributionPhase(data.projectMode, data.projectSubtype);
-  $: planGateMessage =
-    data.lifecycle.currentPhaseId === 'phase-2' && !data.lifecycle.phaseTwo.winningPlanId
-      ? 'This project needs an approved production or operations plan before it can advance.'
-      : data.lifecycle.currentPhaseId === 'phase-3' &&
-          !skipsDistribution &&
-          !data.lifecycle.phaseThree.winningPlanId
-        ? 'This project needs an approved distribution or access plan before it can advance.'
-        : '';
+  $: planGateMessage = projectPlanGateMessage(data);
   $: phaseGatePasses = signalGatePasses && !planGateMessage;
   $: if (phaseGatePasses) {
     nextPhaseMessage = '';

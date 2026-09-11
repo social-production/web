@@ -49,6 +49,10 @@
   <div class="create-fab-shell">
     {#if open}
       <div class="create-menu" role="menu" aria-label="Create">
+        <div class="create-menu-header">
+          <strong>Create</strong>
+          <button class="create-menu-close" type="button" on:click={closeMenu}>Close</button>
+        </div>
         <p class="menu-kicker">Content</p>
         {#each createContentLinks as link}
           <a class="create-menu-item" href={link.href} role="menuitem" on:click={handleNavigate}>
@@ -154,15 +158,38 @@
 
   .create-menu {
     width: min(86vw, 320px);
-    max-height: min(62vh, 480px);
-    overflow-y: auto;
+    overflow: hidden;
     display: grid;
-    gap: 4px;
+    gap: 2px;
     padding: 10px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
     box-shadow: 0 12px 32px color-mix(in srgb, var(--page-bg) 65%, transparent);
+  }
+
+  .create-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 8px 6px;
+  }
+
+  .create-menu-header strong {
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .create-menu-close {
+    padding: 4px 8px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
   }
 
   .menu-kicker {
@@ -183,9 +210,9 @@
 
   .create-menu-item {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
-    padding: 10px;
+    padding: 8px;
     border-radius: var(--radius-sm);
     color: var(--text-main);
     text-decoration: none;
@@ -210,8 +237,45 @@
 
   .item-description {
     font-size: 12px;
-    line-height: 1.4;
+    line-height: 1.3;
     color: var(--text-soft);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  @media (max-width: 1080px) {
+    .fab-backdrop {
+      background: color-mix(in srgb, var(--page-bg) 55%, transparent);
+    }
+
+    .create-fab-shell {
+      right: 0;
+      left: 0;
+      bottom: 0;
+      justify-items: stretch;
+      padding: 0;
+    }
+
+    .create-menu {
+      width: 100%;
+      max-height: none;
+      overflow: hidden;
+      padding: 12px 12px calc(var(--shell-bottom-nav-offset, 0px) + 72px);
+      border-radius: 16px 16px 0 0;
+      border-bottom: none;
+    }
+
+    .create-menu-item {
+      padding: 9px 8px;
+    }
+
+    .fab-button {
+      position: absolute;
+      right: 12px;
+      bottom: calc(var(--shell-bottom-nav-offset, 0px) + 12px);
+    }
   }
 
   @media (min-width: 1081px) {

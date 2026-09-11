@@ -648,10 +648,10 @@
     }
 
     if (phase.progressState === 'locked') {
-      return 'Upcoming';
+      return 'Locked';
     }
 
-    return 'Not unlocked yet';
+    return 'Upcoming';
   }
 
   function localDateTimeValue(date: Date) {

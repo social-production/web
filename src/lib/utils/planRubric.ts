@@ -110,32 +110,20 @@ export interface PlanCreationStep {
 }
 
 const SHARED_RUBRIC: PlanRubricCriterion[] = [
-  { id: 'rubric:title-clarity', kind: 'rubric', label: 'Is the title clear and specific?' },
   {
     id: 'rubric:description-clarity',
     kind: 'rubric',
-    label: 'Does the description explain what will actually happen and why?'
-  },
-  {
-    id: 'rubric:demand-response',
-    kind: 'rubric',
-    label: 'Does this plan respond well to the current demand signals?'
+    label: 'Does the plan clearly explain what will happen and why?'
   },
   {
     id: 'rubric:achievability',
     kind: 'rubric',
     label: 'Does this plan seem realistically achievable?'
-  },
-  {
-    id: 'rubric:stages-coherent',
-    kind: 'rubric',
-    label: 'Are the stages coherent and in a sensible order?'
   }
 ];
 
 const EVENT_RUBRIC: PlanRubricCriterion[] = [
-  { id: 'rubric:timing-suitable', kind: 'rubric', label: 'Is the timing suitable?' },
-  { id: 'rubric:duration-realistic', kind: 'rubric', label: 'Is the duration/schedule realistic?' },
+  { id: 'rubric:timing-suitable', kind: 'rubric', label: 'Is the timing and schedule realistic?' },
   {
     id: 'rubric:location-appropriate',
     kind: 'rubric',
@@ -148,11 +136,6 @@ const PROJECT_PRODUCTION_RUBRIC: PlanRubricCriterion[] = [
     id: 'rubric:production-approach',
     kind: 'rubric',
     label: 'Is the proposed production approach appropriate?'
-  },
-  {
-    id: 'rubric:materials-realistic',
-    kind: 'rubric',
-    label: 'Are the listed materials/resources realistic?'
   }
 ];
 
@@ -168,17 +151,7 @@ const PROJECT_DISTRIBUTION_RUBRIC: PlanRubricCriterion[] = [
   {
     id: 'rubric:access-approach',
     kind: 'rubric',
-    label: 'Is the access/distribution approach appropriate?'
-  },
-  {
-    id: 'rubric:request-settings',
-    kind: 'rubric',
-    label: 'Are the request settings sensible?'
-  },
-  {
-    id: 'rubric:off-schedule',
-    kind: 'rubric',
-    label: 'Is off-schedule handling appropriate?'
+    label: 'Is the access and request approach appropriate?'
   }
 ];
 

@@ -5,13 +5,18 @@ import {
   Map as MapLibreMap,
   Marker,
   NavigationControl,
+  setWorkerUrl,
   type GeoJSONSource
 } from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { circlePolygon, radiusBounds, viewportRadiusKm } from './geo';
 import type { MapAdapter, MapMarker, MapViewport, MapViewportChange } from './types';
 import { formatMarkerScheduleRange } from '$lib/utils/time';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
+
+// MapLibre v6 worker is a separate ESM chunk; Vite needs an explicit URL or tiles never paint.
+setWorkerUrl(workerUrl);
 
 const DEFAULT_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 const FALLBACK_STYLE = 'https://demotiles.maplibre.org/style.json';
@@ -714,10 +719,12 @@ export function createMapLibreAdapter(): MapAdapter {
       await new Promise<void>((resolve, reject) => {
         let settled = false;
         let usedFallback = false;
+        let fallbackTimer = 0;
 
         const finishOk = () => {
           if (settled) return;
           settled = true;
+          window.clearTimeout(fallbackTimer);
           ensureRadiusLayers();
           attachViewportListeners();
           applyPendingMarkers();
@@ -728,6 +735,7 @@ export function createMapLibreAdapter(): MapAdapter {
         const finishErr = (message: string) => {
           if (settled) return;
           settled = true;
+          window.clearTimeout(fallbackTimer);
           onError?.(message);
           reject(new Error(message));
         };
@@ -742,12 +750,26 @@ export function createMapLibreAdapter(): MapAdapter {
 
         map.once('load', finishOk);
 
+        fallbackTimer = window.setTimeout(() => {
+          if (settled || usedFallback || !map) {
+            return;
+          }
+          usedFallback = true;
+          try {
+            map.setStyle(FALLBACK_STYLE);
+            map.once('load', finishOk);
+          } catch {
+            finishErr('Map tiles could not be loaded.');
+          }
+        }, 4500);
+
         map.on('error', (event) => {
           const raw = event.error?.message?.trim() || 'Map tiles could not be loaded.';
           const isCartoFailure =
             /networkerror|failed to fetch|ajaxerror|cartocdn|basemaps\.cartocdn/i.test(raw);
           if (!usedFallback && isCartoFailure && map) {
             usedFallback = true;
+            window.clearTimeout(fallbackTimer);
             try {
               map.setStyle(FALLBACK_STYLE);
               map.once('load', finishOk);

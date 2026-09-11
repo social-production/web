@@ -4,7 +4,9 @@ export type SearchResultKind =
   | 'event'
   | 'channel'
   | 'community'
-  | 'profile';
+  | 'profile'
+  | 'help-request'
+  | 'post';
 
 export interface SearchResultItem {
   id: string;

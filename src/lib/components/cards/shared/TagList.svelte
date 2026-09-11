@@ -121,7 +121,7 @@
 
     .tag-list :global(.scope-chip) {
       flex: 0 1 auto;
-      max-width: 9rem;
+      max-width: min(7.5rem, 42vw);
     }
   }
 </style>

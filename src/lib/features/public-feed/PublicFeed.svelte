@@ -44,6 +44,7 @@
     resolveLoaderFeedSync,
     toFeedSortPreference,
   } from '$lib/utils/feedQuery';
+  import { subscribeFeedToolbarLabels } from '$lib/utils/feedToolbarLabels';
   import { mergeFeedEngagement } from '$lib/utils/feedSignals';
 
   export let items: PublicFeedItem[];
@@ -102,6 +103,7 @@
   let centerLon: number | null = null;
   let placeSuggestions: Array<{ label: string; lat: number; lon: number }> = [];
   let preferencesReady = false;
+  let showTriggerLabels = false;
   let isHydratingPreferences = false;
   let lastHydratedViewerId = '';
   let lastPersistedPreferences = preferenceSignature(defaultPreferences);
@@ -573,6 +575,10 @@
   }
 
   onMount(() => {
+    const stopToolbarLabels = subscribeFeedToolbarLabels((show) => {
+      showTriggerLabels = show;
+    });
+
     void (async () => {
       const viewerId = $page.data.bootstrap?.viewer?.id ?? null;
       applyPreferences($page.data.settings?.publicFeedPreferences);
@@ -598,6 +604,10 @@
       lastLoadedQuery = '';
       await loadFeedItems();
     })();
+
+    return () => {
+      stopToolbarLabels();
+    };
   });
 </script>
 
@@ -609,6 +619,7 @@
         ariaLabel="Choose public feed scope"
         defaultValue="global"
         options={scopeOptions}
+        showTriggerLabel={showTriggerLabels}
         on:change={handlePreferencesChange}
       >
         <FeedToolbarIcon
@@ -622,6 +633,7 @@
         defaultValue="all"
         options={filterOptions}
         showOptionIcons
+        showTriggerLabel={showTriggerLabels}
         on:change={handlePreferencesChange}
       >
         <FeedToolbarIcon name="filter" />
@@ -631,6 +643,7 @@
         bind:value={activeSort}
         ariaLabel="Sort public feed by"
         options={sortOptions}
+        showTriggerLabel={showTriggerLabels}
         on:change={handlePreferencesChange}
       >
         <FeedToolbarIcon name="sort" />
@@ -641,6 +654,7 @@
         ariaLabel="Public feed time window"
         defaultValue="all"
         options={windowOptions}
+        showTriggerLabel={showTriggerLabels}
         on:change={handlePreferencesChange}
       >
         <FeedToolbarIcon name="clock" />

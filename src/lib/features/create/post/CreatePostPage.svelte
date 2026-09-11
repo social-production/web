@@ -26,7 +26,7 @@
         id: 'post-preview',
         href: '#',
         author: viewer,
-        audience: 'followers',
+        audience: 'public',
         voteTargetId: 'post-preview',
         body: body.trim() || 'Share a direct post to your personal timeline...',
         voteCount: 0,
@@ -49,7 +49,7 @@
     try {
       const result = await createPost({
         body,
-        audience: 'followers'
+        audience: 'public'
       });
 
       if (!result.ok || !result.id) {
@@ -66,9 +66,9 @@
 
 <CreateFlowLayout>
   <svelte:fragment slot="primary">
-    <CreatePanel title="New post" description="Share directly with your followers.">
+    <CreatePanel title="New post" description="Share a public post to your timeline.">
       <div class="composer">
-        <p class="audience-cue">Followers only</p>
+        <p class="audience-cue">Public</p>
         <label>
           <RequiredFieldLabel>What's on your mind?</RequiredFieldLabel>
           <textarea

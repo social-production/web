@@ -39,26 +39,45 @@
   let localRatings: Record<string, PlanCriterionRating | null> = {};
   let localOverallVote: ProjectApprovalVote | null | undefined = undefined;
   let ratingsSeededForOpen = false;
+  let autoAdvanceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function resolveInitialStep() {
-    if (openAtOverallStep) {
-      stepIndex = criteriaStepCount;
-      return;
+  function effectiveRating(entry: PlanCriterionAssessment): PlanCriterionRating | null {
+    if (Object.prototype.hasOwnProperty.call(localRatings, entry.criterionId)) {
+      return localRatings[entry.criterionId] ?? null;
     }
-    stepIndex = 0;
-    if (initialCriterionId) {
-      void scrollToCriterion(initialCriterionId);
-    }
+    return entry.activeRating;
   }
 
-  async function scrollToCriterion(criterionId: string) {
-    await tick();
-    if (typeof document === 'undefined') {
+  function firstUnratedIndex() {
+    const index = criteria.findIndex((entry) => effectiveRating(entry) == null);
+    return index >= 0 ? index : Math.max(0, criteria.length - 1);
+  }
+
+  function resolveInitialStep() {
+    if (openAtOverallStep && includeOverallStep) {
+      stepIndex = criteria.length;
       return;
     }
-    document
-      .getElementById(`assess-criterion-${criterionId}`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    if (initialCriterionId) {
+      const index = criteria.findIndex((entry) => entry.criterionId === initialCriterionId);
+      if (index >= 0) {
+        stepIndex = index;
+        return;
+      }
+    }
+
+    if (!reviewMode && canVote) {
+      const unrated = firstUnratedIndex();
+      if (criteria.every((entry) => effectiveRating(entry) != null) && includeOverallStep) {
+        stepIndex = criteria.length;
+        return;
+      }
+      stepIndex = unrated;
+      return;
+    }
+
+    stepIndex = 0;
   }
 
   function seedLocalRatings() {
@@ -71,13 +90,6 @@
     ratingsSeededForOpen = true;
   }
 
-  function effectiveRating(entry: PlanCriterionAssessment): PlanCriterionRating | null {
-    if (Object.prototype.hasOwnProperty.call(localRatings, entry.criterionId)) {
-      return localRatings[entry.criterionId] ?? null;
-    }
-    return entry.activeRating;
-  }
-
   function syncLocalFromProps() {
     if (!open || !ratingsSeededForOpen) {
       return;
@@ -85,13 +97,10 @@
 
     const next = { ...localRatings };
     for (const entry of criteria) {
-      const local = next[entry.criterionId];
       if (entry.activeRating != null) {
         next[entry.criterionId] = entry.activeRating;
       } else if (!(entry.criterionId in next)) {
         next[entry.criterionId] = entry.activeRating;
-      } else if (local == null && entry.activeRating == null) {
-        next[entry.criterionId] = null;
       }
     }
     localRatings = next;
@@ -104,12 +113,18 @@
     };
     sync();
     media.addEventListener('change', sync);
-    return () => media.removeEventListener('change', sync);
+    return () => {
+      media.removeEventListener('change', sync);
+      if (autoAdvanceTimer) {
+        clearTimeout(autoAdvanceTimer);
+      }
+    };
   });
 
-  $: criteriaStepCount = criteria.length > 0 ? 1 : 0;
-  $: totalSteps = criteriaStepCount + (includeOverallStep ? 1 : 0);
+  $: criteriaStepCount = criteria.length;
+  $: totalSteps = Math.max(1, criteriaStepCount + (includeOverallStep ? 1 : 0));
   $: isOverallStep = includeOverallStep && stepIndex >= criteriaStepCount;
+  $: currentCriterion = !isOverallStep ? (criteria[stepIndex] ?? null) : null;
   $: allCriteriaRated = criteria.every((entry) => effectiveRating(entry) != null);
   $: effectiveOverallVote =
     localOverallVote !== undefined ? localOverallVote : overallActiveVote;
@@ -117,12 +132,12 @@
   $: canGoBack = stepIndex > 0;
   $: canGoNext = isOverallStep
     ? reviewMode || !canVote || effectiveOverallVote != null
-    : reviewMode || !canVote || allCriteriaRated;
+    : reviewMode || !canVote || (currentCriterion != null && effectiveRating(currentCriterion) != null);
   $: overallContext = plan ? getCriterionContext('rubric:achievability', plan) : null;
-
-  function contextForCriterion(entry: PlanCriterionAssessment) {
-    return plan ? getCriterionContext(entry.criterionId, plan, entry.label) : null;
-  }
+  $: currentContext =
+    currentCriterion && plan
+      ? getCriterionContext(currentCriterion.criterionId, plan, currentCriterion.label)
+      : null;
 
   async function scrollToTop() {
     await tick();
@@ -145,6 +160,10 @@
     ratingsSeededForOpen = false;
     localRatings = {};
     localOverallVote = undefined;
+    if (autoAdvanceTimer) {
+      clearTimeout(autoAdvanceTimer);
+      autoAdvanceTimer = null;
+    }
   }
 
   let overallVoteInFlight: Promise<void> | null = null;
@@ -155,6 +174,10 @@
   }
 
   function handleBack() {
+    if (autoAdvanceTimer) {
+      clearTimeout(autoAdvanceTimer);
+      autoAdvanceTimer = null;
+    }
     if (stepIndex > 0) {
       stepIndex -= 1;
     }
@@ -185,6 +208,10 @@
   }
 
   function handleClose() {
+    if (autoAdvanceTimer) {
+      clearTimeout(autoAdvanceTimer);
+      autoAdvanceTimer = null;
+    }
     stepIndex = 0;
     ratingsSeededForOpen = false;
     localRatings = {};
@@ -204,6 +231,21 @@
       [entry.criterionId]: nextRating
     };
     void onRate(entry.criterionId, nextRating);
+
+    if (nextRating == null || autoAdvanceTimer) {
+      if (autoAdvanceTimer && nextRating == null) {
+        clearTimeout(autoAdvanceTimer);
+        autoAdvanceTimer = null;
+      }
+      return;
+    }
+
+    autoAdvanceTimer = setTimeout(() => {
+      autoAdvanceTimer = null;
+      if (stepIndex < totalSteps - 1) {
+        stepIndex += 1;
+      }
+    }, 220);
   }
 
   async function selectOverall(vote: ProjectApprovalVote) {
@@ -255,6 +297,8 @@
         <p class="helper-copy">Rate every criterion before the final approval vote.</p>
       {:else if reviewMode}
         <p class="helper-copy">Your final governance vote for this plan.</p>
+      {:else}
+        <p class="helper-copy">Cast Yes or No, then finish. You do not need to reopen assessment.</p>
       {/if}
 
       <div class="rating-actions overall-actions">
@@ -278,75 +322,61 @@
         </button>
       </div>
     </div>
-  {:else}
+  {:else if currentCriterion}
+    {@const entry = currentCriterion}
     <div class="question-block">
-      <span class="criterion-kind">Plan assessment</span>
-      <h2>Rate this plan against each criterion</h2>
+      <span class="criterion-kind">{entry.kind === 'value' ? 'Shared value' : 'Criterion'}</span>
+      <h2>{entry.label}</h2>
       {#if !reviewMode}
-        <p class="helper-copy">
-          1 = strongly oppose, 5 = strongly support. Rate every criterion to unlock the final
-          approval vote.
-        </p>
+        <p class="helper-copy">1 = strongly oppose, 5 = strongly support.</p>
       {/if}
 
-      <div class="criteria-stack">
-        {#each criteria as entry (entry.criterionId)}
-          {@const context = contextForCriterion(entry)}
-          <div class="criterion-row" id={`assess-criterion-${entry.criterionId}`}>
-            <div class="criterion-row-head">
-              <span class="criterion-kind small">{entry.kind === 'value' ? 'Shared value' : 'Criterion'}</span>
-              <strong class="criterion-label">{entry.label}</strong>
+      {#if currentContext && currentContext.blocks.length > 0}
+        <details class="criterion-context">
+          <summary>Show plan details for this criterion</summary>
+          {#each currentContext.blocks as block}
+            <div class="context-block">
+              <span class="context-block-label">{block.label}</span>
+              <p class="context-block-value">{block.value}</p>
             </div>
+          {/each}
+        </details>
+      {/if}
 
-            {#if context && context.blocks.length > 0}
-              <details class="criterion-context">
-                <summary>Show plan details for this criterion</summary>
-                {#each context.blocks as block}
-                  <div class="context-block">
-                    <span class="context-block-label">{block.label}</span>
-                    <p class="context-block-value">{block.value}</p>
-                  </div>
-                {/each}
-              </details>
-            {/if}
-
-            {#if reviewMode}
-              <div class="review-summary">
-                <div class="review-stat">
-                  <span>Your rating</span>
-                  <strong>{ratingLabel(effectiveRating(entry))}</strong>
-                </div>
-                <div class="review-stat">
-                  <span>Community average</span>
-                  <strong>{entry.averageRating.toFixed(1)} / 5</strong>
-                  <span class="muted-copy">{entry.ratingCount} ratings</span>
-                </div>
-              </div>
-            {:else}
-              <div class="rating-row" role="group" aria-label={`Rating scale for ${entry.label}`}>
-                {#each PLAN_RATING_OPTIONS as option}
-                  <button
-                    class:selected={effectiveRating(entry) === option.value}
-                    class="rating-chip"
-                    disabled={!canVote}
-                    title={option.label}
-                    type="button"
-                    on:click={() => selectRating(entry, option.value)}
-                  >
-                    <span class="rating-value">{option.value}</span>
-                    {#if !compact}
-                      <span class="rating-label">{option.label}</span>
-                    {/if}
-                  </button>
-                {/each}
-              </div>
-              {#if entry.ratingCount > 0}
-                <p class="muted-copy">Community average: {entry.averageRating.toFixed(1)} / 5 ({entry.ratingCount})</p>
-              {/if}
-            {/if}
+      {#if reviewMode}
+        <div class="review-summary">
+          <div class="review-stat">
+            <span>Your rating</span>
+            <strong>{ratingLabel(effectiveRating(entry))}</strong>
           </div>
-        {/each}
-      </div>
+          <div class="review-stat">
+            <span>Community average</span>
+            <strong>{entry.averageRating.toFixed(1)} / 5</strong>
+            <span class="muted-copy">{entry.ratingCount} ratings</span>
+          </div>
+        </div>
+      {:else}
+        <div class="rating-row" role="group" aria-label={`Rating scale for ${entry.label}`}>
+          {#each PLAN_RATING_OPTIONS as option}
+            <button
+              class:selected={effectiveRating(entry) === option.value}
+              class="rating-chip"
+              disabled={!canVote}
+              title={option.label}
+              type="button"
+              on:click={() => selectRating(entry, option.value)}
+            >
+              <span class="rating-value">{option.value}</span>
+              {#if !compact}
+                <span class="rating-label">{option.label}</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+        {#if entry.ratingCount > 0}
+          <p class="muted-copy">Community average: {entry.averageRating.toFixed(1)} / 5 ({entry.ratingCount})</p>
+        {/if}
+      {/if}
     </div>
   {/if}
 </PlanWizardShell>
@@ -401,36 +431,6 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--brand-strong);
-  }
-
-  .criterion-kind.small {
-    font-size: 10px;
-  }
-
-  .criteria-stack {
-    display: grid;
-    gap: 14px;
-  }
-
-  .criterion-row {
-    display: grid;
-    gap: 10px;
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--panel-strong) 60%, var(--panel));
-    scroll-margin-top: 12px;
-  }
-
-  .criterion-row-head {
-    display: grid;
-    gap: 4px;
-  }
-
-  .criterion-label {
-    font-size: 14px;
-    line-height: 1.35;
-    color: var(--text-main);
   }
 
   .criterion-context {

@@ -1,4 +1,5 @@
 import { currentAdapter } from '$lib/services/adapters';
+import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
 import type {
   CreateChannelInput,
   CreateCommunityInput,
@@ -17,8 +18,12 @@ export function createThread(input: CreateThreadInput) {
   return currentAdapter.createThread(input);
 }
 
-export function createEvent(input: CreateEventInput) {
-  return currentAdapter.createEvent(input);
+export async function createEvent(input: CreateEventInput) {
+  const result = await currentAdapter.createEvent(input);
+  if (result.ok) {
+    requestActivityRailRefresh();
+  }
+  return result;
 }
 
 export function createPost(input: CreatePostInput) {
@@ -33,6 +38,10 @@ export function createCommunity(input: CreateCommunityInput) {
   return currentAdapter.createCommunity(input);
 }
 
-export function createHelpRequest(input: CreateHelpRequestInput) {
-  return currentAdapter.createHelpRequest(input);
+export async function createHelpRequest(input: CreateHelpRequestInput) {
+  const result = await currentAdapter.createHelpRequest(input);
+  if (result.ok) {
+    requestActivityRailRefresh();
+  }
+  return result;
 }

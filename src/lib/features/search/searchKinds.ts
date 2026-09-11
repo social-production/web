@@ -6,5 +6,7 @@ export const searchKindLabels: Record<SearchResultKind, string> = {
   event: 'Event',
   channel: 'Channel',
   community: 'Community',
-  profile: 'Profile'
+  profile: 'Profile',
+  'help-request': 'Help request',
+  post: 'Post'
 };

@@ -140,6 +140,8 @@
     max-width: 100%;
     overflow-wrap: anywhere;
     word-break: break-word;
+    font-weight: 800;
+    letter-spacing: -0.02em;
   }
 
   .content.clamp-excerpts :global(.body),

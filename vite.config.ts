@@ -13,7 +13,8 @@ const htmlBypassPaths = new Set([
   '/platform',
   '/messages',
   '/notifications',
-  '/search'
+  '/search',
+  '/onboarding'
 ]);
 
 function bypassHtmlNavigation(req: { headers?: { accept?: string }; url?: string }) {
@@ -79,6 +80,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins,
+    // MapLibre v6 worker pre-bundling fails under Vite's dep optimizer.
+    optimizeDeps: {
+      exclude: ['maplibre-gl']
+    },
     server: {
       host: true,
       allowedHosts: true,

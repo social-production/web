@@ -227,17 +227,21 @@
 
     <div class="assessment-bar">
       {#if canVote}
-        {#if !allCriteriaComplete}
-          <button class="primary-button" type="button" data-participation-action="assess-plan" on:click={() => openAssessmentWizard()}>
-            {pendingCriterionCount > 0 ? `Assess plan (${pendingCriterionCount} left)` : 'Finish approval'}
-          </button>
-        {:else if effectiveOverallVote == null}
+        {#if !allCriteriaComplete || effectiveOverallVote == null}
           <button
             class="primary-button"
             type="button"
-            on:click={() => openAssessmentWizard({ openAtOverall: true })}
+            data-participation-action="assess-plan"
+            on:click={() =>
+              openAssessmentWizard({
+                openAtOverall: allCriteriaComplete && effectiveOverallVote == null
+              })}
           >
-            Cast final approval
+            {#if !allCriteriaComplete}
+              {pendingCriterionCount > 0 ? `Assess plan (${pendingCriterionCount} left)` : 'Assess plan'}
+            {:else}
+              Cast final approval
+            {/if}
           </button>
         {:else}
           <button class="secondary-button" type="button" on:click={() => openAssessmentWizard({ review: false })}>

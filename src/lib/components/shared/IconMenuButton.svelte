@@ -8,6 +8,7 @@
   export let ariaLabel: string;
   export let options: Array<{ value: string; label: string; icon?: SurfaceIconId }> = [];
   export let showOptionIcons = false;
+  export let showTriggerLabel = false;
   export let defaultValue: string | null = null;
   export let portaled = false;
   export let preferAbove = false;
@@ -22,6 +23,7 @@
 
   $: baselineValue = defaultValue ?? options[0]?.value ?? '';
   $: isActive = value !== baselineValue;
+  $: triggerLabel = options.find((option) => option.value === value)?.label ?? ariaLabel;
 
   async function positionMenu() {
     await tick();
@@ -123,6 +125,7 @@
     bind:this={triggerElement}
     type="button"
     class="icon-menu-trigger"
+    class:has-label={showTriggerLabel}
     class:menu-open={open}
     class:menu-active={isActive}
     aria-label={ariaLabel}
@@ -131,6 +134,9 @@
     on:click|stopPropagation={toggle}
   >
     <slot />
+    {#if showTriggerLabel}
+      <span class="trigger-label">{triggerLabel}</span>
+    {/if}
   </button>
 
   {#if open}
@@ -181,6 +187,20 @@
     background: transparent;
     color: var(--text-soft);
     transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  }
+
+  .icon-menu-trigger.has-label {
+    width: auto;
+    min-height: 32px;
+    padding: 4px 8px;
+    gap: 6px;
+  }
+
+  .trigger-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
   }
 
   .icon-menu-trigger:hover,

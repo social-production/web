@@ -88,7 +88,8 @@
   }
 
   .header-row {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    min-width: 0;
   }
 
   .footer {
@@ -98,7 +99,7 @@
   .chips {
     display: flex;
     gap: 0.45rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     flex: 1 1 auto;
     min-width: 0;
@@ -124,6 +125,7 @@
     margin-left: auto;
     flex: 0 1 auto;
     min-width: 0;
+    max-width: 48%;
   }
 
   .footer {

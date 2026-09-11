@@ -25,6 +25,7 @@
     resolveLoaderFeedSync,
     toFeedSortPreference,
   } from '$lib/utils/feedQuery';
+  import { subscribeFeedToolbarLabels } from '$lib/utils/feedToolbarLabels';
 
   export let items: PersonalFeedItem[];
   export let initialHasMore: boolean | undefined = undefined;
@@ -86,6 +87,7 @@
   let activeSort: FeedSort = defaultPreferences.sort;
   let activeWindow: FeedWindow = defaultPreferences.window;
   let preferencesReady = false;
+  let showTriggerLabels = false;
   let isHydratingPreferences = false;
   let lastHydratedViewerId = '';
   let lastPersistedPreferences = preferenceSignature(defaultPreferences);
@@ -423,6 +425,10 @@
   }
 
   onMount(() => {
+    const stopToolbarLabels = subscribeFeedToolbarLabels((show) => {
+      showTriggerLabels = show;
+    });
+
     void (async () => {
       applyPreferences($page.data.settings?.personalFeedPreferences);
       lastHydratedUrl = $page.url.search;
@@ -446,6 +452,10 @@
       lastLoadedQuery = '';
       await loadFeedItems();
     })();
+
+    return () => {
+      stopToolbarLabels();
+    };
   });
 </script>
 
@@ -457,6 +467,7 @@
         ariaLabel="Choose personal feed scope"
         defaultValue="popular"
         options={scopeOptions}
+        showTriggerLabel={showTriggerLabels}
         on:change={handleFeedQueryChange}
       >
         <FeedToolbarIcon name={activeScope === 'following' ? 'people' : 'trending'} />
@@ -468,6 +479,7 @@
         defaultValue="all"
         options={filterOptions}
         showOptionIcons
+        showTriggerLabel={showTriggerLabels}
         on:change={handlePreferencesChange}
       >
         <FeedToolbarIcon name="filter" />
@@ -477,6 +489,7 @@
         bind:value={activeSort}
         ariaLabel="Sort personal feed by"
         options={sortOptions}
+        showTriggerLabel={showTriggerLabels}
         on:change={handleFeedQueryChange}
       >
         <FeedToolbarIcon name="sort" />
@@ -487,6 +500,7 @@
         ariaLabel="Personal feed time window"
         defaultValue="all"
         options={windowOptions}
+        showTriggerLabel={showTriggerLabels}
         on:change={handlePreferencesChange}
       >
         <FeedToolbarIcon name="clock" />
@@ -563,9 +577,10 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
     overflow-x: auto;
+    padding-bottom: 2px;
   }
 
   .empty-card {

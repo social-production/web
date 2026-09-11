@@ -47,6 +47,7 @@
   let lastActivityRailViewerId: string | null = bootstrap.viewer?.id ?? null;
   let leftRailOpen = false;
   let rightRailOpen = false;
+  let rightRailUserOverride: boolean | null = null;
   let mapPanelOpen = false;
   let railsBeforeMap = { left: false, right: false };
   let toolbarQuery = '';
@@ -85,6 +86,11 @@
       /^\/(projects|events|threads|posts|help-requests)\//.test(navigatingTo)
   );
   $: dedicatedMapPage = $page.url.pathname === '/map';
+  $: isAuthSurface =
+    $page.url.pathname === '/onboarding' ||
+    $page.url.pathname === '/login' ||
+    $page.url.pathname === '/signup';
+  $: isMessagesRoute = $page.url.pathname.startsWith('/messages');
   $: mapSurfaceActive = mapPanelOpen || dedicatedMapPage;
   $: if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded) {
     feedChromeHidden = false;
@@ -92,7 +98,10 @@
   // Reserve bottom space only while the nav is visible. When it slides away,
   // drop the inset so short pages and scroll-reveal don't leave a dead band.
   $: shellBottomNavOffset =
-    isCompact && !keyboardOpen && !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
+    isCompact &&
+    !isAuthSurface &&
+    !keyboardOpen &&
+    !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
       ? 'var(--shell-bottom-nav-height)'
       : '0px';
   $: shellTopbarHeight =
@@ -201,6 +210,19 @@
         deferUnreadRefresh();
       }
     }
+    rightRailUserOverride = null;
+    if (
+      toPath === '/onboarding' ||
+      toPath === '/login' ||
+      toPath === '/signup'
+    ) {
+      leftRailOpen = false;
+      rightRailOpen = false;
+    } else if (!isCompact && toPath?.startsWith('/messages')) {
+      rightRailOpen = false;
+    } else if (!isCompact && (fromPath === '/onboarding' || fromPath === '/login' || fromPath === '/signup')) {
+      leftRailOpen = true;
+    }
     if (isCompact) {
       searchExpanded = false;
       moreSheetOpen = false;
@@ -254,8 +276,17 @@
     Boolean(bootstrap.viewer) &&
     isCreateFabRoute($page.url.pathname) &&
     !$page.url.pathname.startsWith('/create/') &&
-    $page.url.pathname !== '/onboarding' &&
+    !isAuthSurface &&
     !mapPanelOpen;
+
+  $: if (isAuthSurface) {
+    leftRailOpen = false;
+    rightRailOpen = false;
+    searchExpanded = false;
+    moreSheetOpen = false;
+  } else if (!isCompact && rightRailUserOverride === null) {
+    rightRailOpen = !isMessagesRoute && activityRailLoaded && rightRailActionCount > 0;
+  }
 
   $: if ($page.url.pathname === '/search') {
     toolbarQuery = $page.url.searchParams.get('q') ?? '';
@@ -341,9 +372,11 @@
       if (media.matches) {
         leftRailOpen = false;
         rightRailOpen = false;
+        rightRailUserOverride = null;
       } else {
-        leftRailOpen = true;
-        rightRailOpen = true;
+        leftRailOpen = !isAuthSurface && !isMessagesRoute;
+        rightRailUserOverride = null;
+        rightRailOpen = !isAuthSurface && !isMessagesRoute && rightRailActionCount > 0;
         searchExpanded = false;
         moreSheetOpen = false;
         feedChromeHidden = false;
@@ -422,6 +455,7 @@
 
   function toggleRightRail() {
     rightRailOpen = !rightRailOpen;
+    rightRailUserOverride = rightRailOpen;
     if (rightRailOpen && !activityRailLoaded) {
       loadActivityRail();
     }
@@ -459,8 +493,14 @@
       updateLayoutMetrics();
       requestAnimationFrame(() => {
         updateLayoutMetrics();
+        void mapPanel?.refreshMap();
+        window.setTimeout(() => {
+          void mapPanel?.refreshMap();
+        }, 120);
+        window.setTimeout(() => {
+          void mapPanel?.refreshMap();
+        }, 320);
       });
-      await mapPanel?.refreshMap();
     } else if (!isCompact) {
       leftRailOpen = railsBeforeMap.left;
       rightRailOpen = railsBeforeMap.right;
@@ -569,7 +609,8 @@
   class:shell-map-open={mapSurfaceActive}
   class:shell-map-page={dedicatedMapPage}
   class:feed-chrome-collapsed={topbarCollapsed}
-  style={`--left-width: ${leftRailOpen && !isCompact ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --main-frame-max-width: ${!isCompact && !leftRailOpen && !rightRailOpen ? '1280px' : !isCompact && (!leftRailOpen || !rightRailOpen) ? '1480px' : 'none'};`}
+  class:shell-auth={isAuthSurface}
+  style={`--left-width: ${leftRailOpen && !isCompact && !isAuthSurface ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact && !isAuthSurface ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --main-frame-max-width: ${!isCompact && !leftRailOpen && !rightRailOpen ? '1280px' : !isCompact && (!leftRailOpen || !rightRailOpen) ? '1480px' : 'none'};`}
 >
   {#if mapSurfaceActive}
     <div class="topbar-flow-spacer" style={`height: ${topbarHeight}px`} aria-hidden="true"></div>
@@ -642,6 +683,7 @@
         </span>
       </a>
 
+      {#if !isAuthSurface}
       <div class="panel-controls">
         <button
           aria-label="Open networks"
@@ -679,7 +721,7 @@
           </svg>
         </button>
         <button
-          aria-label="Open schedule and votes"
+          aria-label="Open activity"
           aria-expanded={rightRailOpen}
           class="panel-toggle panel-toggle-right"
           data-active={rightRailOpen}
@@ -863,6 +905,7 @@
           <a class="utility-link" href="/onboarding">{m.shell_nav_login()}</a>
         {/if}
       </nav>
+      {/if}
     {/if}
     {#if showNavProgress}
       <div class="nav-progress" aria-hidden="true">
@@ -893,8 +936,10 @@
     class="content-grid"
     class:content-grid--map-open={mapSurfaceActive}
   >
-    <aside class="rail left-rail" data-open={leftRailOpen}>
-      <LeftRailPanel {bootstrap} {isActive} closePanels={closeCompactPanels} />
+    <aside class="rail left-rail" data-open={leftRailOpen && !isAuthSurface}>
+      {#if !isAuthSurface}
+        <LeftRailPanel {bootstrap} {isActive} closePanels={closeCompactPanels} />
+      {/if}
     </aside>
 
     <main class="main-content" class:main-content-compact={isCompact}>
@@ -915,8 +960,8 @@
       {/if}
     </main>
 
-    <aside class="rail right-rail" data-open={rightRailOpen}>
-      {#if rightRailOpen}
+    <aside class="rail right-rail" data-open={rightRailOpen && !isAuthSurface}>
+      {#if rightRailOpen && !isAuthSurface}
         <RightRailPanel
           items={activityRailItems}
           historyItems={activityRailHistoryItems}
@@ -927,7 +972,7 @@
     </aside>
   </div>
 
-  {#if isCompact}
+  {#if isCompact && !isAuthSurface}
     <MobileBottomNav
       viewerLoggedIn={Boolean(bootstrap.viewer)}
       notificationCount={displayUnreadCounts.notifications}

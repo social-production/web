@@ -36,7 +36,8 @@
   export let embedded = true;
   export let active = true;
 
-  const WORLD_CENTER = { latitude: 20, longitude: 0 };
+  /** Camera fallback when place is Worldwide — land + seed pins, not empty ocean. */
+  const DEFAULT_CAMERA_CENTER = { latitude: -37.8136, longitude: 144.9631 };
   const WORLD_ZOOM = 2;
   const LOCAL_ZOOM = 11;
   const RADIUS_SYNC_BUFFER_MS = 300;
@@ -520,7 +521,9 @@
     const lat = coords?.lat ?? centerLat;
     const lon = coords?.lon ?? centerLon;
     const centered = lat != null && lon != null;
-    const center = centered ? { latitude: lat, longitude: lon } : WORLD_CENTER;
+    const center = centered
+      ? { latitude: lat, longitude: lon }
+      : DEFAULT_CAMERA_CENTER;
     const zoom = centered ? LOCAL_ZOOM : WORLD_ZOOM;
 
     adapter = createMapAdapter();
@@ -804,8 +807,10 @@
     locationValue = {
       ...emptyLocationPickerValue(),
       displayLabel: 'Worldwide',
-      latitude: WORLD_CENTER.latitude,
-      longitude: WORLD_CENTER.longitude,
+      // Keep Worldwide as the place label, but point the camera at a populated
+      // seed region so the basemap shows land instead of empty ocean.
+      latitude: DEFAULT_CAMERA_CENTER.latitude,
+      longitude: DEFAULT_CAMERA_CENTER.longitude,
       precision: 'approximate'
     };
     radiusKm = GLOBAL_RADIUS_VALUE;
@@ -999,7 +1004,9 @@
       await mountMapIfNeeded();
     }
     updateMapStageHeight();
-    adapter?.resize?.();
+    scheduleMapResize(0);
+    scheduleMapResize(80);
+    scheduleMapResize(240);
   }
 </script>
 
@@ -1477,6 +1484,11 @@
       flex: 0 1 140px;
       max-width: 140px;
       min-width: 88px;
+      overflow: hidden;
+    }
+
+    .place-field-desktop :global(.location-picker) {
+      gap: 0;
     }
 
     .place-field-desktop :global(input) {

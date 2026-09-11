@@ -75,7 +75,12 @@
   $: isReviewStep = currentStep?.type === 'review';
   $: nextLabel = isReviewStep ? submitLabel : 'Next';
   $: canGoBack = stepIndex > 0;
-  $: canGoNext = currentStep ? validateActivityStep(currentStep, form) : false;
+  $: canGoNext =
+    currentStep?.type === 'location'
+      ? locationValue.isOnline || Boolean(locationValue.displayLabel.trim())
+      : currentStep
+        ? validateActivityStep(currentStep, form)
+        : false;
   $: scheduleStartMin = effectiveActivityStartMin(form.scheduledAt, scheduleBounds);
   $: scheduleValidationMessage =
     currentStep?.type === 'schedule' ? activityScheduleValidationMessage(form) : null;
@@ -124,6 +129,10 @@
   async function handleNext() {
     if (!currentStep) {
       return;
+    }
+
+    if (currentStep.type === 'location') {
+      syncFormFromLocationValue(locationValue);
     }
 
     if (isReviewStep) {

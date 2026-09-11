@@ -185,6 +185,7 @@
     margin-left: auto;
     flex: 0 1 auto;
     min-width: 0;
+    max-width: 48%;
   }
 
   .name,

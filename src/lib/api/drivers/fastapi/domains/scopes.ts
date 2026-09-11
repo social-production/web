@@ -137,7 +137,7 @@ export async function fetchChannel(slug: string): Promise<ScopePageData | null> 
       title: res.channel.name,
       description: res.channel.description,
       badges: [],
-      emptyFeedText: 'No activity in this channel yet.',
+      emptyFeedText: 'No tagged posts, help, or events in this channel yet. Tag content with this channel to show it here.',
       membership: {
         memberCount: res.member_count,
         viewerIsMember: res.viewer_is_member,
@@ -173,7 +173,7 @@ export async function fetchCommunity(slug: string): Promise<ScopePageData | null
       title: res.community.name,
       description: res.community.description,
       badges: isPrivate ? ['Private'] : [],
-      emptyFeedText: 'No activity in this community yet.',
+      emptyFeedText: 'No tagged posts, help, or events in this community yet. Tag content with this community to show it here.',
       membership: {
         memberCount: res.member_count,
         viewerIsMember: res.viewer_is_member,

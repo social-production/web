@@ -1,5 +1,6 @@
 import { apiClient, extractErrorMessage } from '../client';
 import { markAuthenticatedSession, clearAuthenticatedSession } from '../auth';
+import { clearBootstrapCache } from '$lib/services/bootstrapCache';
 import type { AuthResult, SignInInput, SignUpInput } from '$lib/types/account';
 
 interface BackendAuthResponse {
@@ -39,5 +40,6 @@ export async function fetchSignOut(): Promise<void> {
     await apiClient.post('/auth/logout');
   } finally {
     clearAuthenticatedSession();
+    clearBootstrapCache();
   }
 }

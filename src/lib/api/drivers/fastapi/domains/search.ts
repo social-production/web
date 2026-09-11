@@ -22,7 +22,9 @@ const KIND_MAP: Record<string, SearchResultKind> = {
   event: 'event',
   channel: 'channel',
   community: 'community',
-  user: 'profile'
+  user: 'profile',
+  help_request: 'help-request',
+  post: 'post'
 };
 
 const DEFAULT_SUGGESTED_QUERIES = ['platform', 'community', 'project', 'event'];

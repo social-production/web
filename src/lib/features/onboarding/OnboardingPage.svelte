@@ -20,7 +20,8 @@
     }
   ];
 
-  let mode: 'login' | 'signup' = 'signup';
+  const requestedMode = $page.url.searchParams.get('mode');
+  let mode: 'login' | 'signup' = requestedMode === 'login' ? 'login' : 'signup';
   let username = '';
   let password = '';
   let statusMessage = '';
@@ -31,10 +32,13 @@
     Array.isArray(data?.accountModes) && data.accountModes.length > 0
       ? data.accountModes
       : FALLBACK_MODES;
-  $: pageTitle = data?.title?.trim() || 'Sign in or create an account';
-  $: pageIntro =
-    data?.intro?.trim() ||
-    'Sign in to post, follow people, and create projects, threads, and events.';
+  $: pageTitle = viewer
+    ? `You're signed in as @${viewer.username}`
+    : data?.title?.trim() || 'Sign in or create an account';
+  $: pageIntro = viewer
+    ? 'This account is already active. Go to the feed, or sign out from Settings first if you need to switch people.'
+    : data?.intro?.trim() ||
+      'Sign in to post, follow people, and create projects, threads, and events.';
   $: activeMode = accountModes.find((option) => option.value === mode) ?? null;
   $: handleCheck = mode === 'signup' ? validateHandle(username, 'Username') : null;
   $: canonicalPreview =
@@ -43,6 +47,11 @@
       : '';
 
   async function handleSubmit() {
+    if (viewer) {
+      await goto('/');
+      return;
+    }
+
     isSubmitting = true;
     statusMessage = '';
 
@@ -88,6 +97,7 @@
     {/if}
   </section>
 
+  {#if !viewer}
   <section class="panel">
     <p class="mode-hint">Choose <strong>Sign up</strong> for a new account, or <strong>Log in</strong> if you already have one.</p>
     <div class="choice-row" role="tablist" aria-label="Account mode">
@@ -147,6 +157,7 @@
       {/if}
     </form>
   </section>
+  {/if}
 </section>
 
 <style>

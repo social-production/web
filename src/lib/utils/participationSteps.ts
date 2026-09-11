@@ -207,7 +207,31 @@ function proposePhaseChangeStepLabel(data: ProjectPageData | EventPageData) {
   return 'Advance';
 }
 
-function projectAdvanceGateHelper(data: ProjectPageData): string | null {
+export function projectPlanGateMessage(data: ProjectPageData): string {
+  const phaseId = data.lifecycle.currentPhaseId;
+
+  if (phaseId === 'phase-2' && !data.lifecycle.phaseTwo.winningPlanId) {
+    if (data.lifecycle.phaseTwo.plans.length > 0) {
+      return 'A production or operations plan is waiting on quorum before this project can advance.';
+    }
+    return 'This project needs an approved production or operations plan before it can advance.';
+  }
+
+  if (
+    phaseId === 'phase-3' &&
+    !skipsDistributionPhase(data.projectMode, data.projectSubtype) &&
+    !data.lifecycle.phaseThree.winningPlanId
+  ) {
+    if (data.lifecycle.phaseThree.plans.length > 0) {
+      return 'A distribution or access plan is waiting on quorum before this project can advance.';
+    }
+    return 'This project needs an approved distribution or access plan before it can advance.';
+  }
+
+  return '';
+}
+
+export function projectAdvanceGateHelper(data: ProjectPageData): string | null {
   const phaseId = data.lifecycle.currentPhaseId;
   const nextLabel = data.lifecycle.nextPhaseLabel ?? 'the next phase';
 
@@ -217,16 +241,9 @@ function projectAdvanceGateHelper(data: ProjectPageData): string | null {
     }
   }
 
-  if (phaseId === 'phase-2' && !data.lifecycle.phaseTwo.winningPlanId) {
-    return 'This project needs an approved production or operations plan before it can advance.';
-  }
-
-  if (
-    phaseId === 'phase-3' &&
-    !skipsDistributionPhase(data.projectMode, data.projectSubtype) &&
-    !data.lifecycle.phaseThree.winningPlanId
-  ) {
-    return 'This project needs an approved distribution or access plan before it can advance.';
+  const planGate = projectPlanGateMessage(data);
+  if (planGate) {
+    return planGate;
   }
 
   if (phaseId === 'phase-4') {
@@ -261,6 +278,9 @@ function eventAdvanceGateHelper(data: EventPageData): string | null {
   }
 
   if (phaseId === 'event-plan' && !data.lifecycle.phaseTwo.winningPlanId) {
+    if (data.lifecycle.phaseTwo.plans.length > 0) {
+      return 'A plan is waiting on quorum before this event can advance.';
+    }
     return 'This event needs an approved plan before it can advance.';
   }
 
@@ -629,12 +649,22 @@ function buildParticipationSteps(
   }
 
   if (isPlanPhase(data) && ('projectMode' in data || data.governance !== 'organizer_controlled')) {
+    const plans =
+      'projectMode' in data
+        ? data.lifecycle.currentPhaseId === 'phase-3'
+          ? data.lifecycle.phaseThree.plans
+          : data.lifecycle.phaseTwo.plans
+        : data.lifecycle.phaseTwo.plans;
+    const hasPlans = plans.length > 0;
+    const submitted = viewerSubmittedPlan(data, viewerUsername);
     steps.push({
       id: 'plan',
-      label: 'Add plan',
-      done: viewerSubmittedPlan(data, viewerUsername),
+      label: submitted || hasPlans ? 'Review plans' : 'Add plan',
+      done: submitted,
       helper: joined
-        ? 'Contribute your own plan and assess plans from others in this phase.'
+        ? hasPlans
+          ? 'Assess the plans already submitted, then approve one when it reaches quorum.'
+          : 'Contribute your own plan and assess plans from others in this phase.'
         : undefined,
     });
     steps.push({

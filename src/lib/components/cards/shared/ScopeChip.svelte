@@ -53,7 +53,14 @@
     .scope-chip {
       gap: 3px;
       padding: 2px 5px;
-      font-size: clamp(8px, 2.6vw, 10px);
+      font-size: clamp(8px, 2.4vw, 10px);
+      max-width: 100%;
+    }
+
+    .scope-chip :global(svg),
+    .scope-chip :global(.surface-icon) {
+      width: 11px;
+      height: 11px;
     }
   }
 </style>
