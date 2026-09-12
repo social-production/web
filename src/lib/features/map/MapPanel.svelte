@@ -21,7 +21,8 @@
     effectiveRadiusKm,
     viewportRadiusDisplayValue,
     radiusForUrl,
-    radiusPresetOptions
+    radiusPresetOptions,
+    shouldAdoptViewportRadius
   } from '$lib/location/radius';
   import { hydrateDefaultLocationFromServer } from '$lib/location/sync';
   import { getIpLocationHint } from '$lib/services/queries/locations';
@@ -118,6 +119,7 @@
   }
   let mapFullscreen = false;
   let isMobile = false;
+  let isCompactMap = false;
   let mapListCollapsed = false;
   let mapStageTransitioning = false;
   let viewportPanActive = false;
@@ -148,7 +150,7 @@
     customDateOpen = false;
   }
   $: hasCenter = centerLat != null && centerLon != null;
-  $: showMapOverlayFilters = isMobile || mapFullscreen;
+  $: showMapOverlayFilters = isCompactMap || mapFullscreen;
   $: mapStageStyle =
     isMobile && !mapFullscreen && mapStageHeightPx > 0
       ? `height: ${mapStageHeightPx}px; flex: 0 0 auto;`
@@ -199,11 +201,8 @@
     }
     radiusSyncTimer = setTimeout(() => {
       syncingFromRadius = false;
-      currentRadiusKm = adapter?.getViewportRadiusKm?.() ?? currentRadiusKm;
+      currentRadiusKm = effectiveRadiusKm(radiusKm);
       syncRadiusOverlay();
-      if (currentRadiusKm != null) {
-        syncRadiusComboboxFromViewport(currentRadiusKm);
-      }
       radiusSyncTimer = null;
     }, RADIUS_SYNC_BUFFER_MS);
   }
@@ -233,15 +232,6 @@
     if (next !== radiusKm) {
       radiusKm = next;
       persistFilters();
-    }
-  }
-
-  function updateCurrentRadiusFromViewport() {
-    const nextRadius = adapter?.getViewportRadiusKm?.();
-    if (nextRadius != null) {
-      currentRadiusKm = nextRadius;
-      syncRadiusOverlay();
-      syncRadiusComboboxFromViewport(nextRadius);
     }
   }
 
@@ -541,15 +531,24 @@
       lastViewportLoadKey = viewportKey;
       viewportPanActive = true;
       viewportRadiusKm = viewport.radiusKm;
-      if (!syncingFromRadius) {
+      const selectedRadius = effectiveRadiusKm(radiusKm);
+      const adoptViewport = shouldAdoptViewportRadius(
+        selectedRadius,
+        viewport.radiusKm,
+        Boolean(viewport.userInitiated)
+      );
+      if (adoptViewport) {
         currentRadiusKm = viewport.radiusKm;
         syncRadiusOverlay();
         syncRadiusComboboxFromViewport(viewport.radiusKm);
+      } else {
+        currentRadiusKm = selectedRadius;
+        syncRadiusOverlay();
       }
       scheduleLoadMarkers({
         lat: viewport.center.latitude,
         lon: viewport.center.longitude,
-        radiusKm: viewport.radiusKm
+        radiusKm: adoptViewport ? viewport.radiusKm : selectedRadius
       });
     });
 
@@ -639,10 +638,10 @@
 
   function handleRadiusChange(event: CustomEvent<{ value: string }>) {
     radiusKm = event.detail.value;
+    currentRadiusKm = effectiveRadiusKm(radiusKm);
     resetViewportQuery();
     persistFilters();
     syncRadiusToMap(() => {
-      updateCurrentRadiusFromViewport();
       scheduleLoadMarkers();
     });
   }
@@ -664,6 +663,7 @@
     mapFullscreen = !mapFullscreen;
     customDateOpen = false;
     fullscreenSearchOpen = false;
+    pauseViewportLoads(900);
     updateMapStageHeight();
     await tick();
     adapter?.resize?.();
@@ -719,7 +719,7 @@
     await new Promise<void>((resolve) => {
       syncRadiusToMapAt(lat, lon, resolve);
     });
-    updateCurrentRadiusFromViewport();
+    currentRadiusKm = effectiveRadiusKm(radiusKm);
     syncRadiusOverlay({ lat, lon });
 
     if (options?.broadenEmpty) {
@@ -909,12 +909,18 @@
   onMount(() => {
     document.addEventListener('click', handleDocumentClick);
     const media = window.matchMedia('(max-width: 760px)');
+    const compactMedia = window.matchMedia('(max-width: 900px)');
     const syncMobile = () => {
       isMobile = media.matches;
       syncMapStageAfterLayoutChange();
     };
+    const syncCompactMap = () => {
+      isCompactMap = compactMedia.matches;
+    };
     syncMobile();
+    syncCompactMap();
     media.addEventListener('change', syncMobile);
+    compactMedia.addEventListener('change', syncCompactMap);
     window.addEventListener('resize', handleWindowResize);
 
     void (async () => {
@@ -936,7 +942,8 @@
         await new Promise<void>((resolve) => {
           syncRadiusToMap(resolve);
         });
-        updateCurrentRadiusFromViewport();
+        currentRadiusKm = effectiveRadiusKm(radiusKm);
+        syncRadiusOverlay();
         await loadMarkersWithInitialBroadening({
           lat: locationValue.latitude,
           lon: locationValue.longitude
@@ -952,6 +959,7 @@
     return () => {
       document.removeEventListener('click', handleDocumentClick);
       media.removeEventListener('change', syncMobile);
+      compactMedia.removeEventListener('change', syncCompactMap);
       window.removeEventListener('resize', handleWindowResize);
     };
   });
@@ -995,7 +1003,8 @@
           syncRadiusToMap(resolve);
         });
       }
-      updateCurrentRadiusFromViewport();
+      currentRadiusKm = effectiveRadiusKm(radiusKm);
+      syncRadiusOverlay();
       await loadMarkersWithInitialBroadening({
         lat: locationValue.latitude,
         lon: locationValue.longitude
@@ -1155,7 +1164,7 @@
         {/if}
       </div>
 
-      {#if !mapFullscreen}
+      {#if !mapFullscreen && !isCompactMap}
         <div class="filter-bar filter-bar-desktop" aria-label="Map filters">
           <div class="place-field place-field-desktop">
             <LocationPicker
@@ -1350,7 +1359,13 @@
   }
 
   .layout.layout-fullscreen {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .layout.layout-fullscreen .map-column {
+    height: 100%;
+    min-height: 0;
   }
 
   .map-column {
@@ -1630,6 +1645,10 @@
       grid-template-rows: auto minmax(0, 1fr);
     }
 
+    .layout.layout-fullscreen {
+      grid-template-rows: minmax(0, 1fr);
+    }
+
     .list-panel {
       min-height: 0;
     }
@@ -1647,10 +1666,6 @@
     .map-panel:not(.embedded) {
       height: 100%;
       max-height: 100%;
-    }
-
-    .layout.layout-fullscreen {
-      grid-template-rows: 1fr;
     }
   }
 

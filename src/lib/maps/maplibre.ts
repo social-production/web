@@ -442,6 +442,7 @@ export function createMapLibreAdapter(): MapAdapter {
   let viewportHandler: ((change: MapViewportChange) => void) | null = null;
   let viewportDebounce: ReturnType<typeof setTimeout> | null = null;
   let suppressViewportEvents = false;
+  let userViewportGesture = false;
   let tooltipElement: HTMLDivElement | null = null;
   let markerCompactDebounce: ReturnType<typeof setTimeout> | null = null;
   let lastCrowdedKey = '';
@@ -575,9 +576,12 @@ export function createMapLibreAdapter(): MapAdapter {
     const radius = getViewportRadiusKmInternal();
     if (radius != null) {
       const center = map.getCenter();
+      const userInitiated = userViewportGesture;
+      userViewportGesture = false;
       viewportHandler({
         center: { latitude: center.lat, longitude: center.lng },
-        radiusKm: radius
+        radiusKm: radius,
+        userInitiated
       });
     }
   }
@@ -697,10 +701,21 @@ export function createMapLibreAdapter(): MapAdapter {
     renderMarkers(pendingMarkers);
   }
 
+  function markUserViewportGesture(event?: { originalEvent?: unknown }) {
+    if (suppressViewportEvents) {
+      return;
+    }
+    if (event?.originalEvent) {
+      userViewportGesture = true;
+    }
+  }
+
   function attachViewportListeners() {
     if (!map) {
       return;
     }
+    map.on('movestart', markUserViewportGesture);
+    map.on('zoomstart', markUserViewportGesture);
     map.on('moveend', scheduleViewportChange);
     map.on('zoomend', () => {
       scheduleViewportChange();

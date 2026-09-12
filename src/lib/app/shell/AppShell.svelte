@@ -473,27 +473,33 @@
   }
 
   function toggleLeftRail() {
-    leftRailOpen = !leftRailOpen;
-    if (isCompact && leftRailOpen) {
-      rightRailOpen = false;
+    const opening = !leftRailOpen;
+    leftRailOpen = opening;
+    if (opening) {
       mapPanelOpen = false;
-      moreSheetOpen = false;
-      createFabOpen = false;
+      if (isCompact) {
+        rightRailOpen = false;
+        moreSheetOpen = false;
+        createFabOpen = false;
+      }
     }
   }
 
   function toggleRightRail() {
-    rightRailOpen = !rightRailOpen;
+    const opening = !rightRailOpen;
+    rightRailOpen = opening;
     rightRailUserOverride = rightRailOpen;
     rightRailPreferenceApplied = true;
-    if (rightRailOpen && !activityRailLoaded) {
+    if (opening && !activityRailLoaded) {
       loadActivityRail();
     }
-    if (isCompact && rightRailOpen) {
-      leftRailOpen = false;
+    if (opening) {
       mapPanelOpen = false;
-      moreSheetOpen = false;
-      createFabOpen = false;
+      if (isCompact) {
+        leftRailOpen = false;
+        moreSheetOpen = false;
+        createFabOpen = false;
+      }
     }
   }
 

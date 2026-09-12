@@ -10,6 +10,8 @@ export interface MapViewport {
 export interface MapViewportChange {
   center: { latitude: number; longitude: number };
   radiusKm: number;
+  /** True when the camera moved from a drag, pinch, or wheel — not fit/resize. */
+  userInitiated?: boolean;
 }
 
 export interface MapMarker {

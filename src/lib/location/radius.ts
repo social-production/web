@@ -53,6 +53,28 @@ export function viewportRadiusDisplayValue(radiusKm: number): string {
   return String(Math.max(1, Math.round(radiusKm)));
 }
 
+/**
+ * Keep a user-picked radius until they zoom or pan far enough that the
+ * viewport is clearly larger or smaller. Programmatic camera moves (fit,
+ * fullscreen, resize) never adopt the measured viewport. Global still does
+ * not grow from a viewport measurement.
+ */
+export function shouldAdoptViewportRadius(
+  selectedKm: number,
+  viewportKm: number,
+  userInitiated: boolean
+): boolean {
+  if (!userInitiated || !Number.isFinite(selectedKm) || !Number.isFinite(viewportKm)) {
+    return false;
+  }
+  const selectedIsGlobal = selectedKm >= GLOBAL_RADIUS_KM * 0.6;
+  const slack = Math.max(2, selectedIsGlobal ? 50 : selectedKm * 0.05);
+  if (viewportKm > selectedKm + slack) {
+    return !selectedIsGlobal;
+  }
+  return viewportKm < selectedKm - slack;
+}
+
 /** @deprecated Prefer viewportRadiusDisplayValue for live zoom sync. */
 export function nearestRadiusPreset(radiusKm: number): string {
   return viewportRadiusDisplayValue(radiusKm);

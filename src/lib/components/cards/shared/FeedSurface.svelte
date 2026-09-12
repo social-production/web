@@ -71,8 +71,8 @@
   }
 
   .surface.has-accent {
-    border-left: 3px solid var(--row-accent, var(--type-accent-neutral));
-    padding-left: 13px;
+    border-left: 6px solid var(--row-accent, var(--type-accent-neutral));
+    padding-left: 10px;
   }
 
   .surface.last-row {
