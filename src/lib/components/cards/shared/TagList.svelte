@@ -1,5 +1,10 @@
+<script lang="ts" context="module">
+  let scopeSheetSeq = 0;
+</script>
+
 <script lang="ts">
   import ScopeChip from '$lib/components/cards/shared/ScopeChip.svelte';
+  import ScopeSheet from '$lib/components/shared/ScopeSheet.svelte';
   import type { SurfaceIconId } from '$lib/utils/surfaceType';
   import type { TagRef } from '$lib/types/feed';
 
@@ -8,11 +13,12 @@
   /** Collapsed chip count. `null` shows every tag (detail headers). */
   export let maxVisible: number | null = 1;
 
-  let expanded = false;
+  const sheetId = `scope-sheet-${++scopeSheetSeq}`;
 
-  $: hiddenCount =
-    maxVisible == null || expanded ? 0 : Math.max(0, tags.length - maxVisible);
-  $: visibleTags = maxVisible == null || expanded ? tags : tags.slice(0, maxVisible);
+  let sheetOpen = false;
+
+  $: hiddenCount = maxVisible == null ? 0 : Math.max(0, tags.length - maxVisible);
+  $: visibleTags = maxVisible == null ? tags : tags.slice(0, maxVisible);
 
   function iconFor(tag: TagRef): SurfaceIconId {
     if (tag.kind === 'community') {
@@ -30,35 +36,37 @@
     return tag.kind === 'community' ? `/communities/${tag.slug}` : `/channels/${tag.slug}`;
   }
 
-  function toggleOverflow(event: MouseEvent) {
+  function openOverflow(event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
-    expanded = !expanded;
+    sheetOpen = true;
   }
 </script>
 
 {#if tags.length > 0}
   <div
     class:grid-layout={!!columns}
-    class:expanded
     class="tag-list"
     style:--tag-columns={columns ? `${columns}` : undefined}
   >
     {#each visibleTags as tag}
       <ScopeChip href={hrefFor(tag)} icon={iconFor(tag)} label={tag.label} />
     {/each}
-    {#if maxVisible != null && tags.length > maxVisible}
+    {#if maxVisible != null && hiddenCount > 0}
       <button
         type="button"
         class="tag-overflow-btn"
-        aria-expanded={expanded}
-        aria-label={expanded ? 'Show fewer tags' : `Show ${hiddenCount} more tags`}
-        on:click={toggleOverflow}
+        aria-haspopup="dialog"
+        aria-expanded={sheetOpen}
+        aria-label={`Show ${hiddenCount} more tags`}
+        on:click={openOverflow}
       >
-        {expanded ? '−' : `+${hiddenCount}`}
+        +{hiddenCount}
       </button>
     {/if}
   </div>
+
+  <ScopeSheet bind:open={sheetOpen} labelledById={sheetId} {tags} />
 {/if}
 
 <style>
@@ -71,19 +79,11 @@
     max-width: 100%;
   }
 
-  .tag-list.expanded,
-  .tag-list.grid-layout {
-    flex-wrap: wrap;
-  }
-
   .tag-list.grid-layout {
     display: grid;
     grid-template-columns: repeat(var(--tag-columns), max-content);
     justify-content: end;
-  }
-
-  .tag-list.expanded {
-    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
   .tag-overflow-btn {
@@ -113,7 +113,7 @@
       gap: 4px;
     }
 
-    .tag-list.grid-layout:not(.expanded) {
+    .tag-list.grid-layout {
       display: flex;
       flex-wrap: nowrap;
       justify-content: flex-end;

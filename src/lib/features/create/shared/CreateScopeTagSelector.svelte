@@ -1,4 +1,6 @@
 <script lang="ts">
+  import SuggestionList from '$lib/components/shared/SuggestionList.svelte';
+
   type SelectorItem = {
     key: string;
     label: string;
@@ -22,13 +24,16 @@
 <div>
   <span class="field-label">{label}</span>
   <div class="token-input-stack">
-    <div class="chip-row wrap-row">
-      {#each selectedItems as item}
-        <button class="toggle-chip active" type="button" on:click={() => onRemove(item.key)}>
-          {item.label} x
-        </button>
-      {/each}
-    </div>
+    {#if selectedItems.length > 0}
+      <div class="selected-row" aria-label="Selected tags">
+        {#each selectedItems as item}
+          <button class="selected-chip" type="button" on:click={() => onRemove(item.key)}>
+            <span>{item.label}</span>
+            <span class="chip-remove" aria-hidden="true">×</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
     <input
       value={query}
       {placeholder}
@@ -42,15 +47,11 @@
           onAdd
         )}
     />
-    {#if suggestionItems.length > 0}
-      <div class="suggestion-row">
-        {#each suggestionItems as item}
-          <button class="suggestion-chip" type="button" on:click={() => onAdd(item.key)}>
-            {item.label}
-          </button>
-        {/each}
-      </div>
-    {/if}
+    <SuggestionList
+      items={suggestionItems}
+      {query}
+      on:select={(event) => onAdd(event.detail.key)}
+    />
   </div>
   {#if helperText}
     <p class="helper-text">{helperText}</p>
@@ -65,34 +66,46 @@
     font-weight: 700;
   }
 
-  .chip-row {
-    display: flex;
-    gap: 8px;
-  }
-
-  .wrap-row {
-    flex-wrap: wrap;
-  }
-
-  .token-input-stack,
-  .suggestion-row {
+  .token-input-stack {
     display: grid;
     gap: 8px;
   }
 
-  .suggestion-row {
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  }
-
-  .suggestion-chip {
-    padding: 8px 10px;
+  .token-input-stack input {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-soft);
-    font-size: 12px;
+    background: var(--panel-soft);
+    color: var(--text-main);
+  }
+
+  .selected-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .selected-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 10px;
+    border: 1px solid var(--brand);
+    border-radius: 999px;
+    background: var(--brand-soft);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 13px;
     font-weight: 700;
-    text-align: left;
+    cursor: pointer;
+  }
+
+  .chip-remove {
+    color: var(--text-soft);
+    font-size: 16px;
+    line-height: 1;
   }
 
   .helper-text {

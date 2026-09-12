@@ -69,11 +69,7 @@
       </a>
     </div>
     <div class="footer-meta">
-      <ContentMetaRow
-        authorUsername={item.authorUsername}
-        createdAt={item.createdAt}
-        updatedAt={item.lastActivityAt ?? item.createdAt}
-      />
+      <ContentMetaRow authorUsername={item.authorUsername} createdAt={item.createdAt} />
     </div>
   </div>
 </FeedSurface>

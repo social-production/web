@@ -36,54 +36,77 @@
         <span class="scope-badge">{badge}</span>
       {/each}
 
-      <span aria-label={`${pageData.membership.memberCount} members`} class="member-chip">
-        <FeedToolbarIcon name="people" />
-        <span>{pageData.membership.memberCount}</span>
-      </span>
-
       {#if isInviteOnly}
-        <IconPopoverMenu
-          bind:open={showInvitePanel}
-          active={showInvitePanel}
-          ariaLabel={isMember ? `Invite people to ${pageData.title}` : `Join ${pageData.title} with invite`}
-          menuLabel={isMember ? 'Invite people' : 'Join with invite'}
-          minWidth={300}
-        >
-          <FeedToolbarIcon slot="icon" name="person-plus" />
-          <CommunityInvitePanel
-            variant="popover"
+        {#if !isMember}
+          <IconPopoverMenu
+            bind:open={showInvitePanel}
             active={showInvitePanel}
-            bind:inviteDraft
-            bind:inviteFeedback
-            bind:inviteFeedbackTone
-            bind:invitePending
-            {pageData}
-            onRedeem={onInviteRedeem}
-          />
-        </IconPopoverMenu>
-
-        {#if isMember}
+            chip
+            ariaLabel={`Join ${pageData.title} with invite, ${pageData.membership.memberCount} members`}
+            menuLabel="Join with invite"
+            minWidth={300}
+          >
+            <svelte:fragment slot="icon">
+              <FeedToolbarIcon name="person-plus" />
+              <span>{pageData.membership.memberCount}</span>
+            </svelte:fragment>
+            <CommunityInvitePanel
+              variant="popover"
+              active={showInvitePanel}
+              bind:inviteDraft
+              bind:inviteFeedback
+              bind:inviteFeedbackTone
+              bind:invitePending
+              {pageData}
+              onRedeem={onInviteRedeem}
+            />
+          </IconPopoverMenu>
+        {:else}
           <button
-            aria-label={`Leave ${pageData.title}`}
-            class="icon-action"
+            aria-label={`Leave ${pageData.title}, ${pageData.membership.memberCount} members`}
+            class="member-chip"
             class:menu-active={isMember}
             disabled={membershipPending}
             type="button"
             on:click={onLeave}
           >
             <FeedToolbarIcon name="person-check" />
+            <span>{pageData.membership.memberCount}</span>
           </button>
+
+          <IconPopoverMenu
+            bind:open={showInvitePanel}
+            active={showInvitePanel}
+            ariaLabel={`Invite people to ${pageData.title}`}
+            menuLabel="Invite people"
+            minWidth={300}
+          >
+            <FeedToolbarIcon slot="icon" name="person-plus" />
+            <CommunityInvitePanel
+              variant="popover"
+              active={showInvitePanel}
+              bind:inviteDraft
+              bind:inviteFeedback
+              bind:inviteFeedbackTone
+              bind:invitePending
+              {pageData}
+              onRedeem={onInviteRedeem}
+            />
+          </IconPopoverMenu>
         {/if}
       {:else}
         <button
-          aria-label={isMember ? `Leave ${pageData.title}` : `Join ${pageData.title}`}
-          class="icon-action"
+          aria-label={isMember
+            ? `Leave ${pageData.title}, ${pageData.membership.memberCount} members`
+            : `Join ${pageData.title}, ${pageData.membership.memberCount} members`}
+          class="member-chip"
           class:menu-active={isMember}
           disabled={membershipDisabled}
           type="button"
           on:click={onMembershipAction}
         >
           <FeedToolbarIcon name={isMember ? 'person-check' : 'person-plus'} />
+          <span>{pageData.membership.memberCount}</span>
         </button>
       {/if}
 
@@ -182,16 +205,41 @@
     align-items: center;
     gap: 4px;
     padding: 4px 6px;
+    min-height: 32px;
+    border: none;
     border-radius: var(--radius-sm);
+    background: transparent;
     color: var(--text-soft);
     font-size: 11px;
     font-weight: 700;
     flex: 0 0 auto;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
   }
 
   .member-chip span {
     color: var(--text-main);
     font-size: 12px;
+  }
+
+  .member-chip :global(.toolbar-icon) {
+    width: 18px;
+    height: 18px;
+  }
+
+  .member-chip:hover:not(:disabled),
+  .member-chip.menu-active {
+    background: color-mix(in srgb, var(--panel-border) 42%, transparent);
+    color: var(--text-main);
+  }
+
+  .member-chip.menu-active {
+    box-shadow: inset 0 -2px 0 var(--text-soft);
+  }
+
+  .member-chip:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 
   .icon-action {

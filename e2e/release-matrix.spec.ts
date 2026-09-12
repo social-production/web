@@ -88,11 +88,13 @@ test.describe('Release readiness browser matrix', () => {
       await recipientPage.goto('/messages');
 
       await page.goto('/messages');
-      await page.getByLabel('Start a new message').click();
-      await page.getByPlaceholder('Type a username').fill(recipient.username);
+      await page.getByRole('button', { name: 'New message' }).click();
+      const composeDialog = page.getByRole('dialog', { name: 'New message' });
+      await composeDialog.getByPlaceholder('Username').fill(recipient.username);
+      await composeDialog.getByRole('option', { name: recipient.username }).click();
       const body = `Realtime message ${Date.now()}`;
-      await page.getByPlaceholder('Write a message...').fill(body);
-      await page.locator('.new-conversation-card').getByRole('button', { name: 'Send' }).click();
+      await composeDialog.getByPlaceholder('Write a message…').fill(body);
+      await composeDialog.getByRole('button', { name: 'Send' }).click();
 
       await expect(recipientPage.getByText(body, { exact: true })).toBeVisible({
         timeout: 20_000,

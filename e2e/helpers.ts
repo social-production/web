@@ -74,7 +74,7 @@ export async function createProjectViaUi(
     .getByPlaceholder(/search channels|Type to search channels/i)
     .first();
   await channelInput.fill('platform');
-  const suggestion = page.locator('main').getByRole('button', { name: /^Platform$/i }).first();
+  const suggestion = page.locator('main').getByRole('option', { name: /^Platform$/i }).first();
   await expect(suggestion).toBeVisible({ timeout: 10_000 });
   await suggestion.click();
   await expect(channelInput).toHaveValue('');

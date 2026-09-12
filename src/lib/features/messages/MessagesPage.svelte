@@ -5,6 +5,7 @@
   import { get } from 'svelte/store';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
+  import ComposeMessageSheet from '$lib/components/shared/ComposeMessageSheet.svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
@@ -26,13 +27,11 @@
   } from '$lib/services/queries/inbox';
   import {
     addGroupConversationMember,
-    createGroupConversation,
     markConversationRead,
     markLinkedChatRead,
     removeGroupConversationMember,
     renameGroupConversation,
     sendMessage,
-    startDirectMessage,
   } from '$lib/services/commands/inbox';
   import type { DirectMessage, MessageLinkedChat, MessagesPageData } from '$lib/types/inbox';
   import type { ViewerSummary } from '$lib/types/bootstrap';
@@ -55,12 +54,7 @@
   let conversations = data.conversations;
   let lastLoaderConversations = data.conversations;
   let showComposer = false;
-  let composerMode: 'direct' | 'group' = 'direct';
-  let recipientDraft = '';
-  let groupTitleDraft = '';
   let groupMemberDraft = '';
-  let selectedGroupMembers: string[] = [];
-  let composerDraft = '';
   let composerError = '';
   let showGroupOptions = false;
   let showAddMembers = false;
@@ -144,30 +138,10 @@
         null)
       : null;
   $: activeDirectAvatarImageUrl = directConversationPartner?.profileImageUrl ?? null;
-  $: normalizedRecipientQuery = recipientDraft.trim().toLowerCase();
   $: normalizedGroupQuery = groupMemberDraft.trim().toLowerCase();
-  $: activeContactQuery =
-    showComposer && composerMode === 'direct'
-      ? recipientDraft
-      : (showComposer && composerMode === 'group') || showAddMembers
-        ? groupMemberDraft
-        : '';
-  $: if (browser && (showComposer || showAddMembers)) {
-    void updateContactSuggestions(activeContactQuery);
+  $: if (browser && showAddMembers) {
+    void updateContactSuggestions(groupMemberDraft);
   }
-  $: directSuggestions = contactSuggestions.filter(
-    (contact) =>
-      contact.id !== data.viewer.id &&
-      (normalizedRecipientQuery
-        ? contact.username.toLowerCase().includes(normalizedRecipientQuery)
-        : true)
-  );
-  $: groupSuggestions = contactSuggestions.filter(
-    (contact) =>
-      contact.id !== data.viewer.id &&
-      !selectedGroupMembers.includes(contact.username) &&
-      (normalizedGroupQuery ? contact.username.toLowerCase().includes(normalizedGroupQuery) : true)
-  );
   $: addableGroupMembers =
     activeConversation?.kind === 'group'
       ? contactSuggestions.filter(
@@ -262,7 +236,7 @@
 
   async function updateContactSuggestions(query: string) {
     const normalized = query.trim();
-    const lookupKey = `${showAddMembers ? 'add' : composerMode}:${normalized}`;
+    const lookupKey = `add:${normalized}`;
 
     if (lookupKey === contactSearchKey) {
       return;
@@ -271,34 +245,10 @@
     contactSearchKey = lookupKey;
 
     if (!normalized) {
-      if (showAddMembers) {
-        contactSuggestions =
-          activeConversation?.participants.filter(
-            (participant) => participant.id !== data.viewer.id
-          ) ?? [];
-        return;
-      }
-
-      if (showComposer) {
-        const requestId = ++contactSearchRequestId;
-
-        try {
-          const results = await getMessageContacts('', 8);
-
-          if (requestId !== contactSearchRequestId) {
-            return;
-          }
-
-          contactSuggestions = results;
-        } catch {
-          if (requestId === contactSearchRequestId) {
-            contactSuggestions = [];
-          }
-        }
-      } else {
-        contactSuggestions = [];
-      }
-
+      contactSuggestions =
+        activeConversation?.participants.filter(
+          (participant) => participant.id !== data.viewer.id
+        ) ?? [];
       return;
     }
 
@@ -706,7 +656,6 @@
 
   $: shellLayoutKey = [
     activeListTab,
-    showComposer ? 'composer-open' : 'composer-closed',
     activeConversation?.id ?? 'no-conversation',
     activeLinkedChat?.id ?? 'no-linked-chat',
     showGroupOptions ? 'group-options-open' : 'group-options-closed',
@@ -807,8 +756,6 @@
   ) {
     handledComposeToUsername = composeToUsername;
     activeListTab = 'messages';
-    composerMode = 'direct';
-    recipientDraft = composeToUsername;
     showComposer = true;
     composerError = '';
   }
@@ -974,24 +921,10 @@
     await hydrateLinkedChats({ force: true });
   }
 
-  function handleNewComposerKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && !event.shiftKey) {
+  function handleAddMemberKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter' && addableGroupMembers.length > 0) {
       event.preventDefault();
-      void submitNewConversation();
-    }
-  }
-
-  function handleRecipientKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && directSuggestions.length === 1) {
-      event.preventDefault();
-      chooseDirectRecipient(directSuggestions[0].username);
-    }
-  }
-
-  function handleGroupMemberKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && groupSuggestions.length > 0) {
-      event.preventDefault();
-      chooseGroupComposerMember(groupSuggestions[0].username);
+      void addMemberToGroup(addableGroupMembers[0].username);
     }
   }
 
@@ -1015,27 +948,7 @@
 
     if (tab !== 'messages') {
       showComposer = false;
-      resetComposer();
       void hydrateLinkedChats();
-    }
-  }
-
-  function resetComposer() {
-    composerMode = 'direct';
-    recipientDraft = '';
-    groupTitleDraft = '';
-    groupMemberDraft = '';
-    selectedGroupMembers = [];
-    composerDraft = '';
-    composerError = '';
-  }
-
-  function toggleComposer() {
-    showComposer = !showComposer;
-    composerError = '';
-
-    if (!showComposer) {
-      resetComposer();
     }
   }
 
@@ -1043,79 +956,16 @@
     if (activeListTab !== 'messages') {
       activeListTab = 'messages';
       showComposer = true;
-      composerError = '';
-      contactSearchKey = '';
-      void updateContactSuggestions('');
       return;
     }
 
-    if (!showComposer) {
-      contactSearchKey = '';
-      void updateContactSuggestions('');
-    }
-
-    toggleComposer();
+    showComposer = !showComposer;
   }
 
-  function chooseDirectRecipient(username: string) {
-    recipientDraft = username;
-    composerError = '';
-  }
-
-  function chooseGroupComposerMember(username: string) {
-    if (!selectedGroupMembers.includes(username)) {
-      selectedGroupMembers = [...selectedGroupMembers, username];
-    }
-
-    groupMemberDraft = '';
-    composerError = '';
-  }
-
-  function removeComposerMember(username: string) {
-    selectedGroupMembers = selectedGroupMembers.filter((member) => member !== username);
-  }
-
-  async function submitNewConversation() {
-    const body = composerDraft.trim();
-
-    if (composerMode === 'direct') {
-      const participantUsername =
-        normalizedRecipientQuery && directSuggestions.length === 1
-          ? directSuggestions[0].username
-          : recipientDraft.trim();
-
-      if (!participantUsername || !body) {
-        composerError = 'Choose a username and write a message.';
-        return;
-      }
-
-      const result = await startDirectMessage(participantUsername, body);
-
-      if (!result.ok || !result.conversationId) {
-        composerError = result.error ?? 'That username could not be found.';
-        return;
-      }
-
-      activeConversationId = result.conversationId;
-      activeLinkedChatId = null;
-    } else {
-      const result = await createGroupConversation({
-        title: groupTitleDraft,
-        memberUsernames: selectedGroupMembers,
-        body,
-      });
-
-      if (!result.ok || !result.conversationId) {
-        composerError = result.error ?? 'The group chat could not be created.';
-        return;
-      }
-
-      activeConversationId = result.conversationId;
-      activeLinkedChatId = null;
-    }
-
+  async function handleComposerSent(event: CustomEvent<{ conversationId: string }>) {
     showComposer = false;
-    resetComposer();
+    activeConversationId = event.detail.conversationId;
+    activeLinkedChatId = null;
     await invalidate('inbox:messages');
 
     if (activeConversationId) {
@@ -1225,10 +1075,6 @@
 
   <section
     bind:this={messagesShellElement}
-    class:composer-open={!activeConversation &&
-      !activeLinkedChat &&
-      showComposer &&
-      activeListTab === 'messages'}
     class:conversation-view={!!activeConversation || !!activeLinkedChat}
     class:list-view={!activeConversation && !activeLinkedChat}
     class:with-chat-options={!!activeConversation &&
@@ -1341,10 +1187,15 @@
               <input
                 bind:value={groupMemberDraft}
                 list="message-contacts"
-                on:keydown={handleGroupMemberKeydown}
+                on:keydown={handleAddMemberKeydown}
                 placeholder="Type a username"
                 type="text"
               />
+              <datalist id="message-contacts">
+                {#each contactSuggestions as contact}
+                  <option value={contact.username}></option>
+                {/each}
+              </datalist>
               {#if addableGroupMembers.length > 0}
                 <div class="contact-list">
                   {#each addableGroupMembers as member}
@@ -1498,139 +1349,12 @@
         />
       </div>
 
-      {#if activeListTab === 'messages' && showComposer}
-        <section class="new-conversation-card">
-          <header class="composer-header">
-            <h2>New message</h2>
-            <button class="composer-dismiss" type="button" on:click={toggleComposer}>Close</button>
-          </header>
-
-          <div class="composer-mode-row" role="tablist" aria-label="Message type">
-            <button
-              aria-selected={composerMode === 'direct'}
-              class:active={composerMode === 'direct'}
-              class="composer-mode"
-              role="tab"
-              type="button"
-              on:click={() => {
-                composerMode = 'direct';
-                composerError = '';
-              }}
-            >
-              Direct
-            </button>
-            <button
-              aria-selected={composerMode === 'group'}
-              class:active={composerMode === 'group'}
-              class="composer-mode"
-              role="tab"
-              type="button"
-              on:click={() => {
-                composerMode = 'group';
-                composerError = '';
-              }}
-            >
-              Group
-            </button>
-          </div>
-
-          {#if composerMode === 'direct'}
-            <label class="composer-field">
-              <span class="sr-only">To</span>
-              <input
-                bind:value={recipientDraft}
-                list="message-contacts"
-                on:keydown={handleRecipientKeydown}
-                placeholder="Username"
-                type="text"
-              />
-            </label>
-          {:else}
-            <label class="composer-field">
-              <span class="sr-only">Group chat name</span>
-              <input bind:value={groupTitleDraft} placeholder="Group name" type="text" />
-            </label>
-
-            <label class="composer-field">
-              <span class="sr-only">Add members</span>
-              <input
-                bind:value={groupMemberDraft}
-                list="message-contacts"
-                on:keydown={handleGroupMemberKeydown}
-                placeholder="Add members"
-                type="text"
-              />
-            </label>
-
-            {#if selectedGroupMembers.length > 0}
-              <div class="selected-members">
-                {#each selectedGroupMembers as member}
-                  <button
-                    class="selected-member-chip"
-                    type="button"
-                    on:click={() => removeComposerMember(member)}
-                  >
-                    {member}
-                    <span>×</span>
-                  </button>
-                {/each}
-              </div>
-            {/if}
-          {/if}
-
-          <label class="composer-field grow">
-            <span class="sr-only">Message</span>
-            <textarea
-              bind:value={composerDraft}
-              on:keydown={handleNewComposerKeydown}
-              placeholder="Write a message…"
-              rows="2"
-            ></textarea>
-          </label>
-
-          <datalist id="message-contacts">
-            {#each data.suggestedContacts as contact}
-              <option value={contact.username}></option>
-            {/each}
-          </datalist>
-
-          {#if composerMode === 'direct' && directSuggestions.length > 0}
-            <div class="contact-list">
-              {#each directSuggestions as contact}
-                <button
-                  class="contact-chip"
-                  type="button"
-                  on:click={() => chooseDirectRecipient(contact.username)}
-                >
-                  {contact.username}
-                </button>
-              {/each}
-            </div>
-          {/if}
-
-          {#if composerMode === 'group' && groupSuggestions.length > 0}
-            <div class="contact-list">
-              {#each groupSuggestions as contact}
-                <button
-                  class="contact-chip"
-                  type="button"
-                  on:click={() => chooseGroupComposerMember(contact.username)}
-                >
-                  {contact.username}
-                </button>
-              {/each}
-            </div>
-          {/if}
-
-          {#if composerError}
-            <p class="composer-feedback">{composerError}</p>
-          {/if}
-
-          <div class="composer-actions">
-            <button class="primary-button" type="button" on:click={submitNewConversation}>Send</button>
-          </div>
-        </section>
-      {/if}
+      <ComposeMessageSheet
+        bind:open={showComposer}
+        prefillUsername={composeToUsername}
+        on:close={() => (showComposer = false)}
+        on:sent={handleComposerSent}
+      />
 
       <div class="conversation-list">
         {#if activeListTab === 'messages'}
@@ -1747,10 +1471,6 @@
     grid-template-rows: auto auto minmax(0, 1fr);
   }
 
-  .messages-shell.list-view.composer-open {
-    grid-template-rows: auto auto auto minmax(0, 1fr);
-  }
-
   .messages-shell.conversation-view {
     grid-template-rows: auto minmax(0, 1fr);
     height: var(--messages-shell-height, calc(100dvh - 32px));
@@ -1774,41 +1494,6 @@
     border-bottom: 1px solid var(--panel-border);
   }
 
-  .new-conversation-card {
-    padding: 12px 14px 14px;
-    background: var(--panel);
-    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
-  }
-
-  .composer-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .composer-header h2 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-  }
-
-  .composer-dismiss {
-    padding: 4px 8px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .composer-dismiss:hover {
-    color: var(--text-main);
-  }
-
   .chat-header {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -1819,15 +1504,10 @@
   .chat-identity,
   .conversation-copy,
   .composer-field,
-  .new-conversation-card,
   .group-settings-card,
   .profile-actions-card {
     display: grid;
     gap: 8px;
-  }
-
-  .new-conversation-card {
-    gap: 10px;
   }
 
   .chat-identity {
@@ -1923,40 +1603,11 @@
 
   .inline-field,
   .contact-list,
-  .composer-actions,
-  .composer-mode-row,
-  .selected-members,
   .member-links {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
     align-items: center;
-  }
-
-  .composer-mode-row {
-    gap: 0;
-    padding: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
-  }
-
-  .composer-mode {
-    flex: 0 0 auto;
-    padding: 6px 2px 8px;
-    margin-right: 14px;
-    border: none;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
-    background: transparent;
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .composer-mode.active {
-    border-bottom-color: var(--brand);
-    color: var(--text-main);
-    background: transparent;
   }
 
   .inline-field {
@@ -1965,10 +1616,6 @@
 
   .inline-field input {
     flex: 1 1 220px;
-  }
-
-  .composer-actions {
-    justify-content: flex-end;
   }
 
   .composer-field input,
@@ -1984,7 +1631,6 @@
   }
 
   .contact-chip,
-  .selected-member-chip,
   .member-link {
     display: inline-flex;
     align-items: center;
@@ -2000,7 +1646,6 @@
 
   .contact-chip:hover,
   .contact-chip.active,
-  .selected-member-chip:hover,
   .member-link:hover {
     border-color: var(--brand);
     background: var(--brand-soft);
@@ -2272,17 +1917,6 @@
       height: auto;
       min-height: 0;
       z-index: 15;
-    }
-
-    .messages-shell.list-view.composer-open .new-conversation-card {
-      position: fixed;
-      inset: var(--topbar-height) 0 var(--shell-bottom-nav-offset) 0;
-      z-index: 20;
-      overflow-y: auto;
-      border: none;
-      padding: 14px 14px calc(14px + var(--shell-safe-bottom));
-      background: var(--panel);
-      align-content: start;
     }
   }
 

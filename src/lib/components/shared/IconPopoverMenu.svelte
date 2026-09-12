@@ -7,6 +7,7 @@
   export let disabled = false;
   export let menuLabel = '';
   export let minWidth = 168;
+  export let chip = false;
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
@@ -102,6 +103,7 @@
   <button
     bind:this={triggerElement}
     type="button"
+    class:chip
     class="icon-popover-trigger"
     class:menu-open={open}
     class:menu-active={active}
@@ -144,6 +146,20 @@
     background: transparent;
     color: var(--text-soft);
     transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  }
+
+  .icon-popover-trigger.chip {
+    width: auto;
+    min-width: 32px;
+    padding: 4px 6px;
+    gap: 4px;
+  }
+
+  .icon-popover-trigger.chip :global(span) {
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
   }
 
   .icon-popover-trigger:hover:not(:disabled),

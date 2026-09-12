@@ -8,6 +8,7 @@
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
   import PeopleSheet from '$lib/components/shared/PeopleSheet.svelte';
+  import ComposeMessageSheet from '$lib/components/shared/ComposeMessageSheet.svelte';
   import {
     DEFAULT_FEED_PAGE_SIZE,
     appendUniqueById
@@ -41,6 +42,7 @@
   let activeFilter: FeedFilter = 'all';
   let viewedUsername = data.username;
   let activePeopleList: PeopleListMode = null;
+  let composeOpen = false;
   let sortMode: SortMode = 'newest';
   let feedItems: PersonalFeedItem[] = data.feed;
   let feedLoading = false;
@@ -79,6 +81,7 @@
     viewedUsername = data.username;
     activeFilter = 'all';
     activePeopleList = null;
+    composeOpen = false;
     sortMode = 'newest';
     feedItems = data.feed;
     feedOffset = data.feed.length;
@@ -93,13 +96,13 @@
     viewerIsFollowing = data.viewerIsFollowing;
   }
 
-  $: followButtonLabel = followPending
+  $: followAriaLabel = followPending
     ? 'Working...'
     : viewerIsFollowing
-      ? 'Unfollow'
+      ? `Unfollow ${data.username}`
       : viewerFollowStatus === 'pending'
-        ? 'Request sent'
-        : 'Follow';
+        ? `Cancel follow request to ${data.username}`
+        : `Follow ${data.username}`;
 
   let apiSort: FeedSortQuery = 'recent';
   // Newest = chronological newest-first, Top = highest rated (raw score), Oldest = chronological oldest-first.
@@ -317,39 +320,65 @@
 
         <div class="profile-side">
           <div class="stats-row">
+            {#if data.isOwnProfile}
+              <button
+                aria-label={`${data.followersCount} followers`}
+                class:active={activePeopleList === 'followers'}
+                class="stat-chip"
+                type="button"
+                on:click={() => togglePeopleList('followers')}
+              >
+                <FeedToolbarIcon name="user" />
+                <span>{data.followersCount}</span>
+              </button>
+            {:else}
+              <div
+                class:active={activePeopleList === 'followers'}
+                class:following={viewerIsFollowing}
+                class:pending={viewerFollowStatus === 'pending'}
+                class="stat-chip stat-chip-split"
+              >
+                <button
+                  aria-label={followAriaLabel}
+                  class:following={viewerIsFollowing}
+                  class:pending={viewerFollowStatus === 'pending'}
+                  class="stat-icon"
+                  disabled={followPending}
+                  type="button"
+                  on:click={toggleFollow}
+                >
+                  <FeedToolbarIcon name={viewerIsFollowing ? 'person-check' : 'person-plus'} />
+                </button>
+                <button
+                  aria-label={`${data.followersCount} followers`}
+                  class="stat-count"
+                  type="button"
+                  on:click={() => togglePeopleList('followers')}
+                >
+                  {data.followersCount}
+                </button>
+              </div>
+            {/if}
+
             <button
-              class:active={activePeopleList === 'followers'}
-              class="stat-chip"
-              type="button"
-              on:click={() => togglePeopleList('followers')}
-            >
-              <strong>{data.followersCount}</strong>
-              <span>Followers</span>
-            </button>
-            <button
+              aria-label={`${data.followingCount} following`}
               class:active={activePeopleList === 'following'}
               class="stat-chip"
               type="button"
               on:click={() => togglePeopleList('following')}
             >
-              <strong>{data.followingCount}</strong>
-              <span>Following</span>
+              <FeedToolbarIcon name="people" />
+              <span>{data.followingCount}</span>
             </button>
-          </div>
 
-          <div class="profile-actions">
             {#if !data.isOwnProfile && $page.data.bootstrap?.viewer}
-              <a class="message-button" href={`/messages?to=${encodeURIComponent(data.username)}`}>Message</a>
-            {/if}
-            {#if !data.isOwnProfile}
               <button
-                class="follow-button"
-                class:pending={viewerFollowStatus === 'pending'}
+                aria-label={`Message ${data.username}`}
+                class="icon-action"
                 type="button"
-                disabled={followPending}
-                on:click={toggleFollow}
+                on:click={() => (composeOpen = true)}
               >
-                {followButtonLabel}
+                <FeedToolbarIcon name="message" />
               </button>
             {/if}
           </div>
@@ -405,6 +434,12 @@
     emptyCopy={activePeopleList === 'followers' ? 'No followers yet.' : 'Not following anyone yet.'}
     people={peopleSheetPeople}
     on:close={() => (activePeopleList = null)}
+  />
+
+  <ComposeMessageSheet
+    bind:open={composeOpen}
+    prefillUsername={data.username}
+    on:close={() => (composeOpen = false)}
   />
 
   <section class="toolbar-card">
@@ -583,9 +618,8 @@
   }
 
   .profile-side {
-    display: grid;
-    gap: 10px;
-    justify-items: end;
+    display: flex;
+    justify-content: flex-end;
     flex: 0 0 auto;
   }
 
@@ -593,13 +627,7 @@
     display: flex;
     gap: 6px;
     align-items: center;
-  }
-
-  .profile-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    flex-wrap: nowrap;
   }
 
   .profile-bio {
@@ -619,39 +647,115 @@
     overflow: hidden;
   }
 
-  .stat-chip {
+  .stat-chip,
+  .stat-chip-split {
     display: inline-flex;
-    align-items: baseline;
-    gap: 5px;
+    align-items: center;
+    gap: 4px;
     min-width: 0;
-    padding: 4px 8px;
-    border: 1px solid transparent;
+    padding: 4px 6px;
+    border: none;
     border-radius: var(--radius-sm);
     background: transparent;
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    flex: 0 0 auto;
+    transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  }
+
+  .stat-chip :global(.toolbar-icon),
+  .stat-icon :global(.toolbar-icon) {
+    width: 18px;
+    height: 18px;
+  }
+
+  .stat-chip span,
+  .stat-count {
     color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0;
+    border: none;
+    background: transparent;
     cursor: pointer;
   }
 
-  .stat-chip:hover,
-  .stat-chip:focus-visible {
-    border-color: var(--panel-border);
-    background: var(--panel-soft);
+  .stat-chip-split {
+    padding: 0;
+    cursor: default;
   }
 
-  .stat-chip.active {
-    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 55%, transparent);
-  }
-
-  .stat-chip strong {
-    font-size: 13px;
-    font-weight: 800;
-  }
-
-  .stat-chip span {
+  .stat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
     color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .stat-count {
+    padding: 0 6px 0 0;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .stat-chip:hover,
+  .stat-chip:focus-visible,
+  .stat-icon:hover:not(:disabled),
+  .stat-icon:focus-visible,
+  .stat-count:hover,
+  .stat-count:focus-visible,
+  .icon-action:hover,
+  .icon-action:focus-visible {
+    background: color-mix(in srgb, var(--panel-border) 42%, transparent);
+    color: var(--text-main);
+  }
+
+  .stat-chip.active,
+  .stat-chip-split.active,
+  .stat-icon.following,
+  .stat-chip.following {
+    background: color-mix(in srgb, var(--panel-border) 42%, transparent);
+    color: var(--text-main);
+    box-shadow: inset 0 -2px 0 var(--text-soft);
+  }
+
+  .stat-icon.pending,
+  .stat-chip-split.pending {
+    background: var(--panel-strong);
+    color: var(--text-main);
+    box-shadow: none;
+  }
+
+  .stat-icon:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .icon-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-soft);
+    flex: 0 0 auto;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
   }
 
   @media (max-width: 720px) {
@@ -662,49 +766,12 @@
 
     .profile-side {
       width: 100%;
-      justify-items: stretch;
-    }
-
-    .stats-row,
-    .profile-actions {
       justify-content: flex-start;
     }
-  }
 
-  .hero-topline .stats-row {
-    margin-left: 0;
-  }
-
-  .toolbar-button,
-  .follow-button,
-  .message-button {
-    padding: 7px 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .message-button {
-    background: var(--panel-strong);
-    color: var(--brand-strong);
-  }
-
-  .follow-button {
-    background: var(--brand);
-    color: var(--page-bg);
-  }
-
-  .follow-button.pending {
-    background: var(--panel-strong);
-    color: var(--text-main);
-    border: 1px solid var(--panel-border);
-  }
-
-  .follow-button:disabled {
-    opacity: 0.7;
+    .stats-row {
+      justify-content: flex-start;
+    }
   }
 
   .requests-card h2 {
@@ -770,13 +837,6 @@
     color: var(--text-main);
     font-size: 13px;
     font-weight: 700;
-  }
-
-  .toolbar-button:hover,
-  .stat-chip:hover {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
   }
 
   .person-row strong {

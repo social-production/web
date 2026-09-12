@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy } from 'svelte';
+  import { portal } from '$lib/utils/portal';
 
   export let open = false;
   export let title = '';
@@ -49,7 +50,7 @@
 <svelte:window on:keydown={handleKeydown} />
 
 {#if open}
-  <div class="overlay-root" role="presentation">
+  <div class="overlay-root" role="presentation" use:portal={'body'}>
     <button aria-label="Close" class="overlay-scrim" type="button" on:click={close}></button>
     <div
       aria-labelledby={labelledById}
@@ -84,6 +85,7 @@
     display: grid;
     place-items: center;
     padding: 24px;
+    pointer-events: auto;
   }
 
   .overlay-scrim {
