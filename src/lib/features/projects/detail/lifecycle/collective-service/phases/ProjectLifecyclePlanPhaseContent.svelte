@@ -295,7 +295,7 @@
     {#if plans.length === 0}
       <div class="empty-card">{emptyCopy()}</div>
     {:else}
-      {#each plans as plan}
+      {#each plans as plan (plan.id)}
         <CollapsiblePlanCard
           canVote={canVoteOnPlans}
           expanded={isExpandedPlan(plan.id)}

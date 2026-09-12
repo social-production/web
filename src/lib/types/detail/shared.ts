@@ -12,6 +12,7 @@ export interface DetailMember {
   id: string;
   username: string;
   bio?: string;
+  profileImageUrl?: string | null;
 }
 
 export type ContentReportReason = 'spam' | 'serious-harm';
@@ -323,6 +324,7 @@ export interface ProjectProductionPlan {
   purchaseRows: ProjectAcquisitionPurchaseRow[];
   valueAssessments: ProjectPlanValueAssessment[];
   criterionAssessments: PlanCriterionAssessment[];
+  averageRating?: number;
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
   leaderStatus?: PlanLeaderStatus;
@@ -371,6 +373,7 @@ export interface ProjectDistributionPlan {
   allowOffScheduleRequests?: boolean;
   valueAssessments: ProjectPlanValueAssessment[];
   criterionAssessments: PlanCriterionAssessment[];
+  averageRating?: number;
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
   leaderStatus?: PlanLeaderStatus;
@@ -395,6 +398,7 @@ export interface EventPlan {
   planPhases: EventPlanPhaseItem[];
   valueAssessments: ProjectPlanValueAssessment[];
   criterionAssessments: PlanCriterionAssessment[];
+  averageRating?: number;
   overallApproval: ProjectPlanVoteSummary;
   isLeading: boolean;
   leaderStatus?: PlanLeaderStatus;

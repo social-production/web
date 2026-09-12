@@ -28,14 +28,16 @@
     align-items: center;
     gap: 6px;
     min-width: 0;
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 600;
+    color: color-mix(in srgb, var(--text-soft) 78%, transparent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     line-height: 1.2;
   }
 
   .label-copy {
-    color: var(--text-soft);
+    color: inherit;
     white-space: nowrap;
   }
 </style>

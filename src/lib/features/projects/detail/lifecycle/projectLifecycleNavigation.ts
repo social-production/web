@@ -33,6 +33,14 @@ export function scrollElementIntoComfortView(element: HTMLElement | null, topOff
     return;
   }
 
+  const scroller = element.closest('.main-content');
+  if (scroller instanceof HTMLElement && scroller.scrollHeight > scroller.clientHeight + 1) {
+    const nextTop =
+      scroller.scrollTop + element.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 16;
+    scroller.scrollTo({ top: Math.max(nextTop, 0), behavior: 'smooth' });
+    return;
+  }
+
   const targetTop = Math.max(0, window.scrollY + element.getBoundingClientRect().top - topOffset);
   window.scrollTo({ top: targetTop, behavior: 'smooth' });
 }

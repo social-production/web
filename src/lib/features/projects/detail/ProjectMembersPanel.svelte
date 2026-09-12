@@ -1,24 +1,22 @@
 <script lang="ts">
-  import MemberListPanel from '$lib/components/shared/MemberListPanel.svelte';
+  import PeopleSheet from '$lib/components/shared/PeopleSheet.svelte';
   import type { ProjectPageData } from '$lib/types/detail';
 
   export let data: ProjectPageData;
-  export let panelId = 'project-members-panel';
+  export let open = false;
 
-  $: sections = [
-    {
-      emptyCopy: 'No members listed yet.',
-      members: data.members.map((member) => ({
-        id: member.id,
-        username: member.username
-      }))
-    }
-  ];
+  $: people = data.members.map((member) => ({
+    id: member.id,
+    username: member.username,
+    profileImageUrl: member.profileImageUrl ?? null
+  }));
 </script>
 
-<MemberListPanel
+<PeopleSheet
+  {open}
   description="Members coordinate planning, updates, and activity together."
-  {panelId}
-  {sections}
+  emptyCopy="No members listed yet."
+  {people}
   title="Project members"
+  on:close
 />

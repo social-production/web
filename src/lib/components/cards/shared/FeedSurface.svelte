@@ -61,10 +61,10 @@
     position: relative;
     min-width: 0;
     max-width: 100%;
-    padding: 18px 12px;
+    padding: 20px 16px;
     border-radius: 0;
     border: none;
-    border-bottom: 1px solid var(--panel-border);
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
     box-shadow: none;
     background: var(--panel);
     transition: background-color 0.16s ease;
@@ -72,7 +72,7 @@
 
   .surface.has-accent {
     border-left: 3px solid var(--row-accent, var(--type-accent-neutral));
-    padding-left: 9px;
+    padding-left: 13px;
   }
 
   .surface.last-row {
@@ -138,10 +138,54 @@
   .content :global(.subject-title) {
     display: block;
     max-width: 100%;
+    margin-top: 4px;
     overflow-wrap: anywhere;
     word-break: break-word;
+    font-size: 17px;
     font-weight: 800;
     letter-spacing: -0.02em;
+    line-height: 1.3;
+    color: var(--text-main);
+  }
+
+  .content :global(.surface-type-label) {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--text-soft) 72%, transparent);
+  }
+
+  .content :global(.surface-type-label .label-copy) {
+    color: inherit;
+  }
+
+  .content :global(.body),
+  .content :global(.summary),
+  .content :global(.comment-excerpt) {
+    margin-top: 8px;
+    color: color-mix(in srgb, var(--text-main) 78%, var(--text-soft));
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.45;
+  }
+
+  .content :global(.footer),
+  .content :global(.detail-row.footer) {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top-color: color-mix(in srgb, var(--panel-border) 78%, transparent);
+  }
+
+  .content :global(.content-meta-row) {
+    color: color-mix(in srgb, var(--text-soft) 82%, transparent);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .content :global(.content-meta-row .inline-link) {
+    font-weight: 700;
+    color: color-mix(in srgb, var(--text-main) 88%, var(--text-soft));
   }
 
   .content.clamp-excerpts :global(.body),

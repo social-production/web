@@ -11,9 +11,12 @@
   --text-main: #f3f4f6;
   --text-soft: #bbc0c9;
   --brand: #5dd691;
+  --on-brand: #102017;
   --brand-strong: #8fd4a9;
   --brand-soft: #21372b;
   --brand-badge: #2a4635;
+  --accent-strong: var(--brand);
+  --danger: #c0392b;
   --status-yellow: #f0d34f;
   --status-yellow-strong: #ffe89c;
   --status-yellow-soft: #4a4016;
@@ -96,9 +99,12 @@ body[data-theme='light'] {
   --text-main: #18181b;
   --text-soft: #71717a;
   --brand: #2f8a57;
-  --brand-strong: #2f8a57;
+  --on-brand: #ffffff;
+  --brand-strong: #1f6b42;
   --brand-soft: #e8f5ee;
   --brand-badge: #d6eadc;
+  --accent-strong: var(--brand);
+  --danger: #c0392b;
   --status-yellow: #d3ae1b;
   --status-yellow-strong: #7e6600;
   --status-yellow-soft: #fef9c3;

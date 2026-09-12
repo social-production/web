@@ -39,6 +39,7 @@
   let localRatings: Record<string, PlanCriterionRating | null> = {};
   let localOverallVote: ProjectApprovalVote | null | undefined = undefined;
   let ratingsSeededForOpen = false;
+  let sessionAllRated = false;
   let autoAdvanceTimer: ReturnType<typeof setTimeout> | null = null;
 
   function effectiveRating(entry: PlanCriterionAssessment): PlanCriterionRating | null {
@@ -48,6 +49,18 @@
     return entry.activeRating;
   }
 
+  function ratingsCoverCriteria(map: Record<string, PlanCriterionRating | null>) {
+    return (
+      criteria.length > 0 &&
+      criteria.every((entry) => {
+        if (Object.prototype.hasOwnProperty.call(map, entry.criterionId)) {
+          return map[entry.criterionId] != null;
+        }
+        return entry.activeRating != null;
+      })
+    );
+  }
+
   function firstUnratedIndex() {
     const index = criteria.findIndex((entry) => effectiveRating(entry) == null);
     return index >= 0 ? index : Math.max(0, criteria.length - 1);
@@ -55,6 +68,9 @@
 
   function resolveInitialStep() {
     if (openAtOverallStep && includeOverallStep) {
+      if (criteria.length > 0 && criteria.every((entry) => effectiveRating(entry) != null)) {
+        sessionAllRated = true;
+      }
       stepIndex = criteria.length;
       return;
     }
@@ -69,7 +85,12 @@
 
     if (!reviewMode && canVote) {
       const unrated = firstUnratedIndex();
-      if (criteria.every((entry) => effectiveRating(entry) != null) && includeOverallStep) {
+      if (
+        criteria.length > 0 &&
+        criteria.every((entry) => effectiveRating(entry) != null) &&
+        includeOverallStep
+      ) {
+        sessionAllRated = true;
         stepIndex = criteria.length;
         return;
       }
@@ -123,15 +144,23 @@
 
   $: criteriaStepCount = criteria.length;
   $: totalSteps = Math.max(1, criteriaStepCount + (includeOverallStep ? 1 : 0));
-  $: isOverallStep = includeOverallStep && stepIndex >= criteriaStepCount;
+  $: if (open && ratingsSeededForOpen) {
+    const maxStep = includeOverallStep ? criteriaStepCount : Math.max(0, criteriaStepCount - 1);
+    if (stepIndex > maxStep) {
+      stepIndex = maxStep;
+    }
+  }
+  $: isOverallStep = includeOverallStep && stepIndex >= criteriaStepCount && criteriaStepCount >= 0;
   $: currentCriterion = !isOverallStep ? (criteria[stepIndex] ?? null) : null;
-  $: allCriteriaRated = criteria.every((entry) => effectiveRating(entry) != null);
+  $: allCriteriaRated =
+    criteria.length > 0 && criteria.every((entry) => effectiveRating(entry) != null);
+  $: canCastOverall = canVote && (sessionAllRated || allCriteriaRated);
   $: effectiveOverallVote =
     localOverallVote !== undefined ? localOverallVote : overallActiveVote;
-  $: nextLabel = isOverallStep ? (reviewMode ? 'Close' : 'Finish') : 'Next';
+  $: nextLabel = isOverallStep ? (reviewMode ? 'Close' : 'Done') : 'Next';
   $: canGoBack = stepIndex > 0;
   $: canGoNext = isOverallStep
-    ? reviewMode || !canVote || effectiveOverallVote != null
+    ? true
     : reviewMode || !canVote || (currentCriterion != null && effectiveRating(currentCriterion) != null);
   $: overallContext = plan ? getCriterionContext('rubric:achievability', plan) : null;
   $: currentContext =
@@ -160,6 +189,7 @@
     ratingsSeededForOpen = false;
     localRatings = {};
     localOverallVote = undefined;
+    sessionAllRated = false;
     if (autoAdvanceTimer) {
       clearTimeout(autoAdvanceTimer);
       autoAdvanceTimer = null;
@@ -185,19 +215,6 @@
 
   async function handleNext() {
     if (isOverallStep) {
-      if (reviewMode) {
-        handleClose();
-        return;
-      }
-
-      if (canVote && effectiveOverallVote == null) {
-        return;
-      }
-
-      if (overallVoteInFlight) {
-        await overallVoteInFlight;
-      }
-
       handleClose();
       return;
     }
@@ -216,6 +233,7 @@
     ratingsSeededForOpen = false;
     localRatings = {};
     localOverallVote = undefined;
+    sessionAllRated = false;
     onClose();
   }
 
@@ -230,6 +248,11 @@
       ...localRatings,
       [entry.criterionId]: nextRating
     };
+    if (ratingsCoverCriteria(localRatings)) {
+      sessionAllRated = true;
+    } else if (nextRating == null) {
+      sessionAllRated = false;
+    }
     void onRate(entry.criterionId, nextRating);
 
     if (nextRating == null || autoAdvanceTimer) {
@@ -240,16 +263,22 @@
       return;
     }
 
+    const complete = sessionAllRated;
+    const nextStep = stepIndex + 1;
     autoAdvanceTimer = setTimeout(() => {
       autoAdvanceTimer = null;
-      if (stepIndex < totalSteps - 1) {
-        stepIndex += 1;
+      if (complete && includeOverallStep) {
+        stepIndex = criteria.length;
+        return;
+      }
+      if (nextStep < totalSteps) {
+        stepIndex = nextStep;
       }
     }, 220);
   }
 
   async function selectOverall(vote: ProjectApprovalVote) {
-    if (reviewMode || !canVote || !allCriteriaRated) {
+    if (reviewMode || !canCastOverall) {
       return;
     }
 
@@ -259,6 +288,10 @@
       overallVoteInFlight = null;
     });
     await overallVoteInFlight;
+
+    if (nextVote != null) {
+      handleClose();
+    }
   }
 </script>
 
@@ -293,19 +326,19 @@
     <div class="question-block">
       <span class="criterion-kind">Final approval</span>
       <h2>{overallQuestion}</h2>
-      {#if !reviewMode && !allCriteriaRated}
+      {#if !reviewMode && !canCastOverall}
         <p class="helper-copy">Rate every criterion before the final approval vote.</p>
       {:else if reviewMode}
         <p class="helper-copy">Your final governance vote for this plan.</p>
       {:else}
-        <p class="helper-copy">Cast Yes or No, then finish. You do not need to reopen assessment.</p>
+        <p class="helper-copy">Cast Yes or No to finish your assessment.</p>
       {/if}
 
       <div class="rating-actions overall-actions">
         <button
           class:selected={effectiveOverallVote === 'yes'}
           class="vote-chip"
-          disabled={reviewMode || !canVote || !allCriteriaRated}
+          disabled={reviewMode || !canCastOverall}
           type="button"
           on:click={() => selectOverall('yes')}
         >
@@ -314,7 +347,7 @@
         <button
           class:selected={effectiveOverallVote === 'no'}
           class="vote-chip negative"
-          disabled={reviewMode || !canVote || !allCriteriaRated}
+          disabled={reviewMode || !canCastOverall}
           type="button"
           on:click={() => selectOverall('no')}
         >

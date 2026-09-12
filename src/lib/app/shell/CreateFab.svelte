@@ -49,10 +49,6 @@
   <div class="create-fab-shell">
     {#if open}
       <div class="create-menu" role="menu" aria-label="Create">
-        <div class="create-menu-header">
-          <strong>Create</strong>
-          <button class="create-menu-close" type="button" on:click={closeMenu}>Close</button>
-        </div>
         <p class="menu-kicker">Content</p>
         {#each createContentLinks as link}
           <a class="create-menu-item" href={link.href} role="menuitem" on:click={handleNavigate}>
@@ -166,30 +162,6 @@
     border-radius: var(--radius-sm);
     background: var(--panel);
     box-shadow: 0 12px 32px color-mix(in srgb, var(--page-bg) 65%, transparent);
-  }
-
-  .create-menu-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 4px 8px 6px;
-  }
-
-  .create-menu-header strong {
-    font-size: 13px;
-    font-weight: 800;
-  }
-
-  .create-menu-close {
-    padding: 4px 8px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
   }
 
   .menu-kicker {

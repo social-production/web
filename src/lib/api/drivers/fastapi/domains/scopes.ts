@@ -66,6 +66,7 @@ interface BackendTaggableScopes {
 interface BackendBoardPerson {
   user_id: string;
   username: string;
+  profile_image_url?: string | null;
   standing_state: string;
   membership_state?: string;
   yes_count: number;
@@ -82,6 +83,7 @@ function mapBoardPerson(p: BackendBoardPerson) {
   return {
     id: p.user_id,
     username: p.username,
+    profileImageUrl: p.profile_image_url ?? null,
     confidenceTargetId: p.user_id,
     confidenceUpVotes: p.yes_count,
     confidenceDownVotes: p.no_count,

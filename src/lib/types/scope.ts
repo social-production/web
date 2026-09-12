@@ -7,6 +7,7 @@ export type ConfidenceStandingState = 'active' | 'grace' | 'below-threshold' | '
 export interface ScopeMemberSummary {
   id: string;
   username: string;
+  profileImageUrl?: string | null;
   bio?: string;
   confidenceTargetId?: string;
   confidenceVoteCount?: number;

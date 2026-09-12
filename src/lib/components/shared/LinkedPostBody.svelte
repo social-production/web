@@ -9,8 +9,32 @@
   export let links: PostBodyLink[] = [];
   export let variant: 'feed' | 'detail' = 'feed';
 
+  const AUTO_LINK_PATTERN =
+    /(https?:\/\/[^\s<]+|\/(?:projects|events|threads|messages|posts|profile)(?:\/[^\s<]+)?(?:\?[^\s<]+)?)/g;
+
+  function autoLinksFromText(text: string): PostBodyLink[] {
+    const found: PostBodyLink[] = [];
+    const seen = new Set<string>();
+
+    for (const match of text.matchAll(AUTO_LINK_PATTERN)) {
+      const label = match[0];
+      if (!label || seen.has(label)) {
+        continue;
+      }
+      seen.add(label);
+      const kind: PostBodyLink['kind'] = /\/events(?:\/|$|\?)/.test(label) ? 'event' : 'project';
+      found.push({
+        kind,
+        label,
+        href: label
+      });
+    }
+
+    return found;
+  }
+
   function buildSegments(text: string, rawLinks: PostBodyLink[]): Segment[] {
-    const normalizedLinks = rawLinks
+    const normalizedLinks = (rawLinks.length > 0 ? rawLinks : autoLinksFromText(text))
       .filter((link) => link.label.trim().length > 0)
       .sort((left, right) => right.label.length - left.label.length);
 
@@ -32,7 +56,11 @@
           continue;
         }
 
-        if (!nextMatch || index < nextMatch.index || (index === nextMatch.index && link.label.length > nextMatch.link.label.length)) {
+        if (
+          !nextMatch ||
+          index < nextMatch.index ||
+          (index === nextMatch.index && link.label.length > nextMatch.link.label.length)
+        ) {
           nextMatch = { index, link };
         }
       }

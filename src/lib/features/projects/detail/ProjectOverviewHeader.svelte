@@ -13,8 +13,10 @@
   import type { SignalToggleResult } from '$lib/types/feed';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
   import { requireViewer } from '$lib/utils/requireViewer';
-  import { buildSharePrefill } from '$lib/utils/sharePrefill';
+  import { buildSharePrefill, buildShareUrl } from '$lib/utils/sharePrefill';
   import { invalidateProjectDetail } from '$lib/utils/detailInvalidation';
+  import { getMessageContacts } from '$lib/services/queries/inbox';
+  import type { DetailMember } from '$lib/types/detail';
 
   let {
     data,
@@ -91,6 +93,20 @@
     }
 
     return result;
+  }
+
+  async function searchShareContacts(query: string): Promise<DetailMember[]> {
+    try {
+      const results = await getMessageContacts(query, 8);
+      return results.map((contact) => ({
+        id: contact.id,
+        username: contact.username,
+        bio: contact.bio ?? '',
+        profileImageUrl: contact.profileImageUrl ?? null
+      }));
+    } catch {
+      return [];
+    }
   }
 
   async function handleCreatePostFromProject() {
@@ -224,8 +240,10 @@
             placeholder="Type a username"
             submitLabel="Share"
             submitShare={handleProjectShare}
+            searchContacts={searchShareContacts}
             createPost={handleCreatePostFromProject}
             createPostLabel="Create post"
+            copyLinkUrl={buildShareUrl(`/projects/${data.slug}`)}
           />
         {/if}
       </div>

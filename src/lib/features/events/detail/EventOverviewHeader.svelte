@@ -14,7 +14,7 @@
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
   import { formatLocalDateTime } from '$lib/utils/time';
   import { requireViewer } from '$lib/utils/requireViewer';
-  import { buildSharePrefill } from '$lib/utils/sharePrefill';
+  import { buildSharePrefill, buildShareUrl } from '$lib/utils/sharePrefill';
   import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
 
   let {
@@ -35,7 +35,8 @@
       liveShareContacts = results.map((contact) => ({
         id: contact.id,
         username: contact.username,
-        bio: contact.bio ?? ''
+        bio: contact.bio ?? '',
+        profileImageUrl: contact.profileImageUrl ?? null
       }));
       return liveShareContacts;
     } catch {
@@ -258,6 +259,7 @@
             searchContacts={searchShareContacts}
             createPost={data.isPrivate ? null : handleCreatePostFromEvent}
             createPostLabel="Create post"
+            copyLinkUrl={buildShareUrl(`/events/${data.slug}`)}
           />
         {/if}
       </div>

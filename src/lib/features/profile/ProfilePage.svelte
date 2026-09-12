@@ -7,6 +7,7 @@
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
+  import PeopleSheet from '$lib/components/shared/PeopleSheet.svelte';
   import {
     DEFAULT_FEED_PAGE_SIZE,
     appendUniqueById
@@ -287,54 +288,74 @@
 
   $: visibleFeed = feedItems.filter((item) => matchesFilter(item, activeFilter));
   $: peopleItems = activePeopleList === 'followers' ? data.followers : data.following;
+  $: peopleSheetPeople = peopleItems.map((person) => ({
+    id: person.id,
+    username: person.username,
+    profileImageUrl: person.profileImageUrl ?? null
+  }));
   $: if (!data.canViewPersonalFeed && activeFilter === 'personal') {
     activeFilter = 'all';
   }
+
+  const BIO_DISPLAY_LIMIT = 160;
+  $: displayBio = data.bio ? data.bio.trim().slice(0, BIO_DISPLAY_LIMIT) : '';
 </script>
 
 <section class="page">
   <section class="hero-section">
     <div class="hero-topline">
-      <div class="hero-identity">
-        <AvatarBadge size="md" username={data.username} imageUrl={data.profileImageUrl ?? null} />
-        <div>
-          <span class="eyebrow">Profile</span>
-          <h1>{data.username}</h1>
+      <div class="hero-main">
+        <div class="hero-identity">
+          <AvatarBadge size="md" username={data.username} imageUrl={data.profileImageUrl ?? null} />
+          <div class="hero-copy">
+            <h1>{data.username}</h1>
+            {#if displayBio}
+              <p class="profile-bio">{displayBio}</p>
+            {/if}
+          </div>
         </div>
-      </div>
 
-      <div class="profile-actions">
-        {#if !data.isOwnProfile && $page.data.bootstrap?.viewer}
-          <a class="message-button" href={`/messages?to=${encodeURIComponent(data.username)}`}>Message</a>
-        {/if}
-        {#if !data.isOwnProfile}
-          <button
-            class="follow-button"
-            class:pending={viewerFollowStatus === 'pending'}
-            type="button"
-            disabled={followPending}
-            on:click={toggleFollow}
-          >
-            {followButtonLabel}
-          </button>
-        {/if}
+        <div class="profile-side">
+          <div class="stats-row">
+            <button
+              class:active={activePeopleList === 'followers'}
+              class="stat-chip"
+              type="button"
+              on:click={() => togglePeopleList('followers')}
+            >
+              <strong>{data.followersCount}</strong>
+              <span>Followers</span>
+            </button>
+            <button
+              class:active={activePeopleList === 'following'}
+              class="stat-chip"
+              type="button"
+              on:click={() => togglePeopleList('following')}
+            >
+              <strong>{data.followingCount}</strong>
+              <span>Following</span>
+            </button>
+          </div>
 
-        <div class="stats-row">
-          <button class:active={activePeopleList === 'followers'} class="stat-chip" type="button" on:click={() => togglePeopleList('followers')}>
-            <strong>{data.followersCount}</strong>
-            <span>Followers</span>
-          </button>
-          <button class:active={activePeopleList === 'following'} class="stat-chip" type="button" on:click={() => togglePeopleList('following')}>
-            <strong>{data.followingCount}</strong>
-            <span>Following</span>
-          </button>
+          <div class="profile-actions">
+            {#if !data.isOwnProfile && $page.data.bootstrap?.viewer}
+              <a class="message-button" href={`/messages?to=${encodeURIComponent(data.username)}`}>Message</a>
+            {/if}
+            {#if !data.isOwnProfile}
+              <button
+                class="follow-button"
+                class:pending={viewerFollowStatus === 'pending'}
+                type="button"
+                disabled={followPending}
+                on:click={toggleFollow}
+              >
+                {followButtonLabel}
+              </button>
+            {/if}
+          </div>
         </div>
       </div>
     </div>
-
-    {#if data.bio}
-      <p>{data.bio}</p>
-    {/if}
 
     {#if followMessage}
       <div class="warning-card" role="alert">{followMessage}</div>
@@ -378,29 +399,13 @@
     </section>
   {/if}
 
-  {#if activePeopleList}
-    <section class="people-card">
-      <div class="people-topline">
-        <h2>{activePeopleList === 'followers' ? 'Followers' : 'Following'}</h2>
-        <button class="toolbar-button" type="button" on:click={() => (activePeopleList = null)}>Close</button>
-      </div>
-
-      {#if peopleItems.length === 0}
-        <p>No users in this list yet.</p>
-      {:else}
-        <div class="people-list">
-          {#each peopleItems as person}
-            <a class="person-row" href={`/profile/${person.username}`}>
-              <strong>{person.username}</strong>
-              {#if person.bio}
-                <span>{person.bio}</span>
-              {/if}
-            </a>
-          {/each}
-        </div>
-      {/if}
-    </section>
-  {/if}
+  <PeopleSheet
+    open={activePeopleList !== null}
+    title={activePeopleList === 'followers' ? 'Followers' : 'Following'}
+    emptyCopy={activePeopleList === 'followers' ? 'No followers yet.' : 'Not following anyone yet.'}
+    people={peopleSheetPeople}
+    on:close={() => (activePeopleList = null)}
+  />
 
   <section class="toolbar-card">
     <div class="controls-row">
@@ -498,7 +503,6 @@
     background: transparent;
   }
 
-  .people-card,
   .requests-card,
   .warning-card,
   .empty-card {
@@ -534,85 +538,130 @@
     background: transparent;
   }
 
-  .hero-topline,
-  .stats-row,
-  .people-topline {
+  .hero-topline {
+    display: block;
+  }
+
+  .hero-main {
     display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    align-items: center;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: space-between;
   }
 
   .hero-identity {
     display: flex;
     gap: 12px;
-    align-items: center;
+    align-items: flex-start;
+    min-width: 0;
+    flex: 1 1 auto;
   }
 
-  .hero-topline,
-  .people-topline {
-    justify-content: space-between;
+  .hero-copy {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .hero-copy h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  .profile-side {
+    display: grid;
+    gap: 10px;
+    justify-items: end;
+    flex: 0 0 auto;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
   }
 
   .profile-actions {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     flex-wrap: wrap;
-    align-items: center;
+    justify-content: flex-end;
   }
 
-  .hero-topline .stats-row {
-    margin-left: 0;
-  }
-
-  .eyebrow {
+  .profile-bio {
+    margin: 0;
+    max-width: 42ch;
+    padding-left: 10px;
+    border-left: 2px solid var(--brand);
     color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  h1 {
-    margin-top: 6px;
-    font-size: 22px;
-    letter-spacing: -0.02em;
-    color: var(--brand-strong);
-  }
-
-  p {
-    color: var(--text-soft);
+    font-size: 14px;
+    font-weight: 500;
     line-height: 1.45;
-  }
-
-  .hero-section p {
-    margin-top: 10px;
-    max-width: 72ch;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
   }
 
   .stat-chip {
-    display: grid;
-    gap: 4px;
-    min-width: 104px;
-    padding: 10px 12px;
-    border: 1px solid var(--panel-border);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid transparent;
     border-radius: var(--radius-sm);
-    background: var(--panel-strong);
+    background: transparent;
+    color: var(--text-main);
+    cursor: pointer;
+  }
+
+  .stat-chip:hover,
+  .stat-chip:focus-visible {
+    border-color: var(--panel-border);
+    background: var(--panel-soft);
   }
 
   .stat-chip.active {
-    border-color: var(--brand);
-    background: var(--brand-soft);
+    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 55%, transparent);
   }
 
   .stat-chip strong {
-    font-size: 16px;
+    font-size: 13px;
+    font-weight: 800;
   }
 
   .stat-chip span {
     color: var(--text-soft);
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 600;
+  }
+
+  @media (max-width: 720px) {
+    .hero-main {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .profile-side {
+      width: 100%;
+      justify-items: stretch;
+    }
+
+    .stats-row,
+    .profile-actions {
+      justify-content: flex-start;
+    }
+  }
+
+  .hero-topline .stats-row {
+    margin-left: 0;
   }
 
   .toolbar-button,

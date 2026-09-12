@@ -55,6 +55,14 @@
         stroke-width="1.8"
         stroke-linecap="round"
       />
+    {:else if icon === 'shield'}
+      <path
+        d="M12 4.5 6.5 7v5.2c0 3.1 2.3 5.9 5.5 7.3 3.2-1.4 5.5-4.2 5.5-7.3V7L12 4.5Z"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
     {:else}
       <path d="M8 7.5h8M8 12h8M8 16.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" />
       <path d="M6.5 5.5h11A2.5 2.5 0 0 1 20 8v10a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18V8a2.5 2.5 0 0 1 2.5-2.5Z" fill="none" stroke="currentColor" stroke-width="1.8" />

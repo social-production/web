@@ -1,5 +1,5 @@
 <script lang="ts">
-  import MemberListPanel from '$lib/components/shared/MemberListPanel.svelte';
+  import PeopleSheet from '$lib/components/shared/PeopleSheet.svelte';
   import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import { grantEventEditAccess, revokeEventEditAccess, shareEventWithUser } from '$lib/services/commands/events';
@@ -7,7 +7,7 @@
   import type { EventPageData, EventRoleMember, DetailMember } from '$lib/types/detail';
 
   export let data: EventPageData;
-  export let panelId = 'event-members-panel';
+  export let open = false;
 
   let editorActionPendingId: string | null = null;
   let liveInviteContacts: DetailMember[] = [];
@@ -58,7 +58,8 @@
         .map((contact) => ({
           id: contact.id,
           username: contact.username,
-          bio: contact.bio ?? ''
+          bio: contact.bio ?? '',
+          profileImageUrl: contact.profileImageUrl ?? null
         }));
       return liveInviteContacts;
     } catch {
@@ -91,6 +92,7 @@
           members: data.eventEditors.map((member) => ({
             id: member.id,
             username: member.username,
+            profileImageUrl: member.profileImageUrl ?? null,
             badges: isCreator(member) ? ['Creator', 'Organizer'] : ['Organizer'],
             actionLabel:
               data.viewerCanManageEditors && !isCreator(member) ? 'Remove organizer' : undefined,
@@ -107,6 +109,7 @@
           members: data.members.map((member) => ({
             id: member.id,
             username: member.username,
+            profileImageUrl: member.profileImageUrl ?? null,
             actionLabel: data.viewerCanManageEditors ? 'Promote to organizer' : undefined,
             actionKind: data.viewerCanManageEditors ? 'grant' : undefined,
             actionDisabled: editorActionPendingId === member.id
@@ -119,6 +122,7 @@
           members: data.members.map((member) => ({
             id: member.id,
             username: member.username,
+            profileImageUrl: member.profileImageUrl ?? null,
             badges: isCreator(member) ? ['Creator'] : undefined
           }))
         }
@@ -134,20 +138,23 @@
       await handleRevokeEditAccess(event.detail.memberId);
     }
   }
-</script>
 
-<MemberListPanel
-  description={isOrganizerControlled
+  $: description = isOrganizerControlled
     ? 'Invite people and promote organizers from this panel. Members join to attend and sign up for roles.'
     : isCollaborativePrivate
       ? 'Invite people and promote organizers from this panel. Members can still propose and vote inside this private audience.'
       : data.isPrivate
         ? 'Invite people and promote organizers from this panel. Creators already have full organizer authority.'
-        : 'Public event members can propose and vote on update and detail edit decisions.'}
-  on:action={handleMemberAction}
-  {panelId}
+        : 'Public event members can propose and vote on update and detail edit decisions.';
+</script>
+
+<PeopleSheet
+  {open}
+  {description}
   {sections}
   title={data.isPrivate ? 'People' : 'Event members'}
+  on:action={handleMemberAction}
+  on:close
 >
   <svelte:fragment slot="actions">
     {#if data.isPrivate && data.viewerCanShare}
@@ -162,4 +169,4 @@
       />
     {/if}
   </svelte:fragment>
-</MemberListPanel>
+</PeopleSheet>

@@ -149,6 +149,8 @@
   let pendingAssessmentPlanId: string | null = null;
   let pendingAssessmentPhaseId: 'phase-2' | 'phase-3' | null = null;
   let pendingAssessmentCriterionId: string | null = null;
+  let assessmentRatingOverlay: Record<string, PlanCriterionRating | null> = {};
+  let assessmentPlanSnapshot: NonNullable<ReturnType<typeof findProjectPlan>>['plan'] | null = null;
   let isCompact = false;
   let signalRemovalNudge = false;
 
@@ -297,14 +299,7 @@
       return;
     }
 
-    if (showMembersPanel) {
-      showMembersPanel = false;
-      return;
-    }
-
-    showMembersPanel = true;
-    await tick();
-    scrollElementIntoView(document.getElementById('project-members-panel'));
+    showMembersPanel = !showMembersPanel;
   }
 
   $: {
@@ -381,6 +376,14 @@
   $: pendingAssessmentMatch =
     pendingAssessmentPlanId == null ? null : findProjectPlan(pendingAssessmentPlanId);
   $: pendingAssessmentPlan = pendingAssessmentMatch?.plan ?? null;
+  $: if (pendingAssessmentPlan) {
+    assessmentPlanSnapshot = pendingAssessmentPlan;
+  }
+  $: pendingWizardCriteria = (assessmentPlanSnapshot?.criterionAssessments ?? []).map((entry) =>
+    Object.prototype.hasOwnProperty.call(assessmentRatingOverlay, entry.criterionId)
+      ? { ...entry, activeRating: assessmentRatingOverlay[entry.criterionId] ?? null }
+      : entry
+  );
   $: if (pendingAssessmentPlan && !Wizard) {
     void import('$lib/components/shared/PlanAssessmentWizard.svelte').then((module) => {
       Wizard = module.default;
@@ -431,6 +434,8 @@
     pendingAssessmentPlanId = null;
     pendingAssessmentPhaseId = null;
     pendingAssessmentCriterionId = null;
+    assessmentPlanSnapshot = null;
+    assessmentRatingOverlay = {};
   }
 
   async function handlePendingCriterionRate(
@@ -441,6 +446,7 @@
       return;
     }
 
+    assessmentRatingOverlay = { ...assessmentRatingOverlay, [criterionId]: rating };
     await setProjectPlanCriterionRating(data.slug, pendingAssessmentPlanId, criterionId, rating);
     void invalidateProjectDetail(data.slug);
   }
@@ -568,8 +574,12 @@
         votesRenderedInHub={pendingVotes.length > 0}
         on:togglemembers={handleMembersPanelOpen}
       />
-      {#if showMembersPanel && !isPersonalServiceProject(data.projectMode)}
-        <ProjectMembersPanel {data} panelId="project-members-panel" />
+      {#if !isPersonalServiceProject(data.projectMode)}
+        <ProjectMembersPanel
+          {data}
+          open={showMembersPanel}
+          on:close={() => (showMembersPanel = false)}
+        />
       {/if}
       <div id="governance">
         <ProjectLifecyclePanel
@@ -644,19 +654,19 @@
     {/if}
   </section>
 
-  {#if pendingAssessmentPlan && Wizard}
+  {#if assessmentPlanSnapshot && Wizard && pendingAssessmentOpen}
     <svelte:component
       this={Wizard}
       open={pendingAssessmentOpen}
-      plan={pendingAssessmentPlan}
-      planTitle={pendingAssessmentPlan.title}
-      criteria={pendingAssessmentPlan.criterionAssessments ?? []}
+      plan={assessmentPlanSnapshot}
+      planTitle={assessmentPlanSnapshot.title}
+      criteria={pendingWizardCriteria}
       canVote={pendingAssessmentPhaseId === 'phase-3'
         ? data.lifecycle.phaseThree.viewerCanVoteOnPlans
         : data.lifecycle.phaseTwo.viewerCanVoteOnPlans}
       initialCriterionId={pendingAssessmentCriterionId}
       openAtOverallStep={!pendingAssessmentCriterionId}
-      overallActiveVote={pendingAssessmentPlan.overallApproval.activeVote}
+      overallActiveVote={assessmentPlanSnapshot.overallApproval.activeVote}
       onRate={handlePendingCriterionRate}
       onOverallVote={handlePendingOverallVote}
       onClose={closePendingAssessment}

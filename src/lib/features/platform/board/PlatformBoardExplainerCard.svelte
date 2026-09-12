@@ -1,11 +1,14 @@
 <script lang="ts">
-  let open = false;
+  export let open = false;
+  export let showToggle = true;
 </script>
 
 <div class="role-rules">
-  <button class="rules-toggle" type="button" on:click={() => (open = !open)}>
-    {open ? 'Hide how moderator roles work' : 'How moderator roles work'}
-  </button>
+  {#if showToggle}
+    <button class="rules-toggle" type="button" on:click={() => (open = !open)}>
+      {open ? 'Hide how moderator roles work' : 'How moderator roles work'}
+    </button>
+  {/if}
 
   {#if open}
     <ul>
@@ -34,6 +37,7 @@
     font-weight: 700;
     text-decoration: underline;
     text-underline-offset: 2px;
+    cursor: pointer;
   }
 
   ul {

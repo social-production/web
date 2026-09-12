@@ -28,10 +28,17 @@
   <h2>Collective</h2>
   <div class="stack-links">
     <RailLinkRow
-      active={$page.url.pathname === collectiveLink.href}
+      active={$page.url.pathname === collectiveLink.href && !$page.url.searchParams.has('board')}
       href={collectiveLink.href}
       icon="platform"
       label={collectiveLink.label}
+      on:click={closePanels}
+    />
+    <RailLinkRow
+      active={$page.url.pathname === '/platform' && $page.url.searchParams.get('board') === '1'}
+      href="/platform?board=1"
+      icon="shield"
+      label="Moderators"
       on:click={closePanels}
     />
     {#if isAssetsSurfaceEnabled(bootstrap.featureFlags)}

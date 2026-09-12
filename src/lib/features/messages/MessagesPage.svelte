@@ -1500,55 +1500,64 @@
 
       {#if activeListTab === 'messages' && showComposer}
         <section class="new-conversation-card">
-          <div class="composer-mode-row">
+          <header class="composer-header">
+            <h2>New message</h2>
+            <button class="composer-dismiss" type="button" on:click={toggleComposer}>Close</button>
+          </header>
+
+          <div class="composer-mode-row" role="tablist" aria-label="Message type">
             <button
+              aria-selected={composerMode === 'direct'}
               class:active={composerMode === 'direct'}
-              class="contact-chip"
+              class="composer-mode"
+              role="tab"
               type="button"
               on:click={() => {
                 composerMode = 'direct';
                 composerError = '';
               }}
             >
-              Direct message
+              Direct
             </button>
             <button
+              aria-selected={composerMode === 'group'}
               class:active={composerMode === 'group'}
-              class="contact-chip"
+              class="composer-mode"
+              role="tab"
               type="button"
               on:click={() => {
                 composerMode = 'group';
                 composerError = '';
               }}
             >
-              Group chat
+              Group
             </button>
           </div>
 
           {#if composerMode === 'direct'}
             <label class="composer-field">
-              <span>To</span>
+              <span class="sr-only">To</span>
               <input
                 bind:value={recipientDraft}
                 list="message-contacts"
                 on:keydown={handleRecipientKeydown}
-                placeholder="Type a username"
+                placeholder="Username"
                 type="text"
               />
             </label>
           {:else}
             <label class="composer-field">
-              <span>Group chat name</span>
-              <input bind:value={groupTitleDraft} placeholder="Name this group chat" type="text" />
+              <span class="sr-only">Group chat name</span>
+              <input bind:value={groupTitleDraft} placeholder="Group name" type="text" />
             </label>
 
             <label class="composer-field">
-              <span>Add members</span>
+              <span class="sr-only">Add members</span>
               <input
                 bind:value={groupMemberDraft}
                 list="message-contacts"
                 on:keydown={handleGroupMemberKeydown}
-                placeholder="Type usernames"
+                placeholder="Add members"
                 type="text"
               />
             </label>
@@ -1570,12 +1579,12 @@
           {/if}
 
           <label class="composer-field grow">
-            <span>Message</span>
+            <span class="sr-only">Message</span>
             <textarea
               bind:value={composerDraft}
               on:keydown={handleNewComposerKeydown}
-              placeholder="Write a message..."
-              rows="3"
+              placeholder="Write a message…"
+              rows="2"
             ></textarea>
           </label>
 
@@ -1618,10 +1627,7 @@
           {/if}
 
           <div class="composer-actions">
-            <button class="secondary-button" type="button" on:click={toggleComposer}>Cancel</button>
-            <button class="primary-button" type="button" on:click={submitNewConversation}
-              >Send</button
-            >
+            <button class="primary-button" type="button" on:click={submitNewConversation}>Send</button>
           </div>
         </section>
       {/if}
@@ -1762,11 +1768,45 @@
 
   .chat-header,
   .group-settings-card,
-  .profile-actions-card,
-  .new-conversation-card {
+  .profile-actions-card {
     padding: 14px 16px;
     background: color-mix(in srgb, var(--panel-strong) 38%, var(--panel));
     border-bottom: 1px solid var(--panel-border);
+  }
+
+  .new-conversation-card {
+    padding: 12px 14px 14px;
+    background: var(--panel);
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  }
+
+  .composer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .composer-header h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .composer-dismiss {
+    padding: 4px 8px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .composer-dismiss:hover {
+    color: var(--text-main);
   }
 
   .chat-header {
@@ -1784,6 +1824,10 @@
   .profile-actions-card {
     display: grid;
     gap: 8px;
+  }
+
+  .new-conversation-card {
+    gap: 10px;
   }
 
   .chat-identity {
@@ -1860,14 +1904,21 @@
 
   .identity-note,
   .conversation-time,
-  .composer-field span,
   .empty-state {
     color: var(--text-soft);
     font-size: 12px;
   }
 
-  .composer-field span {
-    font-weight: 700;
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .inline-field,
@@ -1882,6 +1933,32 @@
     align-items: center;
   }
 
+  .composer-mode-row {
+    gap: 0;
+    padding: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+  }
+
+  .composer-mode {
+    flex: 0 0 auto;
+    padding: 6px 2px 8px;
+    margin-right: 14px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .composer-mode.active {
+    border-bottom-color: var(--brand);
+    color: var(--text-main);
+    background: transparent;
+  }
+
   .inline-field {
     align-items: stretch;
   }
@@ -1892,6 +1969,18 @@
 
   .composer-actions {
     justify-content: flex-end;
+  }
+
+  .composer-field input,
+  .composer-field textarea {
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--text-main);
+  }
+
+  .composer-field input {
+    padding: 10px 12px;
   }
 
   .contact-chip,
@@ -1949,12 +2038,12 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 10px;
-    align-items: start;
+    align-items: center;
     min-height: 0;
     width: 100%;
-    padding: 10px 12px;
+    padding: 12px 14px;
     border: none;
-    border-bottom: 1px solid var(--panel-border);
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
     border-radius: 0;
     background: transparent;
     color: var(--text-main);
@@ -1962,16 +2051,17 @@
   }
 
   .conversation-list > .empty-state {
-    padding: 12px;
+    padding: 20px 14px;
     border: none;
     border-radius: 0;
-    background: var(--panel-strong);
+    background: transparent;
+    color: color-mix(in srgb, var(--text-soft) 88%, transparent);
+    text-align: center;
   }
 
   .conversation-row.unread {
-    background: color-mix(in srgb, var(--brand-soft) 22%, var(--panel));
-    border-left: 3px solid var(--brand);
-    padding-left: 9px;
+    background: color-mix(in srgb, var(--brand-soft) 28%, var(--panel));
+    box-shadow: inset 3px 0 0 var(--brand);
   }
 
   .conversation-row.unread .conversation-topline strong {
@@ -1980,18 +2070,18 @@
   }
 
   .conversation-row.unread .conversation-copy p {
-    color: var(--text-main);
+    color: color-mix(in srgb, var(--text-main) 82%, var(--text-soft));
     font-weight: 600;
   }
 
   .conversation-row:hover,
   .open-source-link:hover {
     border-color: color-mix(in srgb, var(--brand) 35%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 35%, var(--panel));
+    background: color-mix(in srgb, var(--brand-soft) 22%, var(--panel));
   }
 
   .conversation-row.unread:hover {
-    background: color-mix(in srgb, var(--brand-soft) 18%, transparent);
+    background: color-mix(in srgb, var(--brand-soft) 38%, var(--panel));
   }
 
   .conversation-topline {
@@ -2034,14 +2124,16 @@
   .unread-pill {
     display: inline-grid;
     place-items: center;
-    min-width: 24px;
-    height: 24px;
+    align-self: center;
+    min-width: 20px;
+    height: 20px;
     padding: 0 6px;
     border-radius: 999px;
-    background: var(--brand-soft);
-    color: var(--brand-strong);
+    background: var(--brand);
+    color: var(--page-background);
     font-size: 11px;
     font-weight: 800;
+    line-height: 1;
   }
 
   textarea,
@@ -2050,16 +2142,13 @@
   }
 
   textarea {
-    min-height: 92px;
-    padding: 12px;
+    min-height: 64px;
+    padding: 10px 12px;
     resize: vertical;
   }
 
   .empty-state {
     padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-md);
-    background: var(--panel-strong);
   }
 
   .back-button,
@@ -2149,12 +2238,15 @@
       font-size: 11px;
     }
 
-    .conversation-row,
-    .inline-field {
-      grid-template-columns: 1fr;
+    .conversation-row {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
     }
 
     .inline-field {
+      grid-template-columns: 1fr;
       display: grid;
     }
   }
@@ -2188,8 +2280,9 @@
       z-index: 20;
       overflow-y: auto;
       border: none;
-      padding: 12px;
+      padding: 14px 14px calc(14px + var(--shell-safe-bottom));
       background: var(--panel);
+      align-content: start;
     }
   }
 
@@ -2224,13 +2317,40 @@
 
     .surface-tabs {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       padding: 10px;
     }
 
     .surface-tab-list {
-      display: grid;
-      grid-template-columns: 1fr;
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 6px;
+      min-width: 0;
+      overflow-x: auto;
+    }
+
+    .surface-tabs :global(.round-plus-button.with-label) {
+      width: 40px;
+      min-width: 40px;
+      padding: 0;
+    }
+
+    .surface-tabs :global(.plus-label) {
+      display: none;
+    }
+
+    .conversation-row.unread {
+      box-shadow: none;
+    }
+
+    .conversation-row.unread .conversation-topline strong {
+      font-weight: 800;
+    }
+
+    .unread-pill {
+      min-width: 18px;
+      height: 18px;
+      font-size: 10px;
     }
   }
 </style>

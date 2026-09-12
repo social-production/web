@@ -48,11 +48,13 @@
   let leftRailOpen = false;
   let rightRailOpen = false;
   let rightRailUserOverride: boolean | null = null;
+  let rightRailPreferenceApplied = false;
   let mapPanelOpen = false;
   let railsBeforeMap = { left: false, right: false };
   let toolbarQuery = '';
   let topbarElement: HTMLElement | null = null;
   let contentGridElement: HTMLDivElement | null = null;
+  let mainContentElement: HTMLElement | null = null;
   let topbarHeight = 53;
   let compactContentOffset = 0;
   let showThemeHint = false;
@@ -162,16 +164,31 @@
     loadActivityRail();
   }
 
+  function feedScrollY() {
+    if (!isCompact && mainContentElement) {
+      return mainContentElement.scrollTop;
+    }
+    return typeof window !== 'undefined' ? window.scrollY : 0;
+  }
+
+  function setFeedScrollY(y: number) {
+    if (!isCompact && mainContentElement) {
+      mainContentElement.scrollTop = y;
+      return;
+    }
+    window.scrollTo({ top: y, behavior: 'instant' as ScrollBehavior });
+  }
+
   function handleFeedChromeScroll() {
     if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded || createFabOpen) {
       if (mapSurfaceActive) {
         feedChromeHidden = false;
       }
-      lastFeedScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+      lastFeedScrollY = feedScrollY();
       return;
     }
 
-    const y = window.scrollY;
+    const y = feedScrollY();
     const delta = y - lastFeedScrollY;
     if (y < 24) {
       feedChromeHidden = false;
@@ -210,7 +227,6 @@
         deferUnreadRefresh();
       }
     }
-    rightRailUserOverride = null;
     if (
       toPath === '/onboarding' ||
       toPath === '/login' ||
@@ -218,17 +234,18 @@
     ) {
       leftRailOpen = false;
       rightRailOpen = false;
-    } else if (!isCompact && toPath?.startsWith('/messages')) {
-      rightRailOpen = false;
     } else if (!isCompact && (fromPath === '/onboarding' || fromPath === '/login' || fromPath === '/signup')) {
       leftRailOpen = true;
+      if (rightRailUserOverride !== null) {
+        rightRailOpen = rightRailUserOverride;
+      }
     }
     if (isCompact) {
       searchExpanded = false;
       moreSheetOpen = false;
     }
     feedChromeHidden = false;
-    lastFeedScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+    lastFeedScrollY = feedScrollY();
     if (to?.url) {
       rememberFeedReturnState(to.url);
     }
@@ -237,7 +254,7 @@
       if (scrollY !== null) {
         void tick().then(() => {
           window.requestAnimationFrame(() => {
-            window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior });
+            setFeedScrollY(scrollY);
             lastFeedScrollY = scrollY;
           });
         });
@@ -284,8 +301,20 @@
     rightRailOpen = false;
     searchExpanded = false;
     moreSheetOpen = false;
-  } else if (!isCompact && rightRailUserOverride === null) {
-    rightRailOpen = !isMessagesRoute && activityRailLoaded && rightRailActionCount > 0;
+  } else if (
+    !isCompact &&
+    !rightRailPreferenceApplied &&
+    rightRailUserOverride === null &&
+    activityRailLoaded
+  ) {
+    // First desktop load only. After that, open/closed stays until the user toggles it.
+    rightRailPreferenceApplied = true;
+    if (rightRailActionCount > 0 && !isMessagesRoute) {
+      rightRailOpen = true;
+      rightRailUserOverride = true;
+    } else {
+      rightRailUserOverride = false;
+    }
   }
 
   $: if ($page.url.pathname === '/search') {
@@ -456,6 +485,7 @@
   function toggleRightRail() {
     rightRailOpen = !rightRailOpen;
     rightRailUserOverride = rightRailOpen;
+    rightRailPreferenceApplied = true;
     if (rightRailOpen && !activityRailLoaded) {
       loadActivityRail();
     }
@@ -653,7 +683,7 @@
             on:blur={handleToolbarBlur}
             on:focus={handleToolbarFocus}
             on:input={handleToolbarInput}
-            placeholder="Search projects, threads, events, and channels"
+            placeholder="Search…"
             type="search"
           />
           {#if toolbarSuggestionsOpen && toolbarQuery.trim()}
@@ -799,7 +829,7 @@
                 on:blur={handleToolbarBlur}
                 on:focus={handleToolbarFocus}
                 on:input={handleToolbarInput}
-                placeholder="Search projects, threads, events, and channels"
+                placeholder="Search…"
                 type="search"
               />
               {#if toolbarSuggestionsOpen && toolbarQuery.trim()}
@@ -942,7 +972,12 @@
       {/if}
     </aside>
 
-    <main class="main-content" class:main-content-compact={isCompact}>
+    <main
+      bind:this={mainContentElement}
+      class="main-content"
+      class:main-content-compact={isCompact}
+      on:scroll={handleFeedChromeScroll}
+    >
       <div class="main-frame">
         <slot />
         {#if showDetailSkeleton}
@@ -1248,7 +1283,9 @@
   .toolbar-search {
     display: flex;
     align-items: stretch;
-    flex: 0 1 320px;
+    flex: 1 1 280px;
+    max-width: 420px;
+    min-width: 160px;
     min-height: 38px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -1279,6 +1316,10 @@
     color: var(--text-main);
     padding: 0 12px;
     min-height: 36px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .toolbar-search-input:focus {
@@ -1531,10 +1572,28 @@
   }
 
   @media (min-width: 1081px) {
-    .rail {
-      position: sticky;
-      top: var(--topbar-height);
-      min-height: calc(100vh - var(--topbar-height));
+    .shell {
+      height: 100dvh;
+      max-height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .content-grid {
+      flex: 1;
+      min-height: 0;
+      height: auto;
+      overflow: hidden;
+    }
+
+    .rail,
+    .main-content {
+      height: 100%;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      position: static;
     }
   }
 

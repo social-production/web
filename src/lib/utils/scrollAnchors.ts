@@ -7,6 +7,20 @@ export function participationScrollTopOffset() {
   return topbarHeight + wizardHeight + 16;
 }
 
+function nearestScrollParent(element: HTMLElement): HTMLElement | null {
+  let node = element.parentElement;
+
+  while (node) {
+    const overflowY = window.getComputedStyle(node).overflowY;
+    if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight + 1) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+
+  return null;
+}
+
 export function scrollElementIntoViewWithOffset(
   element: HTMLElement,
   options: { behavior?: ScrollBehavior } = {}
@@ -15,11 +29,24 @@ export function scrollElementIntoViewWithOffset(
     return;
   }
 
+  const behavior = options.behavior ?? 'smooth';
+  const scroller = nearestScrollParent(element);
+
+  if (scroller) {
+    const nextTop =
+      scroller.scrollTop +
+      element.getBoundingClientRect().top -
+      scroller.getBoundingClientRect().top -
+      16;
+    scroller.scrollTo({ top: Math.max(nextTop, 0), behavior });
+    return;
+  }
+
   const nextTop = window.scrollY + element.getBoundingClientRect().top - participationScrollTopOffset();
 
   window.scrollTo({
     top: Math.max(nextTop, 0),
-    behavior: options.behavior ?? 'smooth'
+    behavior
   });
 }
 

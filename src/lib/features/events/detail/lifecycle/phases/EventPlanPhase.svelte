@@ -98,7 +98,7 @@
     {#if data.lifecycle.phaseTwo.plans.length === 0}
       <div class="empty-card">No event plans submitted yet.</div>
     {:else}
-      {#each data.lifecycle.phaseTwo.plans as plan}
+      {#each data.lifecycle.phaseTwo.plans as plan (plan.id)}
         <CollapsiblePlanCard
           {plan}
           expanded={plan.id === data.lifecycle.phaseTwo.winningPlanId || plan.id === targetedPlanId}

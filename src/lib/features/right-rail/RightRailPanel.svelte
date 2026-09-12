@@ -66,7 +66,13 @@
   let pendingSubjectId = '';
   let pendingVoteId = '';
   let clearedOpen = false;
-  let showAllHistory = false;
+  let historyFilter: 'all' | 'votes' | 'activities' | 'help' | 'requests' = 'all';
+  let votedAwayIds = new Set<string>();
+  let activityOpen = false;
+  let helpOpen = false;
+  let requestOpen = false;
+  let voteOpen = false;
+  let railOpenInitialized = false;
 
   $: dismissedStorageKey = dismissedRailStorageKey(viewerId);
   $: seenStorageKey = seenRailStorageKey(viewerId);
@@ -96,9 +102,23 @@
   $: clearedItems = items.filter(
     (item) => dismissedRailIds.has(item.id) && activeRailIdSet.has(item.id)
   );
-  $: displayedHistoryItems = showAllHistory
-    ? historyItems
-    : historyItems.filter((item) => item.viewerParticipated !== false);
+  function historyMatchesFilter(item: RightRailActivityItem) {
+    if (historyFilter === 'votes') {
+      return item.kind === 'vote' && item.viewerParticipated !== false;
+    }
+    if (historyFilter === 'activities') {
+      return item.kind === 'project' || item.kind === 'event';
+    }
+    if (historyFilter === 'help') {
+      return item.kind.startsWith('help-request');
+    }
+    if (historyFilter === 'requests') {
+      return item.kind === 'request';
+    }
+    return true;
+  }
+
+  $: displayedHistoryItems = historyItems.filter(historyMatchesFilter);
   $: activityItems = visibleItems.filter(
     (item) =>
       item.kind !== 'request' &&
@@ -114,7 +134,22 @@
       item.kind === 'help-request-owned'
   );
   $: requestItems = visibleItems.filter((item) => item.kind === 'request');
-  $: voteItems = visibleItems.filter((item) => item.kind === 'vote' && !seenRailIds.has(item.id));
+  $: voteItems = visibleItems.filter((item) => item.kind === 'vote' && !votedAwayIds.has(item.id));
+  $: activityHasUnseen = activityItems.some((item) => isUnseenItem(item));
+  $: helpHasUnseen = helpRequestItems.some((item) => isUnseenItem(item));
+  $: requestHasUnseen = requestItems.some((item) => isUnseenItem(item));
+  $: voteHasUnseen = voteItems.length > 0;
+  $: if (!railOpenInitialized) {
+    activityOpen = activityItems.length > 0;
+    helpOpen = helpRequestItems.length > 0;
+    requestOpen = requestItems.length > 0;
+    voteOpen = voteItems.length > 0;
+    railOpenInitialized = true;
+  }
+  $: if (activityItems.length === 0) activityOpen = false;
+  $: if (helpRequestItems.length === 0) helpOpen = false;
+  $: if (requestItems.length === 0) requestOpen = false;
+  $: if (voteItems.length === 0) voteOpen = false;
 
   function requestClose() {
     dispatch('close');
@@ -206,7 +241,6 @@
   async function handleRailAssess(item: RightRailActivityItem, event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
-    markRailItemSeen(seenStorageKey, item.id);
     requestClose();
 
     if (item.voteKindLabel === 'pull_request_merge') {
@@ -237,7 +271,9 @@
   }
 
   async function handleOpenItem(item: RightRailActivityItem) {
-    markRailItemSeen(seenStorageKey, item.id);
+    if (item.kind !== 'vote') {
+      markRailItemSeen(seenStorageKey, item.id);
+    }
     requestClose();
     await goto(item.href);
     const href = new URL(item.href, typeof window !== 'undefined' ? window.location.origin : 'https://local.invalid');
@@ -325,7 +361,6 @@
             await setProjectRepositoryReplacementVote(slug, targetId, vote);
             break;
           case 'pull_request_merge':
-            markRailItemSeen(seenStorageKey, item.id);
             requestActivityRailRefresh();
             await goto(item.href);
             return;
@@ -351,6 +386,7 @@
         }
       }
 
+      votedAwayIds = new Set(votedAwayIds).add(item.id);
       markRailItemSeen(seenStorageKey, item.id);
       requestActivityRailRefresh();
       void invalidateRailSubject(item);
@@ -425,11 +461,16 @@
 </script>
 
 <section class="rail-panel">
-  <section class="rail-section">
-    <h2>Project Activity & Events</h2>
+  <details class="rail-section" class:rail-section-collapsed={activityItems.length === 0} bind:open={activityOpen}>
+    <summary class="rail-section-summary" class:hot={activityHasUnseen}>
+      <span class="summary-label">
+        <span class="chevron" aria-hidden="true"></span>
+        <span>Project Activity & Events</span>
+      </span>
+    </summary>
     <div class:snapshot-scroll={activityItems.length > 5} class="snapshot-stack">
       {#if activityItems.length === 0}
-        <div class="snapshot-row">
+        <div class="snapshot-row empty-hint">
           <strong>No activity yet</strong>
           <span>Nothing scheduled in your memberships right now.</span>
         </div>
@@ -475,13 +516,18 @@
         {/each}
       {/if}
     </div>
-  </section>
+  </details>
 
-  <section class="rail-section rail-section-help-requests">
-    <h2>Help Requests</h2>
+  <details class="rail-section rail-section-help-requests" class:rail-section-collapsed={helpRequestItems.length === 0} bind:open={helpOpen}>
+    <summary class="rail-section-summary" class:hot={helpHasUnseen}>
+      <span class="summary-label">
+        <span class="chevron" aria-hidden="true"></span>
+        <span>Help Requests</span>
+      </span>
+    </summary>
     <div class:snapshot-scroll={helpRequestItems.length > 5} class="snapshot-stack">
       {#if helpRequestItems.length === 0}
-        <div class="snapshot-row">
+        <div class="snapshot-row empty-hint">
           <strong>No help requests yet</strong>
           <span>Open help in your memberships will show here.</span>
         </div>
@@ -489,6 +535,7 @@
         {#each helpRequestItems as item}
           <article
             class="snapshot-row activity-row help-request-row"
+            class:activity-row-unseen={isUnseenItem(item)}
             style={`--row-accent: ${surfaceAccentCssVar(itemAccent(item))};`}
           >
             <button
@@ -529,22 +576,26 @@
         {/each}
       {/if}
     </div>
-  </section>
+  </details>
 
-  <section class="rail-section rail-section-requests">
-    <h2>Requests</h2>
+  <details class="rail-section rail-section-requests" class:rail-section-collapsed={requestItems.length === 0} bind:open={requestOpen}>
+    <summary class="rail-section-summary" class:hot={requestHasUnseen}>
+      <span class="summary-label">
+        <span class="chevron" aria-hidden="true"></span>
+        <span>Requests</span>
+      </span>
+    </summary>
     <div class:snapshot-scroll={requestItems.length > 5} class="snapshot-stack">
       {#if requestItems.length === 0}
-        <div class="snapshot-row">
+        <div class="snapshot-row empty-hint">
           <strong>No open requests</strong>
-          <span
-            >Service requests you can review will appear here and open the matching project card.</span
-          >
+          <span>Service requests you can review will appear here and open the matching project card.</span>
         </div>
       {:else}
         {#each requestItems as item}
           <article
             class="snapshot-row activity-row request-row"
+            class:activity-row-unseen={isUnseenItem(item)}
             style={`--row-accent: ${surfaceAccentCssVar(itemAccent(item))};`}
           >
             <button
@@ -582,13 +633,18 @@
         {/each}
       {/if}
     </div>
-  </section>
+  </details>
 
-  <section class="rail-section rail-section-votes">
-    <h2>Votes to cast</h2>
+  <details class="rail-section rail-section-votes" class:rail-section-collapsed={voteItems.length === 0} bind:open={voteOpen}>
+    <summary class="rail-section-summary" class:hot={voteHasUnseen}>
+      <span class="summary-label">
+        <span class="chevron" aria-hidden="true"></span>
+        <span>Votes to cast</span>
+      </span>
+    </summary>
     <div class:snapshot-scroll={voteItems.length > 5} class="snapshot-stack">
       {#if voteItems.length === 0}
-        <div class="snapshot-row">
+        <div class="snapshot-row empty-hint">
           <strong>No votes waiting</strong>
           <span
             >Open decisions you still need to cast appear here. Votes you already cast stay in History until they close.</span
@@ -674,33 +730,27 @@
         {/each}
       {/if}
     </div>
-  </section>
+  </details>
 
   {#if historyItems.length > 0}
     <details class="rail-section rail-section-history history-section">
       <summary class="rail-section-summary">
-        <span>History</span>
-        <span class="rail-section-count">{historyItems.length}</span>
+        <span class="summary-label">
+          <span class="chevron" aria-hidden="true"></span>
+          <span>History</span>
+        </span>
       </summary>
       <div class="history-body">
-        <div class="history-filter" role="group" aria-label="History filter">
-          <button
-            class:selected={showAllHistory}
-            class="history-filter-button"
-            type="button"
-            on:click={() => (showAllHistory = true)}
-          >
-            All
-          </button>
-          <button
-            class:selected={!showAllHistory}
-            class="history-filter-button"
-            type="button"
-            on:click={() => (showAllHistory = false)}
-          >
-            Mine only
-          </button>
-        </div>
+        <label class="history-filter">
+          <span class="history-filter-label">Show</span>
+          <select aria-label="History filter" bind:value={historyFilter}>
+            <option value="all">All</option>
+            <option value="votes">Votes</option>
+            <option value="activities">Activities</option>
+            <option value="help">Help</option>
+            <option value="requests">Requests</option>
+          </select>
+        </label>
         {#if displayedHistoryItems.length === 0}
           <p class="history-empty">No history items match this filter.</p>
         {:else}
@@ -723,8 +773,10 @@
   {#if clearedItems.length > 0}
     <details class="rail-section rail-section-cleared cleared-section" bind:open={clearedOpen}>
       <summary class="rail-section-summary">
-        <span>Cleared</span>
-        <span class="rail-section-count">{clearedItems.length}</span>
+        <span class="summary-label">
+          <span class="chevron" aria-hidden="true"></span>
+          <span>Cleared</span>
+        </span>
       </summary>
       <div class="cleared-body">
         <button class="cleared-restore-all" type="button" on:click={restoreAllClearedItems}>
@@ -772,6 +824,28 @@
     gap: 10px;
   }
 
+  .rail-section-collapsed {
+    gap: 0;
+  }
+
+  .rail-section-collapsed .snapshot-stack {
+    margin-top: 10px;
+  }
+
+  .snapshot-row.empty-hint {
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--panel-border) 80%, transparent);
+    background: color-mix(in srgb, var(--panel-soft) 70%, var(--panel));
+    color: var(--text-soft);
+  }
+
+  .snapshot-row.empty-hint strong {
+    color: var(--text-main);
+    font-size: 13px;
+  }
+
+  .rail-section-help-requests,
   .rail-section-requests {
     padding-top: 4px;
     border-top: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
@@ -987,20 +1061,35 @@
     display: none;
   }
 
-  .rail-section-count {
-    padding: 4px 8px;
-    border: 1px solid var(--panel-border);
-    border-radius: 999px;
-    color: var(--text-soft);
-    font-size: 11px;
-    font-weight: 700;
+  .summary-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
   }
 
-  details[open] > .rail-section-summary .rail-section-count {
-    border-color: var(--brand);
-    background: var(--brand-soft);
+  .chevron {
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 6px solid currentColor;
+    transition: transform 0.16s ease;
+    flex-shrink: 0;
+  }
+
+  details[open] > .rail-section-summary .chevron {
+    transform: rotate(90deg);
+  }
+
+  .rail-section-summary.hot,
+  .rail-section-summary.hot .chevron {
     color: var(--brand-strong);
   }
+
+
+
+
 
   .history-body,
   .cleared-body {
@@ -1010,32 +1099,23 @@
   }
 
   .history-filter {
-    display: inline-flex;
-    gap: 0;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    width: fit-content;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
   }
 
-  .history-filter-button {
-    padding: 6px 10px;
-    border: none;
-    background: var(--panel);
+  .history-filter-label {
     color: var(--text-soft);
     font-size: 11px;
     font-weight: 700;
-    cursor: pointer;
   }
 
-  .history-filter-button.selected {
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .history-filter-button:hover {
-    background: var(--brand-soft);
-    color: var(--brand-strong);
+  .history-filter select {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-weight: 700;
   }
 
   .history-empty {
@@ -1045,20 +1125,32 @@
     font-weight: 600;
   }
 
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid color-mix(in srgb, var(--text-soft) 32%, transparent);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
   .history-row {
     display: grid;
     gap: 4px;
     width: 100%;
     text-align: left;
     padding: 10px 8px;
-    border: none;
-    border-bottom: 1px solid var(--panel-border);
+    border: 0;
     border-radius: 0;
     background: transparent;
     color: var(--text-main);
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
+    box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--text-soft) 32%, transparent);
+  }
+
+  .history-row:last-child {
+    box-shadow: none;
   }
 
   .history-row:hover {

@@ -55,29 +55,33 @@
     role="link"
     tabindex="0"
   >
-    <div class="topline">
-      <div class="kind-row">
-        {#if item.isUnread}
-          <span class="unread-dot"></span>
-        {/if}
-        {#if !isSocialFollowNotice}
-          <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
-        {/if}
-        {#if item.actionLabel}
-          <span class="action">- {item.actionLabel}</span>
-        {/if}
-      </div>
+    <div class="copy">
+      {#if item.isUnread || item.actionLabel || !isSocialFollowNotice}
+        <div class="kicker">
+          {#if item.isUnread}
+            <span class="unread-dot"></span>
+          {/if}
+          {#if !isSocialFollowNotice}
+            <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
+          {/if}
+          {#if item.actionLabel}
+            <span class="action">{item.actionLabel}</span>
+          {/if}
+        </div>
+      {/if}
 
-      <TagList tags={orderedTags} />
+      {#if item.title}
+        <p class="title-text">{item.title}</p>
+      {/if}
+
+      {#if displayBody}
+        <p class="body">{displayBody}</p>
+      {/if}
+
+      {#if !item.title && !displayBody && orderedTags.length > 0}
+        <TagList tags={orderedTags} />
+      {/if}
     </div>
-
-    {#if item.title}
-      <p class="title-text">{item.title}</p>
-    {/if}
-
-    {#if displayBody}
-      <p class="body">{displayBody}</p>
-    {/if}
 
     {#if showFollowRequestActions && item.actorUsername}
       <div class="follow-request-actions">
@@ -100,109 +104,96 @@
       </div>
     {/if}
 
-    <div class="footer">
-      {#if item.isUnread}
-        <button class="mark-read" type="button" on:click={() => dispatch('read')}>{m.notification_mark_read()}</button>
-      {/if}
+    <div class="meta-row">
       <div class="footer-meta">
         {#if item.actorUsername}
           <a class="actor-link" href={`/profile/${item.actorUsername}`}>{item.actorUsername}</a>
         {/if}
         <ContentMetaRow timeOnly createdAt={item.createdAt} />
       </div>
+      {#if item.isUnread}
+        <button class="mark-read" type="button" on:click={() => dispatch('read')}>{m.notification_mark_read()}</button>
+      {/if}
     </div>
   </div>
 </FeedSurface>
 
 <style>
-  .notification-card,
-  .footer-meta {
-    display: grid;
-    gap: 12px;
-  }
-
   .notification-card {
+    display: grid;
+    gap: 8px;
     cursor: pointer;
   }
 
-  .notification-card.unread {
-    position: relative;
+  .copy {
+    display: grid;
+    gap: 4px;
   }
 
-  .topline,
-  .kind-row,
-  .footer,
-  .footer-meta {
+  .kicker,
+  .meta-row,
+  .footer-meta,
+  .follow-request-actions {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
     flex-wrap: wrap;
   }
 
-  .topline,
-  .footer {
+  .meta-row {
     justify-content: space-between;
   }
 
-  .topline {
-    align-items: flex-start;
-  }
-
   .unread-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 999px;
     background: var(--brand);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 18%, transparent);
   }
 
   .title-text {
+    margin: 0;
     color: var(--text-main);
     font-size: 15px;
-    font-weight: 800;
-    line-height: 1.35;
+    font-weight: 700;
+    line-height: 1.3;
   }
 
   .actor-link {
     color: var(--text-main);
-    font-weight: 800;
+    font-weight: 700;
+    text-decoration: none;
   }
 
   .action,
   .body {
+    margin: 0;
     color: var(--text-soft);
-    line-height: 1.45;
+    line-height: 1.4;
   }
 
-  .mark-read {
+  .action {
     font-size: 12px;
     font-weight: 700;
   }
 
   .mark-read {
-    padding: 8px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: var(--text-soft);
-    transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
   }
 
   .mark-read:hover {
-    border-color: var(--brand);
-    background: var(--brand-soft);
     color: var(--brand-strong);
-  }
-
-  .follow-request-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
   }
 
   .accept-button,
   .decline-button {
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: var(--radius-sm);
     font-size: 12px;
     font-weight: 700;
@@ -217,19 +208,7 @@
 
   .decline-button {
     border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-  }
-
-  .footer-meta {
-    margin-left: auto;
-    justify-content: flex-end;
-  }
-
-  @media (max-width: 760px) {
-    .footer-meta {
-      margin-left: 0;
-      justify-content: flex-start;
-    }
+    background: transparent;
+    color: var(--text-main);
   }
 </style>

@@ -136,6 +136,36 @@ export function writeBootstrapCache(
   }
 }
 
+/** Merge fresh settings (and matching viewer profile fields) into the session cache. */
+export function patchBootstrapCacheSettings(settings: SettingsPageData) {
+  if (!browser) {
+    return;
+  }
+
+  const record = readBootstrapCacheRecord();
+  if (!record) {
+    return;
+  }
+
+  const viewer = record.bootstrap.viewer
+    ? {
+        ...record.bootstrap.viewer,
+        bio: settings.profileBio,
+        ...(settings.profileImageUrl !== undefined
+          ? { profileImageUrl: settings.profileImageUrl || undefined }
+          : {})
+      }
+    : null;
+
+  writeBootstrapCache(
+    {
+      ...record.bootstrap,
+      viewer
+    },
+    settings
+  );
+}
+
 export function clearBootstrapCache() {
   if (!browser) {
     return;

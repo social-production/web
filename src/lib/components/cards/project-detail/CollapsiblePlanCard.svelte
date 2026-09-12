@@ -71,6 +71,13 @@
   $: ratedCount = criteria.filter((entry) => entry.activeRating != null).length;
   $: hasCompletedAssessment = allCriteriaComplete && effectiveOverallVote != null;
   $: pendingCriterionCount = criteria.length - ratedCount;
+  $: assessedCriteria = criteria.filter((entry) => entry.ratingCount > 0);
+  $: planAverageRating =
+    typeof plan.averageRating === 'number' && plan.averageRating > 0
+      ? plan.averageRating
+      : assessedCriteria.length > 0
+        ? assessedCriteria.reduce((sum, entry) => sum + entry.averageRating, 0) / assessedCriteria.length
+        : null;
 
   $: if (!autoOpenAssessment && !assessmentOpen) {
     didAutoOpen = false;
@@ -149,7 +156,10 @@
       <span class="plan-description">{plan.description}</span>
       {#if !open}
         <span class="plan-footer-meta base-footer">
-          <span>{plan.overallApproval.approvalPercent}% approved</span>
+          <span>
+            {plan.overallApproval.approvalPercent}% approved{#if planAverageRating != null}
+              · Avg {planAverageRating.toFixed(1)}{/if}
+          </span>
           <span class="author-row">
             {#if canEdit}
               <button class="text-button" type="button" on:click={handleEdit}>Edit</button>
@@ -257,7 +267,8 @@
         </button>
       {/if}
       <span class="approval-summary">
-        {plan.overallApproval.approvalPercent}% approved
+        {plan.overallApproval.approvalPercent}% approved{#if planAverageRating != null}
+          · Avg {planAverageRating.toFixed(1)}{/if}
       </span>
     </div>
 

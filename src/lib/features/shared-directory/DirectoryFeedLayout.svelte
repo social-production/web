@@ -80,6 +80,23 @@
   $: if (!showRolePanel && showBoardPanel) {
     showBoardPanel = false;
   }
+  let lastBoardOpenToken = '';
+  $: {
+    const boardToken = $page.url.searchParams.get('board') ?? '';
+    if (showRolePanel && boardToken === '1' && lastBoardOpenToken !== '1') {
+      lastBoardOpenToken = '1';
+      showBoardPanel = true;
+      const next = new URL($page.url);
+      next.searchParams.delete('board');
+      void goto(`${next.pathname}${next.search}${next.hash}`, {
+        replaceState: true,
+        keepFocus: true,
+        noScroll: true
+      });
+    } else if (boardToken !== '1') {
+      lastBoardOpenToken = '';
+    }
+  }
   let scopeKind: 'channel' | 'community' = 'channel';
   $: scopeKind = pageData.kind === 'community' ? 'community' : 'channel';
   $: if (pageData.slug !== lastPageSlug) {
@@ -381,12 +398,14 @@
     onToggleBoardPanel={() => (showBoardPanel = !showBoardPanel)}
   />
 
-  {#if showRolePanel && showBoardPanel}
+  {#if showRolePanel}
     <PlatformBoardPanel
+      open={showBoardPanel}
       {pageData}
       {boardStatusLabel}
       {meetsConfidenceThreshold}
       onVote={handleConfidenceVote}
+      on:close={() => (showBoardPanel = false)}
     />
   {/if}
 

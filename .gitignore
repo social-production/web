@@ -19,3 +19,6 @@ node_modules
 /blob-report/
 /playwright/.cache/
 .vercel
+
+# Superdesign scratch output
+.superdesign/tmp/

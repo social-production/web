@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
+  import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import type { DetailMember, ShareTargetResult } from '$lib/types/detail';
 
   export let buttonLabel = 'Share +';
@@ -8,6 +9,7 @@
   export let submitLabel = 'Share';
   export let createPostLabel = 'Create post';
   export let createPost: (() => void | Promise<void>) | null = null;
+  export let copyLinkUrl: string | null = null;
   export let contacts: DetailMember[] = [];
   export let searchContacts: ((query: string) => Promise<DetailMember[]>) | null = null;
   export let submitShare: (username: string) => Promise<ShareTargetResult> = async () => ({
@@ -19,22 +21,22 @@
   let query = '';
   let pending = false;
   let feedback = '';
+  let copyLabel = 'Copy link';
+  let copyTimer: ReturnType<typeof setTimeout> | null = null;
+  let selected: DetailMember[] = [];
   let liveContacts: DetailMember[] = [];
   let searchRequestId = 0;
-  let buttonEl: HTMLButtonElement | null = null;
-  let popoverEl: HTMLDivElement | null = null;
-  let popoverStyle = 'visibility:hidden;';
 
-  $: normalizedQuery = query.trim().toLowerCase();
+  $: searchNeedle = query.trim().toLowerCase();
   $: sourceContacts = liveContacts.length > 0 ? liveContacts : contacts;
-  $: filteredContacts = normalizedQuery
+  $: filteredContacts = searchNeedle
     ? sourceContacts
-        .filter((contact) => contact.username.toLowerCase().includes(normalizedQuery))
-        .slice(0, 6)
-    : sourceContacts.slice(0, 6);
+        .filter((contact) => contact.username.toLowerCase().includes(searchNeedle))
+        .slice(0, 8)
+    : [];
 
   async function handleQueryInput() {
-    if (!searchContacts) {
+    if (!searchContacts || !query.trim()) {
       liveContacts = [];
       return;
     }
@@ -53,26 +55,36 @@
     }
   }
 
-  async function handleSubmit() {
-    const username = query.trim();
+  function toggleRecipient(contact: DetailMember) {
+    if (selected.some((person) => person.username === contact.username)) {
+      selected = selected.filter((person) => person.username !== contact.username);
+      return;
+    }
+    selected = [...selected, contact];
+  }
 
-    if (!username || pending) {
+  function isSelected(username: string) {
+    return selected.some((person) => person.username === username);
+  }
+
+  async function handleSubmit() {
+    if (selected.length === 0 || pending) {
       return;
     }
 
     pending = true;
     feedback = '';
-
     try {
-      const result = await submitShare(username);
-
-      if (!result.ok) {
-        feedback = result.error ?? 'Unable to send that share.';
-        return;
+      for (const person of selected) {
+        const result = await submitShare(person.username);
+        if (!result.ok) {
+          feedback = result.error ?? `Unable to share with ${person.username}.`;
+          return;
+        }
       }
-
       query = '';
       liveContacts = [];
+      selected = [];
       open = false;
     } finally {
       pending = false;
@@ -86,149 +98,124 @@
     }
   }
 
-  async function toggleOpen() {
-    open = !open;
+  async function handleCopyLink() {
+    if (!copyLinkUrl) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(copyLinkUrl);
+      copyLabel = 'Copied';
+    } catch {
+      copyLabel = 'Copy failed';
+    }
+    if (copyTimer) {
+      clearTimeout(copyTimer);
+    }
+    copyTimer = setTimeout(() => {
+      copyLabel = 'Copy link';
+      copyTimer = null;
+    }, 1600);
+  }
+
+  function handleClose() {
+    open = false;
     feedback = '';
-    if (!open) {
-      popoverStyle = 'visibility:hidden;';
-      return;
-    }
-
-    popoverStyle = 'visibility:hidden;';
-    void handleQueryInput();
-    await tick();
-    positionPopover();
-  }
-
-  function positionPopover() {
-    if (!buttonEl || !popoverEl || typeof window === 'undefined') {
-      return;
-    }
-
-    const buttonRect = buttonEl.getBoundingClientRect();
-    const popoverWidth = Math.min(320, window.innerWidth * 0.76);
-    // Measure after forcing the intended width so flips stay accurate.
-    popoverEl.style.width = `${popoverWidth}px`;
-    const popoverRect = popoverEl.getBoundingClientRect();
-    const gap = 8;
-    const margin = 8;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
-    const spaceAbove = buttonRect.top - margin;
-    const spaceBelow = viewportHeight - buttonRect.bottom - margin;
-    const preferUp = spaceAbove >= popoverRect.height || spaceAbove >= spaceBelow;
-
-    let top = preferUp
-      ? buttonRect.top - popoverRect.height - gap
-      : buttonRect.bottom + gap;
-
-    if (top < margin) {
-      top = margin;
-    }
-    if (top + popoverRect.height > viewportHeight - margin) {
-      top = Math.max(margin, viewportHeight - margin - popoverRect.height);
-    }
-
-    // Prefer rightward placement: align popover's left edge near the button when possible,
-    // otherwise fall back to right-aligned so it stays on-screen.
-    let left = buttonRect.left;
-    if (left + popoverWidth > viewportWidth - margin) {
-      left = buttonRect.right - popoverWidth;
-    }
-    if (left < margin) {
-      left = margin;
-    }
-    if (left + popoverWidth > viewportWidth - margin) {
-      left = Math.max(margin, viewportWidth - margin - popoverWidth);
-    }
-
-    popoverStyle = `top:${Math.round(top)}px;left:${Math.round(left)}px;width:${Math.round(popoverWidth)}px;visibility:visible;`;
-  }
-
-  function handleWindowChange() {
-    if (open) {
-      positionPopover();
-    }
+    query = '';
+    liveContacts = [];
+    selected = [];
+    copyLabel = 'Copy link';
   }
 </script>
 
-<svelte:window on:resize={handleWindowChange} on:scroll={handleWindowChange} />
-
 <div class="share-shell">
   <button
-    bind:this={buttonEl}
     aria-expanded={open}
     class:active-toggle={open}
     class="share-button"
     type="button"
-    on:click={() => void toggleOpen()}
+    on:click={() => (open ? handleClose() : (open = true))}
   >
     {buttonLabel}
   </button>
 
-  {#if open}
-    <div
-      bind:this={popoverEl}
-      class="share-popover"
-      style={popoverStyle}
-      role="dialog"
-      aria-label={menuTitle}
-    >
-      <div class="share-inline-row">
+  <OverlaySheet {open} labelledById="share-sheet-title" title={menuTitle} on:close={handleClose}>
+    <svelte:fragment slot="toolbar">
+      <div class="share-search">
+        <label class="sr-only" for="share-people-search">{menuTitle}</label>
         <input
-          aria-label={menuTitle}
+          id="share-people-search"
           bind:value={query}
           maxlength="64"
           placeholder={placeholder}
-          type="text"
+          type="search"
           on:input={handleQueryInput}
           on:keydown={handleKeydown}
         />
-        <button class="primary-button" disabled={!query.trim() || pending} type="button" on:click={handleSubmit}>
-          {pending ? 'Sending...' : submitLabel}
-        </button>
       </div>
+    </svelte:fragment>
 
-      {#if filteredContacts.length > 0}
-        <div class="contact-list">
-          {#each filteredContacts as contact}
-            <button class="contact-chip" type="button" on:click={() => (query = contact.username)}>
-              {contact.username}
-            </button>
-          {/each}
-        </div>
-      {/if}
+    {#if selected.length > 0}
+      <div class="selected-row" aria-label="Selected recipients">
+        {#each selected as person}
+          <button class="selected-chip" type="button" on:click={() => toggleRecipient(person)}>
+            <AvatarBadge size="sm" username={person.username} imageUrl={person.profileImageUrl ?? null} />
+            <span>{person.username}</span>
+            <span class="chip-remove" aria-hidden="true">×</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
 
-      {#if feedback}
-        <p class="feedback">{feedback}</p>
-      {/if}
+    {#if searchNeedle && filteredContacts.length > 0}
+      <div class="contact-list">
+        {#each filteredContacts as contact}
+          <button
+            class:selected={isSelected(contact.username)}
+            class="contact-row"
+            type="button"
+            on:click={() => toggleRecipient(contact)}
+          >
+            <AvatarBadge size="sm" username={contact.username} imageUrl={contact.profileImageUrl ?? null} />
+            <span>{contact.username}</span>
+            {#if isSelected(contact.username)}
+              <span class="selected-mark">Selected</span>
+            {/if}
+          </button>
+        {/each}
+      </div>
+    {:else if searchNeedle}
+      <p class="empty-row">No matches.</p>
+    {/if}
 
+    {#if feedback}
+      <p class="feedback">{feedback}</p>
+    {/if}
+
+    <div class="share-actions">
+      <button class="primary-button" disabled={selected.length === 0 || pending} type="button" on:click={handleSubmit}>
+        {pending ? 'Sending...' : selected.length > 1 ? `Share with ${selected.length}` : submitLabel}
+      </button>
       {#if createPost}
-        <button class="create-post-link" type="button" on:click={() => void createPost?.()}>
+        <button class="text-action" type="button" on:click={() => void createPost?.()}>
           {createPostLabel}
         </button>
       {/if}
+      {#if copyLinkUrl}
+        <button class="text-action" type="button" on:click={() => void handleCopyLink()}>
+          {copyLabel}
+        </button>
+      {/if}
     </div>
-  {/if}
+  </OverlaySheet>
 </div>
 
 <style>
   .share-shell {
-    position: relative;
     display: inline-flex;
   }
 
-  .contact-list,
-  .share-inline-row,
-  .share-popover {
-    display: grid;
-    gap: 10px;
-  }
-
   .share-button,
-  .primary-button,
-  .contact-chip {
+  .primary-button {
     padding: 8px 12px;
     border-radius: var(--radius-sm);
     font-size: 12px;
@@ -237,81 +224,151 @@
     cursor: pointer;
   }
 
-  .share-button,
-  .contact-chip {
+  .share-button {
     border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-soft);
+    background: var(--panel-strong);
+    color: var(--text-main);
   }
 
   .share-button:hover,
-  .share-button.active-toggle,
-  .contact-chip:hover {
+  .share-button.active-toggle {
     border-color: var(--brand);
     background: var(--brand-soft);
     color: var(--brand-strong);
   }
 
   .primary-button {
-    border: 1px solid var(--brand);
+    border: 1px solid transparent;
     background: var(--brand);
-    color: var(--page-bg);
+    color: var(--on-brand);
   }
 
-  .share-popover {
-    position: fixed;
-    z-index: 80;
-    width: min(320px, 76vw);
-    padding: 14px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-    box-shadow: 0 14px 32px color-mix(in srgb, black 22%, transparent);
+  .primary-button:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
 
-  .feedback {
-    margin: 0;
-    line-height: 1.45;
-    color: var(--text-soft);
-    font-size: 12px;
+  .share-search {
+    padding: 10px 16px 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
   }
 
-  .share-inline-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-  }
-
-  .share-inline-row input {
-    min-width: 0;
-  }
-
-  input {
+  .share-search input {
     width: 100%;
-    padding: 12px;
+    min-height: 40px;
+    padding: 0 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: var(--panel);
+    background: var(--panel-soft);
     color: var(--text-main);
-    font: inherit;
   }
 
   .contact-list {
-    grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+    display: grid;
+    gap: 0;
   }
 
-  .contact-chip {
-    text-align: left;
-  }
-
-  .create-post-link {
-    justify-self: start;
-    padding: 0;
+  .contact-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 16px;
     border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
     background: transparent;
+    color: var(--text-main);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .contact-row.selected {
+    background: color-mix(in srgb, var(--brand-soft) 70%, transparent);
+  }
+
+  .selected-mark {
+    margin-left: auto;
     color: var(--brand-strong);
     font-size: 12px;
     font-weight: 700;
-    text-decoration: underline;
+  }
+
+  .selected-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+  }
+
+  .selected-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 4px;
+    border: 1px solid var(--brand);
+    border-radius: 999px;
+    background: var(--brand-soft);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
     cursor: pointer;
+  }
+
+  .chip-remove {
+    color: var(--text-soft);
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .contact-row span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .empty-row,
+  .feedback {
+    margin: 0;
+    padding: 16px;
+    color: var(--text-soft);
+    font-size: 13px;
+  }
+
+  .share-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    align-items: center;
+    padding: 12px 16px 4px;
+  }
+
+  .text-action {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 </style>

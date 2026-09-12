@@ -10,6 +10,7 @@ export type SurfaceIconId =
   | 'channel'
   | 'community'
   | 'platform'
+  | 'shield'
   | 'document';
 
 export type SurfaceTypeAccent =
