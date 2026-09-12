@@ -3,6 +3,7 @@
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import type { DetailUpdate } from '$lib/types/detail';
   import { tick } from 'svelte';
+  import { scrollElementIntoViewWithOffset } from '$lib/utils/scrollAnchors';
 
   export let update: DetailUpdate;
   export let highlightedUpdateId: string | null = null;
@@ -19,7 +20,7 @@
   $: if (browser && isHighlighted && cardElement && !hasAutoScrolled) {
     hasAutoScrolled = true;
     tick().then(() => {
-      cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      scrollElementIntoViewWithOffset(cardElement);
     });
   }
 </script>

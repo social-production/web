@@ -307,12 +307,24 @@
     background: var(--panel-strong);
     display: grid;
     gap: 10px;
-    transition: border-color 0.12s ease;
+    transition: border-color 0.12s ease, background-color 0.12s ease;
   }
 
   .plan-card:hover,
   .plan-card.expanded {
     border-color: color-mix(in srgb, var(--brand) 35%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand) 8%, var(--panel-strong));
+  }
+
+  :global(.plan-stack) .plan-card {
+    border: 0;
+    border-radius: 0;
+    margin-top: 0;
+    box-shadow: inset 0 -1px 0 var(--panel-border);
+  }
+
+  :global(.plan-stack) .plan-card:last-child {
+    box-shadow: none;
   }
 
   .collapse-toggle {

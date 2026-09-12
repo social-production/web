@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PendingVoteItem } from '$lib/utils/pendingVotes';
   import { pendingVoteCardId } from '$lib/utils/pendingVotes';
+  import { scrollElementIntoViewWithOffset } from '$lib/utils/scrollAnchors';
 
   export let items: PendingVoteItem[] = [];
   export let onApprove: (item: PendingVoteItem) => void | Promise<void> = () => {};
@@ -15,7 +16,9 @@
     }
 
     const card = document.getElementById(pendingVoteCardId(item.voteKind, item.id));
-    card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (card) {
+      scrollElementIntoViewWithOffset(card);
+    }
   }
 
   function scrollToNextVote() {

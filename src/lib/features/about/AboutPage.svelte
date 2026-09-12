@@ -84,6 +84,17 @@
     gap: 12px;
   }
 
+  .page {
+    padding-bottom: 24px;
+  }
+
+  .intro-prose,
+  .roadmap-title,
+  .stack,
+  .page :global(.explainer) {
+    padding-inline: var(--page-gutter);
+  }
+
   .intro-prose {
     max-width: 65ch;
     display: grid;

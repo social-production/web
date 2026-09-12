@@ -640,7 +640,7 @@
   class:shell-map-page={dedicatedMapPage}
   class:feed-chrome-collapsed={topbarCollapsed}
   class:shell-auth={isAuthSurface}
-  style={`--left-width: ${leftRailOpen && !isCompact && !isAuthSurface ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact && !isAuthSurface ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --main-frame-max-width: ${!isCompact && !leftRailOpen && !rightRailOpen ? '1280px' : !isCompact && (!leftRailOpen || !rightRailOpen) ? '1480px' : 'none'};`}
+  style={`--left-width: ${leftRailOpen && !isCompact && !isAuthSurface ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact && !isAuthSurface ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --main-frame-max-width: none;`}
 >
   {#if mapSurfaceActive}
     <div class="topbar-flow-spacer" style={`height: ${topbarHeight}px`} aria-hidden="true"></div>
@@ -1036,6 +1036,7 @@
     color: var(--text-main);
     overscroll-behavior: none;
     overflow-x: clip;
+    overflow-y: clip;
     max-width: 100%;
   }
 
@@ -1531,7 +1532,7 @@
     display: grid;
     gap: 12px;
     align-content: start;
-    padding: 12px;
+    padding: 8px;
     background: var(--side-panel-background);
   }
 
@@ -1554,12 +1555,14 @@
     position: relative;
     min-width: 0;
     overflow-x: clip;
-    padding: 16px 20px 20px;
+    overflow-y: clip;
+    overflow-anchor: none;
+    padding: 8px 8px 16px;
     background: var(--page-background);
   }
 
   .main-content-compact {
-    padding: 12px 12px calc(12px + var(--shell-bottom-nav-offset));
+    padding: 0 0 calc(var(--shell-bottom-nav-offset));
   }
 
   .main-frame {
@@ -1569,6 +1572,7 @@
     max-width: var(--main-frame-max-width);
     margin: 0 auto;
     overflow-x: clip;
+    overflow-y: clip;
   }
 
   @media (min-width: 1081px) {
@@ -1689,14 +1693,16 @@
     }
 
     .main-content-compact {
-      padding: 8px 8px calc(8px + var(--shell-bottom-nav-offset));
+      padding: 0 0 calc(var(--shell-bottom-nav-offset));
       min-width: 0;
       overflow-x: clip;
+      overflow-y: clip;
     }
 
     .main-content-compact .main-frame {
       min-width: 0;
       overflow-x: clip;
+      overflow-y: clip;
       padding-bottom: 4px;
     }
   }

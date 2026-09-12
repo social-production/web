@@ -25,7 +25,7 @@
     align-items: flex-start;
     justify-content: space-between;
     flex-wrap: wrap;
-    padding: 0 0 16px;
+    padding: 12px var(--page-gutter) 14px;
     border: none;
     border-bottom: 1px solid var(--panel-border);
     border-radius: 0;

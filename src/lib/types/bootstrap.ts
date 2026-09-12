@@ -63,6 +63,7 @@ export interface RightRailActivityItem {
   scheduledAt?: string;
   endsAt?: string;
   viewerParticipated?: boolean;
+  outcome?: 'passed' | 'failed' | 'open';
 }
 
 export interface BootstrapPayload {

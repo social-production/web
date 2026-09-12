@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onDestroy, onMount, tick } from 'svelte';
+  import { createEventDispatcher, onMount, tick } from 'svelte';
   import { page } from '$app/stores';
   import {
     activateParticipationActivityPhase,
@@ -49,7 +49,6 @@
   let hasManualSelection = false;
   let stepListEl: HTMLOListElement | null = null;
   let compactLabels = false;
-  let resizeObserver: ResizeObserver | null = null;
   let measureQueued = false;
 
   $: visibleSteps = steps.filter((step) => step.label);
@@ -172,21 +171,15 @@
   }
 
   onMount(() => {
-    if (!stepListEl || typeof ResizeObserver === 'undefined') {
-      void updateCompactLabels();
+    void updateCompactLabels();
+    if (typeof window === 'undefined') {
       return;
     }
 
-    resizeObserver = new ResizeObserver(() => {
-      queueCompactLabelMeasure();
-    });
-    resizeObserver.observe(stepListEl);
-    void updateCompactLabels();
-  });
-
-  onDestroy(() => {
-    resizeObserver?.disconnect();
-    resizeObserver = null;
+    window.addEventListener('resize', queueCompactLabelMeasure);
+    return () => {
+      window.removeEventListener('resize', queueCompactLabelMeasure);
+    };
   });
 </script>
 
@@ -236,6 +229,7 @@
     border: 1px solid color-mix(in srgb, var(--brand) 42%, var(--panel-border));
     border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--brand-soft) 58%, var(--panel));
+    overflow-anchor: none;
   }
 
   .participation-steps.lead {

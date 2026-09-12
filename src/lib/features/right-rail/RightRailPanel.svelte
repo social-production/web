@@ -102,23 +102,30 @@
   $: clearedItems = items.filter(
     (item) => dismissedRailIds.has(item.id) && activeRailIdSet.has(item.id)
   );
-  function historyMatchesFilter(item: RightRailActivityItem) {
-    if (historyFilter === 'votes') {
+  function historyMatchesFilter(item: RightRailActivityItem, filter = historyFilter) {
+    if (filter === 'votes') {
       return item.kind === 'vote' && item.viewerParticipated !== false;
     }
-    if (historyFilter === 'activities') {
+    if (filter === 'activities') {
       return item.kind === 'project' || item.kind === 'event';
     }
-    if (historyFilter === 'help') {
+    if (filter === 'help') {
       return item.kind.startsWith('help-request');
     }
-    if (historyFilter === 'requests') {
+    if (filter === 'requests') {
       return item.kind === 'request';
     }
     return true;
   }
 
-  $: displayedHistoryItems = historyItems.filter(historyMatchesFilter);
+  function historyTimestamp(item: RightRailActivityItem) {
+    return Date.parse(item.createdAt || item.endsAt || item.scheduledAt || '') || 0;
+  }
+
+  $: displayedHistoryItems = historyItems
+    .filter((item) => historyMatchesFilter(item, historyFilter))
+    .slice()
+    .sort((left, right) => historyTimestamp(right) - historyTimestamp(left));
   $: activityItems = visibleItems.filter(
     (item) =>
       item.kind !== 'request' &&
@@ -169,6 +176,21 @@
 
   function isRailActionDisabled(item: RightRailActivityItem) {
     return usesRoleCommitment(item) && !item.viewerAssignedRoleLabel && item.hasOpenRole === false;
+  }
+
+  function historyOutcome(item: RightRailActivityItem) {
+    if (item.kind === 'vote') {
+      if (item.outcome === 'passed') return 'Passed';
+      if (item.outcome === 'failed') return 'Did not pass';
+      return 'Still open';
+    }
+    if (item.kind === 'project' || item.kind === 'event') {
+      return item.viewerParticipated ? 'You participated' : 'You did not participate';
+    }
+    if (item.kind.startsWith('help-request')) {
+      return item.viewerParticipated ? 'You participated' : item.meta;
+    }
+    return item.meta;
   }
 
   function itemKicker(item: RightRailActivityItem) {
@@ -755,13 +777,26 @@
           <p class="history-empty">No history items match this filter.</p>
         {:else}
           <div class="history-list">
-            {#each displayedHistoryItems as item}
-              <button class="history-row" type="button" on:click={() => handleOpenItem(item)}>
+            {#each displayedHistoryItems as item (item.id)}
+              <button
+                class="history-row"
+                style={`--row-accent: ${surfaceAccentCssVar(itemAccent(item))};`}
+                type="button"
+                on:click={() => handleOpenItem(item)}
+              >
                 <span class="history-kind">{itemKicker(item)}</span>
                 <strong>{item.title}</strong>
                 {#if item.meta}
                   <span class="history-meta">{item.meta}</span>
                 {/if}
+                <span
+                  class="history-outcome"
+                  class:passed={item.kind === 'vote' && item.outcome === 'passed'}
+                  class:failed={item.kind === 'vote' && item.outcome === 'failed'}
+                  class:participated={(item.kind === 'project' || item.kind === 'event' || item.kind.startsWith('help-request')) && item.viewerParticipated}
+                >
+                  {historyOutcome(item)}
+                </span>
               </button>
             {/each}
           </div>
@@ -1126,11 +1161,8 @@
   }
 
   .history-list {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid color-mix(in srgb, var(--text-soft) 32%, transparent);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
+    display: grid;
+    gap: 8px;
   }
 
   .history-row {
@@ -1138,23 +1170,19 @@
     gap: 4px;
     width: 100%;
     text-align: left;
-    padding: 10px 8px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
+    padding: 10px 10px 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-left: 3px solid var(--row-accent, var(--type-accent-neutral));
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
     color: var(--text-main);
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
-    box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--text-soft) 32%, transparent);
-  }
-
-  .history-row:last-child {
-    box-shadow: none;
   }
 
   .history-row:hover {
-    background: var(--panel-strong);
+    background: var(--panel-hover);
   }
 
   .history-kind,
@@ -1169,6 +1197,21 @@
     text-transform: none;
     font-weight: 600;
     font-size: 11px;
+  }
+
+  .history-outcome {
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .history-outcome.passed,
+  .history-outcome.participated {
+    color: var(--brand-strong);
+  }
+
+  .history-outcome.failed {
+    color: var(--accent-warm-strong);
   }
 
   .cleared-restore-all {

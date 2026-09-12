@@ -121,6 +121,15 @@
     gap: 12px;
   }
 
+  .plan-stack {
+    gap: 0;
+  }
+
+  .plan-stack .empty-card {
+    border: 0;
+    border-radius: 0;
+  }
+
   .composer-toggle-row {
     display: flex;
     justify-content: center;

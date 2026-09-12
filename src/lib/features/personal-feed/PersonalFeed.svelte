@@ -544,13 +544,14 @@
   }
 
   .feed-page {
-    gap: 12px;
+    gap: 0;
   }
 
   .stack {
     gap: 0;
     min-width: 0;
     overflow-x: clip;
+    overflow-y: clip;
   }
 
   .stack :global(.surface:last-child) {
@@ -566,7 +567,7 @@
   }
 
   .toolbar-card {
-    padding: 12px 4px;
+    padding: 12px var(--page-gutter);
     border: none;
     border-bottom: 1px solid var(--panel-border);
     border-radius: 0;
@@ -584,7 +585,7 @@
   }
 
   .empty-card {
-    padding: 20px 4px;
+    padding: 20px var(--page-gutter);
     border: none;
     border-bottom: 1px solid var(--panel-border);
     border-radius: 0;

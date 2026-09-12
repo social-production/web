@@ -1,3 +1,5 @@
+import { scrollElementIntoViewWithOffset } from '$lib/utils/scrollAnchors';
+
 const HIGHLIGHT_CLASS = 'participation-action-highlight';
 const UNDER_OVERLAY_CLASS = 'participation-highlight-under-overlay';
 const HIGHLIGHT_DURATION_MS = 2600;
@@ -74,7 +76,7 @@ function scrollTargetIntoView(element: HTMLElement) {
     return;
   }
 
-  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  scrollElementIntoViewWithOffset(element);
 }
 
 export function highlightParticipationTarget(selector: string | null) {

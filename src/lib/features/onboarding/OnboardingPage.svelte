@@ -168,6 +168,10 @@
     max-width: 480px;
   }
 
+  .page {
+    padding: 12px var(--page-gutter) 24px;
+  }
+
   .hero-card,
   .panel {
     padding: 16px;

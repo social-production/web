@@ -271,6 +271,7 @@
     .page {
       min-width: 0;
       overflow-x: clip;
+      overflow-y: clip;
     }
 
     .page-chat {
@@ -287,6 +288,7 @@
     .hero-card {
       min-width: 0;
       overflow-x: clip;
+      overflow-y: clip;
       padding-top: 16px;
       margin-top: 12px;
     }

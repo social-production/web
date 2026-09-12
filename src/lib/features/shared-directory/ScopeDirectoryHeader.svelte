@@ -113,7 +113,7 @@
   .scope-header {
     display: grid;
     gap: 10px;
-    padding: 0 0 8px;
+    padding: 12px var(--page-gutter) 10px;
     border: none;
     border-bottom: 1px solid var(--panel-border);
     min-width: 0;

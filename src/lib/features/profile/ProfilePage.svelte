@@ -470,7 +470,10 @@
     display: grid;
   }
 
-  .page,
+  .page {
+    gap: 0;
+  }
+
   .people-list {
     gap: 12px;
   }
@@ -479,6 +482,7 @@
     gap: 0;
     min-width: 0;
     overflow-x: clip;
+    overflow-y: clip;
   }
 
   .feed-stack :global(.surface:last-child) {
@@ -496,7 +500,7 @@
   .hero-section {
     display: grid;
     gap: 12px;
-    padding: 0 0 16px;
+    padding: 12px var(--page-gutter) 16px;
     border: none;
     border-bottom: 1px solid var(--panel-border);
     border-radius: 0;
@@ -504,8 +508,15 @@
   }
 
   .requests-card,
-  .warning-card,
   .empty-card {
+    padding: 14px var(--page-gutter);
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .warning-card {
     padding: 14px 0;
     border: none;
     border-bottom: 1px solid var(--panel-border);
@@ -514,7 +525,7 @@
   }
 
   .toolbar-card {
-    padding: 12px 4px;
+    padding: 12px var(--page-gutter);
     border: none;
     border-bottom: 1px solid var(--panel-border);
     border-radius: 0;
@@ -531,7 +542,7 @@
   }
 
   .empty-card {
-    padding: 20px 4px;
+    padding: 20px var(--page-gutter);
     border: none;
     border-bottom: 1px solid var(--panel-border);
     border-radius: 0;

@@ -130,6 +130,10 @@
     gap: 12px;
   }
 
+  .page {
+    padding: 12px var(--page-gutter) 24px;
+  }
+
   .page-header {
     display: grid;
     gap: 6px;

@@ -43,6 +43,7 @@
     gap: 16px;
     align-items: start;
     position: relative;
+    padding: 12px var(--page-gutter) 24px;
   }
 
   .flow-toolbar {

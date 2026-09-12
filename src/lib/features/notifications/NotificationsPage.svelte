@@ -94,7 +94,7 @@
   .page,
   .stack {
     display: grid;
-    gap: 12px;
+    gap: 0;
   }
 
   .notifications-page {

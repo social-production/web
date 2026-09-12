@@ -40,9 +40,13 @@ export async function scrollCommentIntoView(
       continue;
     }
 
+    if (isElementInViewport(element, topOffset)) {
+      return true;
+    }
+
     element.scrollIntoView({
       behavior: attempt === 0 ? 'auto' : 'smooth',
-      block: 'center'
+      block: 'nearest'
     });
 
     if (isElementInViewport(element, topOffset)) {

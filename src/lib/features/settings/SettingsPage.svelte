@@ -723,6 +723,7 @@
     align-items: start;
     width: 100%;
     max-width: 1024px;
+    padding: 12px var(--page-gutter) 24px;
   }
 
   .settings-nav {

@@ -44,6 +44,7 @@
   } from '$lib/utils/pendingVotes';
   import { applySignalToggleToDetailPhaseOneImmutable } from '$lib/utils/feedSignals';
   import type { SignalToggleResult } from '$lib/types/feed';
+  import { scrollElementIntoViewWithOffset } from '$lib/utils/scrollAnchors';
 
   export let data: ProjectPageData;
 
@@ -199,17 +200,19 @@
 
       if (voteKind === 'pull_request' || voteKind === 'pull_request_merge') {
         window.setTimeout(() => {
-          document
-            .getElementById(`software-pr-card-${voteTarget}`)
-            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          const card = document.getElementById(`software-pr-card-${voteTarget}`);
+          if (card) {
+            scrollElementIntoViewWithOffset(card);
+          }
         }, 180);
       }
       return;
     }
 
-    document
-      .getElementById('pending-votes-panel')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const panel = document.getElementById('pending-votes-panel');
+    if (panel) {
+      scrollElementIntoViewWithOffset(panel);
+    }
   }
 
   function readCommentTarget(url: URL) {
@@ -305,6 +308,16 @@
   $: {
     const routeSignature = `${$page.url.pathname}${$page.url.search}${$page.url.hash}`;
 
+    autoExpandVoteCards = $page.url.searchParams.get('open') === 'vote';
+    autoExpandVoteKind = autoExpandVoteCards
+      ? $page.url.searchParams.get('voteKind') || null
+      : null;
+    autoExpandVoteTarget = autoExpandVoteCards
+      ? $page.url.searchParams.get('voteTarget') || null
+      : null;
+    autoAssess = $page.url.searchParams.get('assess') === '1';
+    autoAssessCriterionId = $page.url.searchParams.get('criterionId') || null;
+
     if (routeSignature !== lastRouteSignature) {
       lastRouteSignature = routeSignature;
       highlightedCommentId = readCommentTarget($page.url);
@@ -323,39 +336,31 @@
               : requestedTab === 'chat'
                 ? 'chat'
                 : 'overview';
-    }
-    autoExpandVoteCards = $page.url.searchParams.get('open') === 'vote';
-    autoExpandVoteKind = autoExpandVoteCards
-      ? $page.url.searchParams.get('voteKind') || null
-      : null;
-    autoExpandVoteTarget = autoExpandVoteCards
-      ? $page.url.searchParams.get('voteTarget') || null
-      : null;
-    autoAssess = $page.url.searchParams.get('assess') === '1';
-    autoAssessCriterionId = $page.url.searchParams.get('criterionId') || null;
-    if (
-      autoExpandVoteCards &&
-      autoExpandVoteTarget &&
-      (autoExpandVoteKind === 'pull_request_merge' ||
-        (autoExpandVoteKind === 'pull_request' && autoAssess))
-    ) {
-      softwareWizardRequest = {
-        mode: autoExpandVoteKind === 'pull_request_merge' ? 'record-merge' : 'vote-pr',
-        requestId: autoExpandVoteTarget,
-      };
-    }
-    if ($page.url.hash === '#pending-votes-panel') {
-      activeTab = 'overview';
-      void focusVoteTarget(null, null);
-    } else if ($page.url.hash === '#software-governance-panel') {
-      activeTab = 'overview';
-      void tick().then(() => {
-        document
-          .getElementById('software-governance-panel')
-          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    } else if (autoExpandVoteCards) {
-      void focusVoteTarget(autoExpandVoteKind, autoExpandVoteTarget);
+      if (
+        autoExpandVoteCards &&
+        autoExpandVoteTarget &&
+        (autoExpandVoteKind === 'pull_request_merge' ||
+          (autoExpandVoteKind === 'pull_request' && autoAssess))
+      ) {
+        softwareWizardRequest = {
+          mode: autoExpandVoteKind === 'pull_request_merge' ? 'record-merge' : 'vote-pr',
+          requestId: autoExpandVoteTarget,
+        };
+      }
+      if ($page.url.hash === '#pending-votes-panel') {
+        activeTab = 'overview';
+        void focusVoteTarget(null, null);
+      } else if ($page.url.hash === '#software-governance-panel') {
+        activeTab = 'overview';
+        void tick().then(() => {
+          const panel = document.getElementById('software-governance-panel');
+          if (panel) {
+            scrollElementIntoViewWithOffset(panel);
+          }
+        });
+      } else if (autoExpandVoteCards) {
+        void focusVoteTarget(autoExpandVoteKind, autoExpandVoteTarget);
+      }
     }
   }
 
@@ -705,6 +710,7 @@
     .page {
       min-width: 0;
       overflow-x: clip;
+      overflow-y: clip;
     }
 
     .page-chat {
@@ -721,6 +727,7 @@
     .hero-card {
       min-width: 0;
       overflow-x: clip;
+      overflow-y: clip;
       padding-top: 16px;
       margin-top: 12px;
     }

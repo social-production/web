@@ -46,6 +46,14 @@
     gap: 12px;
   }
 
+  .page {
+    padding-bottom: 24px;
+  }
+
+  .stack {
+    padding-inline: var(--page-gutter);
+  }
+
   .phase-card {
     padding: 12px;
     border: 1px solid var(--panel-border);

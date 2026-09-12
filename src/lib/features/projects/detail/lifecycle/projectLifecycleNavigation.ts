@@ -1,4 +1,5 @@
 import { highlightParticipationTarget } from '$lib/utils/participationHighlight';
+import { scrollElementIntoViewWithOffset } from '$lib/utils/scrollAnchors';
 
 export function readActivityTarget(url: URL): string | null {
   if (url.hash.startsWith('#activity-card-')) {
@@ -28,21 +29,12 @@ export function readRequestTarget(url: URL): string | null {
   return url.searchParams.get('request');
 }
 
-export function scrollElementIntoComfortView(element: HTMLElement | null, topOffset = 104) {
+export function scrollElementIntoComfortView(element: HTMLElement | null, _topOffset = 104) {
   if (typeof document === 'undefined' || !element) {
     return;
   }
 
-  const scroller = element.closest('.main-content');
-  if (scroller instanceof HTMLElement && scroller.scrollHeight > scroller.clientHeight + 1) {
-    const nextTop =
-      scroller.scrollTop + element.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 16;
-    scroller.scrollTo({ top: Math.max(nextTop, 0), behavior: 'smooth' });
-    return;
-  }
-
-  const targetTop = Math.max(0, window.scrollY + element.getBoundingClientRect().top - topOffset);
-  window.scrollTo({ top: targetTop, behavior: 'smooth' });
+  scrollElementIntoViewWithOffset(element);
 }
 
 export function scrollActivityCardIntoView(activityId: string) {
@@ -50,10 +42,10 @@ export function scrollActivityCardIntoView(activityId: string) {
     return;
   }
 
-  document.getElementById(`activity-card-${activityId}`)?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'center'
-  });
+  const card = document.getElementById(`activity-card-${activityId}`);
+  if (card) {
+    scrollElementIntoViewWithOffset(card);
+  }
 }
 
 export function openActivityDetails(activityId: string) {
@@ -73,10 +65,10 @@ export function scrollRequestCardIntoView(requestId: string) {
     return;
   }
 
-  document.getElementById(`request-card-${requestId}`)?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start'
-  });
+  const card = document.getElementById(`request-card-${requestId}`);
+  if (card) {
+    scrollElementIntoViewWithOffset(card);
+  }
 }
 
 export function openRequestDetails(requestId: string) {
@@ -96,10 +88,10 @@ export function scrollHistoryCardIntoView(activityId: string) {
     return;
   }
 
-  document.getElementById(`history-card-${activityId}`)?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start'
-  });
+  const card = document.getElementById(`history-card-${activityId}`);
+  if (card) {
+    scrollElementIntoViewWithOffset(card);
+  }
 }
 
 export function openHistorySectionForCard(activityId: string) {

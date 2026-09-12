@@ -186,7 +186,7 @@
     />
   {/if}
 
-  <div id="participation-plans" class="surface-stack">
+  <div id="participation-plans" class="surface-stack plan-stack">
     {#if plans.length === 0}
       <div class="empty-card">{emptyCopy()}</div>
     {:else}
@@ -214,6 +214,15 @@
   .surface-stack {
     display: grid;
     gap: 12px;
+  }
+
+  .plan-stack {
+    gap: 0;
+  }
+
+  .plan-stack .empty-card {
+    border: 0;
+    border-radius: 0;
   }
 
   .composer-toggle-row {

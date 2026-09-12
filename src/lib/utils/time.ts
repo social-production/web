@@ -370,17 +370,4 @@ export function scrollComposerIntoView(element: HTMLElement | null, topOffset = 
   });
 }
 
-export async function preserveScrollDuring(action: () => Promise<void>) {
-  if (typeof window === 'undefined') {
-    await action();
-    return;
-  }
-
-  const scrollY = window.scrollY;
-
-  await action();
-
-  requestAnimationFrame(() => {
-    window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior });
-  });
-}
+export { preserveScrollDuring } from '$lib/utils/scrollAnchors';
