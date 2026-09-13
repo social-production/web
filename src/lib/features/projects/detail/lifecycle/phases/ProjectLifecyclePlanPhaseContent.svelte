@@ -34,23 +34,17 @@
   $: isPhaseTwo = phaseId === 'phase-2';
   $: collectiveService = isCollectiveServiceProject(data.projectMode);
   $: plans = isPhaseTwo ? data.lifecycle.phaseTwo.plans : data.lifecycle.phaseThree.plans;
-  $: canSubmitPlans = isPhaseTwo
-    ? data.lifecycle.phaseTwo.viewerCanSubmitPlans
-    : data.lifecycle.phaseThree.viewerCanSubmitPlans;
+  $: canSubmitPlans =
+    data.lifecycle.currentPhaseId === phaseId &&
+    (isPhaseTwo
+      ? data.lifecycle.phaseTwo.viewerCanSubmitPlans
+      : data.lifecycle.phaseThree.viewerCanSubmitPlans);
   $: canVoteOnPlans = isPhaseTwo
     ? data.lifecycle.phaseTwo.viewerCanVoteOnPlans
     : data.lifecycle.phaseThree.viewerCanVoteOnPlans;
   $: winningPlanId = isPhaseTwo
     ? data.lifecycle.phaseTwo.winningPlanId
     : data.lifecycle.phaseThree.winningPlanId;
-
-  function emptyCopy() {
-    if (isPhaseTwo) {
-      return `No ${collectiveService ? 'operations' : 'production'} plans submitted yet.`;
-    }
-
-    return `No ${collectiveService ? 'access' : 'distribution'} plans submitted yet.`;
-  }
 
   function descriptionPlaceholder() {
     if (isPhaseTwo) {
@@ -151,20 +145,20 @@
     {/if}
   {/if}
 
-  <div id="participation-plans" class="surface-stack plan-stack">
-    {#if plans.length === 0}
-      <div class="empty-card">{emptyCopy()}</div>
-    {:else}
-      {#each plans as plan (plan.id)}
-        <CollapsiblePlanCard
-          canVote={canVoteOnPlans}
-          expanded={isExpandedPlan(plan.id)}
-          showRequestSystem={!isPhaseTwo && collectiveService}
-          {plan}
-          statusLabel={statusLabel(plan.id)}
-          {overallvote}
-        />
-      {/each}
+  <div id="participation-plans">
+    {#if plans.length > 0}
+      <div class="surface-stack plan-stack">
+        {#each plans as plan (plan.id)}
+          <CollapsiblePlanCard
+            canVote={canVoteOnPlans}
+            expanded={isExpandedPlan(plan.id)}
+            showRequestSystem={!isPhaseTwo && collectiveService}
+            {plan}
+            statusLabel={statusLabel(plan.id)}
+            overallvote={overallvote}
+          />
+        {/each}
+      </div>
     {/if}
   </div>
 </section>
@@ -181,12 +175,7 @@
   }
 
   .plan-stack {
-    gap: 0;
-  }
-
-  .plan-stack .empty-card {
-    border: 0;
-    border-radius: 0;
+    gap: 12px;
   }
 
   .composer-toggle-row,

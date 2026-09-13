@@ -3,6 +3,7 @@
   import CollapsibleServiceRequestCard from '$lib/components/cards/project-detail/CollapsibleServiceRequestCard.svelte';
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
+  import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import ActivityHistorySection from '$lib/features/projects/detail/components/ActivityHistorySection.svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
@@ -191,12 +192,21 @@
   async function openCalendarComposer() {
     activeTab = 'live';
 
+    if (previewDayIso) {
+      await openCalendarComposerForDay(previewDayIso);
+      return;
+    }
+
     if (data.lifecycle.phaseFive.viewerCanCreateActivities) {
       await openPersonalActivityComposer();
       return;
     }
 
     await openPersonalServiceRequestComposer();
+  }
+
+  async function selectCalendarDay(isoDay: string) {
+    previewDayIso = isoDay;
   }
 
   async function openCalendarComposerForDay(isoDay: string) {
@@ -380,6 +390,8 @@
   let weeklyStart = '09:00';
   let weeklyEnd = '12:00';
   let weeklyNote = '';
+  let previewDayIso = '';
+  let showRequestsSheet = false;
 
   $: usesCalendar = data.lifecycle.personalService?.usesCalendar ?? true;
   $: personalRequestMode = data.lifecycle.personalService?.requestMode ?? 'calendar';
@@ -397,9 +409,10 @@
     ? showPersonalActivityComposer
     : showPersonalServiceRequestComposer;
   $: calendarSelectedDayIso = usesCalendar
-    ? data.lifecycle.phaseFive.viewerCanCreateActivities
-      ? activityForm.scheduledAt
-      : serviceRequestForm.scheduledAt ?? ''
+    ? previewDayIso ||
+      (data.lifecycle.phaseFive.viewerCanCreateActivities
+        ? activityForm.scheduledAt
+        : serviceRequestForm.scheduledAt ?? '')
     : '';
   $: sortedRequests = [...(data.lifecycle.requestSystem?.requests ?? [])].sort(
     (left, right) => +new Date(right.createdAt) - +new Date(left.createdAt)
@@ -445,6 +458,9 @@
   }
   $: if (highlightedActivityId || highlightedRequestId) {
     activeTab = 'live';
+    if (highlightedRequestId) {
+      showRequestsSheet = true;
+    }
   }
 </script>
 
@@ -458,7 +474,7 @@
       createAriaLabel="Add availability"
       selectedDayIso={calendarSelectedDayIso}
       selectedActivityId={selectedActivityId}
-      daySelect={openCalendarComposerForDay}
+      daySelect={selectCalendarDay}
       createAction={openCalendarComposer}
       activitySelect={openCalendarComposerForActivity}
     />
@@ -481,6 +497,15 @@
   {/if}
 
     {#if data.lifecycle.requestSystem}
+      <div class="composer-actions request-action-row">
+        <button class="secondary-button" type="button" on:click={() => (showRequestsSheet = true)}>
+          Requests{sortedRequests.length ? ` · ${sortedRequests.length}` : ''}
+        </button>
+      </div>
+    {/if}
+
+    {#if data.lifecycle.requestSystem}
+      <OverlaySheet bind:open={showRequestsSheet} title="Requests" labelledById="personal-requests-sheet">
       <section class="card-rail-section">
         <div class="section-head">
           <div class="section-copy">
@@ -704,6 +729,7 @@
           <div class="empty-card">Requests are currently turned off.</div>
         {/if}
       </section>
+      </OverlaySheet>
     {/if}
 
     <section class="card-rail-section">
@@ -716,7 +742,13 @@
         </div>
       </div>
 
-      {#if data.lifecycle.phaseFive.viewerCanCreateActivities && showPersonalActivityComposer}
+      {#if data.lifecycle.phaseFive.viewerCanCreateActivities}
+        <OverlaySheet
+          bind:open={showPersonalActivityComposer}
+          title="Add availability"
+          labelledById="personal-availability-sheet"
+          on:close={closePersonalActivityComposer}
+        >
         <div bind:this={activityComposerElement} class="composer-card">
           <DirectUsePolicyNotice variant="request" context="service" />
           <div class="request-header-row">
@@ -784,6 +816,7 @@
             </div>
           {/if}
         </div>
+        </OverlaySheet>
       {/if}
 
       {#if data.lifecycle.phaseFive.viewerCanCreateActivities && availabilityRules.length > 0}
@@ -924,8 +957,6 @@
 
   .card-rail {
     grid-template-columns: minmax(0, 1fr);
-    max-height: min(34rem, 72vh);
-    overflow-y: auto;
     align-items: start;
     padding-right: 2px;
   }

@@ -6,7 +6,6 @@
   import ProjectLifecyclePanel from '$lib/features/projects/detail/ProjectLifecyclePanel.svelte';
   import ProjectMembersPanel from '$lib/features/projects/detail/ProjectMembersPanel.svelte';
   import ProjectOverviewHeader from '$lib/features/projects/detail/ProjectOverviewHeader.svelte';
-  import ProjectUpdatesSection from '$lib/features/projects/detail/ProjectUpdatesSection.svelte';
   import DetailTopTabs from '$lib/features/detail/DetailTopTabs.svelte';
   import type { DetailTabId } from '$lib/features/detail/detailTabs';
   import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
@@ -28,6 +27,7 @@
     DecisionHistoryEntry,
     PlanCriterionRating,
     ProjectApprovalVote,
+    ProjectLifecyclePhaseId,
     ProjectPageData,
   } from '$lib/types/detail';
   import { getProjectHistory, getProjectLinks } from '$lib/services/queries/details';
@@ -50,6 +50,7 @@
 
   let pageData = data;
   let lastLoaderData = data;
+  let selectedPhaseId: ProjectLifecyclePhaseId = data.lifecycle.currentPhaseId;
 
   $: if (data !== lastLoaderData) {
     lastLoaderData = data;
@@ -154,6 +155,9 @@
   let assessmentPlanSnapshot: NonNullable<ReturnType<typeof findProjectPlan>>['plan'] | null = null;
   let isCompact = false;
   let signalRemovalNudge = false;
+  let detailsOpen = false;
+  let participationOpen = true;
+  let lastWorkFocused: boolean | null = null;
 
   onMount(() => {
     const media = window.matchMedia('(max-width: 1080px)');
@@ -400,6 +404,15 @@
   }
 
   $: pendingVotes = collectProjectPendingVotes(pageData);
+  $: workFocused = isPersonalServiceProject(pageData.projectMode)
+    ? pageData.lifecycle.currentPhaseId === 'phase-1'
+    : pageData.lifecycle.currentPhaseId === 'phase-5';
+  $: if (lastWorkFocused === null) {
+    lastWorkFocused = workFocused;
+  } else if (lastWorkFocused !== workFocused) {
+    lastWorkFocused = workFocused;
+    detailsOpen = false;
+  }
   $: participationSteps = buildProjectParticipationSteps(pageData, pendingVotes, {
     signalRemovalNudge,
     viewerUsername: $page.data.bootstrap?.viewer?.username ?? null,
@@ -425,6 +438,7 @@
 
   function handleParticipationDismiss() {
     signalRemovalNudge = false;
+    participationOpen = false;
   }
 
   function handlePendingAssess(item: PendingVoteItem) {
@@ -548,21 +562,19 @@
     <DetailTopTabs {activeTab} ariaLabel="Project detail tabs" {selectTab} {prefetchTab} />
 
     <div
-      class="tab-panel"
+      class="tab-panel overview-tab"
       class:tab-panel-hidden={activeTab !== 'overview'}
       hidden={activeTab !== 'overview'}
       inert={activeTab !== 'overview'}
     >
-      <ParticipationSteps
-        steps={participationSteps}
-        currentStepId={currentParticipationStep}
-        {pendingVotes}
-        {pageData}
-        placement="lead"
-        on:dismiss={handleParticipationDismiss}
-      />
       <ProjectOverviewHeader
         data={pageData}
+        {selectedPhaseId}
+        bind:detailsOpen
+        bind:participationOpen
+        {showMembersPanel}
+        onToggleMembers={handleMembersPanelOpen}
+        votesRenderedInHub={pendingVotes.length > 0}
         signalChange={handleSignalChange}
         onMembershipChange={handleMembershipChange}
       />
@@ -572,13 +584,18 @@
         onAssess={handlePendingAssess}
         onAction={handlePendingAction}
       />
-      <ProjectUpdatesSection
-        {data}
-        {highlightedUpdateId}
-        {showMembersPanel}
-        votesRenderedInHub={pendingVotes.length > 0}
-        on:togglemembers={handleMembersPanelOpen}
-      />
+      {#if participationOpen}
+        <section id="detail-participation-panel" class="participation-panel">
+          <ParticipationSteps
+            steps={participationSteps}
+            currentStepId={currentParticipationStep}
+            {pendingVotes}
+            {pageData}
+            placement="lead"
+            on:dismiss={handleParticipationDismiss}
+          />
+        </section>
+      {/if}
       {#if !isPersonalServiceProject(data.projectMode)}
         <ProjectMembersPanel
           {data}
@@ -586,9 +603,10 @@
           on:close={() => (showMembersPanel = false)}
         />
       {/if}
-      <div id="governance">
+      <div id="governance" class="overview-governance">
         <ProjectLifecyclePanel
           data={pageData}
+          bind:selectedPhaseId
           {autoExpandVoteCards}
           {autoExpandVoteKind}
           {autoExpandVoteTarget}
@@ -683,11 +701,67 @@
   .page {
     display: grid;
     gap: 20px;
+    min-width: 0;
+    overflow-x: clip;
   }
 
   .tab-loading {
     margin: 16px 4px;
     color: var(--text-muted);
+  }
+
+  .tab-panel {
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .tab-panel.overview-tab,
+  .overview-tab {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .overview-tab > :global(*) {
+    order: 50;
+  }
+
+  .overview-tab :global(.overview-type-row) {
+    order: 1;
+  }
+
+  .overview-tab :global(.overview-phase-tabs) {
+    order: 2;
+    margin: 4px 0 12px;
+  }
+
+  .overview-tab :global(.overview-heading) {
+    order: 3;
+  }
+
+  .overview-tab :global(.pending-votes-panel) {
+    order: 6;
+  }
+
+  .overview-tab :global(.participation-panel) {
+    order: 7;
+  }
+
+  .overview-tab :global(.overview-governance) {
+    display: contents;
+  }
+
+  .overview-tab :global(.overview-phase-work) {
+    order: 8;
+  }
+
+  .overview-tab :global(.overview-actions) {
+    order: 9;
+  }
+
+  .overview-tab :global(.overview-composer),
+  .overview-tab :global(.overview-edit-votes) {
+    order: 10;
   }
 
   .tab-panel-hidden {
@@ -703,13 +777,17 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
+    min-width: 0;
     overflow: visible;
+  }
+
+  .participation-panel {
+    min-width: 0;
+    margin: 0 0 12px;
   }
 
   @media (max-width: 1080px) {
     .page {
-      min-width: 0;
-      overflow-x: clip;
       overflow-y: clip;
     }
 
@@ -726,13 +804,13 @@
 
     .hero-card {
       min-width: 0;
-      overflow-x: clip;
-      overflow-y: clip;
+      overflow: visible;
       padding-top: 16px;
       margin-top: 12px;
     }
 
     .hero-card.chat-tab-active {
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       height: 100%;

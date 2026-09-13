@@ -14,7 +14,6 @@
   import ProductiveLifecycleContent from './lifecycle/productive/ProductiveLifecycleContent.svelte';
   import CollectiveServiceLifecycleContent from './lifecycle/collective-service/CollectiveServiceLifecycleContent.svelte';
   import IndividualServiceLifecycleContent from './lifecycle/individual-service/IndividualServiceLifecycleContent.svelte';
-  import ProjectLifecycleMechanicsCard from './components/ProjectLifecycleMechanicsCard.svelte';
   import ProjectLifecyclePhaseTabs from './components/ProjectLifecyclePhaseTabs.svelte';
   import ProjectPhaseChangeSection from './components/ProjectPhaseChangeSection.svelte';
   import { scrollToPendingVote } from '$lib/utils/pendingVotes';
@@ -123,6 +122,7 @@
     null;
   export let onSoftwareWizardRequestHandled: () => void = () => {};
   export let onPhaseAdvanced: (phaseId: ProjectLifecyclePhaseId) => void = () => {};
+  export let selectedPhaseId: ProjectLifecyclePhaseId | undefined = undefined;
 
   type DraftPlanPhase = {
     title: string;
@@ -245,7 +245,7 @@
     }
 
     if (!form.demandConsiderationNote.trim()) {
-      validationMessages.push('Explain how this plan responds to the current demand signal.');
+      validationMessages.push('Explain how this plan responds to the current support signal.');
     }
 
     if (options.requireSoftwareRepository && !form.repositoryUrl?.trim()) {
@@ -351,6 +351,7 @@
   }
 
   let activePhaseId: ProjectLifecyclePhaseId = resolvedActivePhaseId(data.lifecycle.currentPhaseId);
+  $: selectedPhaseId = activePhaseId;
 
   $: if (softwareWizardRequest) {
     activePhaseId = 'phase-5';
@@ -406,7 +407,6 @@
   let serviceRequestComposerElement: HTMLElement | null = null;
   let activityStartInputElement: HTMLInputElement | null = null;
   let activityEndInputElement: HTMLInputElement | null = null;
-  let lastHowItWorksPhaseId = activePhaseId;
   let visibleLifecyclePhases: ProjectLifecyclePhase[] = data.lifecycle.phases ?? [];
 
   function phaseOrder(phaseId: ProjectLifecyclePhaseId) {
@@ -539,20 +539,6 @@
     highlightedRequestId = null;
   }
 
-  $: activePhase = visibleLifecyclePhases.find((phase) => phase.id === activePhaseId) ??
-    visibleLifecyclePhases.find(
-      (phase) => phase.id === resolvedActivePhaseId(data.lifecycle.currentPhaseId)
-    ) ??
-    visibleLifecyclePhases[0] ?? {
-      id: resolvedActivePhaseId(data.lifecycle.currentPhaseId),
-      order: 1,
-      shortLabel: 'P1',
-      title: data.stage,
-      summary: '',
-      progressState: 'current',
-      projectStatus: 'active',
-      mechanics: [],
-    };
   $: targetedPhaseChangeGroup =
     autoExpandVoteCards && autoExpandVoteKind === 'phase_change' && autoExpandVoteTarget
       ? phaseChangeVoteGroup(autoExpandVoteTarget)
@@ -560,10 +546,6 @@
   $: resolvedAutoAssessPlanId =
     autoAssess && autoExpandVoteKind === 'plan' ? autoExpandVoteTarget : participationAssessPlanId;
   $: resolvedAutoAssessCriterionId = autoAssessCriterionId ?? participationAssessCriterionId;
-
-  $: if (lastHowItWorksPhaseId !== activePhaseId) {
-    lastHowItWorksPhaseId = activePhaseId;
-  }
 
   $: {
     const voteSignature =
@@ -601,7 +583,6 @@
   }));
 
   $: lifecycleContentPhaseId = resolvedActivePhaseId(activePhaseId);
-  $: activePhaseProgressLabel = phaseProgressLabel(activePhase);
 
   $: {
     const activityTargetId = readActivityTargetFromUrl($page.url);
@@ -760,6 +741,9 @@
   }
 
   async function submitProductionPlan() {
+    if (data.lifecycle.currentPhaseId !== 'phase-2') {
+      return;
+    }
     const validationMessages = validateProjectPlanForm(productionForm, {
       requireSoftwareRepository: productionForm.projectSubtype === 'software',
       requireProductionLocation: productionForm.projectSubtype !== 'software',
@@ -822,6 +806,9 @@
   }
 
   async function submitDistributionPlan() {
+    if (data.lifecycle.currentPhaseId !== 'phase-3') {
+      return;
+    }
     const validationMessages = validateProjectPlanForm(distributionForm, {
       distributionLockedToSoftware: data.lifecycle.currentSubtype === 'software',
       requireDistributionLocation: data.lifecycle.currentSubtype !== 'software',
@@ -1534,9 +1521,7 @@
 <section class="lifecycle-shell">
   <ProjectLifecyclePhaseTabs tabs={phaseTabs} {activePhaseId} {selectPhase} />
 
-  <section class="phase-panel">
-    <ProjectLifecycleMechanicsCard phase={activePhase} progressLabel={activePhaseProgressLabel} />
-
+  <section class="phase-panel overview-phase-work">
     {#if isPersonalServiceProject(data.projectMode)}
       <IndividualServiceLifecycleContent
         {data}
@@ -1696,16 +1681,16 @@
 </section>
 
 <style>
-  .lifecycle-shell,
-  .phase-panel {
-    display: grid;
-    gap: 12px;
+  .lifecycle-shell {
+    display: contents;
   }
 
   .phase-panel {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
+    display: grid;
+    gap: 12px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 </style>

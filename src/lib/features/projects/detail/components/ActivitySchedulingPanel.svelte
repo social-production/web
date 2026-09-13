@@ -22,6 +22,7 @@
     suggestEventActivityRole
   } from '$lib/services/commands/events';
   import { invalidateEventDetail, invalidateProjectDetail } from '$lib/utils/detailInvalidation';
+  import { activityOverlapsIsoDay, isoDayFromValue } from '$lib/utils/calendarDay';
 
   type CalendarInteractionAnchor = {
     clientX: number;
@@ -181,6 +182,15 @@
 
   $: historyCount = unifiedHistory.length;
   $: hasUnifiedHistory = historyCount > 0;
+  $: agendaDayIso = isoDayFromValue(selectedDayIso);
+  $: dayLiveActivities = agendaDayIso
+    ? liveActivities.filter((activity) => activityOverlapsIsoDay(activity, agendaDayIso))
+    : liveActivities;
+  $: dayEmptyMessage = agendaDayIso
+    ? liveActivities.length === 0
+      ? emptyLiveMessage
+      : 'No activities on this day.'
+    : emptyLiveMessage;
 </script>
 
 <section class="scheduling-panel">
@@ -223,13 +233,6 @@
   <slot name="before-live" />
 
   <section class="card-rail-section live-section">
-    <div class="section-head">
-      <div class="section-copy">
-        <h3>{liveTitle}</h3>
-        <p>{liveDescription}</p>
-      </div>
-    </div>
-
     <slot name="live-prefix" />
 
     {#if canCreate && showComposer}
@@ -244,11 +247,9 @@
       />
     {/if}
 
-    {#if liveActivities.length === 0}
-      <div class="empty-card">{emptyLiveMessage}</div>
-    {:else}
+    {#if dayLiveActivities.length > 0}
       <div class="card-rail">
-        {#each liveActivities as activity (activity.id)}
+        {#each dayLiveActivities as activity (activity.id)}
           <div id={`activity-card-${activity.id}`} class="rail-card">
             <CollapsibleActivityCard
               activity={activity}

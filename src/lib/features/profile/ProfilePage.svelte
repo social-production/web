@@ -5,6 +5,7 @@
   import PersonalFeedCard from '$lib/components/cards/personal-feed/PersonalFeedCard.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import MembershipSplitButton from '$lib/components/shared/MembershipSplitButton.svelte';
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
   import PeopleSheet from '$lib/components/shared/PeopleSheet.svelte';
@@ -321,43 +322,27 @@
         <div class="profile-side">
           <div class="stats-row">
             {#if data.isOwnProfile}
-              <button
-                aria-label={`${data.followersCount} followers`}
-                class:active={activePeopleList === 'followers'}
-                class="stat-chip"
-                type="button"
-                on:click={() => togglePeopleList('followers')}
-              >
-                <FeedToolbarIcon name="user" />
-                <span>{data.followersCount}</span>
-              </button>
+              <MembershipSplitButton
+                count={data.followersCount}
+                canOpenMembers={true}
+                membersOpen={activePeopleList === 'followers'}
+                membersAriaLabel={`${data.followersCount} followers`}
+                onOpenMembers={() => togglePeopleList('followers')}
+              />
             {:else}
-              <div
-                class:active={activePeopleList === 'followers'}
-                class:following={viewerIsFollowing}
-                class:pending={viewerFollowStatus === 'pending'}
-                class="stat-chip stat-chip-split"
-              >
-                <button
-                  aria-label={followAriaLabel}
-                  class:following={viewerIsFollowing}
-                  class:pending={viewerFollowStatus === 'pending'}
-                  class="stat-icon"
-                  disabled={followPending}
-                  type="button"
-                  on:click={toggleFollow}
-                >
-                  <FeedToolbarIcon name={viewerIsFollowing ? 'person-check' : 'person-plus'} />
-                </button>
-                <button
-                  aria-label={`${data.followersCount} followers`}
-                  class="stat-count"
-                  type="button"
-                  on:click={() => togglePeopleList('followers')}
-                >
-                  {data.followersCount}
-                </button>
-              </div>
+              <MembershipSplitButton
+                joined={viewerIsFollowing}
+                pending={viewerFollowStatus === 'pending'}
+                count={data.followersCount}
+                canToggle={true}
+                canOpenMembers={true}
+                disabled={followPending}
+                membersOpen={activePeopleList === 'followers'}
+                joinAriaLabel={followAriaLabel}
+                membersAriaLabel={`${data.followersCount} followers`}
+                onToggleJoin={toggleFollow}
+                onOpenMembers={() => togglePeopleList('followers')}
+              />
             {/if}
 
             <button
@@ -585,14 +570,17 @@
   }
 
   .hero-topline {
+    position: relative;
     display: block;
   }
 
   .hero-main {
     display: flex;
+    flex-wrap: nowrap;
     gap: 16px;
     align-items: flex-start;
     justify-content: space-between;
+    width: 100%;
   }
 
   .hero-identity {
@@ -600,7 +588,8 @@
     gap: 12px;
     align-items: flex-start;
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    padding-right: 176px;
   }
 
   .hero-copy {
@@ -609,15 +598,26 @@
     min-width: 0;
   }
 
+  .hero-copy > * {
+    min-width: 0;
+  }
+
   .hero-copy h1 {
     margin: 0;
     font-size: 22px;
     font-weight: 800;
     letter-spacing: -0.02em;
-    line-height: 1.2;
+    line-height: 36px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .profile-side {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 1;
     display: flex;
     justify-content: flex-end;
     flex: 0 0 auto;
@@ -647,32 +647,30 @@
     overflow: hidden;
   }
 
-  .stat-chip,
-  .stat-chip-split {
+  .stat-chip {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    min-height: 36px;
     min-width: 0;
-    padding: 4px 6px;
-    border: none;
+    padding: 0 10px;
+    border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: transparent;
+    background: var(--panel);
     color: var(--text-soft);
     font-size: 11px;
     font-weight: 700;
     cursor: pointer;
     flex: 0 0 auto;
-    transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
   }
 
-  .stat-chip :global(.toolbar-icon),
-  .stat-icon :global(.toolbar-icon) {
+  .stat-chip :global(.toolbar-icon) {
     width: 18px;
     height: 18px;
   }
 
-  .stat-chip span,
-  .stat-count {
+  .stat-chip span {
     color: var(--text-main);
     font-size: 12px;
     font-weight: 700;
@@ -683,94 +681,43 @@
     cursor: pointer;
   }
 
-  .stat-chip-split {
-    padding: 0;
-    cursor: default;
-  }
-
-  .stat-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-soft);
-    cursor: pointer;
-  }
-
-  .stat-count {
-    padding: 0 6px 0 0;
-    min-height: 32px;
-    display: inline-flex;
-    align-items: center;
-  }
-
   .stat-chip:hover,
   .stat-chip:focus-visible,
-  .stat-icon:hover:not(:disabled),
-  .stat-icon:focus-visible,
-  .stat-count:hover,
-  .stat-count:focus-visible,
   .icon-action:hover,
   .icon-action:focus-visible {
-    background: color-mix(in srgb, var(--panel-border) 42%, transparent);
-    color: var(--text-main);
+    background: var(--brand-soft);
+    border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
+    color: var(--brand-strong);
   }
 
-  .stat-chip.active,
-  .stat-chip-split.active,
-  .stat-icon.following,
-  .stat-chip.following {
-    background: color-mix(in srgb, var(--panel-border) 42%, transparent);
-    color: var(--text-main);
-    box-shadow: inset 0 -2px 0 var(--text-soft);
-  }
-
-  .stat-icon.pending,
-  .stat-chip-split.pending {
-    background: var(--panel-strong);
-    color: var(--text-main);
-    box-shadow: none;
-  }
-
-  .stat-icon:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
+  .stat-chip.active {
+    border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
+    color: var(--brand-strong);
   }
 
   .icon-action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     padding: 0;
-    border: none;
+    border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: transparent;
+    background: var(--panel);
     color: var(--text-soft);
     flex: 0 0 auto;
     cursor: pointer;
-    transition: background-color 120ms ease, color 120ms ease;
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
   }
 
   @media (max-width: 720px) {
-    .hero-main {
-      flex-direction: column;
-      align-items: stretch;
+    .hero-identity {
+      padding-right: 168px;
     }
 
     .profile-side {
-      width: 100%;
-      justify-content: flex-start;
-    }
-
-    .stats-row {
-      justify-content: flex-start;
+      width: auto;
     }
   }
 

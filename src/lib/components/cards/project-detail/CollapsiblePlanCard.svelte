@@ -1,4 +1,5 @@
 <script lang="ts">
+  import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import type {
     EventPlan,
     PlanCriterionRating,
@@ -24,7 +25,7 @@
     rating: PlanCriterionRating | null
   ) => void | Promise<void> = () => {};
 
-  let open = expanded;
+  let sheetOpen = false;
   let assessmentOpen = false;
   let reviewMode = false;
   let initialCriterionId: string | null = null;
@@ -39,10 +40,6 @@
     }
   }
 
-  $: if (expanded) {
-    open = true;
-  }
-
   // Optimistic mirror of ratings/votes cast in the wizard so the action bar updates
   // immediately instead of waiting for the detail invalidate to land.
   let localRatings: Record<string, PlanCriterionRating | null> = {};
@@ -53,6 +50,7 @@
     lastPlanId = plan.id;
     localRatings = {};
     localOverallVote = undefined;
+    sheetOpen = false;
   }
 
   $: scheduleLabel = 'schedule' in plan ? formatEventPlanSchedule(plan.schedule) : '';
@@ -78,13 +76,16 @@
       : assessedCriteria.length > 0
         ? assessedCriteria.reduce((sum, entry) => sum + entry.averageRating, 0) / assessedCriteria.length
         : null;
+  $: leading = plan.isLeading || plan.leaderStatus === 'leading';
+  $: compactChip = statusLabel || (leading ? 'Leading' : null);
 
   $: if (!autoOpenAssessment && !assessmentOpen) {
     didAutoOpen = false;
   }
 
-  $: if (autoOpenAssessment && open && !didAutoOpen) {
+  $: if (autoOpenAssessment && !didAutoOpen) {
     didAutoOpen = true;
+    sheetOpen = true;
     if (!assessmentOpen) {
       openAssessmentWizard({
         criterionId: autoAssessCriterionId,
@@ -120,9 +121,8 @@
     await overallvote(plan.id, vote);
   }
 
-  function handleEdit(event: MouseEvent) {
-    event.preventDefault();
-    event.stopPropagation();
+  function handleEdit() {
+    sheetOpen = false;
     onEdit();
   }
 
@@ -138,102 +138,116 @@
   }
 </script>
 
-<details id={`vote-card-plan-${plan.id}`} bind:open={open} class="surface-card plan-card collapsible-card" class:expanded={open}>
-  <summary class="collapse-toggle">
-    <span class="plan-card-copy">
-      <span class="plan-header">
-        <strong class="plan-title">{plan.title}</strong>
-        {#if 'projectSubtypeLabel' in plan}
-          <span class="subtype-badge">{plan.projectSubtypeLabel}</span>
-        {/if}
-        {#if statusLabel}
-          <span class="phase-badge complete">{statusLabel}</span>
-        {/if}
-        {#if canVote && criteria.length > 0}
-          <span class="rating-progress">{ratedCount}/{criteria.length} rated</span>
-        {/if}
-      </span>
-      <span class="plan-description">{plan.description}</span>
-      {#if !open}
-        <span class="plan-footer-meta base-footer">
-          <span>
-            {plan.overallApproval.approvalPercent}% approved{#if planAverageRating != null}
-              · Avg {planAverageRating.toFixed(1)}{/if}
-          </span>
-          <span class="author-row">
-            {#if canEdit}
-              <button class="text-button" type="button" on:click={handleEdit}>Edit</button>
-            {/if}
-            <span>{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</span>
-          </span>
-        </span>
-      {/if}
+<button
+  id={`vote-card-plan-${plan.id}`}
+  class="surface-card plan-card"
+  class:leading
+  class:open={sheetOpen}
+  type="button"
+  on:click={() => (sheetOpen = true)}
+>
+  <span class="plan-header">
+    <strong class="plan-title">{plan.title}</strong>
+    {#if compactChip}
+      <span class="phase-badge complete">{compactChip}</span>
+    {/if}
+  </span>
+  {#if plan.description}
+    <span class="plan-description collapsed-copy">{plan.description}</span>
+  {/if}
+  <span class="plan-footer-meta">
+    <span>
+      {plan.overallApproval.approvalPercent}% approved{#if planAverageRating != null}
+        · Avg {planAverageRating.toFixed(1)}{/if}
     </span>
-  </summary>
+    <span>{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</span>
+  </span>
+</button>
 
-  {#if open}
-    <div class="plan-body">
-      {#if 'schedule' in plan}
-        <div class="meta-row">
-          <span class="meta-label">Timing</span>
-          <span>{scheduleLabel || plan.schedule.label}</span>
-        </div>
-        <div class="meta-row">
-          <span class="meta-label">Location</span>
-          <span>{plan.locationLabel}</span>
-        </div>
-      {/if}
+<OverlaySheet bind:open={sheetOpen} title={plan.title} labelledById={`plan-sheet-${plan.id}`} wide>
+  <div slot="subtitle">
+    {#if compactChip}
+      <p class="sheet-kicker">{compactChip}</p>
+    {/if}
+  </div>
+  <div slot="header-actions">
+    {#if canEdit}
+      <button class="text-button" type="button" on:click={handleEdit}>Edit</button>
+    {/if}
+  </div>
 
-      {#if plan.demandConsiderationNote?.trim()}
-        <div class="meta-block">
-          <span class="meta-label">Demand response</span>
-          <p>{plan.demandConsiderationNote}</p>
-        </div>
-      {/if}
+  <div class="plan-sheet">
+    {#if plan.description}
+      <p class="plan-description">{plan.description}</p>
+    {/if}
 
-      {#if authorValueCommentaryEntries.length > 0}
-        <div class="meta-block">
-          <span class="meta-label">Author notes on values</span>
-          {#each authorValueCommentaryEntries as entry (entry.valueId)}
-            <p class="value-note">{entry.note}</p>
-          {/each}
-        </div>
-      {/if}
+    {#if 'projectSubtypeLabel' in plan}
+      <div class="meta-row">
+        <span class="meta-label">Subtype</span>
+        <span>{plan.projectSubtypeLabel}</span>
+      </div>
+    {/if}
 
-      <div class="stage-timeline">
-        {#each plan.planPhases as phase, index}
-          <article class="stage-card">
-            <span class="stage-index">Stage {index + 1}</span>
-            <strong>{phase.title}</strong>
-            <p>{phase.details}</p>
-            {#if 'materialsLabel' in phase && phase.materialsLabel}
-              <span class="stage-materials">{phase.materialsLabel}</span>
-            {/if}
-          </article>
+    {#if 'schedule' in plan}
+      <div class="meta-row">
+        <span class="meta-label">Timing</span>
+        <span>{scheduleLabel || plan.schedule.label}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Location</span>
+        <span>{plan.locationLabel}</span>
+      </div>
+    {/if}
+
+    {#if plan.demandConsiderationNote?.trim()}
+      <div class="meta-block">
+        <span class="meta-label">Support response</span>
+        <p>{plan.demandConsiderationNote}</p>
+      </div>
+    {/if}
+
+    {#if authorValueCommentaryEntries.length > 0}
+      <div class="meta-block">
+        <span class="meta-label">Author notes on values</span>
+        {#each authorValueCommentaryEntries as entry (entry.valueId)}
+          <p class="value-note">{entry.note}</p>
         {/each}
       </div>
+    {/if}
 
-      {#if 'repositoryUrl' in plan && plan.repositoryUrl}
-        <div class="meta-row">
-          <span class="meta-label">Repository</span>
-          <a href={normalizeExternalUrl(plan.repositoryUrl)} rel="noreferrer" target="_blank">{plan.repositoryUrl}</a>
-        </div>
-      {/if}
-
-      {#if showRequestSystem && 'requestSystemEnabled' in plan && plan.requestSystemEnabled}
-        <div class="meta-row">
-          <span class="meta-label">Requests</span>
-          <span>
-            {plan.requestMode === 'calendar'
-              ? 'Calendar only'
-              : plan.requestMode === 'direct'
-                ? 'Direct only'
-                : 'Calendar and direct'}
-            · {plan.allowOffScheduleRequests ? 'Off-schedule allowed' : 'Slot-bound only'}
-          </span>
-        </div>
-      {/if}
+    <div class="stage-timeline">
+      {#each plan.planPhases as phase, index}
+        <article class="stage-card">
+          <span class="stage-index">Stage {index + 1}</span>
+          <strong>{phase.title}</strong>
+          <p>{phase.details}</p>
+          {#if 'materialsLabel' in phase && phase.materialsLabel}
+            <span class="stage-materials">{phase.materialsLabel}</span>
+          {/if}
+        </article>
+      {/each}
     </div>
+
+    {#if 'repositoryUrl' in plan && plan.repositoryUrl}
+      <div class="meta-row">
+        <span class="meta-label">Repository</span>
+        <a href={normalizeExternalUrl(plan.repositoryUrl)} rel="noreferrer" target="_blank">{plan.repositoryUrl}</a>
+      </div>
+    {/if}
+
+    {#if showRequestSystem && 'requestSystemEnabled' in plan && plan.requestSystemEnabled}
+      <div class="meta-row">
+        <span class="meta-label">Requests</span>
+        <span>
+          {plan.requestMode === 'calendar'
+            ? 'Calendar only'
+            : plan.requestMode === 'direct'
+              ? 'Direct only'
+              : 'Calendar and direct'}
+          · {plan.allowOffScheduleRequests ? 'Off-schedule allowed' : 'Slot-bound only'}
+        </span>
+      </div>
+    {/if}
 
     <div class="assessment-bar">
       {#if canVote}
@@ -272,79 +286,54 @@
       </span>
     </div>
 
-    {#if Wizard}
-      <svelte:component
-        this={Wizard}
-        open={assessmentOpen}
-        {plan}
-        planTitle={plan.title}
-        {criteria}
-        {reviewMode}
-        {canVote}
-        {initialCriterionId}
-        {openAtOverallStep}
-        overallActiveVote={effectiveOverallVote}
-        onRate={handleCriterionRate}
-        onOverallVote={handleOverallVote}
-        onClose={closeAssessmentWizard}
-      />
+    {#if canVote && criteria.length > 0}
+      <p class="rating-progress">{ratedCount}/{criteria.length} rated</p>
     {/if}
 
-    <div class="plan-footer-meta">
-      {#if canEdit}
-        <button class="text-button" type="button" on:click={handleEdit}>Edit plan</button>
-      {/if}
-      <span>{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</span>
-    </div>
-  {/if}
-</details>
+    <p class="sheet-author">{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</p>
+  </div>
+</OverlaySheet>
+
+{#if Wizard}
+  <svelte:component
+    this={Wizard}
+    open={assessmentOpen}
+    {plan}
+    planTitle={plan.title}
+    {criteria}
+    {reviewMode}
+    {canVote}
+    {initialCriterionId}
+    {openAtOverallStep}
+    overallActiveVote={effectiveOverallVote}
+    onRate={handleCriterionRate}
+    onOverallVote={handleOverallVote}
+    onClose={closeAssessmentWizard}
+  />
+{/if}
 
 <style>
   .plan-card {
+    width: 100%;
     padding: 12px 14px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
     display: grid;
-    gap: 10px;
-    transition: border-color 0.12s ease, background-color 0.12s ease;
+    gap: 6px;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
   }
 
   .plan-card:hover,
-  .plan-card.expanded {
-    border-color: color-mix(in srgb, var(--brand) 35%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand) 8%, var(--panel-strong));
+  .plan-card.open {
+    border-color: color-mix(in srgb, var(--brand) 28%, var(--panel-border));
   }
 
-  :global(.plan-stack) .plan-card {
-    border: 0;
-    border-radius: 0;
-    margin-top: 0;
-    box-shadow: inset 0 -1px 0 var(--panel-border);
-  }
-
-  :global(.plan-stack) .plan-card:last-child {
-    box-shadow: none;
-  }
-
-  .collapse-toggle {
-    width: 100%;
-    list-style: none;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .collapse-toggle::-webkit-details-marker {
-    display: none;
-  }
-
-  .plan-card-copy,
-  .plan-body {
-    display: grid;
-    gap: 10px;
+  .plan-card.leading {
+    border-color: color-mix(in srgb, var(--brand) 55%, var(--panel-border));
+    box-shadow: inset 3px 0 0 var(--brand);
   }
 
   .plan-header {
@@ -357,6 +346,7 @@
   .plan-title {
     color: var(--text-main);
     font-size: 15px;
+    font-weight: 800;
   }
 
   .plan-description,
@@ -364,33 +354,27 @@
   .meta-row span:last-child,
   .meta-block p,
   .value-note,
-  .stage-card p {
+  .stage-card p,
+  .sheet-author,
+  .rating-progress {
     color: var(--text-soft);
     font-size: 13px;
     line-height: 1.45;
   }
 
-  .rating-progress {
-    padding: 4px 8px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--brand-soft) 60%, var(--panel));
-    color: var(--brand-strong);
-    font-size: 11px;
-    font-weight: 700;
+  .collapsed-copy {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
-  .subtype-badge,
   .phase-badge {
     padding: 4px 8px;
     border-radius: 999px;
     font-size: 10px;
     font-weight: 700;
-  }
-
-  .subtype-badge {
-    border: 1px solid color-mix(in srgb, var(--brand) 32%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 65%, var(--panel));
-    color: var(--brand-strong);
   }
 
   .phase-badge.complete {
@@ -407,12 +391,19 @@
     flex-wrap: wrap;
     font-size: 12px;
     color: var(--text-soft);
-    padding-top: 8px;
-    border-top: 1px solid var(--panel-border);
   }
 
-  .base-footer {
-    margin-top: 4px;
+  .plan-sheet {
+    display: grid;
+    gap: 14px;
+    padding: 8px 16px 4px;
+  }
+
+  .sheet-kicker {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
   }
 
   .meta-row,
@@ -431,7 +422,10 @@
   }
 
   .meta-block p,
-  .value-note {
+  .value-note,
+  .plan-sheet .plan-description,
+  .sheet-author,
+  .rating-progress {
     margin: 0;
   }
 
@@ -498,11 +492,5 @@
     font-weight: 700;
     cursor: pointer;
     padding: 0;
-  }
-
-  .author-row {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
   }
 </style>

@@ -62,9 +62,11 @@
   $: isPhaseTwo = phaseId === 'phase-2';
   $: collectiveService = isCollectiveServiceProject(data.projectMode);
   $: plans = isPhaseTwo ? data.lifecycle.phaseTwo.plans : data.lifecycle.phaseThree.plans;
-  $: canSubmitPlans = isPhaseTwo
-    ? data.lifecycle.phaseTwo.viewerCanSubmitPlans
-    : data.lifecycle.phaseThree.viewerCanSubmitPlans;
+  $: canSubmitPlans =
+    data.lifecycle.currentPhaseId === phaseId &&
+    (isPhaseTwo
+      ? data.lifecycle.phaseTwo.viewerCanSubmitPlans
+      : data.lifecycle.phaseThree.viewerCanSubmitPlans);
   $: canVoteOnPlans = isPhaseTwo
     ? data.lifecycle.phaseTwo.viewerCanVoteOnPlans
     : data.lifecycle.phaseThree.viewerCanVoteOnPlans;
@@ -98,14 +100,6 @@
         includeDistributionLocation: includePhysicalLocation
       });
 
-  function emptyCopy() {
-    if (isPhaseTwo) {
-      return `No ${collectiveService ? 'operations' : 'production'} plans submitted yet.`;
-    }
-
-    return `No ${collectiveService ? 'access' : 'distribution'} plans submitted yet.`;
-  }
-
   function descriptionPlaceholder() {
     if (isPhaseTwo) {
       return collectiveService ? 'Describe the overall operating plan.' : 'Describe the overall production plan.';
@@ -115,7 +109,7 @@
   }
 
   function demandPlaceholder() {
-    return 'Explain whether this plan meets the current demand signal. If it does not, explain the gap and why.';
+    return 'Explain whether this plan meets the current support signal. If it does not, explain the gap and why.';
   }
 
   function statusLabel(planId: string) {
@@ -186,25 +180,25 @@
     />
   {/if}
 
-  <div id="participation-plans" class="surface-stack plan-stack">
-    {#if plans.length === 0}
-      <div class="empty-card">{emptyCopy()}</div>
-    {:else}
-      {#each plans as plan (plan.id)}
-        <CollapsiblePlanCard
-          canEdit={isPhaseTwo && 'viewerCanEdit' in plan && !!plan.viewerCanEdit}
-          canVote={canVoteOnPlans}
-          expanded={isExpandedPlan(plan.id)}
-          autoOpenAssessment={autoAssessPlanId === plan.id}
-          autoAssessCriterionId={autoAssessPlanId === plan.id ? autoAssessCriterionId : null}
-          onEdit={() => startEditingPlan(plan.id)}
-          showRequestSystem={!isPhaseTwo && collectiveService}
-          {plan}
-          statusLabel={statusLabel(plan.id)}
-          {overallvote}
-          {criterionvote}
-        />
-      {/each}
+  <div id="participation-plans">
+    {#if plans.length > 0}
+      <div class="surface-stack plan-stack">
+        {#each plans as plan (plan.id)}
+          <CollapsiblePlanCard
+            canEdit={isPhaseTwo && 'viewerCanEdit' in plan && !!plan.viewerCanEdit}
+            canVote={canVoteOnPlans}
+            expanded={isExpandedPlan(plan.id)}
+            autoOpenAssessment={autoAssessPlanId === plan.id}
+            autoAssessCriterionId={autoAssessPlanId === plan.id ? autoAssessCriterionId : null}
+            onEdit={() => startEditingPlan(plan.id)}
+            showRequestSystem={!isPhaseTwo && collectiveService}
+            {plan}
+            statusLabel={statusLabel(plan.id)}
+            {overallvote}
+            {criterionvote}
+          />
+        {/each}
+      </div>
     {/if}
   </div>
 </section>
@@ -217,12 +211,7 @@
   }
 
   .plan-stack {
-    gap: 0;
-  }
-
-  .plan-stack .empty-card {
-    border: 0;
-    border-radius: 0;
+    gap: 12px;
   }
 
   .composer-toggle-row {

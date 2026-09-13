@@ -449,36 +449,32 @@ p {
 @keyframes participation-target-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+    box-shadow: inset 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
     outline: 2px solid transparent;
-    outline-offset: 2px;
+    outline-offset: -2px;
   }
 
   50% {
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 55%, transparent);
+    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--brand) 55%, transparent);
     outline: 2px solid color-mix(in srgb, var(--brand) 70%, transparent);
-    outline-offset: 2px;
+    outline-offset: -2px;
   }
 }
 
 @keyframes participation-button-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
-    outline: 3px solid transparent;
-    outline-offset: 2px;
+    box-shadow: inset 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+    outline: 2px solid transparent;
+    outline-offset: -2px;
     filter: brightness(1);
-    transform: scale(1);
   }
 
   50% {
-    box-shadow:
-      0 0 0 4px color-mix(in srgb, var(--brand) 60%, transparent),
-      0 0 18px color-mix(in srgb, var(--brand) 45%, transparent);
-    outline: 3px solid color-mix(in srgb, var(--brand) 90%, white);
-    outline-offset: 3px;
-    filter: brightness(1.15);
-    transform: scale(1.03);
+    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--brand) 55%, transparent);
+    outline: 2px solid color-mix(in srgb, var(--brand) 80%, white);
+    outline-offset: -2px;
+    filter: brightness(1.12);
   }
 }
 
@@ -538,9 +534,7 @@ html.participation-highlight-under-overlay button.round-plus-button.participatio
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 25%, transparent);
   }
   50% {
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--brand) 55%, transparent),
-      0 0 0 6px color-mix(in srgb, var(--brand) 18%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 50%, transparent);
   }
 }
 
@@ -548,7 +542,7 @@ html.participation-highlight-under-overlay button.round-plus-button.participatio
   gap: 0;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-sm);
-  overflow: hidden;
+  overflow: visible;
   background: var(--panel-strong);
 }
 

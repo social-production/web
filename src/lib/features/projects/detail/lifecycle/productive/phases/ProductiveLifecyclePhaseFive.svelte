@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import ActivitySchedulingPanel from '$lib/features/projects/detail/components/ActivitySchedulingPanel.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
+  import { isProjectActivityPhase } from '$lib/features/projects/projectMode';
   import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
   import type {
     DecisionHistoryEntry,
@@ -86,6 +87,7 @@
   let historyOpen = false;
   let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let softwareGovernancePanel: ProjectSoftwareGovernancePanel | null = null;
+  let selectedCalendarDayIso = '';
 
   async function focusHistoryCard(historyId: string) {
     historyOpen = true;
@@ -109,6 +111,11 @@
   async function toggleActivityComposer() {
     if (showComposer) {
       showComposer = false;
+      return;
+    }
+
+    if (selectedCalendarDayIso) {
+      await openComposerForDay(selectedCalendarDayIso);
       return;
     }
 
@@ -190,24 +197,27 @@
 
 <section id="participation-activities" class="phase-surface">
   {#if data.lifecycle.currentSubtype === 'software'}
-    {#if data.lifecycle.phaseFive.softwareGovernance}
-      <ProjectSoftwareGovernancePanel
-        bind:this={softwareGovernancePanel}
-        governance={data.lifecycle.phaseFive.softwareGovernance}
-        createPullRequest={createPullRequest}
-        requestMergeCapabilityChange={requestMergeCapabilityChange}
-        requestRepositoryReplacement={requestRepositoryReplacement}
-        recordMerge={recordPullRequestMerge}
-        {votePullRequest}
-        {softwareWizardRequest}
-        {onSoftwareWizardRequestHandled}
-      />
-    {:else}
-      <div class="software-governance-placeholder">
-        <h3>Software governance</h3>
-        <p>Pull request tools appear here once a leading software plan is approved for this project.</p>
-      </div>
-    {/if}
+    <details class="governance-disclosure">
+      <summary>Software governance</summary>
+      {#if data.lifecycle.phaseFive.softwareGovernance}
+        <ProjectSoftwareGovernancePanel
+          bind:this={softwareGovernancePanel}
+          governance={data.lifecycle.phaseFive.softwareGovernance}
+          createPullRequest={createPullRequest}
+          requestMergeCapabilityChange={requestMergeCapabilityChange}
+          requestRepositoryReplacement={requestRepositoryReplacement}
+          recordMerge={recordPullRequestMerge}
+          {votePullRequest}
+          {softwareWizardRequest}
+          {onSoftwareWizardRequestHandled}
+        />
+      {:else}
+        <div class="software-governance-placeholder">
+          <h3>Software governance</h3>
+          <p>Pull request tools appear here once a leading software plan is approved for this project.</p>
+        </div>
+      {/if}
+    </details>
   {/if}
 
   <ActivitySchedulingPanel
@@ -215,10 +225,13 @@
     liveActivities={data.lifecycle.phaseFive.activities}
     historyItems={data.lifecycle.phaseFive.history}
     governanceHistory={softwareGovernanceHistory}
-    canCreate={data.lifecycle.phaseFive.viewerCanCreateActivities}
+    canCreate={
+      isProjectActivityPhase(data.projectMode, data.lifecycle.currentPhaseId) &&
+      data.lifecycle.phaseFive.viewerCanCreateActivities
+    }
     {showComposer}
     createActive={showComposer}
-    selectedDayIso={activityForm.scheduledAt}
+    selectedDayIso={selectedCalendarDayIso || activityForm.scheduledAt}
     {highlightedActivityId}
     {highlightedHistoryId}
     bind:historyOpen
@@ -232,7 +245,9 @@
     {emptyHistoryMessage}
     {submitActivity}
     {closeComposer}
-    daySelect={openComposerForDay}
+    daySelect={(isoDay) => {
+      selectedCalendarDayIso = isoDay;
+    }}
     createAction={toggleActivityComposer}
     canSubmitPullRequest={canSubmitPullRequest}
     openPullRequestWizard={openSoftwarePullRequestWizard}
@@ -272,5 +287,22 @@
   .software-governance-placeholder p {
     color: var(--text-soft);
     line-height: 1.45;
+  }
+
+  .governance-disclosure {
+    display: grid;
+    gap: 10px;
+  }
+
+  .governance-disclosure summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--brand-strong);
+    list-style: none;
+  }
+
+  .governance-disclosure summary::-webkit-details-marker {
+    display: none;
   }
 </style>

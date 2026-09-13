@@ -4,7 +4,7 @@
 
 {#if $authActionNoticeVisible}
   <div class="auth-action-notice" role="status">
-    <span>Sign in to vote, signal demand, or join.</span>
+    <span>Sign in to vote, signal support, or join.</span>
     <a href="/onboarding">Sign in</a>
   </div>
 {/if}

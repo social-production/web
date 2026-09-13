@@ -2,7 +2,10 @@
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectValueCard from '$lib/components/cards/project-detail/ProjectValueCard.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
+  import AddValueSheet from '$lib/components/shared/AddValueSheet.svelte';
+  import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
+  import { sortValuesForRating } from '$lib/utils/sortDetailValues';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import type {
     ProjectActivityRoleInput,
@@ -72,6 +75,10 @@
   }
 
   $: minimumParticipants = minimumParticipantsForRoles(activityForm.roleRequirements);
+  $: rankedValues = sortValuesForRating(data.lifecycle.phaseOne.values);
+  $: inValuePhase = data.lifecycle.currentPhaseId === 'phase-1';
+  $: canAddValue = inValuePhase && data.lifecycle.phaseOne.viewerCanAddValue;
+  $: canVoteValues = inValuePhase && data.lifecycle.phaseOne.viewerCanVoteOnValues;
 </script>
 
 <section class="phase-surface">
@@ -206,31 +213,35 @@
       {/if}
     </div>
   {:else}
-    {#if data.lifecycle.phaseOne.viewerCanAddValue}
-      <div class="composer-toggle-row">
-        <RoundPlusButton active={showValueComposer} label="Add value" ariaLabel="Add value proposal" participationAction="add-value" action={() => (showValueComposer = !showValueComposer)} />
-      </div>
+    <div id="participation-values" class="surface-stack compact-stack">
+      {#each rankedValues as value (value.id)}
+        <ProjectValueCard canVote={canVoteValues} options={importanceOptions} {value} {vote} />
+      {/each}
+    </div>
 
-      {#if showValueComposer}
-        <div class="composer-card">
-          <input bind:value={draftValue} maxlength="160" placeholder="Add a value, for example: should make use of unused space" />
-          <div class="composer-actions">
-            <button class="secondary-button" type="button" on:click={() => (showValueComposer = false)}>Cancel</button>
-            <button class="primary-button" type="button" on:click={submitValue}>Add value</button>
-          </div>
-        </div>
-      {/if}
+    {#if canAddValue || inValuePhase}
+      <PhaseWorkToolbar>
+        {#if canAddValue}
+          <RoundPlusButton
+            standout
+            active={showValueComposer}
+            label="Add value"
+            ariaLabel="Add value proposal"
+            participationAction="add-value"
+            action={() => (showValueComposer = true)}
+          />
+        {/if}
+      </PhaseWorkToolbar>
     {/if}
 
-    <div id="participation-values" class="surface-stack compact-stack">
-      {#if data.lifecycle.phaseOne.values.length === 0}
-        <div class="empty-card">No values added yet.</div>
-      {:else}
-        {#each data.lifecycle.phaseOne.values as value}
-          <ProjectValueCard canVote={data.lifecycle.phaseOne.viewerCanVoteOnValues} options={importanceOptions} {value} {vote} />
-        {/each}
-      {/if}
-    </div>
+    {#if canAddValue}
+      <AddValueSheet
+        bind:open={showValueComposer}
+        bind:value={draftValue}
+        placeholder="Add a value, for example: should make use of unused space"
+        onSubmit={submitValue}
+      />
+    {/if}
   {/if}
 </section>
 
@@ -423,7 +434,7 @@
   }
 
   .compact-stack {
-    gap: 10px;
+    gap: 0;
   }
 
   @media (max-width: 760px) {

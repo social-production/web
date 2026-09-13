@@ -1,6 +1,7 @@
 <script lang="ts">
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import type { ProjectActivityItem } from '$lib/types/detail';
+  import { formatIsoDayLabel, isoDayFromValue } from '$lib/utils/calendarDay';
 
   type CalendarInteractionAnchor = {
     clientX: number;
@@ -48,10 +49,7 @@
   let lastCalendarSignature = `${activities.map((activity) => activity.id).join('|')}::${plannedDayIsos.join('|')}`;
 
   function isoDayValue(date: Date) {
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return isoDayFromValue(date);
   }
 
   function formatTimeLabel(value: string | Date) {
@@ -248,6 +246,15 @@
 
   $: plannedDaySet = new Set(plannedDayIsos);
   $: calendarDays = buildCalendarDays(activities, visibleMonthStart, plannedDaySet);
+  $: todayIso = isoDayFromValue(new Date());
+  $: agendaDayIso =
+    isoDayFromValue(selectedDayIso) ||
+    (calendarDays.some((day) => day.isoDay === todayIso) ? todayIso : '') ||
+    calendarDays.find((day) => day.items.length > 0)?.isoDay ||
+    '';
+  $: agendaDay = calendarDays.find((day) => day.isoDay === agendaDayIso) ?? null;
+  $: agendaItems = agendaDay?.items ?? [];
+  $: agendaLabel = agendaDayIso ? formatIsoDayLabel(agendaDayIso) : '';
 
   function elementAnchor(element: HTMLElement): CalendarInteractionAnchor {
     const rect = element.getBoundingClientRect();
@@ -282,16 +289,16 @@
     return date.getTime() < today.getTime();
   }
 
-  function isSelectableDay(isoDay: string) {
-    if (isPastDay(isoDay)) {
-      return false;
-    }
-
+  function isViewableDay(isoDay: string) {
     return plannedDayIsos.length === 0 || plannedDaySet.has(isoDay);
   }
 
+  function isSelectableDay(isoDay: string) {
+    return isViewableDay(isoDay);
+  }
+
   function handleDaySelect(isoDay: string, anchor: CalendarInteractionAnchor) {
-    if (!isSelectableDay(isoDay)) {
+    if (!isViewableDay(isoDay)) {
       return;
     }
 
@@ -311,13 +318,12 @@
   </div>
 
   <div class="calendar-grid calendar-header-row">
-    <span>Mon</span>
-    <span>Tue</span>
-    <span>Wed</span>
-    <span>Thu</span>
-    <span>Fri</span>
-    <span>Sat</span>
-    <span>Sun</span>
+    {#each ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as weekday}
+      <span>
+        <span class="weekday-full">{weekday}</span>
+        <span class="weekday-short">{weekday.slice(0, 1)}</span>
+      </span>
+    {/each}
   </div>
   <div class="calendar-grid">
     {#each calendarDays as day (day.isoDay)}
@@ -327,11 +333,13 @@
         class:planned-day={day.isPlanned}
         class:unplanned-day={plannedDayIsos.length > 0 && !day.isPlanned}
         class:hovered-day={hoveredDayIso === day.isoDay}
-        class:selected-day={selectedDayIso.startsWith(day.isoDay)}
+        class:selected-day={agendaDayIso === day.isoDay}
+        class:today-day={todayIso === day.isoDay}
         class="calendar-cell"
         role="button"
         tabindex={isSelectableDay(day.isoDay) ? 0 : -1}
         aria-disabled={!isSelectableDay(day.isoDay)}
+        aria-label={`${day.dayNumber}${day.items.length ? `, ${day.items.length} ${day.items.length === 1 ? 'activity' : 'activities'}` : ''}`}
         on:mouseenter={() => (hoveredDayIso = day.isoDay)}
         on:mouseleave={() => (hoveredDayIso = '')}
         on:focus={() => (hoveredDayIso = day.isoDay)}
@@ -347,9 +355,14 @@
         }}
       >
         <span class="calendar-day-number">{day.dayNumber}</span>
-        {#if day.isPlanned}
+        {#if day.isPlanned && day.items.length === 0}
           <span class="planned-indicator" aria-hidden="true"></span>
         {/if}
+        <div class="activity-dots" aria-hidden="true">
+          {#each day.items.slice(0, 3) as item (item.id)}
+            <span class={`activity-dot tone-${item.statusTone}`}></span>
+          {/each}
+        </div>
         <div class="timeline-track">
           {#each day.items as item}
             <button
@@ -358,24 +371,46 @@
               class:selected-activity={selectedActivityId === item.id}
               style={`top:${item.topPercent}%;height:${item.heightPercent}%;left:${item.leftPercent}%;width:${item.widthPercent}%;`}
               type="button"
+              aria-label={`${item.title}, ${item.startTimeLabel} to ${item.endTimeLabel}`}
               on:mouseenter={() => (hoveredActivityId = item.id)}
               on:mouseleave={() => (hoveredActivityId = '')}
               on:focus={() => (hoveredActivityId = item.id)}
               on:blur={() => (hoveredActivityId = '')}
               on:click|stopPropagation={(event) =>
                 activitySelect(item.id, eventAnchor(event, event.currentTarget as HTMLElement))}
-            >
-              <span class="band-label band-start">{item.startTimeLabel}</span>
-              {#if item.showTitle}
-                <span class="band-title">{item.title}</span>
-              {/if}
-              <span class="band-label band-end">{item.endTimeLabel}</span>
-            </button>
+            ></button>
           {/each}
         </div>
       </div>
     {/each}
   </div>
+
+  {#if agendaDayIso}
+    <div class="day-agenda">
+      <div class="agenda-head">
+        <strong>{agendaLabel}</strong>
+        <span>{agendaItems.length} {agendaItems.length === 1 ? 'activity' : 'activities'}</span>
+      </div>
+      {#if agendaItems.length === 0}
+        <p class="agenda-empty">No activities.</p>
+      {:else}
+        <div class="agenda-list">
+          {#each agendaItems as item (item.id)}
+            <button
+              class={`agenda-row tone-${item.statusTone}`}
+              class:selected-activity={selectedActivityId === item.id}
+              type="button"
+              on:click={(event) =>
+                activitySelect(item.id, eventAnchor(event, event.currentTarget as HTMLElement))}
+            >
+              <span class="agenda-time">{item.startTimeLabel}–{item.endTimeLabel}</span>
+              <span class="agenda-title">{item.title}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {/if}
 </div>
 
 {#if canCreate}
@@ -392,27 +427,30 @@
 
 <style>
   .calendar-shell {
-    padding: 14px;
+    container-type: inline-size;
+    padding: 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
     display: grid;
-    gap: 8px;
-    overflow-x: auto;
+    gap: 10px;
+    min-width: 0;
+    overflow-x: clip;
   }
 
   .create-row {
     display: flex;
-    gap: 12px;
-    align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
+    margin-top: 2px;
   }
 
   .calendar-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
   }
 
   .month-button {
@@ -440,18 +478,26 @@
     font-size: 14px;
     font-weight: 700;
     text-align: center;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 6px;
+    gap: 4px;
+    min-width: 0;
   }
 
   .calendar-header-row {
     color: var(--text-soft);
     font-size: 12px;
     font-weight: 700;
+    text-align: center;
+  }
+
+  .weekday-short {
+    display: none;
   }
 
   .calendar-cell {
@@ -460,8 +506,8 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
-    aspect-ratio: 1;
-    min-height: 0;
+    min-width: 0;
+    min-height: 96px;
     padding: 0;
     display: block;
     text-align: left;
@@ -483,6 +529,11 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 35%, transparent);
   }
 
+  .today-day .calendar-day-number {
+    background: var(--brand);
+    color: var(--page-bg);
+  }
+
   .planned-day {
     border-color: color-mix(in srgb, var(--brand) 34%, var(--panel-border));
     background: color-mix(in srgb, var(--brand-soft) 16%, var(--panel));
@@ -498,157 +549,219 @@
   }
 
   .past-day {
-    cursor: default;
-    opacity: 0.32;
-  }
-
-  .past-day:hover,
-  .past-day:focus-visible,
-  .past-day:active {
-    border-color: var(--panel-border);
-    background: var(--panel);
-    box-shadow: none;
+    opacity: 0.7;
   }
 
   .calendar-day-number {
-    position: absolute;
-    top: 6px;
-    left: 6px;
+    position: relative;
     z-index: 1;
+    display: inline-block;
+    margin: 6px 0 0 6px;
     color: var(--text-main);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
-    padding: 2px 4px;
+    padding: 1px 5px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--panel) 82%, transparent);
+    line-height: 1.3;
   }
 
   .planned-indicator {
     position: absolute;
     top: 10px;
-    right: 10px;
-    width: 8px;
-    height: 8px;
+    right: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 999px;
     background: var(--brand);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--panel) 88%, transparent);
+  }
+
+  .activity-dots {
+    display: none;
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    gap: 3px;
+    justify-content: center;
+  }
+
+  .activity-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
   }
 
   .timeline-track {
     position: absolute;
-    inset: 0;
+    inset: 22px 3px 4px;
     display: block;
-    width: 100%;
-    height: 100%;
-    min-height: 100%;
-    margin-top: 0;
   }
 
   .timeline-item {
     position: absolute;
     box-sizing: border-box;
     padding: 0;
-    border-radius: var(--radius-sm);
-    border: 1px solid color-mix(in srgb, black 12%, transparent);
-    overflow: visible;
-    text-overflow: ellipsis;
-    font-size: 10px;
-    line-height: 1.1;
+    border-radius: 3px;
+    border: 0;
+    min-height: 8px;
     cursor: pointer;
-    text-align: left;
-    display: block;
-    white-space: nowrap;
-    min-height: 10px;
-    transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
-  }
-
-  .calendar-cell:hover .timeline-item,
-  .hovered-day .timeline-item {
-    border-color: color-mix(in srgb, var(--brand) 38%, var(--panel-border));
   }
 
   .timeline-item:hover,
   .timeline-item:focus-visible,
   .hovered-activity,
   .selected-activity {
-    border-color: color-mix(in srgb, var(--brand) 60%, var(--panel-border));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 28%, transparent);
-    transform: scale(1.01);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 40%, transparent);
     z-index: 2;
   }
 
-  .band-label,
-  .band-title {
-    position: absolute;
-    z-index: 1;
-    color: inherit;
-    font-size: 9px;
-    pointer-events: none;
+  .tone-red,
+  .activity-dot.tone-red {
+    background: color-mix(in srgb, var(--tablet-community-bg) 70%, var(--panel));
   }
 
-  .band-label {
+  .tone-yellow,
+  .activity-dot.tone-yellow {
+    background: color-mix(in srgb, var(--status-yellow) 70%, var(--panel));
+  }
+
+  .tone-green,
+  .activity-dot.tone-green {
+    background: color-mix(in srgb, var(--brand) 55%, var(--panel));
+  }
+
+  .tone-muted,
+  .activity-dot.tone-muted {
+    background: color-mix(in srgb, var(--text-soft) 35%, var(--panel));
+  }
+
+  .day-agenda {
+    display: grid;
+    gap: 8px;
+    padding-top: 4px;
+    border-top: 1px solid var(--panel-border);
+  }
+
+  .agenda-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: baseline;
+    color: var(--text-soft);
+    font-size: 12px;
     font-weight: 700;
-    line-height: 1;
-    padding: 2px 3px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
   }
 
-  .band-start {
-    top: 0;
-    left: 0;
-    transform: translateY(calc(-100% - 1px));
+  .agenda-head strong {
+    color: var(--text-main);
+    font-size: 13px;
   }
 
-  .band-end {
-    right: 0;
-    bottom: 0;
-    text-align: right;
-    transform: translateY(calc(100% + 1px));
+  .agenda-empty {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
   }
 
-  .band-title {
-    left: 4px;
-    right: 4px;
-    top: 50%;
-    transform: translateY(-50%);
+  .agenda-list {
+    display: grid;
+    gap: 6px;
+  }
+
+  .agenda-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text-main);
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .agenda-row.selected-activity,
+  .agenda-row:hover,
+  .agenda-row:focus-visible {
+    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
+    background: color-mix(in srgb, var(--brand-soft) 40%, var(--panel));
+  }
+
+  .agenda-time {
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .agenda-title {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
   }
 
-  .tone-red {
-    background: color-mix(in srgb, var(--tablet-community-bg) 28%, var(--panel));
-    color: var(--text-main);
-  }
+  @container (max-width: 560px) {
+    .weekday-full {
+      display: none;
+    }
 
-  .tone-yellow {
-    background: color-mix(in srgb, var(--status-yellow) 34%, var(--panel));
-    color: var(--text-main);
-  }
+    .weekday-short {
+      display: inline;
+    }
 
-  .tone-green {
-    background: color-mix(in srgb, var(--brand-soft) 88%, var(--panel));
-    color: var(--text-main);
-  }
+    .calendar-cell {
+      min-height: 52px;
+    }
 
-  .tone-muted {
-    background: color-mix(in srgb, var(--text-soft) 18%, var(--panel));
-    color: var(--text-soft);
-    opacity: 0.82;
-  }
+    .calendar-day-number {
+      font-size: 14px;
+      margin: 4px auto 0;
+      display: block;
+      text-align: center;
+    }
 
-  .create-row {
-    display: flex;
-    justify-content: center;
-    margin-top: 2px;
+    .timeline-track {
+      display: none;
+    }
+
+    .activity-dots {
+      display: flex;
+    }
   }
 
   @media (max-width: 760px) {
-    .calendar-grid {
-      grid-template-columns: repeat(7, minmax(0, 1fr));
-      min-width: 0;
+    .weekday-full {
+      display: none;
+    }
+
+    .weekday-short {
+      display: inline;
+    }
+
+    .calendar-cell {
+      min-height: 52px;
+    }
+
+    .calendar-day-number {
+      font-size: 14px;
+      margin: 4px auto 0;
+      display: block;
+      text-align: center;
+    }
+
+    .timeline-track {
+      display: none;
+    }
+
+    .activity-dots {
+      display: flex;
     }
   }
 </style>

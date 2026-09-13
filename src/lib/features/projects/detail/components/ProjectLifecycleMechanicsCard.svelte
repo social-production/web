@@ -26,6 +26,7 @@
       note={phase.note ?? null}
       progressState={phase.progressState}
       summary={phase.summary}
+      showMechanicsDisclosure={false}
     />
   </div>
 </div>

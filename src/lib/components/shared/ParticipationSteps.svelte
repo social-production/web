@@ -270,11 +270,16 @@
     gap: 6px;
     flex: 1 1 auto;
     flex-wrap: nowrap;
-    overflow-x: hidden;
+    overflow-x: auto;
     min-width: 0;
     margin: 0;
-    padding: 0;
+    padding: 3px 4px;
     list-style: none;
+    scrollbar-width: none;
+  }
+
+  .step-list::-webkit-scrollbar {
+    display: none;
   }
 
   .step-item {

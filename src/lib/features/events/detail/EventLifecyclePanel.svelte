@@ -6,7 +6,6 @@
   import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
   import { composeActivityLocationLabel, normalizedRoleRequirements } from '$lib/utils/activityCreationSteps';
   import { resolveEventPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
-  import EventLifecycleMechanicsCard from './components/EventLifecycleMechanicsCard.svelte';
   import EventLifecyclePhaseTabs from './components/EventLifecyclePhaseTabs.svelte';
   import EventPhaseChangeSection from './components/EventPhaseChangeSection.svelte';
   import {
@@ -59,6 +58,7 @@
   export let assessPlanId: string | null = null;
   export let assessCriterionId: string | null = null;
   export let onPhaseAdvanced: (phaseId: EventLifecyclePhaseId) => void = () => {};
+  export let selectedPhaseId: EventLifecyclePhaseId | undefined = undefined;
 
   function currentWinningPlan() {
     return data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ?? null;
@@ -87,8 +87,8 @@
   }
 
   let activePhaseId: EventLifecyclePhaseId = data.lifecycle.currentPhaseId;
+  $: selectedPhaseId = activePhaseId;
   let lastCurrentPhaseId = data.lifecycle.currentPhaseId;
-  let lastHowItWorksPhaseId = data.lifecycle.currentPhaseId;
   let showValueComposer = false;
   let showPlanComposer = false;
   let showActivityComposer = false;
@@ -279,10 +279,6 @@
     };
   }
 
-  $: activePhase =
-    data.lifecycle.phases.find((phase) => phase.id === activePhaseId) ??
-    data.lifecycle.phases.find((phase) => phase.id === data.lifecycle.currentPhaseId) ??
-    data.lifecycle.phases[0];
   $: targetedPhaseChangeGroup =
     autoExpandVoteCards && autoExpandVoteKind === 'phase_change' && autoExpandVoteTarget
       ? phaseChangeVoteGroup(autoExpandVoteTarget)
@@ -322,11 +318,6 @@
       isFuture: phase.progressState === 'upcoming'
     })
   );
-  $: activePhaseProgressLabel = phaseProgressLabel(activePhase);
-
-  $: if (lastHowItWorksPhaseId !== activePhaseId) {
-    lastHowItWorksPhaseId = activePhaseId;
-  }
 
   $: if (!showPlanComposer && (planForm.validationMessages?.length ?? 0) > 0) {
     planForm = {
@@ -381,7 +372,7 @@
     }
 
     if (!form.demandConsiderationNote.trim()) {
-      validationMessages.push('Explain how this plan responds to the current demand signal.');
+      validationMessages.push('Explain how this plan responds to the current support signal.');
     }
 
     if (form.scheduleMode === 'date' && !schedule.startDate) {
@@ -454,6 +445,9 @@
   }
 
   async function submitPlan() {
+    if (data.lifecycle.currentPhaseId !== 'event-plan') {
+      return;
+    }
     const { schedule, validationMessages } = validateEventPlanForm(planForm);
     const locationLabel = planForm.locationLabel.trim();
 
@@ -649,16 +643,10 @@
     }}
   />
 
-  <section class="phase-panel">
-    <EventLifecycleMechanicsCard
-      phase={activePhase}
-      progressLabel={activePhaseProgressLabel}
-    />
-
+  <section class="phase-panel overview-phase-work">
     <EventLifecycleContent
       {data}
       {activePhaseId}
-      {signalSummary}
       {selectedPlan}
       {importanceOptions}
       bind:draftValue
@@ -701,20 +689,16 @@
 </section>
 
 <style>
-  .lifecycle-shell,
+  .lifecycle-shell {
+    display: contents;
+  }
+
   .phase-panel {
     display: grid;
     gap: 12px;
-  }
-
-  .lifecycle-shell {
-    margin-top: 16px;
-  }
-
-  .phase-panel {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 </style>

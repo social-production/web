@@ -7,7 +7,6 @@
     EventLifecyclePhaseId,
     EventPageData,
     EventPlan,
-    GovernanceSignalSummary,
     ProjectApprovalVote,
     PlanCriterionRating,
     ProjectImportanceVoteValue,
@@ -18,7 +17,6 @@
 
   export let data: EventPageData;
   export let activePhaseId: EventLifecyclePhaseId;
-  export let signalSummary: GovernanceSignalSummary | null = null;
   export let selectedPlan: EventPlan | null = null;
   export let importanceOptions: Array<{ value: ProjectImportanceVoteValue; label: string }> = [];
   export let draftValue = '';
@@ -93,7 +91,6 @@
 {#if activePhaseId === 'proposal'}
   <EventProposalPhase
     {data}
-    {signalSummary}
     {importanceOptions}
     bind:draftValue
     bind:showValueComposer

@@ -193,7 +193,7 @@ export function buildAssessmentCriteria(
 }
 
 const DEMAND_NOTE_HELPER =
-  'Demand signals show how many people want this to exist right now. Assessors compare every plan against that need, so say whether your plan meets it and what gap remains.';
+  'Support signals show how many people want this to exist right now. Assessors compare every plan against that need, so say whether your plan meets it and what gap remains.';
 
 const VALUES_NOTE_HELPER =
   'These are the values the community rated most important for this proposal. One short note is enough — assessors see it when they rate your plan against each value.';
@@ -201,7 +201,7 @@ const VALUES_NOTE_HELPER =
 function demandNoteStep(): PlanCreationStep {
   return {
     id: 'demand-note',
-    question: 'How does this plan respond to current demand?',
+    question: 'How does this plan respond to current support?',
     helper: DEMAND_NOTE_HELPER,
     type: 'demand-note'
   };
@@ -439,11 +439,11 @@ export function getCriterionContext(
       blocks.push({ label: 'Description', value: plan.description });
       break;
     case 'rubric:demand-response':
-      blocks.push({ label: 'Demand response', value: plan.demandConsiderationNote || 'No note provided.' });
+      blocks.push({ label: 'Support response', value: plan.demandConsiderationNote || 'No note provided.' });
       if (plan.demandSignalSnapshot != null) {
         blocks.push({
-          label: 'Demand at posting',
-          value: `${plan.demandSignalSnapshot} demand signals were active when this plan was posted.`
+          label: 'Support at posting',
+          value: `${plan.demandSignalSnapshot} support signals were active when this plan was posted.`
         });
       }
       break;

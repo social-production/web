@@ -237,7 +237,7 @@ export function projectAdvanceGateHelper(data: ProjectPageData): string | null {
 
   if (phaseId === 'phase-1') {
     if (!(data.lifecycle.phaseOne?.signalSummary?.advancementUnlocked ?? false)) {
-      return 'Proposal demand still needs to meet the required threshold before this project can advance.';
+      return 'Proposal support still needs to meet the required threshold before this project can advance.';
     }
   }
 
@@ -273,7 +273,7 @@ function eventAdvanceGateHelper(data: EventPageData): string | null {
 
   if (phaseId === 'proposal') {
     if (!(data.lifecycle.phaseOne?.signalSummary?.advancementUnlocked ?? false)) {
-      return 'Proposal demand still needs to meet the required threshold before this event can advance.';
+      return 'Proposal support still needs to meet the required threshold before this event can advance.';
     }
   }
 

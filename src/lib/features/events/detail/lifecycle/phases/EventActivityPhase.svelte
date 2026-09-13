@@ -121,13 +121,7 @@
   {#if selectedPlan}
     <div class="info-card">
       <strong>Accepted event plan</strong>
-      <p>{selectedPlan.description}</p>
-      <p class="plan-timing-note">
-        <strong>Plan timing:</strong>
-        {planTimingLabel || selectedPlan.schedule.label}
-      </p>
-      <p class="plan-timing-note subtle">Click a marked day to schedule activity from this plan.</p>
-      <p class="plan-timing-note">Plan location: {selectedPlan.locationLabel}</p>
+      <p>{planTimingLabel || selectedPlan.schedule.label}{selectedPlan.locationLabel ? ` · ${selectedPlan.locationLabel}` : ''}</p>
     </div>
   {/if}
 
@@ -136,7 +130,9 @@
     {plannedDayIsos}
     liveActivities={data.lifecycle.activity.activities}
     historyItems={data.lifecycle.activity.history ?? []}
-    canCreate={data.lifecycle.activity.viewerCanCreateActivities}
+    canCreate={
+      data.lifecycle.currentPhaseId === 'activity' && data.lifecycle.activity.viewerCanCreateActivities
+    }
     showComposer={showActivityComposer}
     createActive={showActivityComposer}
     {selectedDayIso}
@@ -158,9 +154,6 @@
     {closeComposer}
     daySelect={(isoDay) => {
       selectedDayIso = isoDay;
-      if (data.lifecycle.activity.viewerCanCreateActivities) {
-        openActivityComposerForDay(isoDay);
-      }
     }}
     createAction={() => openActivityComposerForDay(selectedDayIso)}
     changecommitment={changeCommitment}

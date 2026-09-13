@@ -456,11 +456,11 @@
         <textarea bind:value={form.description} rows="5" placeholder="Describe the plan"></textarea>
       {:else if currentStep.type === 'demand-note'}
         {#if signalSummary || signalCount != null}
-          <div class="signal-card" aria-label="Current demand signals">
-            <span class="signal-label">Current demand signals</span>
+          <div class="signal-card" aria-label="Current support signals">
+            <span class="signal-label">Current support signals</span>
             {#if signalSummary}
               <strong>
-                {signalSummary.demandCount} demand · {signalSummary.oppositionCount} opposition
+                {signalSummary.demandCount} support · {signalSummary.oppositionCount} opposition
                 ({signalSummary.totalCount} total)
               </strong>
               <p class="helper-copy">
@@ -470,11 +470,11 @@
                 {/if}
               </p>
             {:else}
-              <strong>{signalCount} demand signals are active right now.</strong>
+              <strong>{signalCount} support signals are active right now.</strong>
             {/if}
           </div>
         {/if}
-        <textarea bind:value={form.demandConsiderationNote} rows="5" placeholder="Explain how this plan responds to demand"></textarea>
+        <textarea bind:value={form.demandConsiderationNote} rows="5" placeholder="Explain how this plan responds to support"></textarea>
       {:else if currentStep.type === 'values-note'}
         {#if currentStep.values?.length}
           <div class="value-chip-row" aria-label="Most important shared values">
@@ -703,7 +703,7 @@
           {/if}
           <div class="review-row">
             <div class="review-copy">
-              <strong>Demand response</strong>
+              <strong>Support response</strong>
               <span>{form.demandConsiderationNote}</span>
             </div>
             <button class="text-button" type="button" on:click={() => goToStep('demand-note')}>Edit</button>

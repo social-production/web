@@ -1,115 +1,30 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import { invalidate } from '$app/navigation';
-  import { page } from '$app/stores';
-  import { tick } from 'svelte';
-  import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
+  import AddUpdateSheet from '$lib/components/shared/AddUpdateSheet.svelte';
   import DetailUpdateCard from '$lib/components/cards/details/DetailUpdateCard.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
-  import GroupsIcon from '$lib/components/shared/GroupsIcon.svelte';
-  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
-  import { addProjectUpdate, requestProjectEdit, requestProjectUpdate, setProjectEditVote, updateProjectDetails, setProjectUpdateVote } from '$lib/services/commands/projects';
-  import {
-    formatProjectVoteRequirement,
-    formatProjectVoteSummary
-  } from '$lib/utils/projectVotes';
-  import type { ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
+  import { addProjectUpdate, requestProjectUpdate } from '$lib/services/commands/projects';
+  import type { ProjectPageData } from '$lib/types/detail';
+  import { invalidateProjectDetail } from '$lib/utils/detailInvalidation';
 
   export let data: ProjectPageData;
-  const refreshProject = () => invalidate(`app:project:${data.slug}`);
   export let highlightedUpdateId: string | null = null;
-  export let showMembersPanel = false;
-  export let votesRenderedInHub = false;
 
-  const dispatch = createEventDispatcher<{ togglemembers: void }>();
-
-  let draftUpdateBody = '';
-  let draftEditTitle = data.title;
-  let draftEditDescription = data.description;
   let showUpdateComposer = false;
-  let showUpdateVotes = false;
-  let showEditComposer = false;
-  let showEditVotes = false;
-  let updateVotesManuallyCollapsed = false;
-  let editVotesManuallyCollapsed = false;
+  let draftUpdateBody = '';
   let updatePending = false;
-  let editPending = false;
   let updateMessage = '';
-  let editMessage = '';
-  let updateVotesElement: HTMLElement | null = null;
-  let editVotesElement: HTMLElement | null = null;
-  let editComposerElement: HTMLElement | null = null;
 
-  function scrollToVoteHub() {
-    document.getElementById('pending-votes-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  $: showGovernanceVotes = !isPersonalServiceProject(data.projectMode);
+  $: canProposeUpdate =
+    data.viewerCanRequestUpdate && (!showGovernanceVotes || data.updateRequests.length === 0);
+  $: updateActionLabel = isPersonalServiceProject(data.projectMode) ? 'Post update' : 'Propose update';
 
-  function toggleUpdateVotes() {
-    if (votesRenderedInHub) {
-      scrollToVoteHub();
-      return;
+  function toggleUpdateComposer() {
+    showUpdateComposer = !showUpdateComposer;
+    if (showUpdateComposer) {
+      updateMessage = '';
     }
-
-    showUpdateVotes = !showUpdateVotes;
-    updateVotesManuallyCollapsed = !showUpdateVotes;
-
-    if (showUpdateVotes) {
-      showUpdateComposer = false;
-      showEditComposer = false;
-      showEditVotes = false;
-      void tick().then(() => scrollElementIntoView(updateVotesElement));
-    }
-  }
-
-  function toggleEditVotes() {
-    if (votesRenderedInHub) {
-      scrollToVoteHub();
-      return;
-    }
-
-    showEditVotes = !showEditVotes;
-    editVotesManuallyCollapsed = !showEditVotes;
-
-    if (showEditVotes) {
-      showUpdateComposer = false;
-      showUpdateVotes = false;
-      showEditComposer = false;
-      void tick().then(() => scrollElementIntoView(editVotesElement));
-    }
-  }
-  $: pendingUpdateVotes = data.updateRequests.filter((request) => !request.voteSummary.activeVote);
-  $: pendingEditVotes = data.editRequests.filter((request) => !request.voteSummary.activeVote);
-
-  $: if (!votesRenderedInHub && showGovernanceVotes && data.viewerCanVoteOnUpdateRequests && !updateVotesManuallyCollapsed) {
-    if (pendingUpdateVotes.length > 0) {
-      showUpdateVotes = true;
-    }
-  }
-
-  $: if (!votesRenderedInHub && showGovernanceVotes && data.viewerCanVoteOnEditRequests && !editVotesManuallyCollapsed) {
-    if (pendingEditVotes.length > 0) {
-      showEditVotes = true;
-    }
-  }
-
-  function openVoteChipLabel(count: number) {
-    return `Vote now (${count})`;
-  }
-
-  function scrollElementIntoView(element: HTMLElement | null) {
-    if (!element) {
-      return;
-    }
-
-    const topbarHeight = document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
-    const topOffset = topbarHeight + 28;
-    const nextTop = window.scrollY + element.getBoundingClientRect().top - topOffset;
-
-    window.scrollTo({
-      top: Math.max(nextTop, 0),
-      behavior: 'smooth'
-    });
   }
 
   async function submitUpdate() {
@@ -130,7 +45,7 @@
 
       draftUpdateBody = '';
       showUpdateComposer = false;
-      await refreshProject();
+      void invalidateProjectDetail(data.slug);
     } catch {
       updateMessage = isPersonalServiceProject(data.projectMode)
         ? 'This update could not be posted. Reload and try again.'
@@ -139,153 +54,32 @@
       updatePending = false;
     }
   }
-
-  async function submitEdit() {
-    const description = draftEditDescription.trim();
-
-    if (!draftEditTitle.trim() || !description) {
-      editMessage = 'Add both a title and description before submitting.';
-      return;
-    }
-
-    editPending = true;
-    editMessage = '';
-
-    try {
-      if (isPersonalServiceProject(data.projectMode)) {
-        await updateProjectDetails(data.slug, draftEditTitle, description);
-      } else {
-        await requestProjectEdit(data.slug, draftEditTitle, description);
-      }
-
-      showEditComposer = false;
-      await refreshProject();
-    } catch {
-      editMessage = isPersonalServiceProject(data.projectMode)
-        ? 'These project details could not be saved. Reload and try again.'
-        : 'This edit request could not be submitted. Reload and try again.';
-    } finally {
-      editPending = false;
-    }
-  }
-
-  function toggleMembersPanel() {
-    dispatch('togglemembers');
-  }
-
-  function toggleComposer() {
-    showUpdateComposer = !showUpdateComposer;
-
-    if (showUpdateComposer) {
-      updateMessage = '';
-      showUpdateVotes = false;
-      showEditComposer = false;
-      showEditVotes = false;
-    }
-  }
-
-  async function toggleEditComposer() {
-    showEditComposer = !showEditComposer;
-
-    if (showEditComposer) {
-      editMessage = '';
-      draftEditTitle = data.title;
-      draftEditDescription = data.description;
-      showUpdateComposer = false;
-      showUpdateVotes = false;
-      showEditVotes = false;
-      await tick();
-      scrollElementIntoView(editComposerElement);
-    }
-  }
-
-  async function voteOnUpdateRequest(requestId: string, vote: ProjectApprovalVote | null) {
-    await setProjectUpdateVote(data.slug, requestId, vote);
-    await refreshProject();
-  }
-
-  async function voteOnEditRequest(requestId: string, vote: ProjectApprovalVote | null) {
-    await setProjectEditVote(data.slug, requestId, vote);
-    await refreshProject();
-  }
-
-  $: showMembershipButton = !isPersonalServiceProject(data.projectMode);
-  $: showGovernanceVotes = !isPersonalServiceProject(data.projectMode);
-  $: canRequestUpdate = data.viewerCanRequestUpdate;
-  $: canRequestEdit = data.viewerCanRequestEdit;
-  $: canProposeUpdate = canRequestUpdate && (!showGovernanceVotes || data.updateRequests.length === 0);
-  $: canProposeEdit = canRequestEdit && (!showGovernanceVotes || data.editRequests.length === 0);
-  $: updateActionLabel = isPersonalServiceProject(data.projectMode)
-    ? 'Post update'
-    : 'Propose update';
-  $: editActionLabel = isPersonalServiceProject(data.projectMode)
-    ? 'Save details'
-    : 'Propose Edit';
 </script>
 
-<section class="updates-shell" id="updates">
+<section class="updates-shell overview-updates" id="updates">
   <div class="updates-title-row">
     <h2>Updates</h2>
-    {#if showGovernanceVotes && data.updateRequests.length > 0}
-      <button class="vote-chip notice-chip" type="button" on:click={toggleUpdateVotes}>
-        {openVoteChipLabel(data.updateRequests.length)}
-      </button>
-    {/if}
     {#if canProposeUpdate}
-      <RoundPlusButton active={showUpdateComposer} label="Add update" action={toggleComposer} />
+      <RoundPlusButton
+        active={showUpdateComposer}
+        label="Add update"
+        ariaLabel="Add update"
+        action={toggleUpdateComposer}
+      />
     {/if}
   </div>
 
-  {#if canProposeUpdate && showUpdateComposer}
-    <div class="composer-card">
-      {#if updateMessage}
-        <div class="warning-card" role="alert">{updateMessage}</div>
-      {/if}
-      <label class="field-stack">
-        <span class="field-label">Update</span>
-        <textarea bind:value={draftUpdateBody} rows="4" placeholder="Share what changed on this project..."></textarea>
-      </label>
-      <div class="composer-actions">
-        <button class="secondary-button" type="button" on:click={() => (showUpdateComposer = false)}>
-          Cancel
-        </button>
-        <button class="primary-button" disabled={updatePending} type="button" on:click={submitUpdate}>
-          {updateActionLabel}
-        </button>
-      </div>
-    </div>
-  {/if}
-
-  {#if !votesRenderedInHub && showGovernanceVotes && showUpdateVotes && data.updateRequests.length > 0}
-    <div bind:this={updateVotesElement} class="surface-stack">
-      {#each data.updateRequests as request (request.id)}
-        <article id={`vote-card-update-${request.id}`} class="surface-card vote-request-card">
-          <div class="vote-card-top">
-            <div class="vote-card-copy">
-              <span class="vote-kicker">Update decision</span>
-            </div>
-            <span class="vote-requirement">
-              {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}
-            </span>
-          </div>
-
-          <p>{request.body}</p>
-
-          <div class="vote-summary-row">
-            <span>{formatProjectVoteSummary(request.voteSummary)}</span>
-          </div>
-
-          <VoteCardFooter
-            authorUsername={request.authorUsername}
-            createdAt={request.createdAt}
-            activeVote={request.voteSummary.activeVote}
-            canVote={data.viewerCanVoteOnUpdateRequests}
-            onVote={(vote) => voteOnUpdateRequest(request.id, vote)}
-          />
-        </article>
-      {/each}
-    </div>
-  {/if}
+  <AddUpdateSheet
+    bind:open={showUpdateComposer}
+    bind:body={draftUpdateBody}
+    message={updateMessage}
+    pending={updatePending}
+    sheetTitle="Add update"
+    submitLabel={updateActionLabel}
+    placeholder="Share what changed on this project..."
+    labelledById="project-add-update-sheet"
+    onSubmit={submitUpdate}
+  />
 
   <div class:scrollable={data.updates.length > 4} class="stack updates-list">
     {#if data.updates.length === 0}
@@ -298,117 +92,14 @@
       {/each}
     {/if}
   </div>
-
-  {#if canProposeEdit && showEditComposer}
-    <div bind:this={editComposerElement} class="composer-card">
-      {#if editMessage}
-        <div class="warning-card" role="alert">{editMessage}</div>
-      {/if}
-      <label class="field-stack">
-        <span class="field-label">Title</span>
-        <input bind:value={draftEditTitle} maxlength="120" placeholder="Project title" />
-      </label>
-      <label class="field-stack">
-        <span class="field-label">Description</span>
-        <textarea
-          bind:value={draftEditDescription}
-          rows="5"
-          placeholder="Describe the project..."
-        ></textarea>
-      </label>
-      <div class="composer-actions">
-        <button class="secondary-button" type="button" on:click={() => (showEditComposer = false)}>
-          Cancel
-        </button>
-        <button class="primary-button" disabled={editPending} type="button" on:click={submitEdit}>
-          {editActionLabel}
-        </button>
-      </div>
-    </div>
-  {/if}
-
-  <div class="overview-footer-row">
-    {#if showMembershipButton}
-      <button
-        aria-expanded={showMembersPanel}
-        aria-label="Members"
-        class:highlighted={showMembersPanel}
-        class="detail-action-button members-action"
-        type="button"
-        on:click={toggleMembersPanel}
-      >
-        <GroupsIcon className="meta-icon" />
-        <span>{data.memberCount}</span>
-      </button>
-    {/if}
-    {#if canProposeEdit}
-      <button
-        aria-expanded={showEditComposer}
-        class:highlighted={showEditComposer}
-        class="detail-action-button"
-        type="button"
-        on:click={toggleEditComposer}
-      >
-        Propose Edit
-      </button>
-    {/if}
-    {#if showGovernanceVotes && data.editRequests.length > 0}
-      <button class="vote-chip notice-chip" type="button" on:click={toggleEditVotes}>
-        {openVoteChipLabel(data.editRequests.length)}
-      </button>
-    {/if}
-    <span class="footer-author-row">
-      <ContentMetaRow
-        authorUsername={data.authorUsername}
-        authorHref={`/profile/${data.authorUsername}?from=${encodeURIComponent($page.url.pathname)}`}
-        createdAt={data.createdAt}
-      />
-    </span>
-  </div>
-
-  {#if !votesRenderedInHub && showGovernanceVotes && showEditVotes && data.editRequests.length > 0}
-    <div bind:this={editVotesElement} class="surface-stack">
-      {#each data.editRequests as request (request.id)}
-        <article id={`vote-card-edit-${request.id}`} class="surface-card vote-request-card">
-          <div class="vote-card-top">
-            <div class="vote-card-copy">
-              <span class="vote-kicker">Edit decision</span>
-            </div>
-            <span class="vote-requirement">
-              {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}
-            </span>
-          </div>
-
-          <div class="edit-request-copy">
-            <p>{request.description}</p>
-          </div>
-
-          <div class="vote-summary-row">
-            <span>{formatProjectVoteSummary(request.voteSummary)}</span>
-          </div>
-
-          <VoteCardFooter
-            authorUsername={request.authorUsername}
-            createdAt={request.createdAt}
-            activeVote={request.voteSummary.activeVote}
-            canVote={data.viewerCanVoteOnEditRequests}
-            onVote={(vote) => voteOnEditRequest(request.id, vote)}
-          />
-        </article>
-      {/each}
-    </div>
-  {/if}
 </section>
 
 <style>
   .updates-shell,
-  .stack,
-  .composer-card,
-  .warning-card,
-  .surface-stack,
-  .vote-card-copy {
+  .stack {
     display: grid;
     gap: 18px;
+    min-width: 0;
   }
 
   .updates-list {
@@ -438,50 +129,12 @@
     border-bottom: 1px solid var(--panel-border);
   }
 
-  .updates-title-row,
-  .composer-actions,
-  .overview-footer-row,
-  .vote-card-top,
-  .vote-summary-row {
+  .updates-title-row {
     display: flex;
     gap: 12px;
     align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .updates-title-row {
     justify-content: center;
-  }
-
-  .overview-footer-row {
-    justify-content: flex-start;
-    padding-top: 16px;
-    border-top: 1px solid var(--panel-border);
-  }
-
-  .footer-author-row {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: nowrap;
-    min-width: 0;
-    color: var(--text-soft);
-    white-space: nowrap;
-  }
-
-  .members-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .members-action :global(.meta-icon) {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-    display: grid;
-    place-items: center;
+    flex-wrap: wrap;
   }
 
   h2 {
@@ -491,144 +144,23 @@
     color: var(--text-main);
   }
 
-  p,
-  span {
+  p {
     color: var(--text-soft);
     line-height: 1.45;
   }
 
-  .primary-button,
-  .secondary-button {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .field-stack {
-    display: grid;
-    gap: 8px;
-  }
-
-  .field-label {
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .composer-card,
-  .empty-card,
-  .surface-card {
+  .empty-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
-  }
-
-  .warning-card {
-    padding: 12px 14px;
-    border: 1px solid color-mix(in srgb, var(--status-yellow) 50%, var(--panel-border));
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--status-yellow) 14%, var(--panel-strong));
-    color: var(--text-main);
-    font-size: 13px;
-    font-weight: 700;
+    min-width: 0;
   }
 
   .updates-list.scrollable {
-    max-height: 900px;
+    overflow: visible;
     overflow-y: auto;
     padding-right: 6px;
     scrollbar-gutter: stable;
-  }
-
-  input,
-  textarea {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-main);
-  }
-
-  textarea {
-    min-height: 120px;
-    resize: vertical;
-  }
-
-  .edit-request-copy {
-    display: grid;
-    gap: 8px;
-  }
-
-  .edit-request-copy p {
-    margin: 0;
-  }
-
-  .primary-button {
-    background: var(--brand);
-    color: var(--page-bg);
-  }
-
-  .secondary-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-  }
-
-  .vote-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .vote-chip.notice-chip {
-    color: var(--brand-strong);
-  }
-
-  .vote-kicker {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-soft);
-  }
-
-  .vote-card-top {
-    justify-content: space-between;
-  }
-
-  .vote-requirement,
-  .vote-summary-row {
-    color: var(--text-soft);
-    font-size: 12px;
-  }
-
-  .primary-button:disabled,
-  .secondary-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  @media (max-width: 760px) {
-    .overview-footer-row {
-      flex-wrap: nowrap;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .footer-author-row {
-      margin-left: auto;
-      width: auto;
-      min-width: 0;
-    }
   }
 </style>

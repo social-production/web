@@ -1,35 +1,29 @@
 <script lang="ts">
+  export let label = '';
+  export let glyph = '';
   export let active = false;
   export let standout = false;
-  export let label = '';
-  export let ariaLabel = 'Add item';
   export let participationAction: string | undefined = undefined;
-  export let action: (event?: MouseEvent) => unknown = () => {};
-
-  $: resolvedAriaLabel = label || ariaLabel;
+  export let onPress: () => void = () => {};
 </script>
 
 <button
-  aria-label={resolvedAriaLabel}
-  aria-pressed={active}
+  class="phase-shift-button"
   class:active
   class:standout
-  class:with-label={Boolean(label)}
-  class="round-plus-button"
   data-participation-action={participationAction}
   type="button"
-  on:click={(event) => action(event)}
+  on:click={onPress}
 >
-  <span aria-hidden="true" class="plus-glyph">+</span>
-  {#if label}
-    <span class="plus-label">{label}</span>
-  {/if}
+  <span aria-hidden="true" class="glyph">{glyph}</span>
+  <span class="label">{label}</span>
 </button>
 
 <style>
-  .round-plus-button {
+  .phase-shift-button {
     height: 40px;
     min-width: 40px;
+    padding: 0 14px 0 10px;
     border: 1px solid var(--panel-border);
     border-radius: 999px;
     background: var(--panel-strong);
@@ -38,43 +32,40 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 0;
-    transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
-  }
-
-  .round-plus-button.with-label {
-    padding: 0 14px 0 10px;
-  }
-
-  .plus-glyph {
-    font-size: 24px;
-    line-height: 1;
-  }
-
-  .plus-label {
     font-size: 12px;
     font-weight: 700;
+    cursor: pointer;
+    transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
+  }
+
+  .glyph {
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 700;
+  }
+
+  .label {
     white-space: nowrap;
   }
 
-  .round-plus-button:hover,
-  .round-plus-button:focus-visible,
-  .round-plus-button.active {
+  .phase-shift-button:hover,
+  .phase-shift-button:focus-visible,
+  .phase-shift-button.active {
     border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
     background: var(--brand-soft);
     color: var(--brand-strong);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 20%, transparent);
   }
 
-  .round-plus-button.standout {
+  .phase-shift-button.standout {
     border-color: var(--brand);
     background: var(--brand);
     color: var(--page-bg);
   }
 
-  .round-plus-button.standout:hover,
-  .round-plus-button.standout:focus-visible,
-  .round-plus-button.standout.active {
+  .phase-shift-button.standout:hover,
+  .phase-shift-button.standout:focus-visible,
+  .phase-shift-button.standout.active {
     border-color: var(--brand);
     background: var(--brand);
     color: var(--page-bg);

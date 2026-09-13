@@ -7,7 +7,19 @@
   import SignalEngagementButtons from '$lib/components/shared/SignalEngagementButtons.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
-  import { shareEventWithUser, toggleEventMembership } from '$lib/services/commands/events';
+  import MembershipSplitButton from '$lib/components/shared/MembershipSplitButton.svelte';
+  import ProposeEditSheet from '$lib/components/shared/ProposeEditSheet.svelte';
+  import AddUpdateSheet from '$lib/components/shared/AddUpdateSheet.svelte';
+  import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
+  import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
+  import DetailFoldToggles from '$lib/features/detail/DetailFoldToggles.svelte';
+  import QuorumExplanation from '$lib/features/detail/QuorumExplanation.svelte';
+  import {
+    requestEventEdit,
+    requestEventUpdate,
+    shareEventWithUser,
+    toggleEventMembership
+  } from '$lib/services/commands/events';
   import { getMessageContacts } from '$lib/services/queries/inbox';
   import type { DetailMember, EventPageData } from '$lib/types/detail';
   import type { SignalToggleResult } from '$lib/types/feed';
@@ -19,15 +31,36 @@
 
   let {
     data,
+    selectedPhaseId = undefined,
     signalChange = undefined,
-    onMembershipChange = undefined
+    onMembershipChange = undefined,
+    detailsOpen = $bindable(false),
+    participationOpen = $bindable(false),
+    showMembersPanel = false,
+    onToggleMembers = undefined,
+    votesRenderedInHub: _votesRenderedInHub = false
   }: {
     data: EventPageData;
+    selectedPhaseId?: EventPageData['lifecycle']['currentPhaseId'];
     signalChange?: (result: SignalToggleResult) => void;
     onMembershipChange?: (next: { viewerIsMember: boolean; memberCount: number }) => void;
+    detailsOpen?: boolean;
+    participationOpen?: boolean;
+    showMembersPanel?: boolean;
+    onToggleMembers?: () => void;
+    votesRenderedInHub?: boolean;
   } = $props();
 
   let liveShareContacts = $state<DetailMember[]>([]);
+  let draftEditTitle = $state(data.title);
+  let draftEditDescription = $state(data.description);
+  let showEditComposer = $state(false);
+  let editPending = $state(false);
+  let editMessage = $state('');
+  let showUpdateComposer = $state(false);
+  let draftUpdateBody = $state('');
+  let updatePending = $state(false);
+  let updateMessage = $state('');
 
   async function searchShareContacts(query: string): Promise<DetailMember[]> {
     try {
@@ -53,7 +86,6 @@
       Boolean(signalSummary) &&
       (data.lifecycle.phaseOne.viewerCanSignalDemand || data.lifecycle.phaseOne.viewerCanSignalOpposition)
   );
-  const membershipButtonLabel = $derived(`${data.viewerIsMember ? 'Joined' : 'Join'} · ${data.memberCount}`);
   const timeLabel = $derived(
     data.scheduledAt
       ? formatLocalDateTime(data.scheduledAt)
@@ -80,11 +112,6 @@
         : 'Collaborative'
       : null
   );
-  const quorumLabel = $derived(
-    data.lifecycle.quorumVotesRequired <= 0
-      ? 'No votes required yet'
-      : `${data.lifecycle.quorumVotesRequired} ${data.lifecycle.quorumVotesRequired === 1 ? 'vote' : 'votes'} required from ${data.lifecycle.voteContextPopulation} ${data.lifecycle.voteContextLabel}`
-  );
   const displaySignalRatioPercent = $derived(
     signalSummary && signalSummary.totalCount > 0
       ? Math.round(signalSummary.signalRatioPercent)
@@ -96,6 +123,21 @@
       : data.lifecycle.phaseOne.viewerHasOppositionSignal
         ? 'opposition'
         : null
+  );
+  const canProposeEdit = $derived(data.viewerCanRequestEdit && data.editRequests.length === 0);
+  const canProposeUpdate = $derived(data.viewerCanRequestUpdate && data.updateRequests.length === 0);
+  const latestUpdate = $derived(data.updates[0] ?? null);
+  const usesPlatformVoteContext = $derived(
+    Boolean(signalSummary?.usesPlatformVoteContext) ||
+      data.lifecycle.voteContextLabel.toLowerCase().includes('platform')
+  );
+  const memberButtonLabel = $derived(data.isPrivate ? 'Members / Editors' : 'Members');
+  const liveCurrentPhase = $derived(
+    data.lifecycle.phases.find((phase) => phase.id === data.lifecycle.currentPhaseId) ?? null
+  );
+  const selectedPhase = $derived(
+    data.lifecycle.phases.find((phase) => phase.id === (selectedPhaseId ?? data.lifecycle.currentPhaseId)) ??
+      liveCurrentPhase
   );
 
   async function handleMembershipToggle() {
@@ -137,44 +179,264 @@
     });
     await goto(`/create/post?${params.toString()}`);
   }
+
+  function toggleEditComposer() {
+    showEditComposer = !showEditComposer;
+
+    if (showEditComposer) {
+      editMessage = '';
+      draftEditTitle = data.title;
+      draftEditDescription = data.description;
+      showUpdateComposer = false;
+    }
+  }
+
+  function toggleUpdateComposer() {
+    showUpdateComposer = !showUpdateComposer;
+    if (showUpdateComposer) {
+      updateMessage = '';
+      showEditComposer = false;
+    }
+  }
+
+  async function submitUpdate() {
+    if (!draftUpdateBody.trim()) {
+      updateMessage = 'Write an update before submitting.';
+      return;
+    }
+
+    updatePending = true;
+    updateMessage = '';
+
+    try {
+      await requestEventUpdate(data.slug, draftUpdateBody);
+      draftUpdateBody = '';
+      showUpdateComposer = false;
+      void invalidateEventDetail(data.slug);
+    } catch {
+      updateMessage = 'This update request could not be submitted. Reload and try again.';
+    } finally {
+      updatePending = false;
+    }
+  }
+
+  async function submitEdit() {
+    if (!draftEditTitle.trim() || !draftEditDescription.trim()) {
+      editMessage = 'Add both a title and description before submitting.';
+      return;
+    }
+
+    editPending = true;
+    editMessage = '';
+
+    try {
+      await requestEventEdit(data.slug, draftEditTitle, draftEditDescription);
+      showEditComposer = false;
+      void invalidateEventDetail(data.slug);
+    } catch {
+      editMessage = 'This edit request could not be submitted. Reload and try again.';
+    } finally {
+      editPending = false;
+    }
+  }
 </script>
 
-<div class="header-row">
-  <div class="chips">
-    <SurfaceTypeLabel kind="event" />
-    <span class="meta-note">· {data.isPrivate ? 'Private' : 'Public'}</span>
-    {#if controlLabel}
-      <span class="meta-note">· {controlLabel}</span>
-    {/if}
-    <ReportControl
-      hasActiveReport={Boolean(data.report)}
-      isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
-      itemLabel="event"
-      moderationState={data.moderationState}
-      report={data.report}
-      ownerUsername={data.createdByUsername}
-      subjectId={data.id}
-      targetId={data.id}
-      targetType="event"
-    />
-  </div>
-
-  <div class="header-actions">
-    <TagList tags={combinedTags} maxVisible={null} />
+<div class="type-row overview-type-row">
+  <div class="header-row">
+    <div class="chips">
+      <SurfaceTypeLabel kind="event" />
+      <span class="meta-note">· {data.isPrivate ? 'Private' : 'Public'}</span>
+      {#if controlLabel}
+        <span class="meta-note">· {controlLabel}</span>
+      {/if}
+      <ReportControl
+        hasActiveReport={Boolean(data.report)}
+        isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
+        itemLabel="event"
+        moderationState={data.moderationState}
+        report={data.report}
+        ownerUsername={data.createdByUsername}
+        subjectId={data.id}
+        targetId={data.id}
+        targetType="event"
+      />
+    </div>
+    <div class="header-tags">
+      <TagList tags={combinedTags} maxVisible={2} />
+    </div>
   </div>
 </div>
 
-<ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
-  <h1>{data.title}</h1>
-  <p class="overview-copy">{data.description}</p>
-</ModerationRestrictionNotice>
+<div class="heading overview-heading">
+  <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
+    <h1>{data.title}</h1>
+  </ModerationRestrictionNotice>
 
-<section class="meta-block" aria-label="Event overview details">
-  <ul class="event-meta-list">
-    {#if canSignal && signalSummary}
-      <li class="meta-item demand-item">
-        <strong>Signals</strong>
-        <div id="participation-signals" class="signal-stack">
+  {#if timeLabel || locationLabel}
+    <p class="live-fact">{[timeLabel, locationLabel].filter(Boolean).join(' · ')}</p>
+  {/if}
+
+  <p class="overview-copy">{data.description}</p>
+
+  {#if latestUpdate}
+    <p class="overview-update">Update: {latestUpdate.body}</p>
+  {/if}
+
+  <DetailFoldToggles
+    {detailsOpen}
+    {participationOpen}
+    onToggleDetails={() => (detailsOpen = !detailsOpen)}
+    onToggleParticipation={() => (participationOpen = !participationOpen)}
+  />
+
+  {#if canSignal && signalSummary}
+    <div id="participation-signals" class="signal-row">
+      <SignalEngagementButtons
+        entityKind="event"
+        slug={data.slug}
+        syncKey={data.id}
+        supportCount={signalSummary?.demandCount ?? 0}
+        opposeCount={signalSummary?.oppositionCount ?? 0}
+        viewerSignal={initialViewerSignal}
+        canSignalDemand={data.lifecycle.phaseOne.viewerCanSignalDemand}
+        canSignalOpposition={data.lifecycle.phaseOne.viewerCanSignalOpposition}
+        {signalChange}
+      />
+    </div>
+  {/if}
+</div>
+
+<div class="control-row overview-actions">
+    <div class="control-actions">
+      <MembershipSplitButton
+        joined={data.viewerIsMember}
+        count={data.memberCount}
+        canToggle={data.viewerCanToggleMembership}
+        canOpenMembers={true}
+        membersOpen={showMembersPanel}
+        joinAriaLabel={data.viewerIsMember ? 'Leave event' : 'Join event'}
+        membersAriaLabel={memberButtonLabel}
+        onToggleJoin={handleMembershipToggle}
+        onOpenMembers={() => onToggleMembers?.()}
+      />
+
+      {#if data.viewerCanShare}
+        <ShareUserMenu
+          buttonLabel={data.isPrivate ? 'Invite +' : 'Share +'}
+          contacts={liveShareContacts.length > 0 ? liveShareContacts : data.shareContacts}
+          menuTitle={data.isPrivate ? 'Invite to event' : 'Share event'}
+          placeholder="Search people"
+          submitLabel={data.isPrivate ? 'Invite' : 'Share'}
+          submitShare={handleEventShare}
+          searchContacts={searchShareContacts}
+          createPost={data.isPrivate ? null : handleCreatePostFromEvent}
+          createPostLabel="Create post"
+          copyLinkUrl={buildShareUrl(`/events/${data.slug}`)}
+        />
+      {/if}
+
+      {#if canProposeEdit}
+        <button
+          type="button"
+          class="quiet-control"
+          class:open={showEditComposer}
+          aria-expanded={showEditComposer}
+          onclick={toggleEditComposer}
+        >
+          Edit
+        </button>
+      {/if}
+      {#if canProposeUpdate}
+        <button
+          type="button"
+          class="quiet-control"
+          class:open={showUpdateComposer}
+          aria-expanded={showUpdateComposer}
+          onclick={toggleUpdateComposer}
+        >
+          + Update
+        </button>
+      {/if}
+    </div>
+
+    <span class="control-author">
+      <ContentMetaRow authorUsername={data.createdByUsername} createdAt={data.createdAt} />
+    </span>
+</div>
+
+<ProposeEditSheet
+  bind:open={showEditComposer}
+  bind:title={draftEditTitle}
+  bind:description={draftEditDescription}
+  message={editMessage}
+  pending={editPending}
+  sheetTitle="Propose Edit"
+  submitLabel="Propose Edit"
+  titlePlaceholder="Event title"
+  descriptionPlaceholder="Describe the event and what members should know..."
+  labelledById="event-propose-edit-sheet"
+  onSubmit={submitEdit}
+/>
+
+<AddUpdateSheet
+  bind:open={showUpdateComposer}
+  bind:body={draftUpdateBody}
+  message={updateMessage}
+  pending={updatePending}
+  sheetTitle="Add update"
+  submitLabel="Propose update"
+  placeholder="Share what changed for this event..."
+  labelledById="event-add-update-sheet"
+  onSubmit={submitUpdate}
+/>
+
+<OverlaySheet bind:open={detailsOpen} title="Details" labelledById="overview-details-sheet">
+  <div class="details-sheet">
+    <ul class="event-meta-list">
+      {#if timeLabel}
+        <li class="meta-item">
+          <strong>Time</strong>
+          <span>{timeLabel}</span>
+        </li>
+      {/if}
+      {#if locationLabel}
+        <li class="meta-item">
+          <strong>Location</strong>
+          <span>{locationLabel}</span>
+        </li>
+      {/if}
+      {#if !showScheduledMeta}
+        <li class="meta-item">
+          <strong>{isOrganizerControlled ? 'Plan' : 'Proposal'}</strong>
+          <span>{proposalMetaCopy}</span>
+        </li>
+      {/if}
+
+      {#if selectedPhase}
+        <li class="meta-item">
+          <strong>{selectedPhase.title}</strong>
+          {#if selectedPhase.summary}
+            <p class="phase-summary">{selectedPhase.summary}</p>
+          {/if}
+          {#if selectedPhase.mechanics.length > 0}
+            <ul class="phase-mechanics">
+              {#each selectedPhase.mechanics as mechanic}
+                <li>{mechanic}</li>
+              {/each}
+            </ul>
+          {/if}
+          {#if selectedPhase.note}
+            <span>{selectedPhase.note}</span>
+          {/if}
+          {#if liveCurrentPhase && selectedPhase.id !== liveCurrentPhase.id}
+            <span class="phase-current-note">The event is currently in {liveCurrentPhase.title}.</span>
+          {/if}
+        </li>
+      {/if}
+
+      {#if canSignal && signalSummary}
+        <li class="meta-item">
+          <strong>Signals</strong>
           <p class="signal-intro">
             {#if !data.viewerIsMember}
               Signal whether this should be facilitated on the platform — you don't need to join to participate in this step.
@@ -182,127 +444,85 @@
               Signal platform interest in this event — support or oppose without starting a lifecycle vote.
             {/if}
           </p>
-          <SignalEngagementButtons
-            entityKind="event"
-            slug={data.slug}
-            syncKey={data.id}
-            supportCount={signalSummary?.demandCount ?? 0}
-            opposeCount={signalSummary?.oppositionCount ?? 0}
-            viewerSignal={initialViewerSignal}
-            canSignalDemand={data.lifecycle.phaseOne.viewerCanSignalDemand}
-            canSignalOpposition={data.lifecycle.phaseOne.viewerCanSignalOpposition}
-            {signalChange}
-          />
           <span class="signal-summary">
-            Demand is {displaySignalRatioPercent}% of current proposal signals.
+            Support is {displaySignalRatioPercent}% of current proposal signals.
             {#if signalSummary.usesPlatformVoteContext}
-              Proposal advancement also needs {signalSummary.requiredDemandCount} demand signals from {signalSummary.voteContextPopulation} weekly active users.
+              Proposal advancement also needs {signalSummary.requiredDemandCount} support signals from {signalSummary.voteContextPopulation} weekly active users.
             {:else}
-              Proposal advancement opens once demand stays above 66% of active signals.
+              Proposal advancement opens once support stays above 66% of active signals.
             {/if}
           </span>
-        </div>
-      </li>
-    {/if}
+        </li>
+      {/if}
 
-    {#if showQuorum}
-      <li class="meta-item">
-        <strong>Quorum</strong>
-        <span>{quorumLabel}</span>
-      </li>
-    {/if}
-
-    {#if timeLabel}
-      <li class="meta-item">
-        <strong>Time</strong>
-        <span>{timeLabel}</span>
-      </li>
-    {/if}
-    {#if locationLabel}
-      <li class="meta-item">
-        <strong>Location</strong>
-        <span>{locationLabel}</span>
-      </li>
-    {/if}
-    {#if !showScheduledMeta}
-      <li class="meta-item">
-        <strong>{isOrganizerControlled ? 'Plan' : 'Proposal'}</strong>
-        <span>{proposalMetaCopy}</span>
-      </li>
-    {/if}
-    <li class="meta-item">
-      <strong>Members</strong>
-      <div class="meta-button-row">
-        {#if data.viewerCanToggleMembership}
-          <button
-            id="participation-join"
-            aria-pressed={data.viewerIsMember}
-            class:active-demand={data.viewerIsMember}
-            class="demand-button"
-            type="button"
-            onclick={handleMembershipToggle}
-          >
-            {membershipButtonLabel}
-          </button>
-        {:else}
-          <span>{data.memberCount}</span>
-        {/if}
-
-        {#if data.viewerCanShare}
-          <ShareUserMenu
-            buttonLabel={data.isPrivate ? 'Invite +' : 'Share +'}
-            contacts={liveShareContacts.length > 0 ? liveShareContacts : data.shareContacts}
-            menuTitle={data.isPrivate ? 'Invite to event' : 'Share event'}
-            placeholder="Search people"
-            submitLabel={data.isPrivate ? 'Invite' : 'Share'}
-            submitShare={handleEventShare}
-            searchContacts={searchShareContacts}
-            createPost={data.isPrivate ? null : handleCreatePostFromEvent}
-            createPostLabel="Create post"
-            copyLinkUrl={buildShareUrl(`/events/${data.slug}`)}
+      {#if showQuorum}
+        <li class="meta-item">
+          <strong>Quorum</strong>
+          <QuorumExplanation
+            votesRequired={data.lifecycle.quorumVotesRequired}
+            audienceSize={data.lifecycle.voteContextPopulation}
+            audienceLabel={data.lifecycle.voteContextLabel}
+            usesPlatform={usesPlatformVoteContext}
+            entityLabel="event"
           />
-        {/if}
-      </div>
-    </li>
-  </ul>
-</section>
+        </li>
+      {/if}
+    </ul>
+  </div>
+</OverlaySheet>
 
 <style>
+  .type-row,
+  .heading,
   .header-row,
   .chips,
-  .header-actions {
+  .control-row,
+  .control-actions,
+  .composer-actions,
+  .vote-card-top,
+  .vote-summary-row {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     align-items: center;
     flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .type-row,
+  .heading {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .heading {
+    padding-bottom: 12px;
   }
 
   .header-row {
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
+    gap: 8px;
   }
 
   .chips {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     align-items: center;
+  }
+
+  .header-tags {
+    margin-left: auto;
+    min-width: 0;
+    display: flex;
+    justify-content: flex-end;
   }
 
   .meta-note {
     color: var(--text-soft);
     font-size: 12px;
     font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .header-actions {
-    flex: 0 1 auto;
-    margin-left: auto;
-    justify-content: flex-end;
-  }
-
-  .header-actions :global(.tag-list) {
-    justify-content: flex-end;
+    overflow-wrap: anywhere;
   }
 
   :global(.report-control) {
@@ -310,11 +530,117 @@
   }
 
   h1 {
-    margin-top: 10px;
-    font-size: 24px;
-    letter-spacing: -0.02em;
+    margin: 0;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
     color: var(--text-main);
     overflow-wrap: anywhere;
+  }
+
+  .live-fact {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .details-sheet {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+    padding: 8px 16px 12px;
+  }
+
+  .control-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 16px;
+    border-top: 1px solid var(--panel-border);
+  }
+
+  .control-actions {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .quiet-control {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 8px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .quiet-control.open,
+  .quiet-control:hover,
+  .quiet-control:focus-visible {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .control-author {
+    margin-left: auto;
+    min-width: 0;
+  }
+
+  .control-author :global(.content-meta-row) {
+    flex-wrap: wrap;
+    white-space: normal;
+    justify-content: flex-end;
+  }
+
+  .signal-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    min-width: 0;
+    margin-top: 4px;
+    padding: 4px 2px;
+    overflow: visible;
+  }
+
+  .members-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .members-action :global(.meta-icon) {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+  }
+
+  .members-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .members-action :global(.meta-icon) {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
   }
 
   strong {
@@ -323,10 +649,22 @@
   }
 
   .overview-copy {
-    margin: 8px 0 24px;
+    margin: 0;
+    max-width: 78ch;
+    color: var(--text-main);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
+  .overview-update {
+    margin: 0;
     max-width: 78ch;
     color: var(--text-soft);
-    line-height: 1.55;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
     overflow-wrap: anywhere;
   }
 
@@ -360,10 +698,15 @@
     color: var(--brand-strong);
   }
 
+  .demand-button:hover {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
   .meta-block {
-    padding: 18px 0 20px;
-    border-top: 1px solid var(--panel-border);
-    border-bottom: 1px solid var(--panel-border);
+    padding: 0;
+    min-width: 0;
   }
 
   .event-meta-list {
@@ -381,9 +724,15 @@
     font-size: 13px;
   }
 
-  .meta-item span {
+  .meta-item span,
+  .phase-summary,
+  .phase-current-note {
     color: var(--text-soft);
     line-height: 1.45;
+  }
+
+  .phase-summary {
+    margin: 0;
   }
 
   .signal-stack {
@@ -391,22 +740,139 @@
     gap: 8px;
   }
 
+  .phase-mechanics {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
+  }
+
   #participation-join,
   #participation-signals {
     scroll-margin-top: 120px;
   }
 
-  .meta-button-row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: center;
+  .composer-card,
+  .surface-card {
+    padding: 16px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+    min-width: 0;
   }
 
-  .demand-button:hover {
-    border-color: var(--brand);
-    background: var(--brand-soft);
+  .warning-card {
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--status-yellow) 50%, var(--panel-border));
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--status-yellow) 14%, var(--panel-strong));
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .field-stack {
+    display: grid;
+    gap: 8px;
+  }
+
+  .field-label {
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .surface-stack,
+  .vote-card-copy {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+  }
+
+  input,
+  textarea {
+    width: 100%;
+    max-width: 100%;
+    padding: 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text-main);
+    box-sizing: border-box;
+  }
+
+  textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+
+  .primary-button,
+  .secondary-button {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .primary-button {
+    background: var(--brand);
+    color: var(--page-bg);
+  }
+
+  .secondary-button {
+    border: 1px solid var(--panel-border);
+    background: var(--panel-strong);
+    color: var(--text-soft);
+  }
+
+  .primary-button:disabled,
+  .secondary-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .vote-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .vote-chip.notice-chip {
     color: var(--brand-strong);
+  }
+
+  .vote-kicker {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+  }
+
+  .vote-card-top {
+    justify-content: space-between;
+  }
+
+  .vote-requirement,
+  .vote-summary-row {
+    color: var(--text-soft);
+    font-size: 12px;
+  }
+
+  .edit-request-copy {
+    display: grid;
+    gap: 8px;
+  }
+
+  .edit-request-copy p {
+    margin: 0;
   }
 
   @media (max-width: 760px) {

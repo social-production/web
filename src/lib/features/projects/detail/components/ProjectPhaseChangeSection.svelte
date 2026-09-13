@@ -1,6 +1,9 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { afterUpdate, tick } from 'svelte';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
+  import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
+  import PhaseShiftButton from '$lib/components/shared/PhaseShiftButton.svelte';
+  import { portal } from '$lib/utils/portal';
   import {
     isProductiveProject,
     isCollectiveServiceProject,
@@ -89,8 +92,30 @@
       expandedVoteGroup = nextVoteKind;
     }
   }
-  let nextPhaseComposerElement: HTMLDivElement | null = null;
-  let revertComposerElement: HTMLDivElement | null = null;
+  let startHost: HTMLElement | null = null;
+  let endHost: HTMLElement | null = null;
+
+  function refreshNavHosts() {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    const nextStart = document.getElementById('phase-nav-start');
+    const nextEnd = document.getElementById('phase-nav-end');
+    if (nextStart !== startHost) {
+      startHost = nextStart;
+    }
+    if (nextEnd !== endHost) {
+      endHost = nextEnd;
+    }
+  }
+
+  afterUpdate(refreshNavHosts);
+
+  $: if (activePhaseId) {
+    void tick().then(refreshNavHosts);
+  }
+
+  $: embedInToolbar = Boolean(startHost && endHost);
 
   $: currentPhaseVisible = activePhaseId === data.lifecycle.currentPhaseId;
   $: personalDirectPhaseChange = isPersonalServiceProject(data.projectMode);
@@ -305,17 +330,6 @@
     closeRevertComposer();
   }
 
-  function scrollComposerIntoView(element: HTMLElement | null) {
-    if (typeof window === 'undefined' || !element) {
-      return;
-    }
-
-    element.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
-  }
-
   function closeNextPhaseComposer() {
     showNextPhaseComposer = false;
     nextPhaseReason = '';
@@ -334,7 +348,7 @@
     closeNextPhaseComposer();
   }
 
-  async function toggleNextPhaseComposer() {
+  function toggleNextPhaseComposer() {
     const willOpen = !showNextPhaseComposer;
 
     if (!willOpen) {
@@ -351,17 +365,9 @@
     nextPhaseMessage = '';
     closeRevertComposer();
     expandedVoteGroup = null;
-    await tick();
-    scrollComposerIntoView(nextPhaseComposerElement);
-
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => {
-        scrollComposerIntoView(nextPhaseComposerElement);
-      });
-    }
   }
 
-  async function toggleRevertComposer() {
+  function toggleRevertComposer() {
     const willOpen = !showRevertComposer;
 
     if (!willOpen) {
@@ -378,14 +384,6 @@
     revertMessage = '';
     closeNextPhaseComposer();
     expandedVoteGroup = null;
-    await tick();
-    scrollComposerIntoView(revertComposerElement);
-
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => {
-        scrollComposerIntoView(revertComposerElement);
-      });
-    }
   }
 
   function scrollToVoteHub() {
@@ -413,49 +411,70 @@
 {#if currentPhaseVisible && (data.lifecycle.phaseChangeRequests.length > 0 || data.lifecycle.viewerCanRequestPhaseChanges || data.lifecycle.viewerCanAdvancePhase || data.lifecycle.viewerCanRevertPhase)}
   <div id="participation-phase-change" class="phase-change-stack">
     {#if showReturnActions || showNextActions}
-      <div class="change-action-row">
-        <div class="action-group action-group-left">
-          {#if personalDirectPhaseChange ? canDirectReturn : canProposeReturn}
-            <button
-              class:highlighted={showRevertComposer}
-              class="detail-action-button"
-              type="button"
-              on:click={toggleRevertComposer}
-            >
-              {revertActionLabel()}
-            </button>
-          {/if}
-          {#if !personalDirectPhaseChange && returnRequests.length > 0}
-            <button class="vote-chip notice-chip" type="button" on:click={() => toggleVoteGroup('return')}>
-              {openVoteChipLabel(returnRequests.length)}
-            </button>
-          {/if}
-        </div>
+      {#if embedInToolbar}
+        {#if showReturnActions}
+          <div class="phase-nav-side" use:portal={startHost ?? false}>
+            {#if personalDirectPhaseChange ? canDirectReturn : canProposeReturn}
+              <PhaseShiftButton
+                active={showRevertComposer}
+                glyph="‹"
+                label={revertActionLabel()}
+                onPress={toggleRevertComposer}
+              />
+            {/if}
+          </div>
+        {/if}
+        {#if showNextActions}
+          <div class="phase-nav-side end" use:portal={endHost ?? false}>
+            {#if (personalDirectPhaseChange ? data.lifecycle.viewerCanAdvancePhase : canProposeAdvance) && data.lifecycle.nextPhaseId}
+              <PhaseShiftButton
+                active={showNextPhaseComposer}
+                glyph={isClosingTransition() ? '×' : '›'}
+                label={nextPhaseActionLabel() ?? 'Advance'}
+                participationAction="propose-advance"
+                standout
+                onPress={toggleNextPhaseComposer}
+              />
+            {/if}
+          </div>
+        {/if}
+      {:else}
+        <div class="change-action-row">
+          <div class="action-group action-group-left">
+            {#if personalDirectPhaseChange ? canDirectReturn : canProposeReturn}
+              <PhaseShiftButton
+                active={showRevertComposer}
+                glyph="‹"
+                label={revertActionLabel()}
+                onPress={toggleRevertComposer}
+              />
+            {/if}
+          </div>
 
-        <div class="action-group action-group-right">
-          {#if !personalDirectPhaseChange && nextActionRequests.length > 0}
-            <button class="vote-chip notice-chip" type="button" on:click={() => toggleVoteGroup(nextVoteKind)}>
-              {openVoteChipLabel(nextActionRequests.length)}
-            </button>
-          {/if}
-          {#if (personalDirectPhaseChange ? data.lifecycle.viewerCanAdvancePhase : canProposeAdvance) && data.lifecycle.nextPhaseId}
-            <button
-              class:highlighted={showNextPhaseComposer}
-              class="detail-action-button"
-              data-participation-action="propose-advance"
-              type="button"
-              on:click={toggleNextPhaseComposer}
-            >
-              {nextPhaseActionLabel()}
-            </button>
-          {/if}
+          <div class="action-group action-group-right">
+            {#if (personalDirectPhaseChange ? data.lifecycle.viewerCanAdvancePhase : canProposeAdvance) && data.lifecycle.nextPhaseId}
+              <PhaseShiftButton
+                active={showNextPhaseComposer}
+                glyph={isClosingTransition() ? '×' : '›'}
+                label={nextPhaseActionLabel() ?? 'Advance'}
+                participationAction="propose-advance"
+                standout
+                onPress={toggleNextPhaseComposer}
+              />
+            {/if}
+          </div>
         </div>
-      </div>
+      {/if}
     {/if}
 
-    {#if showRevertComposer && (personalDirectPhaseChange ? canDirectReturn : canProposeReturn)}
-      <div bind:this={revertComposerElement} class="change-action-panel">
-          <h3>{revertComposerTitle()}</h3>
+    {#if personalDirectPhaseChange ? canDirectReturn : canProposeReturn}
+      <OverlaySheet
+        bind:open={showRevertComposer}
+        title={revertComposerTitle()}
+        labelledById="project-return-phase-sheet"
+        on:close={closeRevertComposer}
+      >
+        <form class="sheet-form" on:submit|preventDefault={submitRevertRequest}>
           {#if revertMessage}
             <div class="inline-alert" role="alert">{revertMessage}</div>
           {/if}
@@ -479,22 +498,28 @@
           </label>
           <div class="composer-actions">
             <button class="detail-action-button" type="button" on:click={closeRevertComposer}>Cancel</button>
-            <button class="primary-button" type="button" on:click={submitRevertRequest}>
+            <button class="primary-button" type="submit">
               {revertActionLabel()}
             </button>
           </div>
-      </div>
+        </form>
+      </OverlaySheet>
     {/if}
 
-    {#if showNextPhaseComposer && data.lifecycle.nextPhaseId}
-      <div bind:this={nextPhaseComposerElement} class="change-action-panel">
-          <h3>{nextPhaseActionLabel()}</h3>
+    {#if data.lifecycle.nextPhaseId}
+      <OverlaySheet
+        bind:open={showNextPhaseComposer}
+        title={nextPhaseActionLabel() ?? 'Advance'}
+        labelledById="project-advance-phase-sheet"
+        on:close={closeNextPhaseComposer}
+      >
+        <form class="sheet-form" on:submit|preventDefault={submitNextPhaseRequest}>
           {#if nextPhaseMessage}
             <div class="inline-alert" role="alert">{nextPhaseMessage}</div>
           {/if}
           {#if !phaseGatePasses}
             <div class="inline-note">
-              {planGateMessage || 'Advancement is locked until proposal demand meets the required threshold.'}
+              {planGateMessage || 'Advancement is locked until proposal support meets the required threshold.'}
             </div>
           {/if}
           {#if canOfferConversionOnClose}
@@ -523,95 +548,19 @@
           </label>
           <div class="composer-actions">
             <button class="detail-action-button" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
-            <button class="primary-button" type="button" on:click={submitNextPhaseRequest}>
+            <button class="primary-button" type="submit">
               {nextPhaseActionLabel()}
             </button>
           </div>
-      </div>
-    {/if}
-
-    {#if !votesRenderedInHub && expandedVoteGroup === 'return' && returnRequests.length > 0}
-      <div class="surface-stack">
-        {#each returnRequests as request (request.id)}
-          <article id={`vote-card-phase_change-${request.id}`} class="surface-card vote-request-card">
-            <div class="vote-card-top">
-              <div class="vote-card-copy">
-                <span class="vote-kicker">{requestKindLabel(request)}</span>
-                <strong>{requestDecisionTitle(request)}</strong>
-              </div>
-              <span class="vote-requirement">
-                {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}
-              </span>
-            </div>
-
-            <p>{request.reason}</p>
-
-            {#if request.closeOutcome === 'convert' && request.conversionTarget}
-              <div class="detail-grid">
-                <div class="detail-card">
-                  <span>Successor target</span>
-                  <strong>{request.conversionTarget.projectModeLabel} · {request.conversionTarget.projectSubtypeLabel}</strong>
-                </div>
-                <div class="detail-card">
-                  <span>Successor entry phase</span>
-                  <strong>{request.conversionTarget.entryPhaseLabel}</strong>
-                </div>
-              </div>
-            {/if}
-
-            <div class="vote-summary-row">
-              <span>{formatProjectVoteSummary(request.voteSummary)}</span>
-            </div>
-
-            <VoteCardFooter
-              authorUsername={request.authorUsername}
-              createdAt={request.createdAt}
-              activeVote={request.voteSummary.activeVote}
-              canVote={data.lifecycle.viewerCanVoteOnPhaseChanges}
-              onVote={(vote) => voteOnPhaseChange(request.id, vote)}
-            />
-          </article>
-        {/each}
-      </div>
-    {/if}
-
-    {#if !votesRenderedInHub && expandedVoteGroup === nextVoteKind && nextActionRequests.length > 0}
-      <div class="surface-stack">
-        {#each nextActionRequests as request (request.id)}
-          <article id={`vote-card-phase_change-${request.id}`} class="surface-card vote-request-card">
-            <div class="vote-card-top">
-              <div class="vote-card-copy">
-                <span class="vote-kicker">{requestKindLabel(request)}</span>
-                <strong>{requestDecisionTitle(request)}</strong>
-              </div>
-              <span class="vote-requirement">
-                {formatProjectVoteRequirement(request.voteSummary, request.approvalThresholdPercent)}
-              </span>
-            </div>
-
-            <p>{request.reason}</p>
-
-            <div class="vote-summary-row">
-              <span>{formatProjectVoteSummary(request.voteSummary)}</span>
-            </div>
-
-            <VoteCardFooter
-              authorUsername={request.authorUsername}
-              createdAt={request.createdAt}
-              activeVote={request.voteSummary.activeVote}
-              canVote={data.lifecycle.viewerCanVoteOnPhaseChanges}
-              onVote={(vote) => voteOnPhaseChange(request.id, vote)}
-            />
-          </article>
-        {/each}
-      </div>
+        </form>
+      </OverlaySheet>
     {/if}
   </div>
 {/if}
 
 <style>
   .phase-change-stack,
-  .change-action-panel,
+  .sheet-form,
   .surface-stack,
   .vote-request-card,
   .vote-card-copy {
@@ -624,6 +573,17 @@
     gap: 12px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: center;
+  }
+
+  .phase-nav-side {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .phase-nav-side.end {
+    justify-content: flex-end;
   }
 
   .action-group,
@@ -648,12 +608,8 @@
     justify-content: flex-end;
   }
 
-  .change-action-panel {
-    scroll-margin-top: 92px;
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
+  .sheet-form {
+    padding: 8px 16px 4px;
   }
 
   .surface-card,

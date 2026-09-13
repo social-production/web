@@ -3,6 +3,7 @@
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import { formatRelativeTime } from '$lib/utils/time';
+  import { isProjectActivityPhase } from '$lib/features/projects/projectMode';
   import type { ProjectActivityRoleInput, ProjectPageData } from '$lib/types/detail';
   import { buildActivityLocationQuickPicks } from '$lib/utils/activityLocationQuickPicks';
 
@@ -115,15 +116,22 @@
 
   <ProjectActivityCalendarCard
     activities={data.lifecycle.phaseFive.activities}
-    canCreate={data.lifecycle.phaseFive.viewerCanCreateActivities}
+    canCreate={
+      isProjectActivityPhase(data.projectMode, data.lifecycle.currentPhaseId) &&
+      data.lifecycle.phaseFive.viewerCanCreateActivities
+    }
     createActive={showComposer}
     selectedDayIso={activityForm.scheduledAt}
-    daySelect={openComposerForDay}
+    daySelect={(isoDay) => {
+      activityForm.scheduledAt = `${isoDay}T${activityForm.scheduledAt.slice(11) || '09:00'}`;
+    }}
     createAction={toggleActivityComposer}
     activitySelect={focusActivityCard}
   />
 
-  {#if data.lifecycle.phaseFive.viewerCanCreateActivities && showComposer}
+  {#if isProjectActivityPhase(data.projectMode, data.lifecycle.currentPhaseId) &&
+    data.lifecycle.phaseFive.viewerCanCreateActivities &&
+    showComposer}
     <div bind:this={activityComposerElement}>
       <ActivityCreationWizard
         open={showComposer}

@@ -6,7 +6,6 @@
   import EventLifecyclePanel from '$lib/features/events/detail/EventLifecyclePanel.svelte';
   import EventMembersPanel from '$lib/features/events/detail/EventMembersPanel.svelte';
   import EventOverviewHeader from '$lib/features/events/detail/EventOverviewHeader.svelte';
-  import EventUpdatesSection from '$lib/features/events/detail/EventUpdatesSection.svelte';
   import DetailTopTabs from '$lib/features/detail/DetailTopTabs.svelte';
   import type { DetailTabId } from '$lib/features/detail/detailTabs';
   import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
@@ -22,6 +21,7 @@
   import type {
     DetailLinksFrameData,
     DecisionHistoryEntry,
+    EventLifecyclePhaseId,
     EventPageData,
     EventPlan,
     PlanCriterionRating,
@@ -47,6 +47,7 @@
 
   let pageData = data;
   let lastLoaderData = data;
+  let selectedPhaseId: EventLifecyclePhaseId = data.lifecycle.currentPhaseId;
 
   $: if (data !== lastLoaderData) {
     lastLoaderData = data;
@@ -148,6 +149,9 @@
   let assessmentPlanSnapshot: EventPlan | null = null;
   let isCompact = false;
   let signalRemovalNudge = false;
+  let detailsOpen = false;
+  let participationOpen = true;
+  let lastWorkFocused: boolean | null = null;
 
   onMount(() => {
     const media = window.matchMedia('(max-width: 1080px)');
@@ -345,6 +349,13 @@
   }
 
   $: pendingVotes = collectEventPendingVotes(pageData);
+  $: workFocused = pageData.lifecycle.currentPhaseId === 'activity';
+  $: if (lastWorkFocused === null) {
+    lastWorkFocused = workFocused;
+  } else if (lastWorkFocused !== workFocused) {
+    lastWorkFocused = workFocused;
+    detailsOpen = false;
+  }
   $: participationSteps = buildEventParticipationSteps(pageData, pendingVotes, {
     signalRemovalNudge,
     viewerUsername: $page.data.bootstrap?.viewer?.username ?? null,
@@ -370,6 +381,7 @@
 
   function handleParticipationDismiss() {
     signalRemovalNudge = false;
+    participationOpen = false;
   }
 
   function handlePendingAssess(item: PendingVoteItem) {
@@ -452,21 +464,19 @@
     <DetailTopTabs {activeTab} ariaLabel="Event detail tabs" {selectTab} {prefetchTab} />
 
     <div
-      class="tab-panel"
+      class="tab-panel overview-tab"
       class:tab-panel-hidden={activeTab !== 'overview'}
       hidden={activeTab !== 'overview'}
       inert={activeTab !== 'overview'}
     >
-      <ParticipationSteps
-        steps={participationSteps}
-        currentStepId={currentParticipationStep}
-        {pendingVotes}
-        {pageData}
-        placement="lead"
-        on:dismiss={handleParticipationDismiss}
-      />
       <EventOverviewHeader
         data={pageData}
+        {selectedPhaseId}
+        bind:detailsOpen
+        bind:participationOpen
+        {showMembersPanel}
+        onToggleMembers={handleMembersPanelOpen}
+        votesRenderedInHub={pendingVotes.length > 0}
         signalChange={handleSignalChange}
         onMembershipChange={handleMembershipChange}
       />
@@ -475,21 +485,27 @@
         onVote={handlePendingVote}
         onAssess={handlePendingAssess}
       />
-      <EventUpdatesSection
-        {data}
-        {highlightedUpdateId}
-        {showMembersPanel}
-        votesRenderedInHub={pendingVotes.length > 0}
-        on:togglemembers={handleMembersPanelOpen}
-      />
+      {#if participationOpen}
+        <section id="detail-participation-panel" class="participation-panel">
+          <ParticipationSteps
+            steps={participationSteps}
+            currentStepId={currentParticipationStep}
+            {pendingVotes}
+            {pageData}
+            placement="lead"
+            on:dismiss={handleParticipationDismiss}
+          />
+        </section>
+      {/if}
       <EventMembersPanel
         {data}
         open={showMembersPanel}
         on:close={() => (showMembersPanel = false)}
       />
-      <div id="governance">
+      <div id="governance" class="overview-governance">
         <EventLifecyclePanel
           data={pageData}
+          bind:selectedPhaseId
           {autoExpandVoteCards}
           {autoExpandVoteKind}
           {autoExpandVoteTarget}
@@ -578,11 +594,67 @@
   .page {
     display: grid;
     gap: 20px;
+    min-width: 0;
+    overflow-x: clip;
   }
 
   .tab-loading {
     margin: 16px 4px;
     color: var(--text-muted);
+  }
+
+  .tab-panel {
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .tab-panel.overview-tab,
+  .overview-tab {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .overview-tab > :global(*) {
+    order: 50;
+  }
+
+  .overview-tab :global(.overview-type-row) {
+    order: 1;
+  }
+
+  .overview-tab :global(.overview-phase-tabs) {
+    order: 2;
+    margin: 4px 0 12px;
+  }
+
+  .overview-tab :global(.overview-heading) {
+    order: 3;
+  }
+
+  .overview-tab :global(.pending-votes-panel) {
+    order: 6;
+  }
+
+  .overview-tab :global(.participation-panel) {
+    order: 7;
+  }
+
+  .overview-tab :global(.overview-governance) {
+    display: contents;
+  }
+
+  .overview-tab :global(.overview-phase-work) {
+    order: 8;
+  }
+
+  .overview-tab :global(.overview-actions) {
+    order: 9;
+  }
+
+  .overview-tab :global(.overview-composer),
+  .overview-tab :global(.overview-edit-votes) {
+    order: 10;
   }
 
   .tab-panel-hidden {
@@ -598,13 +670,17 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
+    min-width: 0;
     overflow: visible;
+  }
+
+  .participation-panel {
+    min-width: 0;
+    margin: 0 0 12px;
   }
 
   @media (max-width: 1080px) {
     .page {
-      min-width: 0;
-      overflow-x: clip;
       overflow-y: clip;
     }
 
@@ -621,13 +697,13 @@
 
     .hero-card {
       min-width: 0;
-      overflow-x: clip;
-      overflow-y: clip;
+      overflow: visible;
       padding-top: 16px;
       margin-top: 12px;
     }
 
     .hero-card.chat-tab-active {
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       height: 100%;

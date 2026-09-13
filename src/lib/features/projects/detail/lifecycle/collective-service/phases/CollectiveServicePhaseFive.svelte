@@ -4,10 +4,13 @@
   import ActivityCreationWizard from '$lib/components/shared/ActivityCreationWizard.svelte';
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
+  import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
+  import { activityOverlapsIsoDay, isoDayFromValue } from '$lib/utils/calendarDay';
   import DecisionHistoryCard from '$lib/components/shared/DecisionHistoryCard.svelte';
   import ActivityHistorySection from '$lib/features/projects/detail/components/ActivityHistorySection.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
+  import { isProjectActivityPhase } from '$lib/features/projects/projectMode';
   import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
   import {
@@ -377,42 +380,16 @@
     }
   }
 
-  async function handleDaySelection(isoDay: string, anchor?: CalendarActionAnchor) {
-    if (calendarActionTarget?.kind === 'day' && calendarActionTarget.isoDay === isoDay) {
-      closeCalendarActionTarget();
-      return;
-    }
+  async function handleDaySelection(isoDay: string, _anchor?: CalendarActionAnchor) {
+    previewDayIso = isoDay;
+    closeCalendarActionTarget();
 
     if (showRequestComposer) {
-      activeTab = 'live';
-      closeCalendarActionTarget();
       await openRequestComposerForDay(isoDay);
       return;
     }
 
     if (showComposer) {
-      activeTab = 'live';
-      closeCalendarActionTarget();
-      await openComposerForDay(isoDay);
-      return;
-    }
-
-    if (canCreateActivities && canSubmitRequests) {
-      calendarActionAnchor = anchor ?? null;
-      calendarActionTarget = { kind: 'day', isoDay };
-      return;
-    }
-
-    if (canSubmitRequests) {
-      activeTab = 'live';
-      closeCalendarActionTarget();
-      await openRequestComposerForDay(isoDay);
-      return;
-    }
-
-    if (canCreateActivities) {
-      activeTab = 'live';
-      closeCalendarActionTarget();
       await openComposerForDay(isoDay);
     }
   }
@@ -568,6 +545,8 @@
 
   let activeTab: ServiceTab = 'live';
   let calendarActionTarget: CalendarActionTarget = null;
+  let previewDayIso = '';
+  let showRequestsSheet = false;
   let calendarActionAnchor: CalendarActionAnchor | null = null;
   let actionPickerElement: HTMLDivElement | null = null;
   let softwareGovernancePanel: ProjectSoftwareGovernancePanel | null = null;
@@ -589,7 +568,9 @@
   $: sortedRequests = [...(data.lifecycle.requestSystem?.requests ?? [])].sort(
     (left, right) => +new Date(right.createdAt) - +new Date(left.createdAt)
   );
-  $: canCreateActivities = data.lifecycle.phaseFive.viewerCanCreateActivities;
+  $: canCreateActivities =
+    isProjectActivityPhase(data.projectMode, data.lifecycle.currentPhaseId) &&
+    data.lifecycle.phaseFive.viewerCanCreateActivities;
   $: winningProductionPlan =
     data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ??
     null;
@@ -618,7 +599,8 @@
   ]);
   $: canSubmitRequests = data.lifecycle.requestSystem?.viewerCanSubmitRequests ?? false;
   $: hasQuickAction = canCreateActivities || canSubmitRequests;
-  $: calendarSelectedDayIso = showRequestComposer ? serviceRequestForm.scheduledAt : activityForm.scheduledAt;
+  $: calendarSelectedDayIso =
+    previewDayIso || (showRequestComposer ? serviceRequestForm.scheduledAt : activityForm.scheduledAt);
   $: calendarSelectedActivityId =
     selectedRequestActivityId ??
     (calendarActionTarget?.kind === 'activity' ? calendarActionTarget.activityId : '');
@@ -628,6 +610,9 @@
   );
   $: requestSettingsVotes = data.lifecycle.requestSystem?.settingsChangeRequests ?? [];
   $: requestSettingsVoteCount = requestSettingsVotes.length;
+  $: if (highlightedRequestId) {
+    showRequestsSheet = true;
+  }
   $: requestHistory = data.lifecycle.phaseFive.history.filter((item) => item.source === 'request');
   $: selfPlannedHistory = data.lifecycle.phaseFive.history.filter(
     (item) => item.source === 'self-planned'
@@ -637,6 +622,12 @@
   );
   $: calendarHistoryCount =
     data.lifecycle.phaseFive.history.length + softwareGovernanceHistory.length;
+  $: selectedAgendaDay = isoDayFromValue(calendarSelectedDayIso);
+  $: dayActivities = selectedAgendaDay
+    ? data.lifecycle.phaseFive.activities.filter((activity) =>
+        activityOverlapsIsoDay(activity, selectedAgendaDay)
+      )
+    : data.lifecycle.phaseFive.activities;
   $: unifiedCalendarHistory = (
     [
       ...data.lifecycle.phaseFive.history.map((item) => ({
@@ -692,7 +683,8 @@
   $: if (requestSettingsVoteCount === 0) {
     showRequestSettingsVote = false;
   }
-  $: if (highlightedActivityId || highlightedRequestId) {
+  $: if (highlightedRequestId) {
+    showRequestsSheet = true;
     activeTab = 'live';
   }
   $: canSubmitPullRequest =
@@ -702,24 +694,27 @@
 
 <section id="participation-activities" class="phase-surface">
   {#if data.lifecycle.currentSubtype === 'software'}
-    {#if data.lifecycle.phaseFive.softwareGovernance}
-      <ProjectSoftwareGovernancePanel
-        bind:this={softwareGovernancePanel}
-        governance={data.lifecycle.phaseFive.softwareGovernance}
-        createPullRequest={createPullRequest}
-        requestMergeCapabilityChange={requestMergeCapabilityChange}
-        requestRepositoryReplacement={requestRepositoryReplacement}
-        recordMerge={recordPullRequestMerge}
-        {votePullRequest}
-        {softwareWizardRequest}
-        {onSoftwareWizardRequestHandled}
-      />
-    {:else}
-      <div class="software-governance-placeholder">
-        <h3>Software governance</h3>
-        <p>Pull request tools appear here once a leading software plan is approved for this project.</p>
-      </div>
-    {/if}
+    <details class="governance-disclosure">
+      <summary>Software governance</summary>
+      {#if data.lifecycle.phaseFive.softwareGovernance}
+        <ProjectSoftwareGovernancePanel
+          bind:this={softwareGovernancePanel}
+          governance={data.lifecycle.phaseFive.softwareGovernance}
+          createPullRequest={createPullRequest}
+          requestMergeCapabilityChange={requestMergeCapabilityChange}
+          requestRepositoryReplacement={requestRepositoryReplacement}
+          recordMerge={recordPullRequestMerge}
+          {votePullRequest}
+          {softwareWizardRequest}
+          {onSoftwareWizardRequestHandled}
+        />
+      {:else}
+        <div class="software-governance-placeholder">
+          <h3>Software governance</h3>
+          <p>Pull request tools appear here once a leading software plan is approved for this project.</p>
+        </div>
+      {/if}
+    </details>
   {/if}
 
   {#if calendarActionTarget}
@@ -808,7 +803,16 @@
     activitySelect={handleActivitySelection}
   />
 
+  {#if data.lifecycle.requestSystem}
+    <div class="composer-actions request-action-row">
+      <button class="secondary-button" type="button" on:click={() => (showRequestsSheet = true)}>
+        Requests{sortedRequests.length ? ` · ${sortedRequests.length}` : ''}
+      </button>
+    </div>
+  {/if}
+
     {#if data.lifecycle.requestSystem}
+      <OverlaySheet bind:open={showRequestsSheet} title={requestFormCopy.sectionTitle} labelledById="collective-requests-sheet">
       <section class="card-rail-section">
         <div class="section-head">
           <div class="section-copy">
@@ -1111,6 +1115,7 @@
           </div>
         {/if}
       </section>
+      </OverlaySheet>
     {/if}
 
     <section class="card-rail-section">
@@ -1136,11 +1141,11 @@
         </div>
       {/if}
 
-      {#if data.lifecycle.phaseFive.activities.length === 0}
-        <div class="empty-card">No future activity scheduled yet.</div>
+      {#if dayActivities.length === 0}
+        <div class="empty-card">No activities on this day.</div>
       {:else}
         <div class="card-rail">
-          {#each data.lifecycle.phaseFive.activities as activity (activity.id)}
+          {#each dayActivities as activity (activity.id)}
             <div id={`activity-card-${activity.id}`} class="rail-card">
               <CollapsibleActivityCard
                 activity={activity}
@@ -1302,8 +1307,6 @@
 
   .card-rail {
     grid-template-columns: minmax(0, 1fr);
-    max-height: min(34rem, 72vh);
-    overflow-y: auto;
     align-items: start;
     padding-right: 2px;
   }
@@ -1567,5 +1570,22 @@
     .action-picker-actions {
       justify-content: flex-start;
     }
+  }
+
+  .governance-disclosure {
+    display: grid;
+    gap: 10px;
+  }
+
+  .governance-disclosure summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--brand-strong);
+    list-style: none;
+  }
+
+  .governance-disclosure summary::-webkit-details-marker {
+    display: none;
   }
 </style>

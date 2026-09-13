@@ -3,6 +3,7 @@
   export let mechanics: string[] = [];
   export let note: string | null = null;
   export let progressState: 'complete' | 'current' | 'upcoming' | 'locked' = 'current';
+  export let showMechanicsDisclosure = true;
 
   function phaseSubtitle(value: string) {
     const firstSentence = value.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim();
@@ -17,7 +18,7 @@
 <div class="phase-help">
   <p class="phase-subtitle">{inlineSubtitle}</p>
 
-  {#if hasDetails}
+  {#if showMechanicsDisclosure && hasDetails}
     <details class="phase-details" data-participation-target="phase-help">
       <summary>How this phase works</summary>
       <div class="phase-details-body">

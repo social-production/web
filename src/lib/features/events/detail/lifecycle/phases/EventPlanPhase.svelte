@@ -63,13 +63,13 @@
 
 <section class="phase-surface">
   {#if data.governance === 'organizer_controlled' && !data.lifecycle.phaseTwo.viewerCanSubmitPlans}
-    <div class="empty-card">
+    <p class="helper-text">
       Organizers manage the event plan. Members can join and sign up for roles once activities are
       posted.
-    </div>
+    </p>
   {/if}
 
-  {#if data.lifecycle.phaseTwo.viewerCanSubmitPlans}
+  {#if data.lifecycle.currentPhaseId === 'event-plan' && data.lifecycle.phaseTwo.viewerCanSubmitPlans}
     <div class="composer-toggle-row">
       <RoundPlusButton
         active={showPlanComposer}
@@ -94,22 +94,22 @@
     />
   {/if}
 
-  <div id="participation-plans" class="surface-stack plan-stack" class:scrollable-stack={data.lifecycle.phaseTwo.plans.length > 4}>
-    {#if data.lifecycle.phaseTwo.plans.length === 0}
-      <div class="empty-card">No event plans submitted yet.</div>
-    {:else}
-      {#each data.lifecycle.phaseTwo.plans as plan (plan.id)}
-        <CollapsiblePlanCard
-          {plan}
-          expanded={plan.id === data.lifecycle.phaseTwo.winningPlanId || plan.id === targetedPlanId}
-          autoOpenAssessment={autoAssess && plan.id === targetedPlanId}
-          autoAssessCriterionId={plan.id === targetedPlanId ? autoAssessCriterionId : null}
-          canVote={data.lifecycle.phaseTwo.viewerCanVoteOnPlans}
-          statusLabel={statusLabel(plan.id)}
-          overallvote={voteOnPlanOverall}
-          criterionvote={ratePlanCriterion}
-        />
-      {/each}
+  <div id="participation-plans">
+    {#if data.lifecycle.phaseTwo.plans.length > 0}
+      <div class="surface-stack plan-stack">
+        {#each data.lifecycle.phaseTwo.plans as plan (plan.id)}
+          <CollapsiblePlanCard
+            {plan}
+            expanded={plan.id === data.lifecycle.phaseTwo.winningPlanId || plan.id === targetedPlanId}
+            autoOpenAssessment={autoAssess && plan.id === targetedPlanId}
+            autoAssessCriterionId={plan.id === targetedPlanId ? autoAssessCriterionId : null}
+            canVote={data.lifecycle.phaseTwo.viewerCanVoteOnPlans}
+            statusLabel={statusLabel(plan.id)}
+            overallvote={voteOnPlanOverall}
+            criterionvote={ratePlanCriterion}
+          />
+        {/each}
+      </div>
     {/if}
   </div>
 </section>
@@ -122,31 +122,11 @@
   }
 
   .plan-stack {
-    gap: 0;
-  }
-
-  .plan-stack .empty-card {
-    border: 0;
-    border-radius: 0;
+    gap: 12px;
   }
 
   .composer-toggle-row {
     display: flex;
     justify-content: center;
-  }
-
-  .empty-card {
-    padding: 14px;
-    border: 1px dashed var(--panel-border);
-    border-radius: var(--radius-sm);
-    color: var(--text-soft);
-    font-size: 13px;
-  }
-
-  .scrollable-stack {
-    max-height: min(34rem, 72vh);
-    overflow-y: auto;
-    align-content: start;
-    padding-right: 4px;
   }
 </style>

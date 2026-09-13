@@ -33,7 +33,7 @@ export const projectCreateTypeOptions: ProjectCreateTypeOption[] = [
     bestFor: [
       'Creating shared capacity, goods, or tools',
       'Designing and building something that does not exist yet',
-      'Work that needs demand and planning before production',
+      'Work that needs support and planning before production',
     ],
     lifecycleNote:
       'Starts in Proposal, then moves through production and distribution planning before activity.',
@@ -117,6 +117,14 @@ export function supportsProjectDemandSignals(mode: ProjectMode) {
 
 export function supportsProjectPlanning(mode: ProjectMode) {
   return mode !== 'personal-service';
+}
+
+export function isProjectActivityPhase(mode: ProjectMode, phaseId: string) {
+  if (isPersonalServiceProject(mode)) {
+    return phaseId === 'phase-1';
+  }
+
+  return phaseId === 'phase-5';
 }
 
 export function projectSubjectLabel(mode: ProjectMode) {
