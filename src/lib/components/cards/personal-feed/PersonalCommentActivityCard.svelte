@@ -90,21 +90,28 @@
   .footer {
     gap: 8px;
     justify-content: space-between;
+  }
+
+  .header-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .footer {
     flex-wrap: nowrap;
   }
 
   .identity-row {
     gap: 0.6rem;
     flex: 1 1 auto;
+    min-width: 0;
   }
 
   .name {
     color: var(--text-main);
     font-weight: 800;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 10rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .action,
@@ -155,7 +162,6 @@
 
   @media (max-width: 760px) {
     .name {
-      max-width: min(7rem, 28vw);
       font-size: 14px;
     }
 

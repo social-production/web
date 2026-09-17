@@ -1,10 +1,28 @@
-export function participationScrollTopOffset() {
-  const topbarHeight =
-    document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().height ?? 0;
-  const wizardHeight =
-    document.querySelector<HTMLElement>('.participation-steps')?.getBoundingClientRect().height ?? 0;
+export function participationScrollTopOffset(_scroller: HTMLElement | null = null) {
+  const padding = 16;
+  const topbar = document.querySelector<HTMLElement>('.topbar');
+  const topbarHeight = topbar?.getBoundingClientRect().height ?? 0;
+  const tabs = document.querySelector<HTMLElement>('.top-tab-row');
+  const tabsSticky = tabs && window.getComputedStyle(tabs).position === 'sticky';
+  const tabsHeight = tabsSticky ? tabs.getBoundingClientRect().height : 0;
 
-  return topbarHeight + wizardHeight + 16;
+  return topbarHeight + tabsHeight + padding;
+}
+
+function participationScrollBottomOffset(scroller: HTMLElement | null = null) {
+  const padding = 16;
+  const nav = document.querySelector<HTMLElement>('.mobile-bottom-nav');
+  if (!nav) {
+    return padding;
+  }
+
+  const navRect = nav.getBoundingClientRect();
+  const viewportBottom = scroller ? scroller.getBoundingClientRect().bottom : window.innerHeight;
+  if (navRect.height > 0 && navRect.top < viewportBottom && navRect.bottom >= viewportBottom - 4) {
+    return Math.max(padding, viewportBottom - navRect.top + padding);
+  }
+
+  return padding;
 }
 
 function mainContentScroller(): HTMLElement | null {
@@ -46,10 +64,12 @@ export function isElementInComfortView(element: HTMLElement, padding = 16): bool
   const viewport = scroller
     ? scroller.getBoundingClientRect()
     : { top: 0, left: 0, right: window.innerWidth, bottom: window.innerHeight };
+  const topPadding = Math.max(padding, participationScrollTopOffset(scroller));
+  const bottomPadding = Math.max(padding, participationScrollBottomOffset(scroller));
 
   return (
-    rect.top >= viewport.top + padding &&
-    rect.bottom <= viewport.bottom - padding &&
+    rect.top >= viewport.top + topPadding &&
+    rect.bottom <= viewport.bottom - bottomPadding &&
     rect.left >= viewport.left &&
     rect.right <= viewport.right
   );
@@ -69,18 +89,16 @@ export function scrollElementIntoViewWithOffset(
 
   const behavior = options.behavior ?? 'smooth';
   const scroller = nearestScrollParent(element);
+  const offset = participationScrollTopOffset(scroller);
 
   if (scroller) {
     const nextTop =
-      scroller.scrollTop +
-      element.getBoundingClientRect().top -
-      scroller.getBoundingClientRect().top -
-      16;
+      scroller.scrollTop + element.getBoundingClientRect().top - scroller.getBoundingClientRect().top - offset;
     scroller.scrollTo({ top: Math.max(nextTop, 0), behavior });
     return;
   }
 
-  const nextTop = window.scrollY + element.getBoundingClientRect().top - participationScrollTopOffset();
+  const nextTop = window.scrollY + element.getBoundingClientRect().top - offset;
 
   window.scrollTo({
     top: Math.max(nextTop, 0),

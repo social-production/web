@@ -82,7 +82,6 @@
   export let submitValue: () => void | Promise<void> = () => {};
   export let setProjectValueVote: (valueId: string, voteValue: ProjectImportanceVoteValue) => void | Promise<void> =
     () => {};
-  export let addProductionPlanPhase: () => void = () => {};
   export let submitProductionPlan: () => void | Promise<void> = () => {};
   export let editingProductionPlanId: string | null = null;
   export let startEditingProductionPlan: (planId: string) => void | Promise<void> = () => {};
@@ -96,7 +95,6 @@
     criterionId: string,
     rating: import('$lib/types/detail').PlanCriterionRating | null
   ) => void | Promise<void> = () => {};
-  export let addDistributionPlanPhase: () => void = () => {};
   export let submitDistributionPlan: () => void | Promise<void> = () => {};
   export let setPhaseThreePlanOverallVote: (
     planId: string,
@@ -191,7 +189,6 @@
     {data}
     bind:form={productionForm}
     bind:showComposer={showPhaseTwoComposer}
-    addPlanPhase={addProductionPlanPhase}
     submitPlan={submitProductionPlan}
     editingPlanId={editingProductionPlanId}
     startEditingPlan={startEditingProductionPlan}
@@ -207,7 +204,6 @@
     {data}
     bind:form={distributionForm}
     bind:showComposer={showPhaseThreeComposer}
-    addPlanPhase={addDistributionPlanPhase}
     submitPlan={submitDistributionPlan}
     isExpandedPlan={(planId) => isExpandedPlan('phase-3', planId)}
     {autoAssessPlanId}
@@ -257,5 +253,5 @@
     {onSoftwareWizardRequestHandled}
   />
 {:else}
-  <CollectiveServicePhaseSix projectMode={data.projectMode} />
+  <CollectiveServicePhaseSix />
 {/if}

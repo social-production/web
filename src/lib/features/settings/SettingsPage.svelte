@@ -14,9 +14,14 @@
   import { patchBootstrapCacheSettings } from '$lib/services/bootstrapCache';
   import type {
     AppearanceThemeMode,
+    NotificationCategory,
     PreferredLanguage,
     SettingsPageData,
     SettingsUpdateInput
+  } from '$lib/types/account';
+  import {
+    DEFAULT_NOTIFICATION_CATEGORIES,
+    NOTIFICATION_CATEGORIES
   } from '$lib/types/account';
   import type { ViewerSummary } from '$lib/types/bootstrap';
   import { applyLocale } from '$lib/i18n/locale';
@@ -62,6 +67,48 @@
     value: timezone,
     label: timezone
   }));
+
+  const notificationSettingOptions: Array<{
+    id: NotificationCategory;
+    title: () => string;
+    description: () => string;
+  }> = [
+    {
+      id: 'follows',
+      title: m.settings_notifications_follows,
+      description: m.settings_notifications_follows_desc
+    },
+    {
+      id: 'comments',
+      title: m.settings_notifications_comments,
+      description: m.settings_notifications_comments_desc
+    },
+    {
+      id: 'shares_invites',
+      title: m.settings_notifications_shares_invites,
+      description: m.settings_notifications_shares_invites_desc
+    },
+    {
+      id: 'roles',
+      title: m.settings_notifications_roles,
+      description: m.settings_notifications_roles_desc
+    },
+    {
+      id: 'votes_needed',
+      title: m.settings_notifications_votes_needed,
+      description: m.settings_notifications_votes_needed_desc
+    },
+    {
+      id: 'phase_done',
+      title: m.settings_notifications_phase_done,
+      description: m.settings_notifications_phase_done_desc
+    },
+    {
+      id: 'plan_leading',
+      title: m.settings_notifications_plan_leading,
+      description: m.settings_notifications_plan_leading_desc
+    }
+  ];
 
   $: if (pendingKey !== 'timezone' && data.displayTimezone !== timezoneDraft) {
     timezoneDraft = data.displayTimezone ?? '';
@@ -371,6 +418,23 @@
     });
   }
 
+  function notificationCategoriesOn() {
+    return data.notificationCategories ?? DEFAULT_NOTIFICATION_CATEGORIES;
+  }
+
+  function isNotificationEnabled(category: NotificationCategory) {
+    return notificationCategoriesOn().includes(category);
+  }
+
+  function toggleNotificationCategory(category: NotificationCategory) {
+    const current = notificationCategoriesOn();
+    const enabled = current.includes(category);
+    const next = NOTIFICATION_CATEGORIES.filter((item) =>
+      item === category ? !enabled : current.includes(item)
+    );
+    return applySettings('notifications', { notificationCategories: next }).catch(() => undefined);
+  }
+
   onMount(async () => {
     const viewerId = $page.data.bootstrap?.viewer?.id ?? null;
     deviceLocationEnabled = isDeviceGeolocationEnabled(viewerId);
@@ -431,6 +495,7 @@
     <a class="nav-item" href="#settings-profile">Profile</a>
     <a class="nav-item" href="#settings-appearance">Appearance</a>
     <a class="nav-item" href="#settings-regional">Regional</a>
+    <a class="nav-item" href="#settings-notifications">{m.settings_notifications_heading()}</a>
     {#if pendingFollowRequests.length > 0}
       <a class="nav-item" href="#settings-follow-requests">Follow requests</a>
     {/if}
@@ -594,6 +659,33 @@
       {#if regionalMessage}
         <p class="status error" role="alert">{regionalMessage}</p>
       {/if}
+    </div>
+  </section>
+
+  <section class="settings-section" id="settings-notifications">
+    <h2>{m.settings_notifications_heading()}</h2>
+    <p class="section-intro">{m.settings_notifications_intro()}</p>
+    <div class="card stack flush">
+      {#each notificationSettingOptions as option (option.id)}
+        <div class="setting-item">
+          <div>
+            <strong>{option.title()}</strong>
+            <p>{option.description()}</p>
+          </div>
+          <button
+            aria-checked={isNotificationEnabled(option.id)}
+            class="switch"
+            class:on={isNotificationEnabled(option.id)}
+            disabled={pendingKey === 'notifications'}
+            role="switch"
+            type="button"
+            on:click={() => toggleNotificationCategory(option.id)}
+          >
+            <span class="switch-thumb"></span>
+            <span class="sr-only">{isNotificationEnabled(option.id) ? 'On' : 'Off'}</span>
+          </button>
+        </div>
+      {/each}
     </div>
   </section>
 
@@ -787,6 +879,13 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-soft);
+  }
+
+  .section-intro {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .card {

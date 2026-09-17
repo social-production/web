@@ -1589,18 +1589,6 @@
     font-size: 12px;
   }
 
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
   .inline-field,
   .contact-list,
   .member-links {
@@ -1618,15 +1606,11 @@
     flex: 1 1 220px;
   }
 
-  .composer-field input,
-  .composer-field textarea {
+  .composer-field input {
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-soft);
     color: var(--text-main);
-  }
-
-  .composer-field input {
     padding: 10px 12px;
   }
 
@@ -1781,15 +1765,8 @@
     line-height: 1;
   }
 
-  textarea,
   input {
     width: 100%;
-  }
-
-  textarea {
-    min-height: 64px;
-    padding: 10px 12px;
-    resize: vertical;
   }
 
   .empty-state {
@@ -1797,25 +1774,14 @@
   }
 
   .back-button,
-  .primary-button,
   .secondary-button {
     padding: 8px 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .back-button,
-  .secondary-button {
     background: var(--panel-strong);
     color: var(--text-main);
-  }
-
-  .primary-button {
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-    border-color: var(--brand);
+    font-size: 12px;
+    font-weight: 700;
   }
 
   .back-button:hover,
@@ -1823,10 +1789,6 @@
     border-color: var(--brand);
     background: var(--brand-soft);
     color: var(--brand-strong);
-  }
-
-  .primary-button:hover {
-    background: color-mix(in srgb, var(--brand-soft) 65%, white 10%);
   }
 
   .open-source-link {

@@ -3,6 +3,7 @@
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import SoftwareLicenseNotice from '$lib/components/shared/SoftwareLicenseNotice.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
+  import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import {
     isCollectiveServiceProject,
     projectSubtypeOptions
@@ -113,11 +114,11 @@
     }
 
     if (plan.leaderStatus === 'leading') {
-      return 'Leading above threshold';
+      return 'Leading';
     }
 
     if (plan.leaderStatus === 'tied') {
-      return 'Tied above threshold';
+      return 'Tied';
     }
 
     return null;
@@ -148,10 +149,6 @@
 
 <section class="phase-surface">
   {#if canSubmitPlans}
-    <div class="composer-toggle-row">
-      <RoundPlusButton active={showComposer} label="Add plan" participationAction="submit-plan" action={() => (showComposer = !showComposer)} />
-    </div>
-
     {#if showComposer}
       <div class="composer-card">
         <DirectUsePolicyNotice variant="plan" context="project" />
@@ -287,7 +284,7 @@
 
   <div id="participation-plans">
     {#if plans.length > 0}
-      <div class="surface-stack plan-stack">
+      <div class="plan-stack">
         {#each plans as plan (plan.id)}
           <CollapsiblePlanCard
             canVote={canVoteOnPlans}
@@ -304,11 +301,22 @@
       </div>
     {/if}
   </div>
+
+  <PhaseWorkToolbar>
+    {#if canSubmitPlans}
+      <RoundPlusButton
+        standout
+        active={showComposer}
+        label="Add plan"
+        participationAction="submit-plan"
+        action={() => (showComposer = !showComposer)}
+      />
+    {/if}
+  </PhaseWorkToolbar>
 </section>
 
 <style>
   .phase-surface,
-  .surface-stack,
   .composer-card,
   .warning-card,
   .demand-context-card,
@@ -316,10 +324,6 @@
   .step-stack,
   .step-card {
     display: grid;
-    gap: 12px;
-  }
-
-  .plan-stack {
     gap: 12px;
   }
 
@@ -335,7 +339,6 @@
     font-size: 12px;
   }
 
-  .composer-toggle-row,
   .composer-actions,
   .step-header-row,
   .checkbox-row {
@@ -343,10 +346,6 @@
     gap: 12px;
     align-items: center;
     flex-wrap: wrap;
-  }
-
-  .composer-toggle-row {
-    justify-content: center;
   }
 
   .step-header-row {

@@ -143,8 +143,6 @@
     selectablePlanPhases={data.lifecycle.activity.selectablePlanPhases}
     scheduleBounds={activityWindowBounds}
     {locationQuickPicks}
-    liveTitle="Activity"
-    liveDescription="Schedule event activities and sign up for open roles."
     historyDescription="Past event activity, ratings, and completion check-in."
     emptyLiveMessage={plannedDayIsos.length > 0
       ? 'No activity scheduled yet. Click a marked plan day to add the first activity.'
@@ -186,14 +184,5 @@
     margin: 0;
     color: var(--text-soft);
     line-height: 1.45;
-  }
-
-  .plan-timing-note {
-    font-size: 12px;
-    line-height: 1.5;
-  }
-
-  .plan-timing-note.subtle {
-    color: var(--text-soft);
   }
 </style>

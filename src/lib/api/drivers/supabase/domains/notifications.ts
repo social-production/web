@@ -75,6 +75,7 @@ export async function fetchNotifications(): Promise<NotificationsPageData | null
           : ((n.surface as string) ?? 'public')) as 'public' | 'personal',
         subjectKind: mapSubjectKind(String(n.subjectKind ?? n.subject_type ?? 'project')),
         actorUsername: (n.actorUsername ?? n.actor_username ?? undefined) as string | undefined,
+        actorProfileImageUrl: (n.actorProfileImageUrl ?? n.actor_profile_image_url ?? null) as string | null,
         title: String(n.title ?? ''),
         body: String(n.body ?? ''),
         href: String(n.href ?? '#'),

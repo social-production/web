@@ -71,26 +71,28 @@
 >
   <div class="card-header">
     <div class="context-row">
-      <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.subjectProjectMode ?? 'productive'} />
-      <ReportControl
-        hasActiveReport={item.hasActiveReport}
-        interactive={false}
-        isUnderReview={item.isUnderReview}
-        itemLabel={item.subjectKind}
-        moderationState={item.moderationState}
-        report={item.report ?? null}
-      />
-    </div>
-    <div class="header-row">
-      <div class="identity-row">
-        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
-        <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
+      <div class="chips">
+        <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.subjectProjectMode ?? 'productive'} />
+        <ReportControl
+          hasActiveReport={item.hasActiveReport}
+          interactive={false}
+          isUnderReview={item.isUnderReview}
+          itemLabel={item.subjectKind}
+          moderationState={item.moderationState}
+          report={item.report ?? null}
+        />
       </div>
       {#if orderedTags.length > 0}
         <div class="tag-stack">
           <TagList tags={orderedTags} />
         </div>
       {/if}
+    </div>
+    <div class="header-row">
+      <div class="identity-row">
+        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
+        <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
+      </div>
     </div>
   </div>
 
@@ -153,14 +155,29 @@
   }
 
   .context-row {
-    gap: 6px;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    min-width: 0;
     color: var(--text-soft);
+  }
+
+  .chips {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: nowrap;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .header-row {
     gap: 8px;
     justify-content: space-between;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    align-items: flex-start;
   }
 
   .footer {
@@ -179,6 +196,7 @@
   .identity-row {
     gap: 0.6rem;
     flex: 1 1 auto;
+    min-width: 0;
   }
 
   .tag-stack {
@@ -202,10 +220,8 @@
   }
 
   .header-name {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 10rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .title {
@@ -275,7 +291,6 @@
 
   @media (max-width: 760px) {
     .header-name {
-      max-width: min(7rem, 28vw);
       font-size: 15px;
     }
 

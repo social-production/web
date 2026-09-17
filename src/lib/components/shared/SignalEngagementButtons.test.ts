@@ -58,13 +58,16 @@ describe('SignalEngagementButtons', () => {
 
     await tick();
 
-    const supportButton = screen.getByRole('button', { name: /^Support 2$/i });
+    const supportButton = screen.getByRole('button', { name: /^Support · 2$/i });
     expect(supportButton).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Support')).toBeInTheDocument();
+    expect(screen.getByText('Oppose')).toBeInTheDocument();
+    expect(screen.getByText('67%')).toBeInTheDocument();
 
     await user.click(supportButton);
     await tick();
 
-    expect(screen.getByRole('button', { name: /^Support 3$/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /^Support · 3$/i })).toHaveAttribute('aria-pressed', 'true');
 
     resolveApi({
       ok: true,
@@ -107,12 +110,12 @@ describe('SignalEngagementButtons', () => {
 
     await tick();
 
-    const supportButton = screen.getByRole('button', { name: /^Support 2$/i });
+    const supportButton = screen.getByRole('button', { name: /^Support · 2$/i });
     await user.click(supportButton);
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^Support 3$/i })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: /^Support · 3$/i })).toHaveAttribute('aria-pressed', 'true');
     });
   });
 });

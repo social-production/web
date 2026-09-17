@@ -10,6 +10,7 @@ interface BackendNotification {
   surface: string;
   subject_type: string;
   actor_username?: string | null;
+  actor_profile_image_url?: string | null;
   title: string;
   body: string;
   href: string;
@@ -86,6 +87,7 @@ export async function fetchNotifications(): Promise<NotificationsPageData | null
         surface: (n.surface as 'public' | 'personal') ?? 'public',
         subjectKind: mapSubjectKind(n.subject_type),
         actorUsername: n.actor_username ?? undefined,
+        actorProfileImageUrl: n.actor_profile_image_url ?? null,
         title: n.title,
         body: n.body,
         href: n.href,

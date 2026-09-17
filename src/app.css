@@ -478,6 +478,23 @@ p {
   }
 }
 
+@keyframes participation-standout-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+    outline: 3px solid transparent;
+    outline-offset: 3px;
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 3px var(--page-bg, var(--page-background)),
+      0 0 0 6px var(--brand);
+    outline: 2px solid color-mix(in srgb, var(--page-bg, var(--page-background)) 80%, white);
+    outline-offset: 3px;
+  }
+}
+
 .participation-action-highlight {
   animation: participation-target-pulse 0.9s ease-in-out 2;
   border-radius: var(--radius-sm);
@@ -488,21 +505,48 @@ p {
 
 button.demand-button.participation-action-highlight,
 button#participation-join.participation-action-highlight,
-button[data-participation-action].participation-action-highlight {
+button[data-participation-action]:not(.plan-card).participation-action-highlight {
   animation: participation-button-pulse 0.7s ease-in-out 3 !important;
   border-radius: var(--radius-sm);
   position: relative;
-  z-index: 0;
+  z-index: 2;
 }
 
-button.round-plus-button.participation-action-highlight {
+button.round-plus-button.participation-action-highlight,
+button.phase-shift-button.participation-action-highlight {
   animation: participation-button-pulse 0.7s ease-in-out 3 !important;
   border-radius: 999px;
   position: relative;
-  z-index: 0;
+  z-index: 2;
 }
 
-.activity-card-shell.participation-action-highlight {
+button.round-plus-button.standout.participation-action-highlight,
+button.phase-shift-button.standout.participation-action-highlight {
+  animation: participation-standout-pulse 0.7s ease-in-out 3 !important;
+}
+
+#participation-signals [data-participation-action='signal'].participation-action-highlight,
+.signal-strip.participation-action-highlight {
+  animation: none !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  filter: none !important;
+  transform: none !important;
+  z-index: 2;
+}
+
+#participation-signals [data-participation-action='signal'].participation-action-highlight .signal-button,
+.signal-strip.participation-action-highlight .signal-button {
+  animation: participation-button-pulse 0.7s ease-in-out 3 !important;
+  border-radius: var(--radius-sm);
+  position: relative;
+  z-index: 2;
+}
+
+.activity-card-shell.participation-action-highlight,
+.plan-card.participation-action-highlight {
   animation: participation-card-pulse 0.9s ease-in-out 2;
   z-index: 0;
 }
@@ -522,10 +566,19 @@ html.participation-highlight-under-overlay .participation-action-highlight,
 html.participation-highlight-under-overlay button.demand-button.participation-action-highlight,
 html.participation-highlight-under-overlay button#participation-join.participation-action-highlight,
 html.participation-highlight-under-overlay button[data-participation-action].participation-action-highlight,
-html.participation-highlight-under-overlay button.round-plus-button.participation-action-highlight {
+html.participation-highlight-under-overlay button.round-plus-button.participation-action-highlight,
+html.participation-highlight-under-overlay button.round-plus-button.standout.participation-action-highlight,
+html.participation-highlight-under-overlay button.phase-shift-button.participation-action-highlight,
+html.participation-highlight-under-overlay button.phase-shift-button.standout.participation-action-highlight,
+html.participation-highlight-under-overlay .signal-strip.participation-action-highlight,
+html.participation-highlight-under-overlay #participation-signals [data-participation-action='signal'].participation-action-highlight,
+html.participation-highlight-under-overlay .signal-strip.participation-action-highlight .signal-button,
+html.participation-highlight-under-overlay #participation-signals [data-participation-action='signal'].participation-action-highlight .signal-button {
   z-index: 0 !important;
   transform: none !important;
   filter: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 @keyframes participation-card-pulse {
@@ -553,8 +606,16 @@ html.participation-highlight-under-overlay button.round-plus-button.participatio
   box-shadow: inset 0 -1px 0 var(--panel-border);
 }
 
+.plan-stack .plan-card.leading {
+  box-shadow: inset 3px 0 0 var(--brand), inset 0 -1px 0 var(--panel-border);
+}
+
 .plan-stack .plan-card:last-child {
   box-shadow: none;
+}
+
+.plan-stack .plan-card.leading:last-child {
+  box-shadow: inset 3px 0 0 var(--brand);
 }
 
 .plan-stack .empty-card {

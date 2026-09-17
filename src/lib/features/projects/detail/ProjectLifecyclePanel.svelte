@@ -1575,14 +1575,12 @@
         bind:serviceRequestComposerElement
         {submitValue}
         setProjectValueVote={handleProjectValueVote}
-        {addProductionPlanPhase}
         {submitProductionPlan}
         {editingProductionPlanId}
         startEditingProductionPlan={openProductionPlanEditor}
         cancelEditingProductionPlan={cancelProductionPlanEdit}
         setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
         setPhaseTwoPlanCriterionRating={handlePhaseTwoPlanCriterionRating}
-        {addDistributionPlanPhase}
         {submitDistributionPlan}
         setPhaseThreePlanOverallVote={handlePhaseThreePlanOverallVote}
         setPhaseThreePlanCriterionRating={handlePhaseThreePlanCriterionRating}
@@ -1633,14 +1631,12 @@
         bind:highlightedHistoryId
         {submitValue}
         setProjectValueVote={handleProjectValueVote}
-        {addProductionPlanPhase}
         {submitProductionPlan}
         {editingProductionPlanId}
         startEditingProductionPlan={openProductionPlanEditor}
         cancelEditingProductionPlan={cancelProductionPlanEdit}
         setPhaseTwoPlanOverallVote={handlePhaseTwoPlanOverallVote}
         setPhaseTwoPlanCriterionRating={handlePhaseTwoPlanCriterionRating}
-        {addDistributionPlanPhase}
         {submitDistributionPlan}
         setPhaseThreePlanOverallVote={handlePhaseThreePlanOverallVote}
         setPhaseThreePlanCriterionRating={handlePhaseThreePlanCriterionRating}
@@ -1673,7 +1669,6 @@
       {advancePhase}
       {revertPhase}
       requestPhaseChange={handlePhaseChangeRequest}
-      voteOnPhaseChange={handlePhaseChangeVote}
       autoExpandVoteGroup={targetedPhaseChangeGroup}
       {votesRenderedInHub}
     />

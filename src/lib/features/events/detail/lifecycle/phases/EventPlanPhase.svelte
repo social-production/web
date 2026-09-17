@@ -1,6 +1,7 @@
 <script lang="ts">
   import CollapsiblePlanCard from '$lib/components/cards/project-detail/CollapsiblePlanCard.svelte';
   import PlanCreationWizard from '$lib/components/shared/PlanCreationWizard.svelte';
+  import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import type { EventPageData, PlanCriterionRating, ProjectApprovalVote } from '$lib/types/detail';
   import { buildEventPlanCreationSteps } from '$lib/utils/planRubric';
@@ -47,11 +48,11 @@
     }
 
     if (plan.leaderStatus === 'leading') {
-      return 'Leading above threshold';
+      return 'Leading';
     }
 
     if (plan.leaderStatus === 'tied') {
-      return 'Tied above threshold';
+      return 'Tied';
     }
 
     return null;
@@ -70,16 +71,6 @@
   {/if}
 
   {#if data.lifecycle.currentPhaseId === 'event-plan' && data.lifecycle.phaseTwo.viewerCanSubmitPlans}
-    <div class="composer-toggle-row">
-      <RoundPlusButton
-        active={showPlanComposer}
-        label="Add event plan"
-        ariaLabel="Add event plan"
-        participationAction="submit-plan"
-        action={() => (showPlanComposer = !showPlanComposer)}
-      />
-    </div>
-
     <PlanCreationWizard
       open={showPlanComposer}
       title="Create event plan"
@@ -96,7 +87,7 @@
 
   <div id="participation-plans">
     {#if data.lifecycle.phaseTwo.plans.length > 0}
-      <div class="surface-stack plan-stack">
+      <div class="plan-stack">
         {#each data.lifecycle.phaseTwo.plans as plan (plan.id)}
           <CollapsiblePlanCard
             {plan}
@@ -112,21 +103,24 @@
       </div>
     {/if}
   </div>
+
+  <PhaseWorkToolbar>
+    {#if data.lifecycle.currentPhaseId === 'event-plan' && data.lifecycle.phaseTwo.viewerCanSubmitPlans}
+      <RoundPlusButton
+        standout
+        active={showPlanComposer}
+        label="Add event plan"
+        ariaLabel="Add event plan"
+        participationAction="submit-plan"
+        action={() => (showPlanComposer = !showPlanComposer)}
+      />
+    {/if}
+  </PhaseWorkToolbar>
 </section>
 
 <style>
-  .phase-surface,
-  .surface-stack {
+  .phase-surface {
     display: grid;
     gap: 12px;
-  }
-
-  .plan-stack {
-    gap: 12px;
-  }
-
-  .composer-toggle-row {
-    display: flex;
-    justify-content: center;
   }
 </style>

@@ -3,15 +3,15 @@ import * as m from '$lib/paraglide/messages';
 
 export function localizedNotificationBody(item: NotificationItem): string {
   if (item.kind === 'follow-request' && item.actorUsername) {
-    return `${item.actorUsername} ${m.notification_follow_request()}`;
+    return m.notification_follow_request();
   }
 
   if (item.kind === 'new-follower' && item.actorUsername) {
-    return `${item.actorUsername} ${m.notification_new_follower()}`;
+    return m.notification_new_follower();
   }
 
   if (item.kind === 'follow-accepted' && item.actorUsername) {
-    return `${item.actorUsername} ${m.notification_follow_accepted()}`;
+    return m.notification_follow_accepted();
   }
 
   if (item.kind === 'reply') {

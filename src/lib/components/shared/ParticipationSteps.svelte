@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, tick } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { page } from '$app/stores';
   import {
     activateParticipationActivityPhase,
@@ -23,13 +23,18 @@
   const dispatch = createEventDispatcher<{ dismiss: void; stepAction: { stepId: string } }>();
 
   const plusActionSteps = new Set([
+    'signal',
+    'join',
     'rate',
     'plan',
+    'assess-plans',
+    'vote',
+    'phase-vote',
     'propose-activity',
     'make-pull-request',
     'propose-advance'
   ]);
-  const phaseHelpFirstSteps = new Set(['rate', 'plan', 'propose-activity', 'make-pull-request']);
+  const phaseHelpFirstSteps = new Set(['propose-activity', 'make-pull-request']);
   const authGatedSteps = new Set([
     'signal',
     'join',
@@ -47,9 +52,6 @@
   let lastStepSignature = '';
   let selectedStepId: string | null = null;
   let hasManualSelection = false;
-  let stepListEl: HTMLOListElement | null = null;
-  let compactLabels = false;
-  let measureQueued = false;
 
   $: visibleSteps = steps.filter((step) => step.label);
   $: stepSignature = visibleSteps.map((step) => `${step.id}:${step.helper ?? ''}`).join('|');
@@ -75,34 +77,6 @@
     visibleSteps.find((step) => step.id === selectedStepId) ??
     visibleSteps.find((step) => step.id === currentStepId) ??
     null;
-
-  $: if (stepListEl && visibleSteps.length > 0) {
-    queueCompactLabelMeasure();
-  }
-
-  function queueCompactLabelMeasure() {
-    if (measureQueued || typeof window === 'undefined') return;
-    measureQueued = true;
-    void tick().then(() => {
-      measureQueued = false;
-      void updateCompactLabels();
-    });
-  }
-
-  async function updateCompactLabels() {
-    if (!stepListEl) return;
-
-    // Measure with full labels first so we can restore them when space returns.
-    if (compactLabels) {
-      compactLabels = false;
-      await tick();
-      if (!stepListEl) return;
-    }
-
-    const overflow = stepListEl.scrollWidth - stepListEl.clientWidth;
-    // Require meaningful overflow before collapsing so labels stay readable longer.
-    compactLabels = overflow > 12;
-  }
 
   function activateStep(stepId: string) {
     if (authGatedSteps.has(stepId) && !requireViewer($page.data.bootstrap?.viewer)) {
@@ -134,8 +108,8 @@
     }
 
     if (plusActionSteps.has(stepId) && actionTarget) {
-      focusParticipationActionTarget(actionTarget);
       dispatch('stepAction', { stepId });
+      focusParticipationActionTarget(actionTarget);
       return;
     }
 
@@ -169,24 +143,12 @@
     dismissed = true;
     dispatch('dismiss');
   }
-
-  onMount(() => {
-    void updateCompactLabels();
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    window.addEventListener('resize', queueCompactLabelMeasure);
-    return () => {
-      window.removeEventListener('resize', queueCompactLabelMeasure);
-    };
-  });
 </script>
 
 {#if visibleSteps.length > 0 && !dismissed}
   <section class="participation-steps" class:lead={placement === 'lead'} aria-label="Participation steps">
     <div class="steps-toolbar">
-      <ol class="step-list" class:compact-labels={compactLabels} bind:this={stepListEl}>
+      <ol class="step-list">
         {#each visibleSteps as step, index}
           <li class:current={step.id === (selectedStepId ?? currentStepId)} class="step-item">
             <button
@@ -218,22 +180,22 @@
 
 <style>
   .participation-steps {
-    position: sticky;
-    top: calc(var(--topbar-height) + 8px);
-    z-index: 3;
-    align-self: start;
+    position: relative;
+    top: auto;
+    z-index: 1;
+    align-self: stretch;
     display: grid;
-    gap: 8px;
-    margin: 0 0 16px;
-    padding: 12px 14px;
-    border: 1px solid color-mix(in srgb, var(--brand) 42%, var(--panel-border));
+    gap: 6px;
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--brand) 28%, var(--panel-border));
     border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--brand-soft) 58%, var(--panel));
+    background: color-mix(in srgb, var(--brand-soft) 38%, var(--panel));
     overflow-anchor: none;
   }
 
   .participation-steps.lead {
-    margin: 0 0 20px;
+    margin: 0;
   }
 
   .steps-toolbar {
@@ -275,11 +237,7 @@
     margin: 0;
     padding: 3px 4px;
     list-style: none;
-    scrollbar-width: none;
-  }
-
-  .step-list::-webkit-scrollbar {
-    display: none;
+    scrollbar-width: thin;
   }
 
   .step-item {
@@ -301,11 +259,6 @@
     font-weight: 700;
     cursor: pointer;
     white-space: nowrap;
-  }
-
-  .step-list.compact-labels .step-button {
-    gap: 0;
-    padding: 6px 8px;
   }
 
   .step-button:hover {
@@ -335,10 +288,6 @@
     min-width: 0;
   }
 
-  .step-list.compact-labels .step-label {
-    display: none;
-  }
-
   .step-helper {
     margin: 0;
     color: var(--text-soft);
@@ -347,7 +296,7 @@
   }
 
   @media (max-width: 420px) {
-    .step-list:not(.compact-labels) .step-button {
+    .step-button {
       padding: 5px 7px;
       font-size: 11px;
       gap: 4px;

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { afterUpdate, tick } from 'svelte';
-  import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import PhaseShiftButton from '$lib/components/shared/PhaseShiftButton.svelte';
   import { portal } from '$lib/utils/portal';
@@ -11,17 +10,12 @@
     projectSubjectLabel,
     projectSubtypeLabel
   } from '$lib/features/projects/projectMode';
-  import {
-    formatProjectVoteRequirement,
-    formatProjectVoteSummary
-  } from '$lib/utils/projectVotes';
   import { projectPlanGateMessage } from '$lib/utils/participationSteps';
   import {
     phaseChangeDecisionTitle,
     resolveProjectPhaseChangeVoteKind
   } from '$lib/utils/phaseChangeVotes';
   import type {
-    ProjectApprovalVote,
     ProjectLifecyclePhaseChangeRequest,
     ProjectLifecyclePhaseId,
     ProjectPhaseChangeRequestOptions,
@@ -39,10 +33,6 @@
     targetPhaseId: ProjectLifecyclePhaseId,
     reason: string,
     options?: ProjectPhaseChangeRequestOptions
-  ) => void | Promise<void> = () => {};
-  export let voteOnPhaseChange: (
-    requestId: string,
-    vote: ProjectApprovalVote | null
   ) => void | Promise<void> = () => {};
 
   let showNextPhaseComposer = false;
@@ -419,6 +409,7 @@
                 active={showRevertComposer}
                 glyph="‹"
                 label={revertActionLabel()}
+                participationAction="propose-return"
                 onPress={toggleRevertComposer}
               />
             {/if}
@@ -446,6 +437,7 @@
                 active={showRevertComposer}
                 glyph="‹"
                 label={revertActionLabel()}
+                participationAction="propose-return"
                 onPress={toggleRevertComposer}
               />
             {/if}
@@ -560,10 +552,7 @@
 
 <style>
   .phase-change-stack,
-  .sheet-form,
-  .surface-stack,
-  .vote-request-card,
-  .vote-card-copy {
+  .sheet-form {
     display: grid;
     gap: 12px;
   }
@@ -587,17 +576,11 @@
   }
 
   .action-group,
-  .composer-actions,
-  .vote-summary-row,
-  .vote-card-top {
+  .composer-actions {
     display: flex;
     gap: 12px;
     align-items: center;
     flex-wrap: wrap;
-  }
-
-  .vote-card-top {
-    justify-content: space-between;
   }
 
   .action-group-left {
@@ -610,25 +593,6 @@
 
   .sheet-form {
     padding: 8px 16px 4px;
-  }
-
-  .surface-card,
-  .detail-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-  }
-
-  .detail-grid {
-    display: grid;
-    gap: 12px;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  }
-
-  .vote-request-card {
-    border-color: color-mix(in srgb, var(--brand) 16%, var(--panel-border));
-    background: color-mix(in srgb, var(--panel) 82%, var(--panel-strong));
   }
 
   .inline-alert {
@@ -651,58 +615,24 @@
     gap: 6px;
   }
 
-  .primary-button,
-  .vote-chip {
+  .primary-button {
     padding: 8px 12px;
     border-radius: var(--radius-sm);
     font-size: 12px;
     font-weight: 700;
-  }
-
-  .primary-button {
     background: var(--brand);
     color: var(--page-bg);
   }
 
-  .vote-chip {
-    border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-  }
-
-  .notice-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 72%, var(--panel));
-    color: var(--text-main);
-  }
-
   strong,
-  h3,
-  .field-inline-label,
-  .vote-requirement {
+  .field-inline-label {
     color: var(--text-main);
   }
 
   p,
   span,
-  .inline-note,
-  .vote-kicker {
+  .inline-note {
     color: var(--text-soft);
-  }
-
-  .vote-kicker {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-  }
-
-  .vote-requirement {
-    font-size: 12px;
-    font-weight: 700;
   }
 
   textarea,

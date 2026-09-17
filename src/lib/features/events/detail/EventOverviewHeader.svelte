@@ -36,6 +36,9 @@
     onMembershipChange = undefined,
     detailsOpen = $bindable(false),
     participationOpen = $bindable(false),
+    votesOpen = $bindable(true),
+    showVoteFold = false,
+    voteCount = 0,
     showMembersPanel = false,
     onToggleMembers = undefined,
     votesRenderedInHub: _votesRenderedInHub = false
@@ -46,14 +49,17 @@
     onMembershipChange?: (next: { viewerIsMember: boolean; memberCount: number }) => void;
     detailsOpen?: boolean;
     participationOpen?: boolean;
+    votesOpen?: boolean;
+    showVoteFold?: boolean;
+    voteCount?: number;
     showMembersPanel?: boolean;
     onToggleMembers?: () => void;
     votesRenderedInHub?: boolean;
   } = $props();
 
   let liveShareContacts = $state<DetailMember[]>([]);
-  let draftEditTitle = $state(data.title);
-  let draftEditDescription = $state(data.description);
+  let draftEditTitle = $state('');
+  let draftEditDescription = $state('');
   let showEditComposer = $state(false);
   let editPending = $state(false);
   let editMessage = $state('');
@@ -268,6 +274,19 @@
 </div>
 
 <div class="heading overview-heading">
+  <div class="heading-chrome">
+    <DetailFoldToggles
+      {detailsOpen}
+      {participationOpen}
+      {votesOpen}
+      showVotes={showVoteFold}
+      {voteCount}
+      onToggleDetails={() => (detailsOpen = !detailsOpen)}
+      onToggleParticipation={() => (participationOpen = !participationOpen)}
+      onToggleVotes={() => (votesOpen = !votesOpen)}
+    />
+  </div>
+
   <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
     <h1>{data.title}</h1>
   </ModerationRestrictionNotice>
@@ -281,13 +300,6 @@
   {#if latestUpdate}
     <p class="overview-update">Update: {latestUpdate.body}</p>
   {/if}
-
-  <DetailFoldToggles
-    {detailsOpen}
-    {participationOpen}
-    onToggleDetails={() => (detailsOpen = !detailsOpen)}
-    onToggleParticipation={() => (participationOpen = !participationOpen)}
-  />
 
   {#if canSignal && signalSummary}
     <div id="participation-signals" class="signal-row">
@@ -477,10 +489,7 @@
   .header-row,
   .chips,
   .control-row,
-  .control-actions,
-  .composer-actions,
-  .vote-card-top,
-  .vote-summary-row {
+  .control-actions {
     display: flex;
     gap: 8px;
     align-items: center;
@@ -497,6 +506,18 @@
 
   .heading {
     padding-bottom: 12px;
+  }
+
+  .heading-chrome {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .heading-chrome :global(.overview-folds) {
+    margin-left: auto;
+    flex: 0 0 auto;
   }
 
   .header-row {
@@ -611,36 +632,8 @@
     flex-wrap: wrap;
     min-width: 0;
     margin-top: 4px;
-    padding: 4px 2px;
+    padding: 0;
     overflow: visible;
-  }
-
-  .members-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .members-action :global(.meta-icon) {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-    display: grid;
-    place-items: center;
-  }
-
-  .members-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .members-action :global(.meta-icon) {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-    display: grid;
-    place-items: center;
   }
 
   strong {
@@ -681,34 +674,6 @@
     line-height: 1.45;
   }
 
-  .demand-button {
-    justify-self: start;
-    min-width: 84px;
-    padding: 8px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-soft);
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .demand-button.active-demand {
-    border-color: var(--brand);
-    color: var(--brand-strong);
-  }
-
-  .demand-button:hover {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .meta-block {
-    padding: 0;
-    min-width: 0;
-  }
-
   .event-meta-list {
     margin: 0;
     padding: 0;
@@ -735,11 +700,6 @@
     margin: 0;
   }
 
-  .signal-stack {
-    display: grid;
-    gap: 8px;
-  }
-
   .phase-mechanics {
     margin: 0;
     padding-left: 18px;
@@ -747,132 +707,8 @@
     gap: 6px;
   }
 
-  #participation-join,
   #participation-signals {
     scroll-margin-top: 120px;
-  }
-
-  .composer-card,
-  .surface-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-    min-width: 0;
-  }
-
-  .warning-card {
-    padding: 12px 14px;
-    border: 1px solid color-mix(in srgb, var(--status-yellow) 50%, var(--panel-border));
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--status-yellow) 14%, var(--panel-strong));
-    color: var(--text-main);
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .field-stack {
-    display: grid;
-    gap: 8px;
-  }
-
-  .field-label {
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .surface-stack,
-  .vote-card-copy {
-    display: grid;
-    gap: 18px;
-    min-width: 0;
-  }
-
-  input,
-  textarea {
-    width: 100%;
-    max-width: 100%;
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-main);
-    box-sizing: border-box;
-  }
-
-  textarea {
-    min-height: 120px;
-    resize: vertical;
-  }
-
-  .primary-button,
-  .secondary-button {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .primary-button {
-    background: var(--brand);
-    color: var(--page-bg);
-  }
-
-  .secondary-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-  }
-
-  .primary-button:disabled,
-  .secondary-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .vote-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .vote-chip.notice-chip {
-    color: var(--brand-strong);
-  }
-
-  .vote-kicker {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-soft);
-  }
-
-  .vote-card-top {
-    justify-content: space-between;
-  }
-
-  .vote-requirement,
-  .vote-summary-row {
-    color: var(--text-soft);
-    font-size: 12px;
-  }
-
-  .edit-request-copy {
-    display: grid;
-    gap: 8px;
-  }
-
-  .edit-request-copy p {
-    margin: 0;
   }
 
   @media (max-width: 760px) {

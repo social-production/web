@@ -36,6 +36,7 @@
   } from '$lib/utils/participationSteps';
   import {
     collectEventPendingVotes,
+    hubActionVotes,
     scrollToPendingVote,
     type PendingVoteItem,
   } from '$lib/utils/pendingVotes';
@@ -151,6 +152,7 @@
   let signalRemovalNudge = false;
   let detailsOpen = false;
   let participationOpen = true;
+  let votesOpen = true;
   let lastWorkFocused: boolean | null = null;
 
   onMount(() => {
@@ -188,6 +190,7 @@
   });
 
   async function focusVoteTarget(voteKind: string | null, voteTarget: string | null) {
+    votesOpen = true;
     await tick();
     if (typeof document === 'undefined') {
       return;
@@ -349,6 +352,7 @@
   }
 
   $: pendingVotes = collectEventPendingVotes(pageData);
+  $: hubVotes = hubActionVotes(pendingVotes);
   $: workFocused = pageData.lifecycle.currentPhaseId === 'activity';
   $: if (lastWorkFocused === null) {
     lastWorkFocused = workFocused;
@@ -382,6 +386,12 @@
   function handleParticipationDismiss() {
     signalRemovalNudge = false;
     participationOpen = false;
+  }
+
+  function handleParticipationStep(event: CustomEvent<{ stepId: string }>) {
+    if (event.detail.stepId === 'vote' || event.detail.stepId === 'phase-vote') {
+      votesOpen = true;
+    }
   }
 
   function handlePendingAssess(item: PendingVoteItem) {
@@ -474,17 +484,22 @@
         {selectedPhaseId}
         bind:detailsOpen
         bind:participationOpen
+        bind:votesOpen
+        showVoteFold={hubVotes.length > 0}
+        voteCount={hubVotes.length}
         {showMembersPanel}
         onToggleMembers={handleMembersPanelOpen}
-        votesRenderedInHub={pendingVotes.length > 0}
+        votesRenderedInHub={hubVotes.length > 0}
         signalChange={handleSignalChange}
         onMembershipChange={handleMembershipChange}
       />
-      <PendingVotesPanel
-        items={pendingVotes}
-        onVote={handlePendingVote}
-        onAssess={handlePendingAssess}
-      />
+      {#if votesOpen && hubVotes.length > 0}
+        <PendingVotesPanel
+          items={hubVotes}
+          onVote={handlePendingVote}
+          onAssess={handlePendingAssess}
+        />
+      {/if}
       {#if participationOpen}
         <section id="detail-participation-panel" class="participation-panel">
           <ParticipationSteps
@@ -494,6 +509,7 @@
             {pageData}
             placement="lead"
             on:dismiss={handleParticipationDismiss}
+            on:stepAction={handleParticipationStep}
           />
         </section>
       {/if}
@@ -513,7 +529,7 @@
           {autoAssessCriterionId}
           assessPlanId={participationAssessPlanId}
           assessCriterionId={participationAssessCriterionId}
-          votesRenderedInHub={pendingVotes.length > 0}
+          votesRenderedInHub={hubVotes.length > 0}
           onPhaseAdvanced={(phaseId) => {
             pageData = {
               ...pageData,
@@ -619,25 +635,21 @@
     order: 50;
   }
 
+  .overview-tab :global(.participation-panel) {
+    order: 0;
+    margin: 0 0 12px;
+  }
+
   .overview-tab :global(.overview-type-row) {
     order: 1;
   }
 
-  .overview-tab :global(.overview-phase-tabs) {
-    order: 2;
-    margin: 4px 0 12px;
-  }
-
   .overview-tab :global(.overview-heading) {
-    order: 3;
+    order: 2;
   }
 
   .overview-tab :global(.pending-votes-panel) {
-    order: 6;
-  }
-
-  .overview-tab :global(.participation-panel) {
-    order: 7;
+    order: 3;
   }
 
   .overview-tab :global(.overview-governance) {
@@ -645,16 +657,21 @@
   }
 
   .overview-tab :global(.overview-phase-work) {
-    order: 8;
+    order: 4;
+  }
+
+  .overview-tab :global(.overview-phase-tabs) {
+    order: 5;
+    margin: 10px 0 0;
   }
 
   .overview-tab :global(.overview-actions) {
-    order: 9;
+    order: 6;
   }
 
   .overview-tab :global(.overview-composer),
   .overview-tab :global(.overview-edit-votes) {
-    order: 10;
+    order: 7;
   }
 
   .tab-panel-hidden {
@@ -681,7 +698,8 @@
 
   @media (max-width: 1080px) {
     .page {
-      overflow-y: clip;
+      overflow-x: clip;
+      overflow-y: visible;
     }
 
     .page-chat {
@@ -698,8 +716,9 @@
     .hero-card {
       min-width: 0;
       overflow: visible;
-      padding-top: 16px;
-      margin-top: 12px;
+      padding-top: 0;
+      margin-top: 0;
+      border-radius: 0;
     }
 
     .hero-card.chat-tab-active {

@@ -36,7 +36,7 @@
     eventScheduleStartsInFuture,
     localDateTimeInputToIso
   } from '$lib/utils/eventSchedule';
-  import { addEventActivity, addEventPlan, addEventValue, requestEventPhaseChange, setEventActivityCommitment, setEventActivityRating, deleteEventActivityRating, toggleEventHistoryCompletion, setEventPhaseChangeVote, setEventPlanOverallVote, setEventPlanCriterionRating, setEventValueImportance } from '$lib/services/commands/events';
+  import { addEventActivity, addEventPlan, addEventValue, requestEventPhaseChange, setEventActivityCommitment, setEventActivityRating, deleteEventActivityRating, toggleEventHistoryCompletion, setEventPlanOverallVote, setEventPlanCriterionRating, setEventValueImportance } from '$lib/services/commands/events';
   import type {
     EventLifecyclePhase,
     EventLifecyclePhaseId,
@@ -437,13 +437,6 @@
     await invalidateEventDetail(data.slug);
   }
 
-  function addPlanPhase() {
-    planForm = {
-      ...planForm,
-      planPhases: [...planForm.planPhases, { title: '', details: '' }]
-    };
-  }
-
   async function submitPlan() {
     if (data.lifecycle.currentPhaseId !== 'event-plan') {
       return;
@@ -617,20 +610,14 @@
     try {
       await requestEventPhaseChange(data.slug, targetPhaseId, reason);
       phaseChangeReason = '';
+      if (data.governance === 'organizer_controlled') {
+        onPhaseAdvanced(targetPhaseId);
+      }
       requestActivityRailRefresh();
       await invalidateEventDetail(data.slug);
     } catch {
       // Phase change failed — demand threshold may not be met
     }
-  }
-
-  async function voteOnPhaseChange(requestId: string, vote: ProjectApprovalVote | null) {
-    const result = await setEventPhaseChangeVote(data.slug, requestId, vote);
-    if (result?.passed && result.targetPhaseId) {
-      onPhaseAdvanced(result.targetPhaseId as EventLifecyclePhaseId);
-    }
-    requestActivityRailRefresh();
-    await invalidateEventDetail(data.slug);
   }
 </script>
 
@@ -663,7 +650,6 @@
       bind:activityForm
       {submitValue}
       {voteOnValue}
-      {addPlanPhase}
       {submitPlan}
       {voteOnPlanOverall}
       {ratePlanCriterion}
@@ -681,7 +667,6 @@
       {canAdvanceCurrentPhase}
       bind:phaseChangeReason
       {requestPhaseChange}
-      {voteOnPhaseChange}
       autoExpandVoteGroup={targetedPhaseChangeGroup}
       {votesRenderedInHub}
     />

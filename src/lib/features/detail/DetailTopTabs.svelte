@@ -81,13 +81,20 @@
 
   @media (max-width: 1080px) {
     .top-tab-row {
-      position: static;
-      width: 100%;
+      position: sticky;
+      top: var(--topbar-height, 0px);
+      z-index: 40;
+      width: auto;
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       transform: none;
-      box-shadow: none;
-      margin-bottom: 12px;
+      margin: 0 -16px 12px;
+      padding: 8px 16px;
+      border: 0;
+      border-bottom: 1px solid var(--panel-border);
+      border-radius: 0;
+      background: var(--toolbar-background, var(--panel));
+      box-shadow: 0 8px 16px color-mix(in srgb, var(--page-bg) 55%, transparent);
     }
 
     .top-tab {

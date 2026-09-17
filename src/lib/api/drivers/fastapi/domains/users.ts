@@ -2,6 +2,7 @@ import { apiClient } from '../client';
 import { mapPersonalItem, registerFeedEntity } from './feeds';
 import { DEFAULT_FEED_PAGE_SIZE } from '$lib/types/pagination';
 import type { ProfilePageData, SettingsPageData, SettingsUpdateInput } from '$lib/types/account';
+import { normalizeNotificationCategories } from '$lib/types/account';
 import type { ViewerSummary } from '$lib/types/bootstrap';
 import {
   buildFeedQueryString,
@@ -36,6 +37,7 @@ interface BackendSettings {
   preferred_language: string;
   display_timezone?: string | null;
   default_location_id?: string | null;
+  notification_categories?: string[] | null;
 }
 
 interface BackendFollowItem extends BackendUser {
@@ -103,6 +105,7 @@ function mapSettings(user: BackendUser, s: BackendSettings): SettingsPageData {
     preferredLanguage: (s.preferred_language === 'nl' ? 'nl' : 'en') as SettingsPageData['preferredLanguage'],
     displayTimezone: s.display_timezone ?? null,
     defaultLocationId: s.default_location_id ?? null,
+    notificationCategories: normalizeNotificationCategories(s.notification_categories)
   };
 }
 
@@ -151,6 +154,8 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
     body.display_timezone = input.displayTimezone;
   if (input.defaultLocationId !== undefined)
     body.default_location_id = input.defaultLocationId;
+  if (input.notificationCategories !== undefined)
+    body.notification_categories = input.notificationCategories;
   await apiClient.patch('/users/me/settings', body);
 }
 

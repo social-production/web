@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
@@ -44,6 +45,9 @@
 </script>
 
 <FeedSurface
+  interactive
+  compact
+  clampExcerpts={false}
   tone={item.surface === 'personal' ? 'personal' : 'public'}
   accent={isSocialFollowNotice ? null : surfaceTypeAccent(item.subjectKind, item.projectMode ?? 'productive')}
 >
@@ -55,93 +59,128 @@
     role="link"
     tabindex="0"
   >
-    <div class="copy">
-      {#if item.isUnread || item.actionLabel || !isSocialFollowNotice}
-        <div class="kicker">
-          {#if item.isUnread}
-            <span class="unread-dot"></span>
-          {/if}
-          {#if !isSocialFollowNotice}
-            <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
-          {/if}
-          {#if item.actionLabel}
-            <span class="action">{item.actionLabel}</span>
-          {/if}
-        </div>
-      {/if}
-
-      {#if item.title}
-        <p class="title-text">{item.title}</p>
-      {/if}
-
-      {#if displayBody}
-        <p class="body">{displayBody}</p>
-      {/if}
-
-      {#if !item.title && !displayBody && orderedTags.length > 0}
-        <TagList tags={orderedTags} />
-      {/if}
-    </div>
-
-    {#if showFollowRequestActions && item.actorUsername}
-      <div class="follow-request-actions">
-        <button
-          class="accept-button"
-          disabled={followRequestPending === item.actorUsername}
-          type="button"
-          on:click={() => onAcceptFollowRequest?.(item.actorUsername!)}
-        >
-          {m.notification_accept_follower()}
-        </button>
-        <button
-          class="decline-button"
-          disabled={followRequestPending === item.actorUsername}
-          type="button"
-          on:click={() => onRejectFollowRequest?.(item.actorUsername!)}
-        >
-          {m.notification_decline_follower()}
-        </button>
+    {#if isSocialFollowNotice && item.actorUsername}
+      <div class="identity-row">
+        {#if item.isUnread}
+          <span class="unread-dot"></span>
+        {/if}
+        <AvatarBadge size="sm" username={item.actorUsername} imageUrl={item.actorProfileImageUrl ?? null} />
+        <a class="name" href={`/profile/${item.actorUsername}`}>{item.actorUsername}</a>
+      </div>
+    {:else}
+      <div class="kicker">
+        {#if item.isUnread}
+          <span class="unread-dot"></span>
+        {/if}
+        <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
+        {#if item.actionLabel}
+          <span class="action">{item.actionLabel}</span>
+        {/if}
       </div>
     {/if}
 
-    <div class="meta-row">
-      <div class="footer-meta">
-        {#if item.actorUsername}
-          <a class="actor-link" href={`/profile/${item.actorUsername}`}>{item.actorUsername}</a>
+    <div class="copy-row">
+      <div class="copy">
+        {#if !isSocialFollowNotice && item.title}
+          <p class="title-text">{item.title}</p>
         {/if}
-        <ContentMetaRow timeOnly createdAt={item.createdAt} />
+
+        {#if displayBody}
+          <p class="body">{displayBody}</p>
+        {/if}
+
+        {#if !isSocialFollowNotice && !item.title && !displayBody && orderedTags.length > 0}
+          <TagList tags={orderedTags} />
+        {/if}
       </div>
-      {#if item.isUnread}
-        <button class="mark-read" type="button" on:click={() => dispatch('read')}>{m.notification_mark_read()}</button>
+
+      {#if !showFollowRequestActions && !item.isUnread}
+        <div class="footer-meta">
+          {#if isSocialFollowNotice}
+            <ContentMetaRow timeOnly createdAt={item.createdAt} />
+          {:else}
+            <ContentMetaRow authorUsername={item.actorUsername ?? null} createdAt={item.createdAt} />
+          {/if}
+        </div>
       {/if}
     </div>
+
+    {#if showFollowRequestActions || item.isUnread}
+      <div class="meta-row">
+        <div class="meta-actions">
+          {#if showFollowRequestActions && item.actorUsername}
+            <button
+              class="accept-button"
+              disabled={followRequestPending === item.actorUsername}
+              type="button"
+              on:click={() => onAcceptFollowRequest?.(item.actorUsername!)}
+            >
+              {m.notification_accept_follower()}
+            </button>
+            <button
+              class="decline-button"
+              disabled={followRequestPending === item.actorUsername}
+              type="button"
+              on:click={() => onRejectFollowRequest?.(item.actorUsername!)}
+            >
+              {m.notification_decline_follower()}
+            </button>
+          {/if}
+
+          {#if item.isUnread}
+            <button class="mark-read" type="button" on:click={() => dispatch('read')}>{m.notification_mark_read()}</button>
+          {/if}
+        </div>
+
+        <div class="footer-meta">
+          {#if isSocialFollowNotice}
+            <ContentMetaRow timeOnly createdAt={item.createdAt} />
+          {:else}
+            <ContentMetaRow authorUsername={item.actorUsername ?? null} createdAt={item.createdAt} />
+          {/if}
+        </div>
+      </div>
+    {/if}
   </div>
 </FeedSurface>
 
 <style>
   .notification-card {
     display: grid;
-    gap: 8px;
+    gap: 6px;
     cursor: pointer;
+  }
+
+  .identity-row,
+  .kicker,
+  .copy-row,
+  .meta-row,
+  .meta-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .copy-row {
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .identity-row {
+    gap: 0.6rem;
+  }
+
+  .kicker {
+    flex-wrap: wrap;
   }
 
   .copy {
     display: grid;
-    gap: 4px;
-  }
-
-  .kicker,
-  .meta-row,
-  .footer-meta,
-  .follow-request-actions {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .meta-row {
-    justify-content: space-between;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .unread-dot {
@@ -149,6 +188,15 @@
     height: 7px;
     border-radius: 999px;
     background: var(--brand);
+    flex: 0 0 auto;
+  }
+
+  .name {
+    min-width: 0;
+    color: var(--text-main);
+    font-weight: 800;
+    text-decoration: none;
+    overflow-wrap: anywhere;
   }
 
   .title-text {
@@ -157,12 +205,6 @@
     font-size: 15px;
     font-weight: 700;
     line-height: 1.3;
-  }
-
-  .actor-link {
-    color: var(--text-main);
-    font-weight: 700;
-    text-decoration: none;
   }
 
   .action,
@@ -175,6 +217,26 @@
   .action {
     font-size: 12px;
     font-weight: 700;
+  }
+
+  .meta-row {
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 2px;
+  }
+
+  .meta-actions {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+  }
+
+  .footer-meta {
+    margin-left: auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-align: right;
+    white-space: nowrap;
   }
 
   .mark-read {

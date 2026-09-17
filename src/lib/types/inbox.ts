@@ -9,6 +9,7 @@ export interface NotificationItem {
   subjectKind: SubjectKind;
   projectMode?: ProjectMode;
   actorUsername?: string;
+  actorProfileImageUrl?: string | null;
   actionLabel?: string;
   title: string;
   body: string;

@@ -1,6 +1,7 @@
 <script lang="ts">
   import CollapsiblePlanCard from '$lib/components/cards/project-detail/CollapsiblePlanCard.svelte';
   import PlanCreationWizard from '$lib/components/shared/PlanCreationWizard.svelte';
+  import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import {
     isCollectiveServiceProject,
@@ -123,11 +124,11 @@
     }
 
     if (plan.leaderStatus === 'leading') {
-      return 'Leading above threshold';
+      return 'Leading';
     }
 
     if (plan.leaderStatus === 'tied') {
-      return 'Tied above threshold';
+      return 'Tied';
     }
 
     return null;
@@ -146,15 +147,6 @@
 
 <section class="phase-surface">
   {#if canSubmitPlans}
-    <div class="composer-toggle-row">
-      <RoundPlusButton
-        active={showComposer}
-        label={editingPlanId ? 'Edit plan' : 'Add plan'}
-        participationAction="submit-plan"
-        action={toggleComposer}
-      />
-    </div>
-
     <PlanCreationWizard
       open={showComposer}
       title={editingPlanId ? 'Edit plan' : isPhaseTwo ? 'Create production plan' : 'Create distribution plan'}
@@ -182,7 +174,7 @@
 
   <div id="participation-plans">
     {#if plans.length > 0}
-      <div class="surface-stack plan-stack">
+      <div class="plan-stack">
         {#each plans as plan (plan.id)}
           <CollapsiblePlanCard
             canEdit={isPhaseTwo && 'viewerCanEdit' in plan && !!plan.viewerCanEdit}
@@ -201,29 +193,23 @@
       </div>
     {/if}
   </div>
+
+  <PhaseWorkToolbar>
+    {#if canSubmitPlans}
+      <RoundPlusButton
+        standout
+        active={showComposer}
+        label={editingPlanId ? 'Edit plan' : 'Add plan'}
+        participationAction="submit-plan"
+        action={toggleComposer}
+      />
+    {/if}
+  </PhaseWorkToolbar>
 </section>
 
 <style>
-  .phase-surface,
-  .surface-stack {
+  .phase-surface {
     display: grid;
     gap: 12px;
-  }
-
-  .plan-stack {
-    gap: 12px;
-  }
-
-  .composer-toggle-row {
-    display: flex;
-    justify-content: center;
-  }
-
-  .empty-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-    color: var(--text-soft);
   }
 </style>

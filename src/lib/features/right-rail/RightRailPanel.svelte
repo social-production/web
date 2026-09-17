@@ -891,11 +891,6 @@
     border-top: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
   }
 
-  .rail-panel h2 {
-    font-size: 14px;
-    color: var(--text-main);
-  }
-
   .snapshot-stack {
     display: grid;
     gap: 0;

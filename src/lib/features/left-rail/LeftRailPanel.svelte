@@ -112,9 +112,4 @@
     background: transparent;
     color: var(--text-soft);
   }
-
-  .rail-utility {
-    padding: 4px 0 12px;
-    border-bottom: 1px solid var(--panel-border);
-  }
 </style>

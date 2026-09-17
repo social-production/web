@@ -387,6 +387,14 @@ export function collectProjectPendingVotes(data: ProjectPageData): PendingVoteIt
   return items;
 }
 
+export function isPlanSurfaceVote(item: PendingVoteItem) {
+  return item.voteKind === 'plan' && !item.planValueId;
+}
+
+export function hubActionVotes(items: PendingVoteItem[]) {
+  return items.filter((item) => !isPlanSurfaceVote(item));
+}
+
 export function collectEventPendingVotes(data: EventPageData): PendingVoteItem[] {
   const items: PendingVoteItem[] = [];
 

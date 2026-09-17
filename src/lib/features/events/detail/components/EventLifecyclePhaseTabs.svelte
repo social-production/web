@@ -5,9 +5,21 @@
   export let tabs: EventLifecycleTabItem[] = [];
   export let activePhaseId: EventLifecyclePhaseId;
   export let selectPhase: (phase: EventLifecyclePhase) => void = () => {};
+
+  function compactTitle(title: string) {
+    const trimmed = title.trim();
+    if (/^event\s+plan$/i.test(trimmed)) {
+      return 'Plan';
+    }
+    return trimmed.replace(/\s+Plan$/i, '').trim() || trimmed;
+  }
 </script>
 
-<section class="phase-tab-row overview-phase-tabs" role="tablist">
+<section
+  class="phase-tab-row overview-phase-tabs"
+  role="tablist"
+  style={`--phase-count: ${Math.max(tabs.length, 1)}`}
+>
   {#each tabs as tab}
     <button
       class:active={activePhaseId === tab.phase.id}
@@ -20,13 +32,11 @@
       role="tab"
       aria-selected={activePhaseId === tab.phase.id}
       aria-label={`${tab.title} · ${tab.progressLabel}`}
+      title={`${tab.title} · ${tab.progressLabel}`}
       on:click={() => selectPhase(tab.phase)}
     >
       <span aria-hidden="true" class="phase-tab-swatch"></span>
-      <span class="phase-tab-copy">
-        <span class="phase-tab-title">{tab.title}</span>
-        <small class:current-label={tab.phase.progressState === 'current'}>{tab.progressLabel}</small>
-      </span>
+      <span class="phase-tab-title">{compactTitle(tab.title)}</span>
     </button>
   {/each}
 </section>
@@ -34,35 +44,38 @@
 <style>
   .phase-tab-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
-    gap: 8px;
-    padding: 4px 0 8px;
+    grid-template-columns: repeat(var(--phase-count, 4), minmax(0, 1fr));
+    gap: 0;
     min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    margin: 8px 0 0;
+    padding: 2px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel-strong);
   }
 
   .phase-tab {
     min-width: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
-    min-height: 44px;
-    padding: 8px 12px;
-    border: 1px solid var(--panel-border);
+    justify-content: center;
+    gap: 5px;
+    min-height: 32px;
+    padding: 4px 6px;
+    border: 0;
     border-radius: 999px;
-    background: var(--panel-strong);
-    text-align: left;
-    font-size: 12px;
+    background: transparent;
+    text-align: center;
+    font-size: 11px;
     font-weight: 700;
-  }
-
-  .phase-tab-copy {
-    display: grid;
-    gap: 1px;
+    white-space: nowrap;
   }
 
   .phase-tab-swatch {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 999px;
     background: #9aa3ad;
     flex: 0 0 auto;
@@ -93,27 +106,37 @@
     background: color-mix(in srgb, var(--tablet-community-bg) 70%, #9aa3ad);
   }
 
-  .phase-tab small {
+  .phase-tab-title {
+    min-width: 0;
     color: inherit;
-    font-size: 10px;
-    opacity: 0.82;
+    font-size: 11px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .phase-tab.active {
-    border-color: color-mix(in srgb, var(--brand) 50%, var(--panel-border));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 20%, transparent);
+    background: color-mix(in srgb, var(--brand-soft) 62%, var(--panel));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 28%, transparent);
   }
 
-  .phase-tab-title {
-    color: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    overflow-wrap: anywhere;
-  }
-
-  .phase-tab.active .phase-tab-title,
-  .phase-tab small.current-label {
+  .phase-tab.active .phase-tab-title {
     color: var(--brand-strong);
-    opacity: 1;
+  }
+
+  @media (max-width: 760px) {
+    .phase-tab {
+      min-height: 28px;
+      padding: 3px 4px;
+      gap: 4px;
+    }
+
+    .phase-tab-swatch {
+      display: none;
+    }
+
+    .phase-tab-title {
+      font-size: 10px;
+    }
   }
 </style>

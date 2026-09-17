@@ -238,8 +238,6 @@
     {activityForm}
     selectablePlanPhases={data.lifecycle.phaseFive.selectablePlanPhases}
     {locationQuickPicks}
-    liveTitle="Activity setup"
-    liveDescription="Schedule productive work blocks and track which ones have enough committed roles to activate."
     {historyDescription}
     emptyLiveMessage="No activities scheduled yet."
     {emptyHistoryMessage}

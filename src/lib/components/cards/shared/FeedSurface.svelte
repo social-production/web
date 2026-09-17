@@ -4,6 +4,10 @@
 
   export let tone: 'public' | 'personal' = 'public';
   export let href: string | null = null;
+  /** Make the row look clickable (hover + pointer) even when navigation is handled by the slot. */
+  export let interactive = false;
+  /** Tighter padding for dense rows such as notifications. */
+  export let compact = false;
   export let accent: SurfaceTypeAccent | null = null;
   export let isLast = false;
   /** Serious-harm restriction: keep card in feed but blur text/media with a warning. */
@@ -16,12 +20,15 @@
   $: skipScrollOnNavigate = href?.includes('comment=') ?? false;
   $: accentColor = accent ? surfaceAccentCssVar(accent) : null;
   $: blurContent = contentRestricted && !revealRestricted;
+  $: isClickable = interactive || Boolean(href);
+  $: contentInteractive = isClickable && !href;
 </script>
 
 <article
   class:tone-public={tone === 'public'}
   class:tone-personal={tone === 'personal'}
-  class:clickable={!!href}
+  class:clickable={isClickable}
+  class:compact
   class:last-row={isLast}
   class:has-accent={!!accent}
   class:content-restricted={contentRestricted}
@@ -51,7 +58,7 @@
     </div>
   {/if}
 
-  <div class:blurred={blurContent} class:clamp-excerpts={clampExcerpts} class="content">
+  <div class:blurred={blurContent} class:clamp-excerpts={clampExcerpts} class:content-interactive={contentInteractive} class="content">
     <slot />
   </div>
 </article>
@@ -68,6 +75,10 @@
     box-shadow: none;
     background: var(--panel);
     transition: background-color 0.16s ease;
+  }
+
+  .surface.compact {
+    padding: 14px 16px;
   }
 
   .surface.has-accent {
@@ -128,6 +139,10 @@
     pointer-events: none;
   }
 
+  .content.content-interactive {
+    pointer-events: auto;
+  }
+
   .content.blurred {
     filter: blur(6px);
     user-select: none;
@@ -168,6 +183,12 @@
     font-size: 13px;
     font-weight: 500;
     line-height: 1.45;
+  }
+
+  .compact .content :global(.body),
+  .compact .content :global(.summary),
+  .compact .content :global(.comment-excerpt) {
+    margin-top: 4px;
   }
 
   .content :global(.footer),

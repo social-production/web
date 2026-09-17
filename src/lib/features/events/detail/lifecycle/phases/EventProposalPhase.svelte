@@ -74,12 +74,4 @@
   .compact-stack {
     gap: 0;
   }
-
-  .composer-toggle-row {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
 </style>

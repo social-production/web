@@ -58,7 +58,6 @@
     valueId: string,
     vote: ProjectImportanceVoteValue
   ) => void | Promise<void> = () => {};
-  export let addPlanPhase: () => void = () => {};
   export let submitPlan: () => void | Promise<void> = () => {};
   export let voteOnPlanOverall: (
     planId: string,

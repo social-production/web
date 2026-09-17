@@ -64,7 +64,7 @@
     gap: 1px;
   }
 
-  .membership-split:has(.participation-action-highlight) {
+  .membership-split:has(:global(.participation-action-highlight)) {
     overflow: visible;
   }
 

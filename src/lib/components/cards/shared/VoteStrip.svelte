@@ -28,6 +28,9 @@
     favorability = null,
     viewerSignal = null,
     disabled = false,
+    labeled = false,
+    canSupport = true,
+    canOppose = true,
     onvote,
     onsignal
   }: {
@@ -40,6 +43,9 @@
     favorability?: number | null;
     viewerSignal?: 'demand' | 'opposition' | null;
     disabled?: boolean;
+    labeled?: boolean;
+    canSupport?: boolean;
+    canOppose?: boolean;
     onvote?: VoteHandler;
     onsignal?: SignalHandler;
   } = $props();
@@ -208,23 +214,36 @@
     if (disabled) {
       return;
     }
+    if (signal === 'demand' && !canSupport) {
+      return;
+    }
+    if (signal === 'opposition' && !canOppose) {
+      return;
+    }
 
     void runSignal(signal);
   }
 </script>
 
 {#if mode === 'signals'}
-  <div class="vote-strip signal-strip" class:disabled title={signalTooltip}>
+  <div
+    class="vote-strip signal-strip"
+    class:disabled
+    class:labeled
+    data-participation-action="signal"
+    title={signalTooltip}
+  >
     <button
       aria-label={`Support · ${localSupportCount}`}
       aria-pressed={localViewerSignal === 'demand'}
       class:active-support={localViewerSignal === 'demand'}
       class="signal-button vote-button"
-      disabled={disabled}
+      disabled={disabled || !canSupport}
       type="button"
       onclick={(event) => handleSignalClick('demand', event)}
     >
       ▲
+      {#if labeled}<span class="signal-label">Support</span>{/if}
     </button>
     <span class="signal-percent" aria-label={signalTooltip}>{signalFavorabilityPercent ?? '—'}</span>
     <button
@@ -232,10 +251,11 @@
       aria-pressed={localViewerSignal === 'opposition'}
       class:active-oppose={localViewerSignal === 'opposition'}
       class="signal-button vote-button"
-      disabled={disabled}
+      disabled={disabled || !canOppose}
       type="button"
       onclick={(event) => handleSignalClick('opposition', event)}
     >
+      {#if labeled}<span class="signal-label">Oppose</span>{/if}
       ▼
     </button>
   </div>
@@ -344,6 +364,41 @@
     font-weight: 700;
   }
 
+  .signal-strip.labeled {
+    gap: 8px;
+    min-height: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+  }
+
+  .signal-strip.labeled:hover {
+    border: none;
+    background: transparent;
+  }
+
+  .signal-strip.labeled .vote-button {
+    width: auto;
+    min-width: 72px;
+    min-height: 28px;
+    padding: 4px 10px;
+    gap: 4px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+  }
+
+  .signal-strip.labeled .vote-button:hover:not(:disabled) {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand-soft) 78%, var(--panel-strong));
+  }
+
+  .signal-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
   .active-support {
     color: #22c55e;
   }
@@ -353,14 +408,14 @@
   }
 
   @media (max-width: 760px) {
-    .vote-strip {
+    .vote-strip:not(.labeled) {
       gap: 4px;
       min-height: 24px;
       padding: 2px 4px;
       border-color: color-mix(in srgb, var(--panel-border) 88%, transparent);
     }
 
-    .vote-button {
+    .vote-strip:not(.labeled) .vote-button {
       width: 20px;
       height: 20px;
       font-size: 10px;
@@ -370,6 +425,12 @@
     .signal-percent {
       min-width: 22px;
       font-size: 10px;
+    }
+
+    .signal-strip.labeled .vote-button {
+      min-width: 64px;
+      min-height: 26px;
+      padding: 3px 8px;
     }
   }
 </style>

@@ -48,8 +48,6 @@
   export let highlightedActivityId: string | null = null;
   export let highlightedHistoryId: string | null = null;
   export let historyOpen = false;
-  export let liveTitle = 'Activity setup';
-  export let liveDescription = 'Schedule work blocks and track which ones have enough committed roles.';
   export let historyDescription = 'Past activity, ratings, and completion check-in.';
   export let emptyLiveMessage = 'No activities scheduled yet.';
   export let emptyHistoryMessage = 'No activity has moved into history yet.';
@@ -377,38 +375,10 @@
     }
   }
 
-  .section-head {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px;
-    align-items: end;
-  }
-
-  .section-copy h3,
-  .section-copy p {
-    margin: 0;
-  }
-
-  .section-copy p,
-  .empty-card,
-  .unified-copy {
-    color: var(--text-soft);
-  }
-
-  .unified-copy {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.45;
-  }
-
-  .card-rail {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .rail-card,
   .history-section {
     min-width: 0;
+    border-top: 1px solid var(--panel-border);
+    padding-top: 12px;
   }
 
   .empty-card {
@@ -416,13 +386,16 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
+    color: var(--text-soft);
     font-size: 12px;
     font-weight: 700;
   }
 
-  .history-section {
-    border-top: 1px solid var(--panel-border);
-    padding-top: 12px;
+  .unified-copy {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .history-summary {

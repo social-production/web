@@ -74,6 +74,45 @@ export interface PersonalFeedPreferences {
   window: FeedWindowPreference;
 }
 
+export const NOTIFICATION_CATEGORIES = [
+  'follows',
+  'comments',
+  'shares_invites',
+  'roles',
+  'votes_needed',
+  'phase_done',
+  'plan_leading'
+] as const;
+
+export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
+
+export const DEFAULT_NOTIFICATION_CATEGORIES: NotificationCategory[] = [
+  'follows',
+  'comments',
+  'shares_invites',
+  'roles',
+  'votes_needed',
+  'phase_done'
+];
+
+export function normalizeNotificationCategories(value: unknown): NotificationCategory[] {
+  const allowed = new Set<string>(NOTIFICATION_CATEGORIES);
+  const raw = Array.isArray(value) ? value : DEFAULT_NOTIFICATION_CATEGORIES;
+  const seen = new Set<string>();
+  const categories: NotificationCategory[] = [];
+
+  for (const item of raw) {
+    const key = String(item);
+    if (!allowed.has(key) || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    categories.push(key as NotificationCategory);
+  }
+
+  return categories;
+}
+
 export interface SettingsPageData {
   profileUsername: string;
   profileBio: string;
@@ -89,6 +128,7 @@ export interface SettingsPageData {
   preferredLanguage: PreferredLanguage;
   displayTimezone: string | null;
   defaultLocationId: string | null;
+  notificationCategories: NotificationCategory[];
 }
 
 export interface SettingsUpdateInput {
@@ -105,4 +145,5 @@ export interface SettingsUpdateInput {
   preferredLanguage?: PreferredLanguage;
   displayTimezone?: string | null;
   defaultLocationId?: string | null;
+  notificationCategories?: NotificationCategory[];
 }

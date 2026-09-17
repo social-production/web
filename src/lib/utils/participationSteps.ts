@@ -17,7 +17,7 @@ import {
   focusHistoryFollowUpTargets,
   getHistoryItemsNeedingFollowUp,
 } from '$lib/utils/participationActivityFocus';
-import { pendingVoteCardId, type PendingVoteItem } from '$lib/utils/pendingVotes';
+import { hubActionVotes, type PendingVoteItem } from '$lib/utils/pendingVotes';
 
 export {
   activateParticipationActivityPhase,
@@ -611,12 +611,9 @@ function buildParticipationSteps(
     });
   }
 
-  const hasAssessPlansStep =
-    isPlanPhase(data) && ('projectMode' in data || data.governance !== 'organizer_controlled');
-  const skipVoteForPlanAssess =
-    hasAssessPlansStep && pendingVotesArePlanAssessmentsOnly(pendingVotes);
+  const hubVotes = hubActionVotes(pendingVotes);
 
-  if (pendingVotes.length > 0 && !skipVoteForPlanAssess) {
+  if (hubVotes.length > 0) {
     const hasSoftwareActions = pendingVotes.some(
       (item) =>
         item.voteKind === 'pull_request_merge' ||
@@ -763,13 +760,6 @@ export function resolveCurrentParticipationStep(steps: ParticipationStep[]) {
   return steps.find((step) => !step.done)?.id ?? null;
 }
 
-function pendingVotesArePlanAssessmentsOnly(pendingVotes: PendingVoteItem[]) {
-  return (
-    pendingVotes.length > 0 &&
-    pendingVotes.every((item) => item.voteKind === 'plan' && Boolean(item.planCriterionId))
-  );
-}
-
 export function getParticipationStepAnchor(stepId: string): string | null {
   switch (stepId) {
     case 'join':
@@ -781,7 +771,7 @@ export function getParticipationStepAnchor(stepId: string): string | null {
     case 'plan':
       return 'participation-plans';
     case 'assess-plans':
-      return 'pending-votes-panel';
+      return 'participation-plans';
     case 'propose-advance':
       return 'participation-phase-change';
     case 'make-pull-request':
@@ -807,7 +797,7 @@ export function getParticipationStepActionTarget(
     case 'join':
       return '#participation-join';
     case 'signal':
-      return '#participation-signals .demand-button';
+      return '#participation-signals [data-participation-action="signal"]';
     case 'rate':
       if (pageData && pageData.lifecycle.phaseOne.values.length === 0) {
         return '[data-participation-action="add-value"]';
@@ -821,18 +811,13 @@ export function getParticipationStepActionTarget(
         (item) => item.voteKind === 'plan' && item.planCriterionId
       );
       if (assessItem) {
-        return `#${pendingVoteCardId(
-          assessItem.voteKind,
-          assessItem.id,
-          assessItem.planValueId,
-          assessItem.planCriterionId
-        )}`;
+        return `#vote-card-plan-${assessItem.id}`;
       }
 
-      return '#pending-votes-panel [data-participation-action="assess-plan"]';
+      return '#participation-plans [data-participation-action="assess-plan"]';
     }
     case 'propose-advance':
-      return '[data-participation-action="propose-advance"]';
+      return '[data-participation-action="propose-advance"], [data-participation-action="propose-return"]';
     case 'activity':
       return '#participation-activities [data-participation-target="activity-signup"]';
     case 'propose-activity':
@@ -840,7 +825,7 @@ export function getParticipationStepActionTarget(
     case 'make-pull-request':
       return '[data-participation-action="make-pull-request"]';
     case 'vote': {
-      if (pendingVotes.length > 0) {
+      if (hubActionVotes(pendingVotes).length > 0) {
         return '#pending-votes-panel .pending-vote-banner';
       }
 

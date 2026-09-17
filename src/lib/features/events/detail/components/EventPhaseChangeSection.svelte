@@ -1,22 +1,15 @@
 <script lang="ts">
   import { afterUpdate, tick } from 'svelte';
-  import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import PhaseShiftButton from '$lib/components/shared/PhaseShiftButton.svelte';
   import { portal } from '$lib/utils/portal';
-  import {
-    formatProjectVoteRequirement,
-    formatProjectVoteSummary
-  } from '$lib/utils/projectVotes';
   import {
     phaseChangeDecisionTitle,
     resolveEventPhaseChangeVoteKind
   } from '$lib/utils/phaseChangeVotes';
   import type {
-    EventLifecyclePhaseChangeRequest,
     EventLifecyclePhaseId,
-    EventPageData,
-    ProjectApprovalVote
+    EventPageData
   } from '$lib/types/detail';
 
   export let data: EventPageData;
@@ -26,10 +19,6 @@
   export let requestPhaseChange: (
     targetPhaseId: EventLifecyclePhaseId,
     reason: string
-  ) => void | Promise<void> = () => {};
-  export let voteOnPhaseChange: (
-    requestId: string,
-    vote: ProjectApprovalVote | null
   ) => void | Promise<void> = () => {};
 
   let showNextPhaseComposer = false;
@@ -137,21 +126,6 @@
     expandedVoteGroup = null;
   }
 
-  function requestKindLabel(_request: EventLifecyclePhaseChangeRequest) {
-    return 'Phase decision';
-  }
-
-  function requestDecisionTitle(request: EventLifecyclePhaseChangeRequest) {
-    return phaseChangeDecisionTitle(
-      resolveEventPhaseChangeVoteKind(
-        request,
-        data.lifecycle.currentPhaseId,
-        data.lifecycle.phases
-      ),
-      request.targetPhaseLabel
-    );
-  }
-
   function phaseShortLabel(phaseId: EventLifecyclePhaseId) {
     return data.lifecycle.phases.find((phase) => phase.id === phaseId)?.title ?? phaseId;
   }
@@ -174,10 +148,6 @@
 
   function revertComposerTitle() {
     return phaseChangeDecisionTitle('return', phaseShortLabel(revertTargetPhaseId));
-  }
-
-  function openVoteChipLabel(count: number) {
-    return `Vote now (${count})`;
   }
 
   function nextPhasePlaceholder() {
@@ -334,6 +304,7 @@
                 active={showRevertComposer}
                 glyph="‹"
                 label={revertActionLabel()}
+                participationAction="propose-return"
                 onPress={toggleRevertComposer}
               />
             {/if}
@@ -361,6 +332,7 @@
                 active={showRevertComposer}
                 glyph="‹"
                 label={revertActionLabel()}
+                participationAction="propose-return"
                 onPress={toggleRevertComposer}
               />
             {/if}
@@ -453,10 +425,7 @@
 
 <style>
   .phase-change-stack,
-  .sheet-form,
-  .surface-stack,
-  .vote-request-card,
-  .vote-card-copy {
+  .sheet-form {
     display: grid;
     gap: 12px;
   }
@@ -480,17 +449,11 @@
   }
 
   .action-group,
-  .composer-actions,
-  .vote-summary-row,
-  .vote-card-top {
+  .composer-actions {
     display: flex;
     gap: 12px;
     align-items: center;
     flex-wrap: wrap;
-  }
-
-  .vote-card-top {
-    justify-content: space-between;
   }
 
   .action-group-left {
@@ -505,19 +468,6 @@
     padding: 8px 16px 4px;
   }
 
-  .surface-card,
-  .vote-request-card {
-    padding: 16px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-  }
-
-  .vote-request-card {
-    border-color: color-mix(in srgb, var(--brand) 16%, var(--panel-border));
-    background: color-mix(in srgb, var(--panel) 82%, var(--panel-strong));
-  }
-
   .inline-alert {
     padding: 10px 12px;
     border-left: 3px solid color-mix(in srgb, var(--status-yellow) 70%, var(--panel-border));
@@ -526,58 +476,25 @@
     font-weight: 600;
   }
 
-  .primary-button,
-  .vote-chip {
+  .primary-button {
     padding: 8px 12px;
     border-radius: var(--radius-sm);
     font-size: 12px;
     font-weight: 700;
-  }
-
-  .primary-button {
     background: var(--brand);
     color: var(--page-bg);
   }
 
-  .vote-chip {
-    border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-  }
-
-  .notice-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 72%, var(--panel));
-    color: var(--text-main);
-  }
-
-  strong,
-  h3,
-  .field-inline-label,
-  .vote-requirement {
-    color: var(--text-main);
-  }
-
-  p,
-  span,
-  .vote-kicker,
-  .inline-note {
-    color: var(--text-soft);
-  }
-
-  .vote-kicker {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-  }
-
-  .vote-requirement {
+  .field-inline-label {
+    display: block;
+    margin-bottom: 6px;
     font-size: 12px;
     font-weight: 700;
+    color: var(--text-main);
+  }
+
+  .inline-note {
+    color: var(--text-soft);
   }
 
   select,
@@ -593,18 +510,6 @@
   textarea {
     min-height: 110px;
     resize: vertical;
-  }
-
-  .field-inline-label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  h3,
-  p {
-    margin: 0;
   }
 
   @media (max-width: 760px) {

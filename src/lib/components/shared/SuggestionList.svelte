@@ -25,6 +25,7 @@
         <button
           class="suggestion-row"
           role="option"
+          aria-selected="false"
           type="button"
           on:click={() => dispatch('select', { key: item.key })}
         >

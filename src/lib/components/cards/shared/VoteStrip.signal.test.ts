@@ -193,4 +193,25 @@ describe('VoteStrip signals mode', () => {
     expect(screen.getByLabelText(/^Oppose/i)).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByLabelText(/^Oppose/i)).toHaveAttribute('aria-label', 'Oppose · 2');
   });
+
+  it('shows Support/Oppose labels around the percentage when labeled', async () => {
+    render(VoteStrip, {
+      props: {
+        mode: 'signals',
+        labeled: true,
+        syncKey: 'p1',
+        supportCount: 2,
+        opposeCount: 1,
+        favorability: 2 / 3,
+        viewerSignal: null
+      }
+    });
+
+    await tick();
+
+    expect(screen.getByText('Support')).toBeInTheDocument();
+    expect(screen.getByText('Oppose')).toBeInTheDocument();
+    expect(screen.getByText('67%')).toBeInTheDocument();
+    expect(document.querySelector('.signal-strip')).toHaveAttribute('data-participation-action', 'signal');
+  });
 });

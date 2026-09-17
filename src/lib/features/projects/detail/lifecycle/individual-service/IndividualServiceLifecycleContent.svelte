@@ -110,5 +110,5 @@
     {deleteActivityRating}
   />
 {:else}
-  <IndividualServicePhaseTwo projectMode={data.projectMode} />
+  <IndividualServicePhaseTwo />
 {/if}
