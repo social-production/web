@@ -50,7 +50,7 @@
     "devalue": "^5.8.1"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.1",
+    "@supabase/supabase-js": "^2.116.0",
     "maplibre-gl": "^6.9.0"
   }
 }
