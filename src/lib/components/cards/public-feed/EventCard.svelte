@@ -30,7 +30,7 @@
   const signalsDisabled = $derived(Boolean(item.isClosed));
 
   async function handleSignal(signal: 'demand' | 'opposition') {
-    if (!requireViewer($page.data.bootstrap?.viewer) || signalsDisabled) {
+    if (!requireViewer($page.data.bootstrap?.viewer, 'Sign in to support this event.') || signalsDisabled) {
       return;
     }
 

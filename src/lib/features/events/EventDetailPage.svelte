@@ -363,8 +363,18 @@
   $: participationSteps = buildEventParticipationSteps(pageData, pendingVotes, {
     signalRemovalNudge,
     viewerUsername: $page.data.bootstrap?.viewer?.username ?? null,
+    viewerSignedIn: Boolean($page.data.bootstrap?.viewer),
   });
   $: currentParticipationStep = resolveCurrentParticipationStep(participationSteps);
+  $: phaseViewingNote = (() => {
+    const currentId = pageData.lifecycle.currentPhaseId;
+    if (!selectedPhaseId || selectedPhaseId === currentId) {
+      return '';
+    }
+    const titleFor = (id: string) =>
+      pageData.lifecycle.phases.find((item) => item.id === id)?.title ?? id;
+    return `You're viewing ${titleFor(selectedPhaseId)}. The event is in ${titleFor(currentId)}.`;
+  })();
   $: if (
     pageData.lifecycle.phaseOne.viewerHasDemandSignal ||
     pageData.lifecycle.phaseOne.viewerHasOppositionSignal
@@ -431,7 +441,7 @@
     closePendingAssessment();
   }
 
-  async function handlePendingVote(item: PendingVoteItem, vote: ProjectApprovalVote) {
+  async function handlePendingVote(item: PendingVoteItem, vote: ProjectApprovalVote | null) {
     switch (item.voteKind) {
       case 'phase_change': {
         const result = await setEventPhaseChangeVote(data.slug, item.id, vote);
@@ -493,9 +503,12 @@
         signalChange={handleSignalChange}
         onMembershipChange={handleMembershipChange}
       />
-      {#if votesOpen && hubVotes.length > 0}
+      {#if votesOpen && (hubVotes.length > 0 || (autoExpandVoteKind && autoExpandVoteTarget))}
         <PendingVotesPanel
           items={hubVotes}
+          lookupItems={pendingVotes}
+          openVoteKind={autoExpandVoteKind}
+          openVoteId={autoExpandVoteTarget}
           onVote={handlePendingVote}
           onAssess={handlePendingAssess}
         />
@@ -507,6 +520,7 @@
             currentStepId={currentParticipationStep}
             {pendingVotes}
             {pageData}
+            viewingNote={phaseViewingNote}
             placement="lead"
             on:dismiss={handleParticipationDismiss}
             on:stepAction={handleParticipationStep}
@@ -521,6 +535,7 @@
       <div id="governance" class="overview-governance">
         <EventLifecyclePanel
           data={pageData}
+          {phaseViewingNote}
           bind:selectedPhaseId
           {autoExpandVoteCards}
           {autoExpandVoteKind}
@@ -636,8 +651,8 @@
   }
 
   .overview-tab :global(.participation-panel) {
-    order: 0;
-    margin: 0 0 12px;
+    order: 5;
+    margin: 8px 0 0;
   }
 
   .overview-tab :global(.overview-type-row) {
@@ -656,22 +671,23 @@
     display: contents;
   }
 
-  .overview-tab :global(.overview-phase-work) {
+  .overview-tab :global(.overview-phase-tabs) {
     order: 4;
+    margin: 28px 0 0;
   }
 
-  .overview-tab :global(.overview-phase-tabs) {
-    order: 5;
-    margin: 10px 0 0;
+  .overview-tab :global(.overview-phase-work) {
+    order: 6;
+    margin-top: 20px;
   }
 
   .overview-tab :global(.overview-actions) {
-    order: 6;
+    order: 7;
   }
 
   .overview-tab :global(.overview-composer),
   .overview-tab :global(.overview-edit-votes) {
-    order: 7;
+    order: 8;
   }
 
   .tab-panel-hidden {
@@ -693,7 +709,7 @@
 
   .participation-panel {
     min-width: 0;
-    margin: 0 0 12px;
+    margin: 8px 0 0;
   }
 
   @media (max-width: 1080px) {

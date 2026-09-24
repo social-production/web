@@ -1,11 +1,14 @@
 import { showAuthActionNotice } from '$lib/stores/authActionNotice';
 import type { ViewerSummary } from '$lib/types/bootstrap';
 
-export function requireViewer(viewer: ViewerSummary | null | undefined): boolean {
+export function requireViewer(
+  viewer: ViewerSummary | null | undefined,
+  message?: string
+): boolean {
   if (viewer) {
     return true;
   }
 
-  showAuthActionNotice();
+  showAuthActionNotice(message);
   return false;
 }

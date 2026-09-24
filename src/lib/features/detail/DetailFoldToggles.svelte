@@ -1,4 +1,6 @@
 <script lang="ts">
+  import CountBadge from '$lib/components/shared/CountBadge.svelte';
+
   export let detailsOpen = false;
   export let participationOpen = false;
   export let votesOpen = false;
@@ -19,7 +21,7 @@
     on:click={onToggleDetails}
   >
     Details
-    <span aria-hidden="true" class="fold-caret">▾</span>
+    <span aria-hidden="true" class="fold-caret"></span>
   </button>
   <button
     type="button"
@@ -30,7 +32,7 @@
     on:click={onToggleParticipation}
   >
     Participation
-    <span aria-hidden="true" class="fold-caret">▾</span>
+    <span aria-hidden="true" class="fold-caret"></span>
   </button>
   {#if showVotes}
     <button
@@ -44,9 +46,9 @@
     >
       Vote
       {#if voteCount > 0}
-        <span class="fold-badge">{voteCount}</span>
+        <CountBadge count={voteCount} />
       {/if}
-      <span aria-hidden="true" class="fold-caret">▾</span>
+      <span aria-hidden="true" class="fold-caret"></span>
     </button>
   {/if}
 </div>
@@ -78,13 +80,20 @@
   }
 
   .fold-caret {
-    font-size: 10px;
-    line-height: 1;
-    transform: translateY(-0.5px);
+    box-sizing: content-box;
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-left: 2px;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 5px solid currentColor;
+    flex-shrink: 0;
+    transition: transform 0.16s ease;
   }
 
   .fold-button.open .fold-caret {
-    transform: rotate(180deg) translateY(-0.5px);
+    transform: rotate(90deg);
   }
 
   .fold-button.open {
@@ -98,15 +107,17 @@
 
   .vote-fold {
     position: relative;
+    flex-shrink: 0;
     gap: 5px;
     min-height: 28px;
-    padding: 3px 9px;
+    padding: 3px 10px 3px 9px;
     border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--panel-border));
     border-radius: 999px;
     background: color-mix(in srgb, var(--panel) 82%, var(--panel-strong));
     color: var(--text-main);
     font-size: 12px;
     font-weight: 700;
+    overflow: visible;
   }
 
   .vote-fold.open {
@@ -120,20 +131,5 @@
   .vote-fold:focus-visible {
     border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
     color: var(--text-main);
-  }
-
-  .fold-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 999px;
-    background: var(--brand);
-    color: var(--page-bg, #fff);
-    font-size: 10px;
-    font-weight: 800;
-    line-height: 1;
   }
 </style>

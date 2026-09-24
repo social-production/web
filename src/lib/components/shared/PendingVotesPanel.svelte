@@ -1,157 +1,140 @@
 <script lang="ts">
+  import VoteDecisionSheet from '$lib/components/shared/VoteDecisionSheet.svelte';
   import type { ProjectApprovalVote } from '$lib/types/detail';
   import { pendingVoteCardId, type PendingVoteItem } from '$lib/utils/pendingVotes';
 
   export let items: PendingVoteItem[] = [];
-  export let onVote: (item: PendingVoteItem, vote: ProjectApprovalVote) => void | Promise<void> =
-    () => {};
+  export let lookupItems: PendingVoteItem[] | null = null;
+  export let openVoteKind: string | null = null;
+  export let openVoteId: string | null = null;
+  export let onVote: (
+    item: PendingVoteItem,
+    vote: ProjectApprovalVote | null
+  ) => void | Promise<void> = () => {};
   export let onAssess: (item: PendingVoteItem) => void | Promise<void> = () => {};
   export let onAction: (item: PendingVoteItem) => void | Promise<void> = () => {};
+
+  let openItem: PendingVoteItem | null = null;
+  let openedRailKey = '';
+
+  $: {
+    const railKey = `${openVoteKind ?? ''}:${openVoteId ?? ''}`;
+    if (railKey !== ':' && railKey !== openedRailKey) {
+      const source = lookupItems ?? items;
+      const match = source.find((item) => item.voteKind === openVoteKind && item.id === openVoteId);
+      if (match) {
+        openItem = match;
+        openedRailKey = railKey;
+      }
+    }
+  }
+
+  function itemKey(item: PendingVoteItem) {
+    return item.id + item.voteKind + (item.planValueId ?? '') + (item.planCriterionId ?? '') + (item.actionLabel ?? '');
+  }
+
+  function approvalLabel(item: PendingVoteItem) {
+    const summary = item.voteSummary;
+    if (!summary || summary.totalVotes <= 0) {
+      return '—';
+    }
+    return `${Math.round(summary.approvalPercent)}%`;
+  }
+
+  function open(item: PendingVoteItem) {
+    openItem = item;
+  }
+
+  function close() {
+    openItem = null;
+  }
 </script>
 
 {#if items.length > 0}
   <section id="pending-votes-panel" class="pending-votes-panel" aria-label="Votes needed" aria-live="polite">
     <div class="vote-stack">
-      {#each items as item (item.id + item.voteKind + (item.planValueId ?? '') + (item.planCriterionId ?? '') + (item.actionLabel ?? ''))}
+      {#each items as item (itemKey(item))}
         {@const cardId = pendingVoteCardId(item.voteKind, item.id, item.planValueId, item.planCriterionId)}
-        <div id={cardId} class="pending-vote-banner">
-          <span class="vote-copy">
-            <span class="vote-label">{item.label}</span>
-            <span class="vote-title">{item.title}</span>
-          </span>
-          {#if item.actionLabel}
-            <div class="banner-actions">
-              <button
-                class="approve-button"
-                type="button"
-                data-participation-action="software-action"
-                on:click={() => onAction(item)}
-              >
-                {item.actionLabel}
-              </button>
-            </div>
-          {:else if item.planCriterionId}
-            <div class="banner-actions">
-              <button
-                class="approve-button"
-                type="button"
-                data-participation-action="assess-plan"
-                on:click={() => onAssess(item)}
-              >
-                Assess
-              </button>
-            </div>
-          {:else if item.canVote}
-            <div class="banner-actions">
-              <button
-                class="reject-button"
-                type="button"
-                data-participation-action="cast-vote"
-                on:click={() => onVote(item, 'no')}
-              >
-                No
-              </button>
-              <button
-                class="approve-button"
-                type="button"
-                data-participation-action="cast-vote"
-                on:click={() => onVote(item, 'yes')}
-              >
-                Yes
-              </button>
-            </div>
-          {/if}
-        </div>
+        <button
+          id={cardId}
+          class="vote-row"
+          type="button"
+          data-participation-action={item.actionLabel ? 'software-action' : item.planCriterionId ? 'assess-plan' : 'cast-vote'}
+          on:click={() => open(item)}
+        >
+          <span class="vote-label">{item.label}</span>
+          <span class="vote-percent">{approvalLabel(item)}</span>
+        </button>
       {/each}
     </div>
   </section>
 {/if}
 
+<VoteDecisionSheet
+  item={openItem}
+  onClose={close}
+  onVote={(vote) => {
+    if (openItem) {
+      return onVote(openItem, vote);
+    }
+  }}
+  onAssess={() => {
+    if (openItem) {
+      return onAssess(openItem);
+    }
+  }}
+  onAction={() => {
+    if (openItem) {
+      return onAction(openItem);
+    }
+  }}
+/>
+
 <style>
   .pending-votes-panel {
     display: grid;
-    gap: 6px;
     margin: 0;
-    padding: 8px 10px;
-    border: 1px solid color-mix(in srgb, var(--brand) 28%, var(--panel-border));
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--brand-soft) 38%, var(--panel));
+    padding: 0;
+    border: none;
+    background: transparent;
     scroll-margin-top: 120px;
   }
 
   .vote-stack {
-    display: flex;
-    flex-direction: column;
+    display: grid;
     gap: 6px;
   }
 
-  .pending-vote-banner {
+  .vote-row {
     display: flex;
-    gap: 8px;
-    justify-content: space-between;
+    width: 100%;
     align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     min-height: 36px;
-    padding: 5px 8px 5px 10px;
-    border: 1px solid color-mix(in srgb, var(--brand) 16%, var(--panel-border));
+    padding: 6px 12px;
+    border: 1px solid color-mix(in srgb, #2f9e44 45%, var(--panel-border));
     border-radius: 999px;
-    background: color-mix(in srgb, var(--panel) 82%, var(--panel-strong));
+    background: color-mix(in srgb, #2f9e44 12%, var(--panel));
+    color: var(--text-main);
+    cursor: pointer;
     scroll-margin-top: 120px;
   }
 
-  .vote-copy {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    min-width: 0;
-    flex: 1 1 auto;
+  .vote-row:hover {
+    border-color: #2f9e44;
   }
 
   .vote-label {
-    flex: 0 0 auto;
-    color: var(--brand-strong);
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 800;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
+    color: #2f9e44;
   }
 
-  .vote-title {
-    min-width: 0;
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .banner-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    flex-wrap: nowrap;
-    flex-shrink: 0;
-  }
-
-  .approve-button,
-  .reject-button {
-    min-height: 28px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .approve-button {
-    border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 50%, var(--panel));
-    color: var(--brand-strong);
-  }
-
-  .reject-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
-    color: var(--text-main);
+  .vote-percent {
+    color: #2f9e44;
+    font-size: 13px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
   }
 </style>

@@ -28,7 +28,20 @@ export function setReportVote(targetId: string, vote: 'yes' | 'no') {
 export async function setVote(target: VoteTargetRef, vote: VoteDirection) {
   const viewer = get(page).data.bootstrap?.viewer ?? null;
 
-  if (!requireViewer(viewer)) {
+  const votePrompt =
+    target.type === 'thread'
+      ? 'Sign in to vote on this thread.'
+      : target.type === 'post'
+        ? 'Sign in to vote on this post.'
+        : target.type === 'help_request'
+          ? 'Sign in to vote on this help request.'
+          : target.type === 'project'
+            ? 'Sign in to vote on this project.'
+            : target.type === 'event'
+              ? 'Sign in to vote on this event.'
+              : 'Sign in to vote.';
+
+  if (!requireViewer(viewer, votePrompt)) {
     return;
   }
 

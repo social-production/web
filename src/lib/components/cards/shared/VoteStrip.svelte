@@ -243,7 +243,7 @@
       onclick={(event) => handleSignalClick('demand', event)}
     >
       ▲
-      {#if labeled}<span class="signal-label">Support</span>{/if}
+      {#if labeled}<span class="signal-label">Support</span><span class="signal-count">{localSupportCount}</span>{/if}
     </button>
     <span class="signal-percent" aria-label={signalTooltip}>{signalFavorabilityPercent ?? '—'}</span>
     <button
@@ -255,7 +255,7 @@
       type="button"
       onclick={(event) => handleSignalClick('opposition', event)}
     >
-      {#if labeled}<span class="signal-label">Oppose</span>{/if}
+      {#if labeled}<span class="signal-label">Oppose</span><span class="signal-count">{localOpposeCount}</span>{/if}
       ▼
     </button>
   </div>
@@ -386,17 +386,25 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
+    font-size: 12px;
   }
 
   .signal-strip.labeled .vote-button:hover:not(:disabled) {
     border-color: var(--brand);
     background: color-mix(in srgb, var(--brand-soft) 78%, var(--panel-strong));
+    color: var(--text-main);
   }
 
-  .signal-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.01em;
+  .signal-label,
+  .signal-count {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .signal-count {
+    color: var(--text-soft);
+    font-variant-numeric: tabular-nums;
   }
 
   .active-support {

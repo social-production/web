@@ -39,7 +39,7 @@
     if (signal === 'opposition' && !canSignalOpposition) {
       throw new Error('signal-gated');
     }
-    if (!requireViewer($page.data.bootstrap?.viewer)) {
+    if (!requireViewer($page.data.bootstrap?.viewer, `Sign in to support this ${entityKind}.`)) {
       throw new Error('auth-required');
     }
 

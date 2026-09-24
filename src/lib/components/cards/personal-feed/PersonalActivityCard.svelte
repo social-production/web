@@ -53,7 +53,7 @@
   }
 
   async function handleSignal(signal: 'demand' | 'opposition') {
-    if (!requireViewer($page.data.bootstrap?.viewer) || !subjectSlug || item.isClosed) {
+    if (!requireViewer($page.data.bootstrap?.viewer, 'Sign in to take part.') || !subjectSlug || item.isClosed) {
       return;
     }
 

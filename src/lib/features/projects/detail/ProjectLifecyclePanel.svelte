@@ -14,8 +14,8 @@
   import ProductiveLifecycleContent from './lifecycle/productive/ProductiveLifecycleContent.svelte';
   import CollectiveServiceLifecycleContent from './lifecycle/collective-service/CollectiveServiceLifecycleContent.svelte';
   import IndividualServiceLifecycleContent from './lifecycle/individual-service/IndividualServiceLifecycleContent.svelte';
-  import ProjectLifecyclePhaseTabs from './components/ProjectLifecyclePhaseTabs.svelte';
   import ProjectPhaseChangeSection from './components/ProjectPhaseChangeSection.svelte';
+  import ProjectLifecyclePhaseTabs from './components/ProjectLifecyclePhaseTabs.svelte';
   import { scrollToPendingVote } from '$lib/utils/pendingVotes';
   import {
     PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
@@ -109,6 +109,7 @@
   );
 
   export let data: ProjectPageData;
+  export let phaseViewingNote = '';
   export let votesRenderedInHub = false;
 
   export let autoExpandVoteCards = false;
@@ -123,6 +124,12 @@
   export let onSoftwareWizardRequestHandled: () => void = () => {};
   export let onPhaseAdvanced: (phaseId: ProjectLifecyclePhaseId) => void = () => {};
   export let selectedPhaseId: ProjectLifecyclePhaseId | undefined = undefined;
+  export let phaseTabs: {
+    phase: ProjectLifecyclePhase;
+    title: string;
+    progressLabel: string;
+    isFuture: boolean;
+  }[] = [];
 
   type DraftPlanPhase = {
     title: string;
@@ -351,13 +358,21 @@
   }
 
   let activePhaseId: ProjectLifecyclePhaseId = resolvedActivePhaseId(data.lifecycle.currentPhaseId);
-  $: selectedPhaseId = activePhaseId;
+  function syncPhase(id: ProjectLifecyclePhaseId) {
+    activePhaseId = id;
+    selectedPhaseId = id;
+  }
+  selectedPhaseId = activePhaseId;
+
+  $: if (selectedPhaseId && selectedPhaseId !== activePhaseId) {
+    activePhaseId = selectedPhaseId;
+  }
 
   $: if (softwareWizardRequest) {
-    activePhaseId = 'phase-5';
+    syncPhase('phase-5');
   }
   $: if ($page.url.hash === '#software-governance-panel') {
-    activePhaseId = 'phase-5';
+    syncPhase('phase-5');
   }
   let lastCurrentPhaseId = data.lifecycle.currentPhaseId;
   let lastProjectSlug = data.slug;
@@ -456,25 +471,25 @@
     if (voteKind === 'plan') {
       const planPhase = phaseContainingPlan(voteTarget);
       if (planPhase === 'phase-2') {
-        activePhaseId = 'phase-2';
+        syncPhase('phase-2');
         if (!expandedPhaseTwoPlanIds.includes(voteTarget)) {
           expandedPhaseTwoPlanIds = [...expandedPhaseTwoPlanIds, voteTarget];
         }
       } else if (planPhase === 'phase-3') {
-        activePhaseId = 'phase-3';
+        syncPhase('phase-3');
         if (!expandedPhaseThreePlanIds.includes(voteTarget)) {
           expandedPhaseThreePlanIds = [...expandedPhaseThreePlanIds, voteTarget];
         }
       }
     } else if (voteKind === 'phase_change') {
-      activePhaseId = resolvedActivePhaseId(data.lifecycle.currentPhaseId);
+      syncPhase(resolvedActivePhaseId(data.lifecycle.currentPhaseId));
     } else if (
       voteKind === 'pull_request' ||
       voteKind === 'pull_request_merge' ||
       voteKind === 'merge_capability' ||
       voteKind === 'repository_replacement'
     ) {
-      activePhaseId = 'phase-5';
+      syncPhase('phase-5');
     }
 
     await tick();
@@ -495,7 +510,7 @@
   $: if (data.slug !== lastProjectSlug) {
     lastProjectSlug = data.slug;
     lastCurrentPhaseId = data.lifecycle.currentPhaseId;
-    activePhaseId = resolvedActivePhaseId(data.lifecycle.currentPhaseId);
+    syncPhase(resolvedActivePhaseId(data.lifecycle.currentPhaseId));
     showPhaseOneComposer = false;
     showPersonalActivityComposer = false;
     showPersonalServiceRequestComposer = false;
@@ -514,7 +529,7 @@
 
   $: if (lastCurrentPhaseId !== data.lifecycle.currentPhaseId) {
     lastCurrentPhaseId = data.lifecycle.currentPhaseId;
-    activePhaseId = resolvedActivePhaseId(data.lifecycle.currentPhaseId);
+    syncPhase(resolvedActivePhaseId(data.lifecycle.currentPhaseId));
     showPhaseOneComposer = false;
     showPersonalActivityComposer = false;
     showPersonalServiceRequestComposer = false;
@@ -591,7 +606,7 @@
       lastActivityTargetId = null;
     } else if (activityTargetId !== lastActivityTargetId) {
       lastActivityTargetId = activityTargetId;
-      activePhaseId = isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5';
+      syncPhase(isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5');
       if (!expandedActivityIds.includes(activityTargetId)) {
         expandedActivityIds = [...expandedActivityIds, activityTargetId];
       }
@@ -606,7 +621,7 @@
       lastRequestTargetId = null;
     } else if (requestTargetId !== lastRequestTargetId) {
       lastRequestTargetId = requestTargetId;
-      activePhaseId = isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5';
+      syncPhase(isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5');
       void focusRequestCard(requestTargetId);
     }
   }
@@ -616,7 +631,7 @@
   }
 
   function selectPhase(phase: ProjectLifecyclePhase) {
-    activePhaseId = phase.id;
+    syncPhase(phase.id);
   }
 
   function phaseProgressLabel(phase: ProjectLifecyclePhase) {
@@ -1442,7 +1457,7 @@
   }
 
   function handleParticipationActivitiesFocus() {
-    activePhaseId = isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5';
+    syncPhase(isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5');
   }
 
   function handleParticipationHistoryFocus(event: Event) {
@@ -1451,7 +1466,7 @@
       return;
     }
 
-    activePhaseId = isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5';
+    syncPhase(isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5');
     void focusActivityTarget(detail.activityId);
   }
 
@@ -1462,7 +1477,7 @@
     }
 
     lastActivityTargetId = activityId;
-    activePhaseId = isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5';
+    syncPhase(isPersonalServiceProject(data.projectMode) ? 'phase-1' : 'phase-5');
     if (!expandedActivityIds.includes(activityId)) {
       expandedActivityIds = [...expandedActivityIds, activityId];
     }
@@ -1522,6 +1537,22 @@
   <ProjectLifecyclePhaseTabs tabs={phaseTabs} {activePhaseId} {selectPhase} />
 
   <section class="phase-panel overview-phase-work">
+    {#if phaseViewingNote}
+      {@const viewedPhase = data.lifecycle.phases.find((phase) => phase.id === activePhaseId)}
+      <div class="phase-viewing-note">
+        <p>{phaseViewingNote}</p>
+        {#if viewedPhase?.summary}
+          <p>{viewedPhase.summary}</p>
+        {/if}
+        {#if viewedPhase && viewedPhase.mechanics.length > 0}
+          <ul>
+            {#each viewedPhase.mechanics as mechanic}
+              <li>{mechanic}</li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
     {#if isPersonalServiceProject(data.projectMode)}
       <IndividualServiceLifecycleContent
         {data}
@@ -1687,5 +1718,26 @@
     border: 0;
     border-radius: 0;
     background: transparent;
+  }
+
+  .phase-viewing-note {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .phase-viewing-note p,
+  .phase-viewing-note li {
+    margin: 0;
+  }
+
+  .phase-viewing-note ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
   }
 </style>

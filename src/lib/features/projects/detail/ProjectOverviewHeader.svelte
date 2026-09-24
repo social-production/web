@@ -12,6 +12,7 @@
   import AddUpdateSheet from '$lib/components/shared/AddUpdateSheet.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
+  import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
   import DetailFoldToggles from '$lib/features/detail/DetailFoldToggles.svelte';
   import QuorumExplanation from '$lib/features/detail/QuorumExplanation.svelte';
   import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
@@ -92,13 +93,8 @@
         : null
   );
   const showMembershipButton = $derived(!isPersonalServiceProject(data.projectMode));
-  const showGovernanceVotes = $derived(!isPersonalServiceProject(data.projectMode));
-  const canProposeEdit = $derived(
-    data.viewerCanRequestEdit && (!showGovernanceVotes || data.editRequests.length === 0)
-  );
-  const canProposeUpdate = $derived(
-    data.viewerCanRequestUpdate && (!showGovernanceVotes || data.updateRequests.length === 0)
-  );
+  const canProposeEdit = $derived(data.viewerCanRequestEdit);
+  const canProposeUpdate = $derived(data.viewerCanRequestUpdate);
   const updateActionLabel = $derived(isPersonalServiceProject(data.projectMode) ? 'Post update' : 'Propose update');
   const editActionLabel = $derived(isPersonalServiceProject(data.projectMode) ? 'Save details' : 'Propose Edit');
   const latestUpdate = $derived(data.updates[0] ?? null);
@@ -125,7 +121,7 @@
   let updateMessage = $state('');
 
   async function handleMembershipToggle() {
-    if (!requireViewer($page.data.bootstrap?.viewer)) {
+    if (!requireViewer($page.data.bootstrap?.viewer, 'Sign in to join this project.')) {
       return;
     }
 
@@ -278,7 +274,13 @@
 </div>
 
 <div class="heading overview-heading">
+  <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
+    <h1>{data.title}</h1>
+  </ModerationRestrictionNotice>
   <div class="heading-chrome">
+    {#if liveFact}
+      <p class="live-fact">{liveFact}</p>
+    {/if}
     <DetailFoldToggles
       {detailsOpen}
       {participationOpen}
@@ -290,14 +292,7 @@
       onToggleVotes={() => (votesOpen = !votesOpen)}
     />
   </div>
-
-  <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
-    <h1>{data.title}</h1>
-  </ModerationRestrictionNotice>
-
-  {#if liveFact}
-    <p class="live-fact">{liveFact}</p>
-  {/if}
+  <GuestBrowseLine kind="project" />
 
   <p class="overview-copy">{data.description}</p>
 
@@ -530,8 +525,19 @@
   .heading-chrome {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 12px;
     min-width: 0;
+    min-height: 24px;
+    overflow: visible;
+  }
+
+  .heading-chrome .live-fact {
+    margin-right: auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .heading-chrome :global(.overview-folds) {

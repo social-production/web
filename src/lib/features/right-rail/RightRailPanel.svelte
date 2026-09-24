@@ -5,23 +5,10 @@
   import { surfaceAccentCssVar, surfaceTypeAccent } from '$lib/utils/surfaceType';
   import {
     setProjectActivityCommitment,
-    setProjectEditVote,
-    setProjectManualLinkVote,
-    setProjectMergeCapabilityChangeVote,
-    setProjectPhaseChangeVote,
-    setProjectPlanOverallVote,
-    setProjectPullRequestVote,
-    setProjectRepositoryReplacementVote,
-    setProjectUpdateVote,
     toggleProjectMembership,
   } from '$lib/services/commands/projects';
   import {
     setEventActivityCommitment,
-    setEventEditVote,
-    setEventManualLinkVote,
-    setEventPhaseChangeVote,
-    setEventPlanOverallVote,
-    setEventUpdateVote,
     toggleEventMembership,
   } from '$lib/services/commands/events';
   import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
@@ -39,7 +26,6 @@
     restoreRailItemId,
     seenRailStorageKey,
   } from '$lib/utils/dismissedRailItems';
-  import { scrollToPendingVote } from '$lib/utils/pendingVotes';
   import { formatLocalDateTime, formatScheduleLabel } from '$lib/utils/time';
 
   export let items: RightRailActivityItem[] = [];
@@ -64,10 +50,8 @@
   const dispatch = createEventDispatcher<{ close: void }>();
 
   let pendingSubjectId = '';
-  let pendingVoteId = '';
   let clearedOpen = false;
   let historyFilter: 'all' | 'votes' | 'activities' | 'help' | 'requests' = 'all';
-  let votedAwayIds = new Set<string>();
   let activityOpen = false;
   let helpOpen = false;
   let requestOpen = false;
@@ -141,7 +125,7 @@
       item.kind === 'help-request-owned'
   );
   $: requestItems = visibleItems.filter((item) => item.kind === 'request');
-  $: voteItems = visibleItems.filter((item) => item.kind === 'vote' && !votedAwayIds.has(item.id));
+  $: voteItems = visibleItems.filter((item) => item.kind === 'vote');
   $: activityHasUnseen = activityItems.some((item) => isUnseenItem(item));
   $: helpHasUnseen = helpRequestItems.some((item) => isUnseenItem(item));
   $: requestHasUnseen = requestItems.some((item) => isUnseenItem(item));
@@ -264,22 +248,7 @@
     event.preventDefault();
     event.stopPropagation();
     requestClose();
-
-    if (item.voteKindLabel === 'pull_request_merge') {
-      await goto(item.href);
-      return;
-    }
-
-    if (item.voteKindLabel === 'pull_request') {
-      const href = item.href.includes('assess=1')
-        ? item.href
-        : `${item.href}${item.href.includes('?') ? '&' : '?'}assess=1`;
-      await goto(href);
-      return;
-    }
-
-    const basePath = item.href.split('?')[0];
-    await goto(`${basePath}#pending-votes-panel`);
+    await goto(item.href);
   }
 
   function itemDetail(item: RightRailActivityItem) {
@@ -305,122 +274,6 @@
     }
   }
 
-  function slugFromVoteItem(item: RightRailActivityItem) {
-    if (item.projectSlug) {
-      return { entityKind: 'project' as const, slug: item.projectSlug };
-    }
-
-    if (item.eventSlug) {
-      return { entityKind: 'event' as const, slug: item.eventSlug };
-    }
-
-    const match = item.href.match(/^\/(projects|events)\/([^/?]+)/);
-
-    if (!match) {
-      return null;
-    }
-
-    return {
-      entityKind: match[1] === 'events' ? ('event' as const) : ('project' as const),
-      slug: match[2],
-    };
-  }
-
-  async function handleRailVote(
-    item: RightRailActivityItem,
-    vote: 'yes' | 'no',
-    event: MouseEvent
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (!item.voteKindLabel || !item.voteTargetId) {
-      return;
-    }
-
-    const slugInfo = slugFromVoteItem(item);
-
-    if (!slugInfo) {
-      return;
-    }
-
-    pendingVoteId = item.id;
-
-    try {
-      const { entityKind, slug } = slugInfo;
-      const targetId = item.voteTargetId;
-
-      if (entityKind === 'project') {
-        switch (item.voteKindLabel) {
-          case 'phase_change':
-            await setProjectPhaseChangeVote(slug, targetId, vote);
-            break;
-          case 'update':
-            await setProjectUpdateVote(slug, targetId, vote);
-            break;
-          case 'edit':
-            await setProjectEditVote(slug, targetId, vote);
-            break;
-          case 'link':
-          case 'link_sever':
-            await setProjectManualLinkVote(slug, targetId, vote);
-            break;
-          case 'plan':
-            await setProjectPlanOverallVote(
-              slug,
-              item.planPhaseId === 'phase-3' ? 'phase-3' : 'phase-2',
-              targetId,
-              vote
-            );
-            break;
-          case 'pull_request':
-            await setProjectPullRequestVote(slug, targetId, vote);
-            break;
-          case 'merge_capability':
-            await setProjectMergeCapabilityChangeVote(slug, targetId, vote);
-            break;
-          case 'repository_replacement':
-            await setProjectRepositoryReplacementVote(slug, targetId, vote);
-            break;
-          case 'pull_request_merge':
-            requestActivityRailRefresh();
-            await goto(item.href);
-            return;
-        }
-      } else {
-        switch (item.voteKindLabel) {
-          case 'phase_change':
-            await setEventPhaseChangeVote(slug, targetId, vote);
-            break;
-          case 'update':
-            await setEventUpdateVote(slug, targetId, vote);
-            break;
-          case 'edit':
-            await setEventEditVote(slug, targetId, vote);
-            break;
-          case 'link':
-          case 'link_sever':
-            await setEventManualLinkVote(slug, targetId, vote);
-            break;
-          case 'plan':
-            await setEventPlanOverallVote(slug, targetId, vote);
-            break;
-        }
-      }
-
-      votedAwayIds = new Set(votedAwayIds).add(item.id);
-      markRailItemSeen(seenStorageKey, item.id);
-      requestActivityRailRefresh();
-      void invalidateRailSubject(item);
-      if (item.voteKindLabel === 'link' || item.voteKindLabel === 'link_sever') {
-        await goto(item.href);
-      } else {
-        scrollToPendingVote(item.voteKindLabel, item.voteTargetId);
-      }
-    } finally {
-      pendingVoteId = '';
-    }
-  }
 
   async function handleRailParticipation(item: RightRailActivityItem) {
     if (item.kind === 'request' || item.kind === 'vote') {
@@ -710,41 +563,21 @@
               {/if}
             </button>
             <div class="vote-row-actions">
-              {#if item.voteKindLabel === 'plan' || item.voteKindLabel === 'pull_request'}
-                <button
-                  class="vote-action-button assess-button"
-                  disabled={pendingVoteId === item.id}
-                  type="button"
-                  on:click={(event) => handleRailAssess(item, event)}
-                >
-                  Assess
-                </button>
-              {/if}
               {#if item.voteKindLabel === 'pull_request_merge'}
                 <button
                   class="vote-action-button assess-button"
-                  disabled={pendingVoteId === item.id}
                   type="button"
                   on:click={(event) => handleRailAssess(item, event)}
                 >
                   Record merge
                 </button>
-              {:else if item.voteKindLabel !== 'pull_request' && (item.voteKindLabel !== 'plan' || item.voteSubKind === 'overall')}
+              {:else}
                 <button
-                  class="vote-action-button reject-button"
-                  disabled={pendingVoteId === item.id}
+                  class="vote-action-button assess-button"
                   type="button"
-                  on:click={(event) => handleRailVote(item, 'no', event)}
+                  on:click={(event) => handleRailAssess(item, event)}
                 >
-                  Reject
-                </button>
-                <button
-                  class="vote-action-button approve-button"
-                  disabled={pendingVoteId === item.id}
-                  type="button"
-                  on:click={(event) => handleRailVote(item, 'yes', event)}
-                >
-                  Approve
+                  Assess
                 </button>
               {/if}
             </div>
@@ -1046,17 +879,6 @@
     border-radius: var(--radius-sm);
     font-size: 12px;
     font-weight: 700;
-  }
-
-  .vote-action-button.approve-button {
-    background: var(--brand);
-    color: var(--page-bg);
-  }
-
-  .vote-action-button.reject-button {
-    border: 1px solid var(--panel-border);
-    background: transparent;
-    color: var(--text-main);
   }
 
   .vote-action-button.assess-button {

@@ -290,7 +290,6 @@
     seenRailIds
   );
   $: showCreateFab =
-    Boolean(bootstrap.viewer) &&
     isCreateFabRoute($page.url.pathname) &&
     !$page.url.pathname.startsWith('/create/') &&
     !isAuthSurface &&
@@ -937,7 +936,7 @@
               {/if}
             </div>
           {/if}
-        {:else if !isCompact}
+        {:else}
           <a class="utility-link" href="/onboarding">{m.shell_nav_login()}</a>
         {/if}
       </nav>

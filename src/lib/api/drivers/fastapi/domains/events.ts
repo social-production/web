@@ -327,8 +327,7 @@ export async function fetchSetEventPhaseChangeVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
-  await apiClient.post(`/events/${eventSlug}/phase-requests/${requestId}/vote`, { vote });
+  await apiClient.post(`/events/${eventSlug}/phase-requests/${requestId}/vote`, { vote: vote ?? 'neutral' });
 }
 
 // -- Updates and edits -------------------------------------------------------
@@ -342,8 +341,7 @@ export async function fetchSetEventUpdateVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
-  await apiClient.post(`/events/${eventSlug}/update-requests/${requestId}/vote`, { vote });
+  await apiClient.post(`/events/${eventSlug}/update-requests/${requestId}/vote`, { vote: vote ?? 'neutral' });
 }
 
 export async function fetchRequestEventEdit(
@@ -359,8 +357,7 @@ export async function fetchSetEventEditVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
-  await apiClient.post(`/events/${eventSlug}/edit-requests/${requestId}/vote`, { vote });
+  await apiClient.post(`/events/${eventSlug}/edit-requests/${requestId}/vote`, { vote: vote ?? 'neutral' });
 }
 
 // -- Manual links ------------------------------------------------------------
@@ -385,8 +382,7 @@ export async function fetchSetEventManualLinkVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
-  await apiClient.post(`/events/${eventSlug}/manual-links/${requestId}/vote`, { vote });
+  await apiClient.post(`/events/${eventSlug}/manual-links/${requestId}/vote`, { vote: vote ?? 'neutral' });
 }
 
 export async function fetchCreateEventManualLinkSeverRequest(

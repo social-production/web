@@ -28,7 +28,6 @@
         break;
       case 'event-link-create':
       case 'event-link-sever':
-        if (!vote) return;
         await setEventManualLinkVote(data.slug, entry.id, vote);
         break;
       default:

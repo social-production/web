@@ -6,8 +6,8 @@
   import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
   import { composeActivityLocationLabel, normalizedRoleRequirements } from '$lib/utils/activityCreationSteps';
   import { resolveEventPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
-  import EventLifecyclePhaseTabs from './components/EventLifecyclePhaseTabs.svelte';
   import EventPhaseChangeSection from './components/EventPhaseChangeSection.svelte';
+  import EventLifecyclePhaseTabs from './components/EventLifecyclePhaseTabs.svelte';
   import {
     PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
     PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT,
@@ -48,6 +48,7 @@
   } from '$lib/types/detail';
 
   export let data: EventPageData;
+  export let phaseViewingNote = '';
   export let votesRenderedInHub = false;
 
   export let autoExpandVoteCards = false;
@@ -59,6 +60,12 @@
   export let assessCriterionId: string | null = null;
   export let onPhaseAdvanced: (phaseId: EventLifecyclePhaseId) => void = () => {};
   export let selectedPhaseId: EventLifecyclePhaseId | undefined = undefined;
+  export let phaseTabs: {
+    phase: EventLifecyclePhase;
+    title: string;
+    progressLabel: string;
+    isFuture: boolean;
+  }[] = [];
 
   function currentWinningPlan() {
     return data.lifecycle.phaseTwo.plans.find((plan) => plan.id === data.lifecycle.phaseTwo.winningPlanId) ?? null;
@@ -87,7 +94,15 @@
   }
 
   let activePhaseId: EventLifecyclePhaseId = data.lifecycle.currentPhaseId;
-  $: selectedPhaseId = activePhaseId;
+  function syncPhase(id: EventLifecyclePhaseId) {
+    activePhaseId = id;
+    selectedPhaseId = id;
+  }
+  selectedPhaseId = activePhaseId;
+
+  $: if (selectedPhaseId && selectedPhaseId !== activePhaseId) {
+    activePhaseId = selectedPhaseId;
+  }
   let lastCurrentPhaseId = data.lifecycle.currentPhaseId;
   let showValueComposer = false;
   let showPlanComposer = false;
@@ -111,7 +126,7 @@
   } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
 
   function handleParticipationActivitiesFocus() {
-    activePhaseId = 'activity';
+    syncPhase('activity');
   }
 
   function handleParticipationHistoryFocus(event: Event) {
@@ -120,7 +135,7 @@
       return;
     }
 
-    activePhaseId = 'activity';
+    syncPhase('activity');
     void focusActivityTarget(detail.activityId);
   }
 
@@ -131,7 +146,7 @@
     }
 
     lastActivityTargetId = activityId;
-    activePhaseId = 'activity';
+    syncPhase('activity');
     void focusActivityTarget(activityId);
   }
 
@@ -167,9 +182,9 @@
 
   async function focusVoteCard(voteKind: string, voteTarget: string) {
     if (voteKind === 'plan') {
-      activePhaseId = 'event-plan';
+      syncPhase('event-plan');
     } else if (voteKind === 'phase_change') {
-      activePhaseId = data.lifecycle.currentPhaseId;
+      syncPhase(data.lifecycle.currentPhaseId);
     }
 
     await tick();
@@ -192,7 +207,7 @@
       lastActivityTargetId = null;
     } else if (activityTargetId !== lastActivityTargetId) {
       lastActivityTargetId = activityTargetId;
-      activePhaseId = 'activity';
+      syncPhase('activity');
       void focusActivityTarget(activityTargetId);
     }
   }
@@ -260,7 +275,7 @@
 
   $: if (lastCurrentPhaseId !== data.lifecycle.currentPhaseId) {
     lastCurrentPhaseId = data.lifecycle.currentPhaseId;
-    activePhaseId = data.lifecycle.currentPhaseId;
+    syncPhase(data.lifecycle.currentPhaseId);
     showValueComposer = false;
     showPlanComposer = false;
     showActivityComposer = false;
@@ -626,11 +641,27 @@
     tabs={phaseTabs}
     {activePhaseId}
     selectPhase={(phase) => {
-      activePhaseId = phase.id;
+      syncPhase(phase.id);
     }}
   />
 
   <section class="phase-panel overview-phase-work">
+    {#if phaseViewingNote}
+      {@const viewedPhase = data.lifecycle.phases.find((phase) => phase.id === activePhaseId)}
+      <div class="phase-viewing-note">
+        <p>{phaseViewingNote}</p>
+        {#if viewedPhase?.summary}
+          <p>{viewedPhase.summary}</p>
+        {/if}
+        {#if viewedPhase && viewedPhase.mechanics.length > 0}
+          <ul>
+            {#each viewedPhase.mechanics as mechanic}
+              <li>{mechanic}</li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
     <EventLifecycleContent
       {data}
       {activePhaseId}
@@ -685,5 +716,26 @@
     border: 0;
     border-radius: 0;
     background: transparent;
+  }
+
+  .phase-viewing-note {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .phase-viewing-note p,
+  .phase-viewing-note li {
+    margin: 0;
+  }
+
+  .phase-viewing-note ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
   }
 </style>

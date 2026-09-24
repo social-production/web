@@ -247,7 +247,7 @@
   }
 
   function requestKindLabel(request: ProjectLifecyclePhaseChangeRequest) {
-    return 'Phase decision';
+    return 'Phase';
   }
 
   function requestDecisionTitle(request: ProjectLifecyclePhaseChangeRequest) {

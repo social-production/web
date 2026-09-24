@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import {
     activateParticipationActivityPhase,
@@ -19,6 +20,7 @@
   export let placement: 'inline' | 'lead' = 'inline';
   export let pendingVotes: PendingVoteItem[] = [];
   export let pageData: ProjectPageData | EventPageData | null = null;
+  export let viewingNote = '';
 
   const dispatch = createEventDispatcher<{ dismiss: void; stepAction: { stepId: string } }>();
 
@@ -79,6 +81,38 @@
     null;
 
   function activateStep(stepId: string) {
+    if (stepId === 'sign-in') {
+      void goto('/onboarding');
+      return;
+    }
+
+    if (viewingNote) {
+      selectedStepId = stepId;
+      hasManualSelection = true;
+      return;
+    }
+
+    const signedIn = Boolean($page.data.bootstrap?.viewer);
+    if (!signedIn) {
+      const kind = pageData && 'projectMode' in pageData ? 'project' : 'event';
+      const guestMessages: Record<string, string> = {
+        signal: `Sign in to support this ${kind}.`,
+        join: `Sign in to join this ${kind}.`,
+        vote: `Sign in to vote on this ${kind}.`,
+        'phase-vote': `Sign in to vote on this ${kind}.`,
+        rate: 'Sign in to rate shared values.',
+        plan: 'Sign in to propose a plan.',
+        'assess-plans': 'Sign in to assess plans.',
+        activity: 'Sign in to sign up for an activity.',
+        'propose-activity': 'Sign in to add an activity.',
+        'propose-advance': 'Sign in to propose the next phase.',
+        'make-pull-request': 'Sign in to open a pull request.',
+        'history-follow-up': 'Sign in to wrap up this activity.',
+      };
+      requireViewer($page.data.bootstrap?.viewer, guestMessages[stepId] ?? 'Sign in to take this step.');
+      return;
+    }
+
     if (authGatedSteps.has(stepId) && !requireViewer($page.data.bootstrap?.viewer)) {
       return;
     }

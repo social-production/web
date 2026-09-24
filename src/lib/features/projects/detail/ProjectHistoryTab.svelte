@@ -45,7 +45,6 @@
         break;
       case 'project-link-create':
       case 'project-link-sever':
-        if (!vote) return;
         await setProjectManualLinkVote(data.slug, entry.id, vote);
         break;
       default:

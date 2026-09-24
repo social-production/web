@@ -1,6 +1,7 @@
 <script lang="ts">
-  import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
+  import VoteDecisionSheet from '$lib/components/shared/VoteDecisionSheet.svelte';
   import type { DecisionHistoryEntry, ProjectApprovalVote } from '$lib/types/detail';
+  import { historyEntryToVoteItem } from '$lib/utils/pendingVotes';
   import {
     formatProjectVoteRequirement,
     formatProjectVoteSummary
@@ -14,14 +15,18 @@
     vote: ProjectApprovalVote | null
   ) => void | Promise<void> = () => {};
 
-  let open = false;
+  let sheetOpen = false;
 
-  $: if (highlighted) {
-    open = true;
+  function openSheet() {
+    sheetOpen = true;
   }
 
-  function toggleOpen() {
-    open = !open;
+  function closeSheet() {
+    sheetOpen = false;
+  }
+
+  async function voteFromSheet(vote: ProjectApprovalVote | null) {
+    await onVote(entry, vote);
   }
 
   function statusLabel(status: DecisionHistoryEntry['status']) {
@@ -32,31 +37,6 @@
         return 'Rejected';
       default:
         return 'Active';
-    }
-  }
-
-  function compactLabel(entry: DecisionHistoryEntry) {
-    switch (entry.payload.type) {
-      case 'phase-change':
-        if (entry.payload.closeOutcome === 'convert' && entry.payload.conversionTarget) {
-          return `Convert to ${entry.payload.conversionTarget.projectModeLabel} · ${entry.payload.conversionTarget.projectSubtypeLabel}`;
-        }
-
-        return `${entry.payload.fromPhaseLabel} -> ${entry.payload.toPhaseLabel}`;
-      case 'update':
-        return 'Proposed Update';
-      case 'pull-request':
-        return entry.payload.pullRequestId;
-      case 'merge-capability':
-        return entry.payload.targetUsername;
-      case 'repository-replacement':
-        return entry.payload.repositoryUrl;
-      case 'settings-change':
-        return entry.payload.proposedSettings.summary;
-      case 'link':
-        return `${entry.payload.requestType === 'sever' ? 'Sever' : 'Link'} · ${entry.payload.counterpartTitle}`;
-      default:
-        return null;
     }
   }
 
@@ -80,35 +60,24 @@
 
     return `${baseSummary} · ${entry.voteSummary.totalVotes} ${castLabel} cast out of ${entry.voteSummary.votesRequired} quorum ${quorumLabel}`;
   }
-
-  function normalizeExternalUrl(value: string | null | undefined) {
-    const trimmed = value?.trim() ?? '';
-
-    if (!trimmed) {
-      return '';
-    }
-
-    if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed)) {
-      return trimmed;
-    }
-
-    return `https://${trimmed}`;
-  }
 </script>
 
-<article id={`decision-${entry.id}`} class:expanded={open} class="history-card" class:highlighted={highlighted}>
+<article
+  id={`decision-${entry.id}`}
+  class="history-card"
+  class:open={entry.status === 'open'}
+  class:approved={entry.status === 'approved'}
+  class:rejected={entry.status === 'rejected'}
+  class:highlighted
+>
   <button
-    aria-expanded={open}
-    aria-controls={`history-details-${entry.id}`}
     class="history-toggle"
     type="button"
-    on:click={toggleOpen}
+    aria-label={`${entry.kindLabel}, ${statusLabel(entry.status)}`}
+    on:click={openSheet}
   >
     <div class="history-status-row">
-      <div class="history-status-left">
-        <span class="history-kicker">{entry.kindLabel}</span>
-        <span class={`status-pill ${entry.status}`}>{statusLabel(entry.status)}</span>
-      </div>
+      <span class="history-kicker">{entry.kindLabel}</span>
       <span class="history-requirement">{requirementLabel(entry)}</span>
     </div>
     {#if entry.originLabel}
@@ -120,255 +89,56 @@
     </div>
   </button>
 
-  {#if open}
-    <div id={`history-details-${entry.id}`} class="history-details">
-      {#if compactLabel(entry)}
-        <div class="history-details-head">
-          <strong>{compactLabel(entry)}</strong>
-        </div>
-      {/if}
-
-      {#if entry.payload.type === 'phase-change'}
-        <div class="detail-grid two-up">
-          <div class="detail-card">
-            <span>From</span>
-            <strong>{entry.payload.fromPhaseLabel}</strong>
-          </div>
-          <div class="detail-card">
-            <span>To</span>
-            <strong>{entry.payload.toPhaseLabel}</strong>
-          </div>
-        </div>
-        {#if entry.payload.closeOutcome === 'convert' && entry.payload.conversionTarget}
-          <div class="detail-grid two-up">
-            <div class="detail-card">
-              <span>Successor target</span>
-              <strong>{entry.payload.conversionTarget.projectModeLabel} · {entry.payload.conversionTarget.projectSubtypeLabel}</strong>
-            </div>
-            <div class="detail-card">
-              <span>Successor entry phase</span>
-              <strong>{entry.payload.conversionTarget.entryPhaseLabel}</strong>
-            </div>
-          </div>
-        {/if}
-        <div class="detail-copy">
-          <span class="detail-section-title">Reason</span>
-          <p>{entry.payload.reason}</p>
-        </div>
-      {:else if entry.payload.type === 'update'}
-        <p>{entry.payload.body}</p>
-        {#if entry.payload.appliedUpdateId}
-          <p class="detail-note">Applied to the public update list.</p>
-        {/if}
-      {:else if entry.payload.type === 'edit'}
-        <div class="change-list">
-          {#each entry.payload.changes as change}
-            <div class="detail-card change-card">
-              <strong>{change.label}</strong>
-              <div class="change-values">
-                <div>
-                  <span>Before</span>
-                  <p>{change.before}</p>
-                </div>
-                <div>
-                  <span>After</span>
-                  <p>{change.after}</p>
-                </div>
-              </div>
-            </div>
-          {/each}
-        </div>
-      {:else if entry.payload.type === 'pull-request'}
-        <div class="detail-grid two-up">
-          <div class="detail-card">
-            <span>Pull request</span>
-            <a href={entry.payload.pullRequestUrl} rel="noreferrer" target="_blank">
-              {entry.payload.pullRequestId}
-            </a>
-          </div>
-          <div class="detail-card">
-            <span>Repository</span>
-            {#if entry.payload.repositoryUrl}
-              <a href={normalizeExternalUrl(entry.payload.repositoryUrl)} rel="noreferrer" target="_blank">
-                {entry.payload.repositoryUrl}
-              </a>
-            {:else}
-              <strong>Not linked yet</strong>
-            {/if}
-          </div>
-        </div>
-        <div class="detail-card">
-          <span>Pull request URL</span>
-          <a href={entry.payload.pullRequestUrl} rel="noreferrer" target="_blank">
-            {entry.payload.pullRequestUrl}
-          </a>
-        </div>
-        <div class="detail-copy">
-          <span class="detail-section-title">Title</span>
-          <p>{entry.payload.title}</p>
-        </div>
-        <div class="detail-copy">
-          <span class="detail-section-title">Summary</span>
-          <p>{entry.payload.summary}</p>
-        </div>
-        {#if entry.payload.mergeId || entry.payload.mergeUrl}
-          <div class="detail-grid two-up">
-            {#if entry.payload.mergeId}
-              <div class="detail-card">
-                <span>Merge ID</span>
-                {#if entry.payload.mergeUrl}
-                  <a href={normalizeExternalUrl(entry.payload.mergeUrl)} rel="noreferrer" target="_blank">
-                    {entry.payload.mergeId}
-                  </a>
-                {:else}
-                  <strong>{entry.payload.mergeId}</strong>
-                {/if}
-              </div>
-            {/if}
-            {#if entry.payload.mergeUrl}
-              <div class="detail-card">
-                <span>Merge link</span>
-                <a href={normalizeExternalUrl(entry.payload.mergeUrl)} rel="noreferrer" target="_blank">
-                  {entry.payload.mergeUrl}
-                </a>
-              </div>
-            {/if}
-          </div>
-        {/if}
-      {:else if entry.payload.type === 'merge-capability'}
-        <div class="detail-grid two-up">
-          <div class="detail-card">
-            <span>Action</span>
-            <strong>{entry.payload.actionLabel}</strong>
-          </div>
-          <div class="detail-card">
-            <span>Member</span>
-            <strong>{entry.payload.targetUsername}</strong>
-          </div>
-        </div>
-      {:else if entry.payload.type === 'repository-replacement'}
-        <div class="detail-grid two-up">
-          <div class="detail-card">
-            <span>Replacement repository</span>
-            <a href={normalizeExternalUrl(entry.payload.repositoryUrl)} rel="noreferrer" target="_blank">
-              {entry.payload.repositoryUrl}
-            </a>
-          </div>
-          <div class="detail-card">
-            <span>Previous repository</span>
-            {#if entry.payload.previousRepositoryUrl}
-              <a href={normalizeExternalUrl(entry.payload.previousRepositoryUrl)} rel="noreferrer" target="_blank">
-                {entry.payload.previousRepositoryUrl}
-              </a>
-            {:else}
-              <strong>Not linked yet</strong>
-            {/if}
-          </div>
-        </div>
-        {#if entry.payload.relatedPullRequestId}
-          <div class="detail-card">
-            <span>Blocked pull request</span>
-            <strong>{entry.payload.relatedPullRequestId}</strong>
-          </div>
-        {/if}
-        <div class="detail-copy">
-          <span class="detail-section-title">Reason</span>
-          <p>{entry.payload.reason}</p>
-        </div>
-      {:else if entry.payload.type === 'link'}
-        <div class="detail-grid two-up">
-          <div class="detail-card">
-            <span>Request</span>
-            <strong>{entry.payload.requestType === 'sever' ? 'Sever link' : 'Create link'}</strong>
-          </div>
-          <div class="detail-card">
-            <span>Counterpart</span>
-            {#if entry.payload.counterpartHref}
-              <a href={entry.payload.counterpartHref}>{entry.payload.counterpartTitle}</a>
-            {:else}
-              <strong>{entry.payload.counterpartTitle}</strong>
-            {/if}
-          </div>
-        </div>
-        <div class="detail-copy">
-          <span class="detail-section-title">Why</span>
-          <p>{entry.payload.summary}</p>
-        </div>
-        <div class="detail-grid two-up">
-          <div class="detail-card">
-            <span>This side</span>
-            <strong>{entry.payload.thisSideLabel}</strong>
-          </div>
-          <div class="detail-card">
-            <span>Other side</span>
-            <strong>{entry.payload.otherSideLabel}</strong>
-          </div>
-        </div>
-      {:else}
-        <div class="detail-copy">
-          <span class="detail-section-title">Reason</span>
-          <p>{entry.payload.reason}</p>
-        </div>
-        <div class="detail-grid two-up">
-          <div class="detail-card">
-            <span>Previous</span>
-            <strong>{entry.payload.previousSettings.summary}</strong>
-          </div>
-          <div class="detail-card">
-            <span>Proposed</span>
-            <strong>{entry.payload.proposedSettings.summary}</strong>
-          </div>
-        </div>
-      {/if}
-
-      {#if entry.canVote}
-        <VoteCardFooter
-          authorUsername={entry.authorUsername}
-          createdAt={entry.createdAt}
-          activeVote={entry.voteSummary.activeVote}
-          canVote={entry.canVote}
-          showMeta={false}
-          onVote={(vote) => onVote(entry, vote)}
-        />
-      {/if}
-    </div>
-  {/if}
+  <VoteDecisionSheet
+    item={sheetOpen ? historyEntryToVoteItem(entry) : null}
+    sheetId={`history-vote-${entry.id}`}
+    onClose={closeSheet}
+    onVote={voteFromSheet}
+  />
 </article>
 
 <style>
-  .history-card,
-  .history-details,
-  .history-details-head,
-  .detail-copy,
-  .change-list,
-  .detail-grid,
-  .change-values {
-    display: grid;
-    gap: 12px;
-  }
-
   .history-card {
     position: relative;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
+    border: 0;
+    border-bottom: 1px solid var(--panel-border);
+    border-left: 3px solid transparent;
+    border-radius: 0;
+    background: transparent;
     overflow: hidden;
   }
 
-  .history-card {
-    gap: 0;
+  .history-card.open {
+    border-left-color: #e6b325;
+  }
+
+  .history-card.approved {
+    border-left-color: #2f9e44;
+  }
+
+  .history-card.rejected {
+    border-left-color: #e03131;
+  }
+
+  :global(.history-rail-card:last-child) .history-card {
+    border-bottom: 0;
   }
 
   .history-toggle {
     display: grid;
-    gap: 10px;
+    gap: 6px;
     width: 100%;
-    padding: 14px 16px;
+    padding: 10px 14px;
     border: 0;
     background: transparent;
     color: inherit;
     cursor: pointer;
     text-align: left;
+  }
+
+  .history-toggle:hover,
+  .history-toggle:focus-visible {
+    background: color-mix(in srgb, var(--panel-strong) 88%, var(--text-main));
   }
 
   .history-status-row,
@@ -380,10 +150,6 @@
   }
 
   .history-kicker,
-  .status-pill,
-  .detail-card span,
-  .detail-section-title,
-  .detail-note,
   .history-meta-left,
   .history-meta-right,
   .history-requirement,
@@ -392,111 +158,31 @@
     font-size: 12px;
   }
 
-  .origin-label {
-    margin: 0;
-    text-align: left;
-  }
-
-  .history-details-head strong,
-  .detail-card strong,
-  .change-card strong {
+  .history-kicker {
     color: var(--text-main);
-  }
-
-  .detail-section-title {
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-  }
-
-  .status-pill {
-    padding: 4px 8px;
-    border-radius: 999px;
-    border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
+    font-size: 14px;
     font-weight: 700;
   }
 
-  .status-pill.open {
-    color: var(--brand-strong);
-  }
-
-  .status-pill.approved {
-    color: var(--success-strong, #1c6a46);
-  }
-
-  .status-pill.rejected {
-    color: var(--danger-strong, #8f2d2d);
+  .origin-label,
+  .history-card p {
+    margin: 0;
   }
 
   .history-meta-left {
     min-width: 0;
   }
 
-  .history-requirement {
-    text-align: right;
-  }
-
+  .history-requirement,
   .history-meta-right {
     text-align: right;
   }
 
-  .history-status-left {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    min-width: 0;
-    flex-wrap: wrap;
-  }
-
-  .history-details {
-    padding: 0 16px 16px;
-  }
-
-  .history-details-head {
-    padding-top: 4px;
-  }
-
-  .detail-grid.two-up,
-  .change-values {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .detail-card {
-    display: grid;
-    gap: 6px;
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-  }
-
-  .change-values div {
-    display: grid;
-    gap: 6px;
-  }
-
-  .change-values p,
-  .detail-note,
-  .history-card p {
-    margin: 0;
-  }
-
-  .history-card.expanded {
-    z-index: 1;
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 18%, transparent);
-  }
-
-  .history-card.highlighted {
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--status-green) 45%, var(--brand));
+  .history-card.highlighted .history-toggle {
+    background: color-mix(in srgb, var(--brand-soft) 55%, var(--panel));
   }
 
   @media (max-width: 720px) {
-    .detail-grid.two-up,
-    .change-values {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
     .history-status-row,
     .history-meta-row {
       grid-template-columns: minmax(0, 1fr);

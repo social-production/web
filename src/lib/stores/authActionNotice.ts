@@ -1,18 +1,13 @@
 import { writable } from 'svelte/store';
 
 export const authActionNoticeVisible = writable(false);
+export const authActionNoticeMessage = writable('Sign in to continue.');
 
-let dismissTimer: ReturnType<typeof setTimeout> | null = null;
-
-export function showAuthActionNotice(): void {
+export function showAuthActionNotice(message?: string): void {
+  authActionNoticeMessage.set(message?.trim() || 'Sign in to continue.');
   authActionNoticeVisible.set(true);
+}
 
-  if (dismissTimer) {
-    clearTimeout(dismissTimer);
-  }
-
-  dismissTimer = setTimeout(() => {
-    authActionNoticeVisible.set(false);
-    dismissTimer = null;
-  }, 4000);
+export function dismissAuthActionNotice(): void {
+  authActionNoticeVisible.set(false);
 }

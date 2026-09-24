@@ -18,7 +18,7 @@
   const signalsDisabled = $derived(Boolean(item.isClosed) || item.projectMode === 'personal-service');
 
   async function handleSignal(signal: 'demand' | 'opposition') {
-    if (!requireViewer($page.data.bootstrap?.viewer) || signalsDisabled) {
+    if (!requireViewer($page.data.bootstrap?.viewer, 'Sign in to support this project.') || signalsDisabled) {
       return;
     }
 

@@ -69,17 +69,22 @@
 
 <style>
   .history-shell,
-  .history-group,
-  .history-list {
+  .history-group {
     display: grid;
     gap: 12px;
   }
 
   .history-list {
+    display: grid;
+    gap: 0;
     grid-template-columns: minmax(0, 1fr);
     grid-auto-rows: max-content;
     align-content: start;
     align-items: start;
+    overflow: hidden;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
   }
 
   .history-rail-card {

@@ -6,6 +6,7 @@
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
+  import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
   import { setVote } from '$lib/services/commands/shared';
   import type { HelpRequestPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
@@ -46,6 +47,7 @@
 
 <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
   <h1>{data.title}</h1>
+  <GuestBrowseLine kind="help request" />
   <p class="overview-copy">{data.body}</p>
 </ModerationRestrictionNotice>
 
@@ -161,6 +163,7 @@
 
   .overview-footer-row {
     justify-content: flex-start;
+    flex-wrap: wrap;
     padding-top: 16px;
     padding-bottom: 12px;
     border-top: 1px solid var(--panel-border);
@@ -168,9 +171,18 @@
 
   .footer-author-row {
     margin-left: auto;
-    min-width: 0;
-    overflow: hidden;
+    max-width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    overflow: visible;
     color: var(--text-soft);
+  }
+
+  .footer-author-row :global(.content-meta-row),
+  .footer-author-row :global(.inline-link) {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   .comment-link {
@@ -180,16 +192,17 @@
 
   @media (max-width: 760px) {
     .overview-footer-row {
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       gap: 8px;
       align-items: center;
     }
 
-    .footer-author-row {
-      margin-left: auto;
-      width: auto;
-      min-width: 0;
-      flex: 1 1 auto;
+    .footer-author-row :global(.content-meta-row) {
+      overflow: visible;
+    }
+
+    .footer-author-row :global(.inline-link) {
+      flex: 0 0 auto;
     }
   }
 </style>

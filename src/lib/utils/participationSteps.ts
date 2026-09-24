@@ -36,8 +36,24 @@ export interface ParticipationStep {
 export interface ParticipationStepOptions {
   signalRemovalNudge?: boolean;
   viewerUsername?: string | null;
+  viewerSignedIn?: boolean;
 }
 
+function withSignIn(steps: ParticipationStep[], signedIn: boolean): ParticipationStep[] {
+  if (signedIn) {
+    return steps;
+  }
+
+  return [
+    {
+      id: 'sign-in',
+      label: 'Sign in',
+      done: false,
+      helper: 'Sign in to support, join, vote, or create.',
+    },
+    ...steps,
+  ];
+}
 function valuesRated(values: { activeImportanceVote: number }[]) {
   if (values.length === 0) {
     return false;
@@ -574,13 +590,15 @@ function buildParticipationSteps(
   pendingVotes: PendingVoteItem[] = [],
   options: ParticipationStepOptions = {}
 ): ParticipationStep[] {
+  const signedIn = options.viewerSignedIn ?? Boolean(options.viewerUsername);
+
   if ('projectMode' in data && isPersonalServiceProject(data.projectMode)) {
     const historyPending = getHistoryItemsNeedingFollowUp(data);
     if (historyPending.length === 0) {
-      return [];
+      return withSignIn([], signedIn);
     }
 
-    return [buildHistoryFollowUpStep(historyPending)].filter((step) => !step.done);
+    return withSignIn([buildHistoryFollowUpStep(historyPending)].filter((step) => !step.done), signedIn);
   }
 
   const joined = data.viewerIsMember;
@@ -713,7 +731,7 @@ function buildParticipationSteps(
     steps.push(buildHistoryFollowUpStep(historyPending));
   }
 
-  return steps.filter((step) => !step.done);
+  return withSignIn(steps.filter((step) => !step.done), signedIn);
 }
 
 export function buildProjectParticipationSteps(
@@ -733,6 +751,11 @@ export function buildEventParticipationSteps(
 }
 
 export function resolveCurrentParticipationStep(steps: ParticipationStep[]) {
+  const signIn = steps.find((step) => step.id === 'sign-in' && !step.done);
+  if (signIn) {
+    return signIn.id;
+  }
+
   const signalStep = steps.find((step) => step.id === 'signal' && !step.done);
   if (signalStep) {
     return signalStep.id;

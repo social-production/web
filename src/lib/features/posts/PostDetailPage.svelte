@@ -12,6 +12,7 @@
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
+  import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
   import { setVote } from '$lib/services/commands/shared';
   import type { PostPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
@@ -81,6 +82,8 @@
         </div>
       </div>
     </div>
+
+    <GuestBrowseLine kind="post" />
 
     <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
       <LinkedPostBody body={data.body} links={data.linkedSubjects ?? []} variant="detail" />

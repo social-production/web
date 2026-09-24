@@ -3,6 +3,7 @@ import type {
   EventPageData,
   EventUpdateRequest,
   EventEditRequest,
+  DecisionHistoryEntry,
   ProjectApprovalVote,
   ProjectEditRequest,
   ProjectLifecyclePhaseChangeRequest,
@@ -38,6 +39,8 @@ export interface PendingVoteItem {
   title: string;
   reason?: string;
   description?: string;
+  previousTitle?: string;
+  previousDescription?: string;
   criteriaRatedCount?: number;
   criteriaTotalCount?: number;
   planValueId?: string;
@@ -121,7 +124,7 @@ function pushPhaseChangeVotes(
     items.push({
       id: request.id,
       voteKind: 'phase_change',
-      label: 'Phase decision',
+      label: 'Phase',
       title: phaseChangeTitle(request, kind),
       reason: request.reason,
       voteSummary: request.voteSummary,
@@ -150,7 +153,7 @@ function pushUpdateVotes(
     items.push({
       id: request.id,
       voteKind: 'update',
-      label: 'Update decision',
+      label: 'Update',
       title: 'Update proposal',
       reason: request.body,
       voteSummary: request.voteSummary,
@@ -165,7 +168,9 @@ function pushUpdateVotes(
 function pushEditVotes(
   items: PendingVoteItem[],
   requests: ProjectEditRequest[] | EventEditRequest[],
-  canVote: boolean
+  canVote: boolean,
+  currentTitle: string,
+  currentDescription: string
 ) {
   if (!canVote) {
     return;
@@ -179,9 +184,11 @@ function pushEditVotes(
     items.push({
       id: request.id,
       voteKind: 'edit',
-      label: 'Edit decision',
+      label: 'Edit',
       title: request.title,
       reason: request.description,
+      previousTitle: currentTitle,
+      previousDescription: currentDescription,
       voteSummary: request.voteSummary,
       approvalThresholdPercent: request.approvalThresholdPercent,
       authorUsername: request.authorUsername,
@@ -211,7 +218,7 @@ function pushPlanVotes(
       items.push({
         id: plan.id,
         voteKind: 'plan',
-        label: 'Plan Assessment',
+        label: 'Plan',
         title: plan.title,
         description: plan.description,
         planCriterionId: pendingCriterion.criterionId,
@@ -232,7 +239,7 @@ function pushPlanVotes(
       items.push({
         id: plan.id,
         voteKind: 'plan',
-        label: 'Plan value vote',
+        label: 'Plan value',
         title: plan.title,
         reason: `Vote on value: ${pendingValue.valueLabel}`,
         planValueId: pendingValue.valueId,
@@ -250,7 +257,7 @@ function pushPlanVotes(
       items.push({
         id: plan.id,
         voteKind: 'plan',
-        label: 'Plan approval vote',
+        label: 'Plan',
         title: plan.title,
         reason: plan.description,
         planPhaseId,
@@ -283,7 +290,7 @@ function pushSoftwareGovernanceActions(items: PendingVoteItem[], data: ProjectPa
       items.push({
         id: request.id,
         voteKind: 'pull_request',
-        label: needsConfirmation ? 'Merge confirmation needed' : 'Pull request vote needed',
+        label: needsConfirmation ? 'Merge' : 'Pull request',
         title: request.title,
         reason: request.summary,
         description: needsConfirmation
@@ -303,7 +310,7 @@ function pushSoftwareGovernanceActions(items: PendingVoteItem[], data: ProjectPa
       items.push({
         id: request.id,
         voteKind: 'pull_request_merge',
-        label: 'Merge needed',
+        label: 'Merge',
         title: request.title,
         reason: request.summary,
         description: 'A merge-capable member needs to record the merge commit or release ID.',
@@ -332,7 +339,7 @@ function pushSoftwareGovernanceActions(items: PendingVoteItem[], data: ProjectPa
     items.push({
       id: request.id,
       voteKind: 'merge_capability',
-      label: 'Merge capability vote needed',
+      label: 'Merge capability',
       title: request.actionLabel,
       reason: `Member: ${request.targetMember.username}`,
       voteSummary: request.voteSummary,
@@ -357,7 +364,7 @@ function pushSoftwareGovernanceActions(items: PendingVoteItem[], data: ProjectPa
     items.push({
       id: request.id,
       voteKind: 'repository_replacement',
-      label: 'Repository replacement vote needed',
+      label: 'Repository',
       title: request.repositoryUrl,
       reason: request.reason,
       voteSummary: request.voteSummary,
@@ -374,7 +381,13 @@ export function collectProjectPendingVotes(data: ProjectPageData): PendingVoteIt
 
   pushPhaseChangeVotes(items, data.lifecycle.phaseChangeRequests, data.lifecycle.viewerCanVoteOnPhaseChanges, data);
   pushUpdateVotes(items, data.updateRequests, data.viewerCanVoteOnUpdateRequests);
-  pushEditVotes(items, data.editRequests, data.viewerCanVoteOnEditRequests);
+  pushEditVotes(
+    items,
+    data.editRequests,
+    data.viewerCanVoteOnEditRequests,
+    data.title,
+    data.description
+  );
 
   if (data.lifecycle.currentPhaseId === 'phase-2') {
     pushPlanVotes(items, data.lifecycle.phaseTwo.plans, data.lifecycle.phaseTwo.viewerCanVoteOnPlans, 'phase-2');
@@ -400,13 +413,111 @@ export function collectEventPendingVotes(data: EventPageData): PendingVoteItem[]
 
   pushPhaseChangeVotes(items, data.lifecycle.phaseChangeRequests, data.lifecycle.viewerCanVoteOnPhaseChanges, data);
   pushUpdateVotes(items, data.updateRequests, data.viewerCanVoteOnUpdateRequests);
-  pushEditVotes(items, data.editRequests, data.viewerCanVoteOnEditRequests);
+  pushEditVotes(
+    items,
+    data.editRequests,
+    data.viewerCanVoteOnEditRequests,
+    data.title,
+    data.description
+  );
 
   if (data.lifecycle.currentPhaseId === 'event-plan') {
     pushPlanVotes(items, data.lifecycle.phaseTwo.plans, data.lifecycle.phaseTwo.viewerCanVoteOnPlans);
   }
 
   return items;
+}
+
+export function historyEntryToVoteItem(entry: DecisionHistoryEntry): PendingVoteItem {
+  const payload = entry.payload;
+  const base: PendingVoteItem = {
+    id: entry.id,
+    voteKind: 'phase_change',
+    label: entry.kindLabel,
+    title: entry.kindLabel,
+    voteSummary: entry.voteSummary,
+    approvalThresholdPercent: entry.approvalThresholdPercent,
+    authorUsername: entry.authorUsername,
+    createdAt: entry.createdAt,
+    canVote: entry.status === 'open' && entry.canVote
+  };
+
+  if (payload.type === 'edit') {
+    const title = payload.changes.find((change) => change.label === 'Title');
+    const description = payload.changes.find((change) => change.label === 'Description');
+    return {
+      ...base,
+      voteKind: 'edit',
+      label: 'Edit',
+      title: title?.after ?? '',
+      previousTitle: title?.before ?? '',
+      reason: description?.after ?? '',
+      previousDescription: description?.before ?? ''
+    };
+  }
+
+  if (payload.type === 'update') {
+    return { ...base, voteKind: 'update', label: 'Update', title: 'Update', reason: payload.body };
+  }
+
+  if (payload.type === 'phase-change') {
+    return {
+      ...base,
+      voteKind: 'phase_change',
+      label: 'Phase',
+      title: `${payload.fromPhaseLabel} → ${payload.toPhaseLabel}`,
+      reason: payload.reason
+    };
+  }
+
+  if (payload.type === 'pull-request') {
+    return {
+      ...base,
+      voteKind: 'pull_request',
+      label: 'Pull request',
+      title: payload.title,
+      description: payload.summary,
+      reason: payload.pullRequestId
+    };
+  }
+
+  if (payload.type === 'merge-capability') {
+    return {
+      ...base,
+      voteKind: 'merge_capability',
+      label: 'Merge capability',
+      title: payload.targetUsername,
+      reason: payload.actionLabel
+    };
+  }
+
+  if (payload.type === 'repository-replacement') {
+    return {
+      ...base,
+      voteKind: 'repository_replacement',
+      label: 'Repository',
+      title: payload.repositoryUrl,
+      description: payload.previousRepositoryUrl ?? undefined,
+      reason: payload.reason
+    };
+  }
+
+  if (payload.type === 'link') {
+    return {
+      ...base,
+      label: payload.requestType === 'sever' ? 'Sever' : 'Link',
+      title: payload.counterpartTitle,
+      reason: payload.summary,
+      description: `${payload.thisSideLabel} · ${payload.otherSideLabel}`
+    };
+  }
+
+  return {
+    ...base,
+    title: payload.proposedSettings.summary,
+    description: payload.previousSettings.summary,
+    reason: payload.reason
+  };
 }
 
 export function pendingVoteCardId(

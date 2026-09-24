@@ -384,8 +384,9 @@ export async function fetchSetProjectPullRequestVote(
   decisionId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
-  await apiClient.post(`/projects/${projectSlug}/software/pull-requests/${decisionId}/vote`, { vote });
+  await apiClient.post(`/projects/${projectSlug}/software/pull-requests/${decisionId}/vote`, {
+    vote: vote ?? 'neutral',
+  });
 }
 
 export async function fetchRecordProjectPullRequestMerge(
@@ -415,10 +416,9 @@ export async function fetchSetProjectMergeCapabilityChangeVote(
   decisionId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
   await apiClient.post(
     `/projects/${projectSlug}/software/merge-capability-requests/${decisionId}/vote`,
-    { vote }
+    { vote: vote ?? 'neutral' }
   );
 }
 
@@ -438,10 +438,9 @@ export async function fetchSetProjectRepositoryReplacementVote(
   decisionId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
   await apiClient.post(
     `/projects/${projectSlug}/software/repository-replacement-requests/${decisionId}/vote`,
-    { vote }
+    { vote: vote ?? 'neutral' }
   );
 }
 
@@ -555,10 +554,9 @@ export async function fetchSetProjectServiceRequestSettingsChangeVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
   await apiClient.post(
     `/projects/${projectSlug}/service-request-settings-requests/${requestId}/vote`,
-    { vote }
+    { vote: vote ?? 'neutral' }
   );
 }
 
@@ -596,8 +594,7 @@ export async function fetchSetProjectPhaseChangeVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
-  await apiClient.post(`/projects/${projectSlug}/phase-requests/${requestId}/vote`, { vote });
+  await apiClient.post(`/projects/${projectSlug}/phase-requests/${requestId}/vote`, { vote: vote ?? 'neutral' });
 }
 
 export async function fetchAdvanceProjectPhase(projectSlug: string, closeNote?: string): Promise<void> {
@@ -628,8 +625,7 @@ export async function fetchSetProjectUpdateVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
-  await apiClient.post(`/projects/${projectSlug}/update-requests/${requestId}/vote`, { vote });
+  await apiClient.post(`/projects/${projectSlug}/update-requests/${requestId}/vote`, { vote: vote ?? 'neutral' });
 }
 
 export async function fetchUpdateProjectDetails(
@@ -653,8 +649,7 @@ export async function fetchSetProjectEditVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
-  await apiClient.post(`/projects/${projectSlug}/edit-requests/${requestId}/vote`, { vote });
+  await apiClient.post(`/projects/${projectSlug}/edit-requests/${requestId}/vote`, { vote: vote ?? 'neutral' });
 }
 
 export async function fetchAddProjectUpdate(
@@ -687,8 +682,7 @@ export async function fetchSetProjectManualLinkVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ): Promise<void> {
-  if (!vote) return;
-  await apiClient.post(`/projects/${projectSlug}/manual-links/${requestId}/vote`, { vote });
+  await apiClient.post(`/projects/${projectSlug}/manual-links/${requestId}/vote`, { vote: vote ?? 'neutral' });
 }
 
 export async function fetchCreateProjectManualLinkSeverRequest(

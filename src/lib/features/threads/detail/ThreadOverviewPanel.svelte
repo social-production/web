@@ -8,6 +8,7 @@
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
+  import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
   import { setVote } from '$lib/services/commands/shared';
   import type { ThreadPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
@@ -75,6 +76,7 @@
 
   <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
     <h1>{data.title}</h1>
+    <GuestBrowseLine kind="thread" />
     <p class="overview-copy">{data.body}</p>
   </ModerationRestrictionNotice>
 
@@ -160,27 +162,38 @@
 
   .overview-footer-row {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .footer-author-row {
     margin-left: auto;
-    min-width: 0;
-    overflow: hidden;
+    max-width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    overflow: visible;
     color: var(--text-soft);
+  }
+
+  .footer-author-row :global(.content-meta-row),
+  .footer-author-row :global(.inline-link) {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   @media (max-width: 760px) {
     .overview-footer-row {
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       gap: 8px;
       align-items: center;
     }
 
-    .footer-author-row {
-      margin-left: auto;
-      width: auto;
-      min-width: 0;
-      flex: 1 1 auto;
+    .footer-author-row :global(.content-meta-row) {
+      overflow: visible;
+    }
+
+    .footer-author-row :global(.inline-link) {
+      flex: 0 0 auto;
     }
   }
 </style>

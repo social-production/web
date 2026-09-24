@@ -429,6 +429,7 @@
     gap: 4px;
     text-align: left;
     cursor: pointer;
+    overflow: hidden;
     transition: background-color 0.12s ease, box-shadow 0.12s ease;
   }
 
@@ -494,6 +495,7 @@
     line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    overflow-wrap: anywhere;
   }
 
   .phase-badge,

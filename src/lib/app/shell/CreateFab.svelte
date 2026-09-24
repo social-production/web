@@ -41,7 +41,15 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-{#if viewerLoggedIn}
+{#if !viewerLoggedIn}
+  <div class="create-fab-shell">
+    <a class="fab-button" href="/onboarding" aria-label="Sign in to create">
+      <svg aria-hidden="true" viewBox="0 0 24 24" class="fab-icon">
+        <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none" />
+      </svg>
+    </a>
+  </div>
+{:else if viewerLoggedIn}
   {#if open}
     <button aria-label="Close create menu" class="fab-backdrop" type="button" on:click={handleBackdropClick}></button>
   {/if}
