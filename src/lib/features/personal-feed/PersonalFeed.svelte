@@ -9,6 +9,7 @@
   import { getPersonalFeedPage } from '$lib/services/queries/feeds';
   import { getSettings } from '$lib/services/queries/account';
   import { updateSettings } from '$lib/services/commands/account';
+  import { patchBootstrapCacheSettings, readCachedSettings } from '$lib/services/bootstrapCache';
   import { DEFAULT_FEED_PAGE_SIZE, appendUniqueById } from '$lib/types/pagination';
   import type {
     FeedSortPreference,
@@ -173,9 +174,32 @@
 
     await updateSettings({ personalFeedPreferences: preferences });
     lastPersistedPreferences = signature;
+    const cached = readCachedSettings() ?? $page.data.settings ?? null;
+    if (cached) {
+      patchBootstrapCacheSettings({
+        ...cached,
+        personalFeedPreferences: preferences
+      });
+    }
   }
 
-  function handlePreferencesChange() {
+  function rememberControl(
+    key: 'scope' | 'filter' | 'sort' | 'window',
+    value: string
+  ) {
+    if (key === 'scope') {
+      activeScope = value === 'following' ? 'following' : 'popular';
+    } else if (key === 'filter') {
+      activeFilter = normalizePersonalFilter(value);
+    } else if (key === 'sort') {
+      activeSort = toFeedSortPreference(value);
+    } else {
+      activeWindow = normalizeFeedWindow(value);
+    }
+  }
+
+  function handlePreferencesChange(event: CustomEvent<{ value: string }>, key: 'filter' | 'window') {
+    rememberControl(key, event.detail.value);
     void persistPreferences();
     syncFeedQueryToUrl();
     lastLoadedQuery = '';
@@ -183,7 +207,8 @@
     void loadFeedItems();
   }
 
-  function handleFeedQueryChange() {
+  function handleFeedQueryChange(event: CustomEvent<{ value: string }>, key: 'scope' | 'sort') {
+    rememberControl(key, event.detail.value);
     lastLoadedQuery = '';
     void persistPreferences();
     syncFeedQueryToUrl();
@@ -468,7 +493,7 @@
         defaultValue="popular"
         options={scopeOptions}
         showTriggerLabel={showTriggerLabels}
-        on:change={handleFeedQueryChange}
+        on:change={(event) => handleFeedQueryChange(event, 'scope')}
       >
         <FeedToolbarIcon name={activeScope === 'following' ? 'people' : 'trending'} />
       </IconMenuButton>
@@ -480,7 +505,7 @@
         options={filterOptions}
         showOptionIcons
         showTriggerLabel={showTriggerLabels}
-        on:change={handlePreferencesChange}
+        on:change={(event) => handlePreferencesChange(event, 'filter')}
       >
         <FeedToolbarIcon name="filter" />
       </IconMenuButton>
@@ -490,7 +515,7 @@
         ariaLabel="Sort personal feed by"
         options={sortOptions}
         showTriggerLabel={showTriggerLabels}
-        on:change={handleFeedQueryChange}
+        on:change={(event) => handleFeedQueryChange(event, 'sort')}
       >
         <FeedToolbarIcon name="sort" />
       </IconMenuButton>
@@ -501,7 +526,7 @@
         defaultValue="all"
         options={windowOptions}
         showTriggerLabel={showTriggerLabels}
-        on:change={handlePreferencesChange}
+        on:change={(event) => handlePreferencesChange(event, 'window')}
       >
         <FeedToolbarIcon name="clock" />
       </IconMenuButton>
