@@ -9,7 +9,11 @@ import { clearBootstrapCache } from '$lib/services/bootstrapCache';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
+/** Renew the access cookie well before its 15-minute expiry. */
+const SESSION_KEEPALIVE_MS = 10 * 60 * 1000;
+
 let refreshInFlight: Promise<boolean> | null = null;
+let lastSessionRefreshAt = 0;
 
 function getBaseUrl(): string {
   const configured = import.meta.env.VITE_API_URL?.trim();
@@ -71,10 +75,12 @@ export async function refreshSession(): Promise<boolean> {
 
     if (response.ok) {
       markAuthenticatedSession();
+      lastSessionRefreshAt = Date.now();
       return true;
     }
 
     if (response.status === 401 || response.status === 403) {
+      lastSessionRefreshAt = Date.now();
       return false;
     }
 
@@ -91,8 +97,32 @@ export async function refreshSession(): Promise<boolean> {
   }
 }
 
+/**
+ * Public project and event reads return 200 for a guest when the access
+ * cookie is missing, so a 401 never arrives to trigger refresh. Renew the
+ * session on a timer whenever the CSRF cookie says a refresh cookie may
+ * still exist.
+ */
+async function keepSessionFresh(): Promise<void> {
+  if (typeof window === 'undefined' || !shouldAttemptSessionRefresh()) {
+    return;
+  }
+  if (Date.now() - lastSessionRefreshAt < SESSION_KEEPALIVE_MS) {
+    return;
+  }
+  try {
+    await refreshSession();
+  } catch {
+    // Leave the timestamp unchanged so the next request can retry.
+  }
+}
+
 async function request<T>(method: HttpMethod, path: string, body?: unknown, allowRefresh = true): Promise<T> {
   const isBrowser = typeof window !== 'undefined';
+  if (allowRefresh && isBrowser && path !== '/auth/refresh') {
+    await keepSessionFresh();
+  }
+
   const options: RequestInit = {
     method,
     credentials: 'include',
