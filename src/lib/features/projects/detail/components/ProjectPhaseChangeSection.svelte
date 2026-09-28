@@ -2,6 +2,7 @@
   import { afterUpdate, tick } from 'svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import PhaseShiftButton from '$lib/components/shared/PhaseShiftButton.svelte';
+  import QuorumSentence from '$lib/features/detail/QuorumSentence.svelte';
   import { portal } from '$lib/utils/portal';
   import {
     isProductiveProject,
@@ -423,7 +424,6 @@
                 glyph={isClosingTransition() ? '×' : '›'}
                 label={nextPhaseActionLabel() ?? 'Advance'}
                 participationAction="propose-advance"
-                standout
                 onPress={toggleNextPhaseComposer}
               />
             {/if}
@@ -450,7 +450,6 @@
                 glyph={isClosingTransition() ? '×' : '›'}
                 label={nextPhaseActionLabel() ?? 'Advance'}
                 participationAction="propose-advance"
-                standout
                 onPress={toggleNextPhaseComposer}
               />
             {/if}
@@ -511,7 +510,14 @@
           {/if}
           {#if !phaseGatePasses}
             <div class="inline-note">
-              {planGateMessage || 'Advancement is locked until proposal support meets the required threshold.'}
+              <QuorumSentence
+                text={planGateMessage || 'Advancement is locked until proposal support meets the required threshold.'}
+                votesRequired={data.lifecycle.quorumVotesRequired}
+                audienceSize={data.lifecycle.voteContextPopulation}
+                audienceLabel={data.lifecycle.voteContextLabel}
+                usesPlatform={data.lifecycle.usesPlatformLifecycle}
+                entityLabel="project"
+              />
             </div>
           {/if}
           {#if canOfferConversionOnClose}

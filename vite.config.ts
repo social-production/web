@@ -11,6 +11,7 @@ const htmlBypassPaths = new Set([
   '/projects',
   '/events',
   '/platform',
+  '/feedback',
   '/messages',
   '/notifications',
   '/search',

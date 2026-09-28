@@ -3,7 +3,9 @@
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import SoftwareLicenseNotice from '$lib/components/shared/SoftwareLicenseNotice.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
+  import PhaseEmptyState from '$lib/components/shared/PhaseEmptyState.svelte';
   import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
+  import QuorumHelp from '$lib/features/detail/QuorumHelp.svelte';
   import {
     isCollectiveServiceProject,
     projectSubtypeOptions
@@ -182,6 +184,17 @@
         <div class="demand-context-card">
           <strong>Current support signal</strong>
           <span>{data.signalCount} support signals are active right now.</span>
+          <span>
+            Approval needs
+            <QuorumHelp
+              votesRequired={data.lifecycle.quorumVotesRequired}
+              audienceSize={data.lifecycle.voteContextPopulation}
+              audienceLabel={data.lifecycle.voteContextLabel}
+              usesPlatform={data.lifecycle.usesPlatformLifecycle}
+              entityLabel="project"
+            />
+            and at least 66% yes.
+          </span>
           <span>State whether this plan actually meets that support and, if not, why it still falls short.</span>
           <textarea bind:value={form.demandConsiderationNote} rows="3" placeholder={demandPlaceholder()}></textarea>
           {#if prominentValues.length > 0}
@@ -283,7 +296,12 @@
   {/if}
 
   <div id="participation-plans">
-    {#if plans.length > 0}
+    {#if plans.length === 0}
+      <PhaseEmptyState
+        body="Add a plan when you are ready to propose how this should work."
+        title="No plans yet"
+      />
+    {:else}
       <div class="plan-stack">
         {#each plans as plan (plan.id)}
           <CollapsiblePlanCard

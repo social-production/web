@@ -8,6 +8,7 @@
 import type { AppAdapter } from '$lib/services/adapters/types';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
 import { clearBootstrapCache } from '$lib/services/bootstrapCache';
+import { domainNotImplemented } from '../scaffold';
 import { clearAuthenticatedSession } from './authSession';
 import { fetchSignIn, fetchSignOut, fetchSignUp } from './domains/auth';
 import { fetchBootstrap, fetchBootstrapSummary, fetchOnboarding } from './domains/bootstrap';
@@ -157,6 +158,7 @@ import {
   fetchInviteUserToCommunity,
   fetchPlatform,
   fetchRedeemScopeInvite,
+  fetchDiscoverScopes,
   fetchRemoveVolunteer,
   fetchTaggableScopes,
   fetchToggleScopeMembership,
@@ -238,6 +240,12 @@ export function createSupabaseDriver(): AppAdapter {
     async getThread(slug) {
       return fetchThread(slug);
     },
+    async getFeedbackPage() {
+      return domainNotImplemented('supabase', 'feedback', 'getFeedbackPage');
+    },
+    async getFeedbackItem() {
+      return domainNotImplemented('supabase', 'feedback', 'getFeedbackItem');
+    },
     async getPost(id) {
       return fetchPost(id);
     },
@@ -255,6 +263,9 @@ export function createSupabaseDriver(): AppAdapter {
     },
     async createPost(input) {
       return fetchCreatePost(input);
+    },
+    async createFeedback() {
+      return domainNotImplemented('supabase', 'feedback', 'createFeedback');
     },
     async createHelpRequest(input) {
       return fetchCreateHelpRequest(input);
@@ -316,6 +327,9 @@ export function createSupabaseDriver(): AppAdapter {
     },
     async getTaggableScopes(query, kind, limit) {
       return fetchTaggableScopes(query, kind, limit);
+    },
+    async getDiscoverScopes(kind) {
+      return fetchDiscoverScopes(kind);
     },
 
     async getEvent(slug) {

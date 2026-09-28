@@ -23,11 +23,11 @@
   let showWithdrawConfirm = false;
   let showStepDownConfirm = false;
   let query = '';
-  let explainerOpen = false;
+  let explainerSheetOpen = false;
 
   $: if (!open) {
     query = '';
-    explainerOpen = false;
+    explainerSheetOpen = false;
   }
 
   function sortMembers(list: ScopeMemberSummary[]) {
@@ -141,11 +141,10 @@
       <button
         class="rules-toggle"
         type="button"
-        on:click={() => (explainerOpen = !explainerOpen)}
+        on:click={() => (explainerSheetOpen = true)}
       >
-        {explainerOpen ? 'Hide how moderator roles work' : 'How moderator roles work'}
+        How moderator roles work
       </button>
-      <PlatformBoardExplainerCard bind:open={explainerOpen} showToggle={false} />
     </div>
   </svelte:fragment>
 
@@ -219,6 +218,16 @@
   </div>
 </OverlaySheet>
 
+<OverlaySheet
+  bind:open={explainerSheetOpen}
+  title="How moderator roles work"
+  labelledById="platform-board-explainer-title"
+>
+  <div class="explainer-sheet-body">
+    <PlatformBoardExplainerCard open={true} showToggle={false} />
+  </div>
+</OverlaySheet>
+
 <style>
   .panel-copy {
     margin: 0;
@@ -256,6 +265,10 @@
     text-decoration: underline;
     text-underline-offset: 2px;
     cursor: pointer;
+  }
+
+  .explainer-sheet-body {
+    padding: 8px 16px 12px;
   }
 
   .board-body {

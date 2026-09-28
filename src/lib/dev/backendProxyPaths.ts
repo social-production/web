@@ -4,6 +4,7 @@ export const backendProxyPaths = [
   '/bootstrap',
   '/onboarding',
   '/feeds',
+  '/feedback',
   '/content',
   '/projects',
   '/events',

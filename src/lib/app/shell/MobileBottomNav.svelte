@@ -30,7 +30,7 @@
       id: 'messages',
       href: viewerLoggedIn ? '/messages' : '/onboarding',
       label: m.shell_nav_messages(),
-      icon: 'message' as const,
+      icon: 'send' as const,
       badge: messageCount
     }
   ];

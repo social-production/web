@@ -1,6 +1,7 @@
 <script lang="ts">
   import CollapsiblePlanCard from '$lib/components/cards/project-detail/CollapsiblePlanCard.svelte';
   import PlanCreationWizard from '$lib/components/shared/PlanCreationWizard.svelte';
+  import PhaseEmptyState from '$lib/components/shared/PhaseEmptyState.svelte';
   import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import {
@@ -158,6 +159,11 @@
       {productionPlanLocation}
       signalSummary={data.lifecycle.phaseOne.signalSummary}
       signalCount={data.signalCount}
+      quorumVotesRequired={data.lifecycle.quorumVotesRequired}
+      quorumAudienceSize={data.lifecycle.voteContextPopulation}
+      quorumAudienceLabel={data.lifecycle.voteContextLabel}
+      quorumUsesPlatform={data.lifecycle.usesPlatformLifecycle}
+      quorumEntityLabel="project"
       onSubmit={submitPlan}
       onCancel={() => {
         if (editingPlanId) {
@@ -173,7 +179,12 @@
   {/if}
 
   <div id="participation-plans">
-    {#if plans.length > 0}
+    {#if plans.length === 0}
+      <PhaseEmptyState
+        body="Add a plan when you are ready to propose how this should work."
+        title="No plans yet"
+      />
+    {:else}
       <div class="plan-stack">
         {#each plans as plan (plan.id)}
           <CollapsiblePlanCard

@@ -12,6 +12,7 @@ export type GovernanceEntityType =
   | 'event'
   | 'project'
   | 'help_request'
+  | 'platform_feedback'
   | 'message';
 
 /** Subjects that can own a comment thread (not comments or DMs themselves). */
@@ -56,6 +57,7 @@ export function toGovernanceEntityType(
     kind === 'comment' ||
     kind === 'event' ||
     kind === 'project' ||
+    kind === 'platform_feedback' ||
     kind === 'message'
   ) {
     return kind;

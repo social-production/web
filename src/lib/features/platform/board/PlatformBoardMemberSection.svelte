@@ -163,11 +163,11 @@
   }
 
   .person-row.warning {
-    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent-warm) 70%, transparent);
+    box-shadow: inset 6px 0 0 color-mix(in srgb, var(--accent-warm) 70%, transparent);
   }
 
   .person-row.healthy {
-    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--brand) 55%, transparent);
+    box-shadow: inset 6px 0 0 color-mix(in srgb, var(--brand) 55%, transparent);
   }
 
   .person-avatar {

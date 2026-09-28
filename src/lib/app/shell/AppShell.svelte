@@ -884,7 +884,7 @@
               class="nav-link nav-link-icon"
               href={bootstrap.viewer ? '/messages' : '/onboarding'}
             >
-              <FeedToolbarIcon name="message" />
+              <FeedToolbarIcon name="send" />
               {#if displayUnreadCounts.messages > 0}
                 <CountBadge count={displayUnreadCounts.messages} />
               {/if}

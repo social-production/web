@@ -1,6 +1,7 @@
 <script lang="ts">
   import CollapsiblePlanCard from '$lib/components/cards/project-detail/CollapsiblePlanCard.svelte';
   import PlanCreationWizard from '$lib/components/shared/PlanCreationWizard.svelte';
+  import PhaseEmptyState from '$lib/components/shared/PhaseEmptyState.svelte';
   import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import type { EventPageData, PlanCriterionRating, ProjectApprovalVote } from '$lib/types/detail';
@@ -79,6 +80,11 @@
       bind:form={planForm}
       submitLabel="Submit event plan"
       signalSummary={data.lifecycle.phaseOne.signalSummary}
+      quorumVotesRequired={data.lifecycle.quorumVotesRequired}
+      quorumAudienceSize={data.lifecycle.voteContextPopulation}
+      quorumAudienceLabel={data.lifecycle.voteContextLabel}
+      quorumUsesPlatform={data.lifecycle.voteContextLabel.toLowerCase().includes('platform')}
+      quorumEntityLabel="event"
       onSubmit={submitPlan}
       onCancel={() => (showPlanComposer = false)}
       onDismiss={() => (showPlanComposer = false)}
@@ -86,7 +92,12 @@
   {/if}
 
   <div id="participation-plans">
-    {#if data.lifecycle.phaseTwo.plans.length > 0}
+    {#if data.lifecycle.phaseTwo.plans.length === 0}
+      <PhaseEmptyState
+        body="Add a plan when you are ready to propose how this event should run."
+        title="No plans yet"
+      />
+    {:else}
       <div class="plan-stack">
         {#each data.lifecycle.phaseTwo.plans as plan (plan.id)}
           <CollapsiblePlanCard

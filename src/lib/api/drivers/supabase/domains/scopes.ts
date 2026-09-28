@@ -1,6 +1,6 @@
 import { apiClient } from '../client';
 import type { AppAdapter } from '$lib/services/adapters/types';
-import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
+import type { DiscoverScopeItem, ScopeDirectoryItem } from '$lib/types/bootstrap';
 import type { CreateChannelInput, CreateCommunityInput, CreateResult } from '$lib/types/feed';
 import type {
   CommunityDirectInviteResult,
@@ -138,6 +138,22 @@ export async function fetchTaggableScopes(
   }
 }
 
+export async function fetchDiscoverScopes(
+  kind: 'channel' | 'community'
+): Promise<DiscoverScopeItem[]> {
+  try {
+    const res = await apiClient.get<{ items: DiscoverScopeItem[] }>(
+      `/scopes/discover?kind=${kind}&limit=200`
+    );
+    return res.items ?? [];
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) {
+      return [];
+    }
+    throw err;
+  }
+}
+
 export const scopesDomain: Partial<AppAdapter> = {
   getChannel: fetchChannel,
   getCommunity: fetchCommunity,
@@ -152,5 +168,6 @@ export const scopesDomain: Partial<AppAdapter> = {
   castModeratorVote: fetchCastModeratorVote,
   createChannel: fetchCreateChannel,
   createCommunity: fetchCreateCommunity,
-  getTaggableScopes: fetchTaggableScopes
+  getTaggableScopes: fetchTaggableScopes,
+  getDiscoverScopes: fetchDiscoverScopes
 };

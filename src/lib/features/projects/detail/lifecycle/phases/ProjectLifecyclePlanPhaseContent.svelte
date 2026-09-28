@@ -1,6 +1,7 @@
 <script lang="ts">
   import CollapsiblePlanCard from '$lib/components/cards/project-detail/CollapsiblePlanCard.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
+  import PhaseEmptyState from '$lib/components/shared/PhaseEmptyState.svelte';
   import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import { isCollectiveServiceProject } from '$lib/features/projects/projectMode';
   import type { ProjectApprovalVote, ProjectPageData } from '$lib/types/detail';
@@ -143,7 +144,12 @@
   {/if}
 
   <div id="participation-plans">
-    {#if plans.length > 0}
+    {#if plans.length === 0}
+      <PhaseEmptyState
+        body="Add a plan when you are ready to propose how this should work."
+        title="No plans yet"
+      />
+    {:else}
       <div class="plan-stack">
         {#each plans as plan (plan.id)}
           <CollapsiblePlanCard

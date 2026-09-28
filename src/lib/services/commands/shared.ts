@@ -39,6 +39,8 @@ export async function setVote(target: VoteTargetRef, vote: VoteDirection) {
             ? 'Sign in to vote on this project.'
             : target.type === 'event'
               ? 'Sign in to vote on this event.'
+              : target.type === 'platform_feedback'
+                ? 'Sign in to vote on platform feedback.'
               : 'Sign in to vote.';
 
   if (!requireViewer(viewer, votePrompt)) {

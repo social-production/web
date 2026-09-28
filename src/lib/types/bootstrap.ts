@@ -26,6 +26,16 @@ export interface ScopeDirectoryItem {
   viewerIsMember?: boolean;
 }
 
+export interface DiscoverScopeItem {
+  slug: string;
+  label: string;
+  href: string;
+  description: string;
+  visibility: 'public' | 'private';
+  memberCount: number;
+  viewerIsMember: boolean;
+}
+
 export interface ScopeDirectory {
   platform: ScopeDirectoryItem | null;
   channels: ScopeDirectoryItem[];

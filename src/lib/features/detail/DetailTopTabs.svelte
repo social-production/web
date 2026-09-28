@@ -2,7 +2,7 @@
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import type { DetailTabId } from './detailTabs';
 
-  export let activeTab: DetailTabId = 'overview';
+  export let activeTab: DetailTabId = 'context';
   export let ariaLabel = 'Detail tabs';
   export let selectTab: (tab: DetailTabId) => void = () => {};
   export let prefetchTab: (tab: DetailTabId) => void = () => {};
@@ -10,9 +10,10 @@
   const tabs: Array<{
     id: DetailTabId;
     label: string;
-    icon: 'list' | 'message' | 'link' | 'clock';
+    icon: 'list' | 'people' | 'message' | 'link' | 'clock';
   }> = [
-    { id: 'overview', label: 'Overview', icon: 'list' },
+    { id: 'context', label: 'Details', icon: 'list' },
+    { id: 'participation', label: 'Participation', icon: 'people' },
     { id: 'chat', label: 'Chat', icon: 'message' },
     { id: 'links', label: 'Links', icon: 'link' },
     { id: 'history', label: 'History', icon: 'clock' }
@@ -61,8 +62,8 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-width: 108px;
-    padding: 9px 14px;
+    min-width: 0;
+    padding: 9px 12px;
     border-radius: calc(var(--radius-sm) - 2px);
     font-size: 13px;
     font-weight: 700;
@@ -86,7 +87,7 @@
       z-index: 40;
       width: auto;
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       transform: none;
       margin: 0 -16px 12px;
       padding: 8px 16px;

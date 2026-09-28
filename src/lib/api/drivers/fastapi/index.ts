@@ -30,6 +30,11 @@ import {
   fetchScopeFeedPage,
   fetchUserFeedPage
 } from './domains/feeds';
+import {
+  fetchCreateFeedback,
+  fetchFeedbackItem,
+  fetchFeedbackPage,
+} from './domains/feedback';
 import { fetchCreateHelpRequest, fetchHelpRequest, fetchCommitHelpRequestRole, fetchUncommitHelpRequestRole } from './domains/helpRequests';
 import {
   fetchThread,
@@ -55,6 +60,7 @@ import {
   fetchVolunteerForBoard,
   fetchCreateChannel,
   fetchCreateCommunity,
+  fetchDiscoverScopes,
   fetchTaggableScopes
 } from './domains/scopes';
 import { fetchSearch } from './domains/search';
@@ -181,6 +187,14 @@ export function createFastApiDriver(): AppAdapter {
       return fetchThread(slug);
     },
 
+    async getFeedbackPage(options) {
+      return fetchFeedbackPage(options);
+    },
+
+    async getFeedbackItem(id) {
+      return fetchFeedbackItem(id);
+    },
+
     async getPost(id) {
       return fetchPost(id);
     },
@@ -203,6 +217,10 @@ export function createFastApiDriver(): AppAdapter {
 
     async createPost(input) {
       return fetchCreatePost(input);
+    },
+
+    async createFeedback(input) {
+      return fetchCreateFeedback(input);
     },
 
     async createHelpRequest(input) {
@@ -278,6 +296,9 @@ export function createFastApiDriver(): AppAdapter {
 
     async getTaggableScopes(query, kind, limit) {
       return fetchTaggableScopes(query, kind, limit);
+    },
+    async getDiscoverScopes(kind) {
+      return fetchDiscoverScopes(kind);
     },
 
     async getEvent(slug) { return fetchEvent(slug); },

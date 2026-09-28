@@ -6,6 +6,7 @@
   export let title = '';
   export let labelledById = 'overlay-sheet-title';
   export let wide = false;
+  export let elevated = false;
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
@@ -50,18 +51,22 @@
 <svelte:window on:keydown={handleKeydown} />
 
 {#if open}
-  <div class="overlay-root" role="presentation" use:portal={'body'}>
+  <div class="overlay-root" class:elevated role="presentation" use:portal={'body'}>
     <button aria-label="Close" class="overlay-scrim" type="button" on:click={close}></button>
     <div
       aria-labelledby={labelledById}
       aria-modal="true"
       class="overlay-sheet"
+      class:has-footer={Boolean($$slots.footer)}
+      class:has-toolbar={Boolean($$slots.toolbar)}
       class:wide
       role="dialog"
     >
       <header class="overlay-header">
         <div class="overlay-header-copy">
-          <h2 id={labelledById}>{title}</h2>
+          <h2 id={labelledById}>
+            <slot name="title">{title}</slot>
+          </h2>
           <slot name="subtitle" />
         </div>
         <div class="overlay-header-actions">
@@ -73,6 +78,11 @@
       <div class="overlay-body">
         <slot />
       </div>
+      {#if $$slots.footer}
+        <footer class="overlay-footer">
+          <slot name="footer" />
+        </footer>
+      {/if}
     </div>
   </div>
 {/if}
@@ -88,6 +98,10 @@
     pointer-events: auto;
   }
 
+  .overlay-root.elevated {
+    z-index: 130;
+  }
+
   .overlay-scrim {
     position: absolute;
     inset: 0;
@@ -101,7 +115,7 @@
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     width: min(520px, 100%);
     max-height: min(720px, calc(100dvh - 48px));
     overflow: hidden;
@@ -157,8 +171,27 @@
 
   .overlay-body {
     min-height: 0;
+    overflow-x: clip;
     overflow-y: auto;
     padding: 8px 0 12px;
+  }
+
+  .overlay-footer {
+    padding: 12px 16px 20px;
+    border-top: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
+    background: var(--panel);
+  }
+
+  .overlay-sheet.has-toolbar {
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .overlay-sheet.has-footer {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .overlay-sheet.has-toolbar.has-footer {
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
   }
 
   @media (max-width: 1080px) {
@@ -181,6 +214,14 @@
 
     .overlay-body {
       padding-bottom: calc(12px + var(--shell-safe-bottom, 0px));
+    }
+
+    .overlay-sheet.has-footer .overlay-body {
+      padding-bottom: 8px;
+    }
+
+    .overlay-footer {
+      padding: 14px 16px calc(24px + var(--shell-safe-bottom, 0px));
     }
   }
 </style>

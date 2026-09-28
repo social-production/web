@@ -8,6 +8,7 @@
   import { resolveEventPhaseChangeVoteKind } from '$lib/utils/phaseChangeVotes';
   import EventPhaseChangeSection from './components/EventPhaseChangeSection.svelte';
   import EventLifecyclePhaseTabs from './components/EventLifecyclePhaseTabs.svelte';
+  import DetailPhaseContext from '$lib/features/detail/DetailPhaseContext.svelte';
   import {
     PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
     PARTICIPATION_FOCUS_HISTORY_ACTIVITY_EVENT,
@@ -48,7 +49,6 @@
   } from '$lib/types/detail';
 
   export let data: EventPageData;
-  export let phaseViewingNote = '';
   export let votesRenderedInHub = false;
 
   export let autoExpandVoteCards = false;
@@ -340,6 +340,8 @@
       validationMessages: []
     };
   }
+
+  $: activePhase = data.lifecycle.phases.find((phase) => phase.id === activePhaseId) ?? null;
 
   function phaseProgressLabel(phase: EventLifecyclePhase) {
     if (phase.id === data.lifecycle.currentPhaseId) {
@@ -645,23 +647,15 @@
     }}
   />
 
+  {#if activePhase}
+    <DetailPhaseContext
+      kicker={phaseProgressLabel(activePhase)}
+      summary={activePhase.summary}
+      title={activePhase.title}
+    />
+  {/if}
+
   <section class="phase-panel overview-phase-work">
-    {#if phaseViewingNote}
-      {@const viewedPhase = data.lifecycle.phases.find((phase) => phase.id === activePhaseId)}
-      <div class="phase-viewing-note">
-        <p>{phaseViewingNote}</p>
-        {#if viewedPhase?.summary}
-          <p>{viewedPhase.summary}</p>
-        {/if}
-        {#if viewedPhase && viewedPhase.mechanics.length > 0}
-          <ul>
-            {#each viewedPhase.mechanics as mechanic}
-              <li>{mechanic}</li>
-            {/each}
-          </ul>
-        {/if}
-      </div>
-    {/if}
     <EventLifecycleContent
       {data}
       {activePhaseId}
@@ -716,26 +710,5 @@
     border: 0;
     border-radius: 0;
     background: transparent;
-  }
-
-  .phase-viewing-note {
-    display: grid;
-    gap: 8px;
-    margin: 0;
-    color: var(--text-soft);
-    font-size: 14px;
-    line-height: 1.45;
-  }
-
-  .phase-viewing-note p,
-  .phase-viewing-note li {
-    margin: 0;
-  }
-
-  .phase-viewing-note ul {
-    margin: 0;
-    padding-left: 18px;
-    display: grid;
-    gap: 6px;
   }
 </style>

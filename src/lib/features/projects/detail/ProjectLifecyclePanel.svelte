@@ -16,6 +16,7 @@
   import IndividualServiceLifecycleContent from './lifecycle/individual-service/IndividualServiceLifecycleContent.svelte';
   import ProjectPhaseChangeSection from './components/ProjectPhaseChangeSection.svelte';
   import ProjectLifecyclePhaseTabs from './components/ProjectLifecyclePhaseTabs.svelte';
+  import DetailPhaseContext from '$lib/features/detail/DetailPhaseContext.svelte';
   import { scrollToPendingVote } from '$lib/utils/pendingVotes';
   import {
     PARTICIPATION_FOCUS_ACTIVITIES_EVENT,
@@ -109,7 +110,6 @@
   );
 
   export let data: ProjectPageData;
-  export let phaseViewingNote = '';
   export let votesRenderedInHub = false;
 
   export let autoExpandVoteCards = false;
@@ -633,6 +633,8 @@
   function selectPhase(phase: ProjectLifecyclePhase) {
     syncPhase(phase.id);
   }
+
+  $: activePhase = data.lifecycle.phases.find((phase) => phase.id === activePhaseId) ?? null;
 
   function phaseProgressLabel(phase: ProjectLifecyclePhase) {
     if (phase.progressState === 'current') {
@@ -1536,23 +1538,15 @@
 <section class="lifecycle-shell">
   <ProjectLifecyclePhaseTabs tabs={phaseTabs} {activePhaseId} {selectPhase} />
 
+  {#if activePhase}
+    <DetailPhaseContext
+      kicker={phaseProgressLabel(activePhase)}
+      summary={activePhase.summary}
+      title={activePhase.title}
+    />
+  {/if}
+
   <section class="phase-panel overview-phase-work">
-    {#if phaseViewingNote}
-      {@const viewedPhase = data.lifecycle.phases.find((phase) => phase.id === activePhaseId)}
-      <div class="phase-viewing-note">
-        <p>{phaseViewingNote}</p>
-        {#if viewedPhase?.summary}
-          <p>{viewedPhase.summary}</p>
-        {/if}
-        {#if viewedPhase && viewedPhase.mechanics.length > 0}
-          <ul>
-            {#each viewedPhase.mechanics as mechanic}
-              <li>{mechanic}</li>
-            {/each}
-          </ul>
-        {/if}
-      </div>
-    {/if}
     {#if isPersonalServiceProject(data.projectMode)}
       <IndividualServiceLifecycleContent
         {data}
@@ -1720,24 +1714,4 @@
     background: transparent;
   }
 
-  .phase-viewing-note {
-    display: grid;
-    gap: 8px;
-    margin: 0;
-    color: var(--text-soft);
-    font-size: 14px;
-    line-height: 1.45;
-  }
-
-  .phase-viewing-note p,
-  .phase-viewing-note li {
-    margin: 0;
-  }
-
-  .phase-viewing-note ul {
-    margin: 0;
-    padding-left: 18px;
-    display: grid;
-    gap: 6px;
-  }
 </style>

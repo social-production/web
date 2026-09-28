@@ -13,6 +13,8 @@
   ) => void | Promise<void> = () => {};
   export let onAssess: (item: PendingVoteItem) => void | Promise<void> = () => {};
   export let onAction: (item: PendingVoteItem) => void | Promise<void> = () => {};
+  export let variant: 'default' | 'phase-title' = 'default';
+  export let panelId = 'pending-votes-panel';
 
   let openItem: PendingVoteItem | null = null;
   let openedRailKey = '';
@@ -51,7 +53,13 @@
 </script>
 
 {#if items.length > 0}
-  <section id="pending-votes-panel" class="pending-votes-panel" aria-label="Votes needed" aria-live="polite">
+  <section
+    id={panelId}
+    class="pending-votes-panel"
+    class:phase-title={variant === 'phase-title'}
+    aria-label="Votes needed"
+    aria-live="polite"
+  >
     <div class="vote-stack">
       {#each items as item (itemKey(item))}
         {@const cardId = pendingVoteCardId(item.voteKind, item.id, item.planValueId, item.planCriterionId)}

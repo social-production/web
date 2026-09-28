@@ -12,6 +12,10 @@ export function getPlatform() {
   return currentAdapter.getPlatform();
 }
 
+export function getDiscoverScopes(kind: 'channel' | 'community') {
+  return currentAdapter.getDiscoverScopes(kind);
+}
+
 /** @deprecated Import mutations from `$lib/services/commands/scopes`. */
 export {
   toggleScopeMembership,

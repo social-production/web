@@ -115,7 +115,7 @@
   .create-fab-shell {
     position: fixed;
     right: calc(var(--right-width, 0px) + 12px);
-    bottom: calc(var(--shell-bottom-nav-offset, 0px) + 12px);
+    bottom: calc(var(--shell-bottom-nav-offset, 0px) + var(--detail-action-dock-height, 0px) + 12px);
     z-index: 56;
     display: grid;
     justify-items: end;
@@ -254,14 +254,14 @@
     .fab-button {
       position: absolute;
       right: 12px;
-      bottom: calc(var(--shell-bottom-nav-offset, 0px) + 12px);
+      bottom: calc(var(--shell-bottom-nav-offset, 0px) + var(--detail-action-dock-height, 0px) + 12px);
     }
   }
 
   @media (min-width: 1081px) {
     .create-fab-shell {
       right: calc(var(--right-width, 0px) + 20px);
-      bottom: 20px;
+      bottom: calc(var(--detail-action-dock-height, 0px) + 20px);
     }
   }
 </style>

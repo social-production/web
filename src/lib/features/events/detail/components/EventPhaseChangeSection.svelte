@@ -2,6 +2,7 @@
   import { afterUpdate, tick } from 'svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import PhaseShiftButton from '$lib/components/shared/PhaseShiftButton.svelte';
+  import QuorumSentence from '$lib/features/detail/QuorumSentence.svelte';
   import { portal } from '$lib/utils/portal';
   import {
     phaseChangeDecisionTitle,
@@ -318,7 +319,6 @@
                 glyph={data.lifecycle.nextPhaseId === 'closed' ? '×' : '›'}
                 label={nextPhaseActionLabel() ?? 'Advance'}
                 participationAction="propose-advance"
-                standout
                 onPress={toggleNextPhaseComposer}
               />
             {/if}
@@ -345,7 +345,6 @@
                 glyph={data.lifecycle.nextPhaseId === 'closed' ? '×' : '›'}
                 label={nextPhaseActionLabel() ?? 'Advance'}
                 participationAction="propose-advance"
-                standout
                 onPress={toggleNextPhaseComposer}
               />
             {/if}
@@ -407,7 +406,16 @@
               {#if data.lifecycle.currentPhaseId === 'proposal'}
                 Proposal advancement is still locked until support is above the required threshold.
               {:else if data.lifecycle.currentPhaseId === 'event-plan'}
-                Planning cannot advance until a plan clears quorum and approval.
+                Planning cannot advance until a plan clears
+                <QuorumSentence
+                  text="quorum"
+                  votesRequired={data.lifecycle.quorumVotesRequired}
+                  audienceSize={data.lifecycle.voteContextPopulation}
+                  audienceLabel={data.lifecycle.voteContextLabel}
+                  usesPlatform={data.lifecycle.voteContextLabel.toLowerCase().includes('platform')}
+                  entityLabel="event"
+                />
+                and approval.
               {/if}
             </div>
           {/if}

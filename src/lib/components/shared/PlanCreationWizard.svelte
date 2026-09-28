@@ -4,6 +4,7 @@
   import TimePicker from '$lib/components/shared/TimePicker.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import SoftwareLicenseNotice from '$lib/components/shared/SoftwareLicenseNotice.svelte';
+  import QuorumHelp from '$lib/features/detail/QuorumHelp.svelte';
   import { softwareLicenseLabelForSubtype } from '$lib/copy/softwareLicensePolicy';
   import type { PlanCreationStep, PlanCreationForm } from '$lib/utils/planRubric';
   import type { ProjectSubtype } from '$lib/types/feed';
@@ -24,6 +25,11 @@
   export let productionPlanLocation: { locationId: string | null; locationLabel: string } | null = null;
   export let signalSummary: GovernanceSignalSummary | null = null;
   export let signalCount: number | null = null;
+  export let quorumVotesRequired = 0;
+  export let quorumAudienceSize = 0;
+  export let quorumAudienceLabel = '';
+  export let quorumUsesPlatform = false;
+  export let quorumEntityLabel: 'project' | 'event' = 'project';
   export let onSubmit: () => void | Promise<void> = () => {};
   export let onCancel: () => void = () => {};
   /** Backdrop click / Escape: hide the wizard but keep the draft and current step. */
@@ -474,6 +480,17 @@
             {/if}
           </div>
         {/if}
+        <p class="helper-copy">
+          Approval needs
+          <QuorumHelp
+            votesRequired={quorumVotesRequired}
+            audienceSize={quorumAudienceSize}
+            audienceLabel={quorumAudienceLabel}
+            usesPlatform={quorumUsesPlatform}
+            entityLabel={quorumEntityLabel}
+          />
+          and at least 66% yes.
+        </p>
         <textarea bind:value={form.demandConsiderationNote} rows="5" placeholder="Explain how this plan responds to support"></textarea>
       {:else if currentStep.type === 'values-note'}
         {#if currentStep.values?.length}

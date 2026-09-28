@@ -7,10 +7,11 @@
   import ProjectMembersPanel from '$lib/features/projects/detail/ProjectMembersPanel.svelte';
   import ProjectOverviewHeader from '$lib/features/projects/detail/ProjectOverviewHeader.svelte';
   import DetailTopTabs from '$lib/features/detail/DetailTopTabs.svelte';
-  import type { DetailTabId } from '$lib/features/detail/detailTabs';
+  import DetailActionDock from '$lib/features/detail/DetailActionDock.svelte';
+  import { detailTabFromParam, type DetailTabId } from '$lib/features/detail/detailTabs';
   import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
-  import ParticipationSteps from '$lib/components/shared/ParticipationSteps.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
+  import MembershipSplitButton from '$lib/components/shared/MembershipSplitButton.svelte';
   import {
     setProjectEditVote,
     setProjectMergeCapabilityChangeVote,
@@ -21,6 +22,7 @@
     setProjectPullRequestVote,
     setProjectRepositoryReplacementVote,
     setProjectUpdateVote,
+    toggleProjectMembership,
   } from '$lib/services/commands/projects';
   import type {
     DetailLinksFrameData,
@@ -34,10 +36,6 @@
   import { emptyLinksFrame } from '$lib/utils/emptyLinksFrame';
   import { invalidateProjectDetail } from '$lib/utils/detailInvalidation';
   import {
-    buildProjectParticipationSteps,
-    resolveCurrentParticipationStep,
-  } from '$lib/utils/participationSteps';
-  import {
     collectProjectPendingVotes,
     hubActionVotes,
     scrollToPendingVote,
@@ -46,6 +44,7 @@
   import { applySignalToggleToDetailPhaseOneImmutable } from '$lib/utils/feedSignals';
   import type { SignalToggleResult } from '$lib/types/feed';
   import { scrollElementIntoViewWithOffset } from '$lib/utils/scrollAnchors';
+  import { requireViewer } from '$lib/utils/requireViewer';
 
   export let data: ProjectPageData;
 
@@ -70,7 +69,7 @@
   let highlightedDecisionId: string | null = null;
   let lastRouteSignature = '';
   let showMembersPanel = false;
-  let activeTab: DetailTabId = 'overview';
+  let activeTab: DetailTabId = 'context';
   let highlightedLinkRequestId: string | null = null;
   let autoExpandVoteCards = false;
   let ChatTab: typeof import('$lib/features/projects/detail/ProjectChatTab.svelte').default | null =
@@ -132,7 +131,7 @@
     }
   }
 
-  $: if (activeTab !== 'overview') {
+  $: if (activeTab === 'chat' || activeTab === 'links' || activeTab === 'history') {
     void ensureTabComponent(activeTab);
   }
   $: if ((activeTab === 'links' || LinksTab) && linksSlug !== data.slug) {
@@ -155,11 +154,7 @@
   let assessmentRatingOverlay: Record<string, PlanCriterionRating | null> = {};
   let assessmentPlanSnapshot: NonNullable<ReturnType<typeof findProjectPlan>>['plan'] | null = null;
   let isCompact = false;
-  let signalRemovalNudge = false;
-  let detailsOpen = false;
-  let participationOpen = true;
   let votesOpen = true;
-  let lastWorkFocused: boolean | null = null;
 
   onMount(() => {
     const media = window.matchMedia('(max-width: 1080px)');
@@ -256,13 +251,17 @@
 
     const nextUrl = new URL(window.location.href);
 
-    if (tab === 'overview') {
-      nextUrl.searchParams.delete('tab');
+    if (tab === 'context' || tab === 'participation') {
       nextUrl.searchParams.delete('comment');
       nextUrl.searchParams.delete('update');
       nextUrl.searchParams.delete('decision');
       nextUrl.searchParams.delete('linkRequest');
       nextUrl.hash = '';
+      if (tab === 'context') {
+        nextUrl.searchParams.delete('tab');
+      } else {
+        nextUrl.searchParams.set('tab', 'participation');
+      }
     } else {
       nextUrl.searchParams.set('tab', tab);
       if (tab === 'history') {
@@ -331,18 +330,14 @@
       highlightedUpdateId = readUpdateTarget($page.url);
       highlightedDecisionId = readDecisionTarget($page.url);
       highlightedLinkRequestId = $page.url.searchParams.get('linkRequest');
-      const requestedTab = $page.url.searchParams.get('tab');
+      const requestedTab = detailTabFromParam($page.url.searchParams.get('tab'));
       activeTab = highlightedCommentId
         ? 'chat'
         : highlightedDecisionId
           ? 'history'
-          : highlightedLinkRequestId || requestedTab === 'links'
+          : highlightedLinkRequestId
             ? 'links'
-            : requestedTab === 'history'
-              ? 'history'
-              : requestedTab === 'chat'
-                ? 'chat'
-                : 'overview';
+            : requestedTab ?? 'context';
       if (
         autoExpandVoteCards &&
         autoExpandVoteTarget &&
@@ -354,11 +349,19 @@
           requestId: autoExpandVoteTarget,
         };
       }
+      if (autoExpandVoteCards && (autoExpandVoteKind === 'edit' || autoExpandVoteKind === 'update')) {
+        activeTab = 'context';
+      } else if (
+        $page.url.hash === '#pending-votes-panel' ||
+        $page.url.hash === '#phase-change-votes-panel' ||
+        $page.url.hash === '#software-governance-panel' ||
+        autoExpandVoteCards
+      ) {
+        activeTab = 'participation';
+      }
       if ($page.url.hash === '#pending-votes-panel') {
-        activeTab = 'overview';
         void focusVoteTarget(null, null);
       } else if ($page.url.hash === '#software-governance-panel') {
-        activeTab = 'overview';
         void tick().then(() => {
           const panel = document.getElementById('software-governance-panel');
           if (panel) {
@@ -408,56 +411,44 @@
 
   $: pendingVotes = collectProjectPendingVotes(pageData);
   $: hubVotes = hubActionVotes(pendingVotes);
-  $: workFocused = isPersonalServiceProject(pageData.projectMode)
-    ? pageData.lifecycle.currentPhaseId === 'phase-1'
-    : pageData.lifecycle.currentPhaseId === 'phase-5';
-  $: if (lastWorkFocused === null) {
-    lastWorkFocused = workFocused;
-  } else if (lastWorkFocused !== workFocused) {
-    lastWorkFocused = workFocused;
-    detailsOpen = false;
-  }
-  $: participationSteps = buildProjectParticipationSteps(pageData, pendingVotes, {
-    signalRemovalNudge,
-    viewerUsername: $page.data.bootstrap?.viewer?.username ?? null,
-    viewerSignedIn: Boolean($page.data.bootstrap?.viewer),
-  });
-  $: currentParticipationStep = resolveCurrentParticipationStep(participationSteps);
-  $: phaseViewingNote = (() => {
-    const currentId = pageData.lifecycle.currentPhaseId;
-    if (!selectedPhaseId || selectedPhaseId === currentId) {
-      return '';
-    }
-    const titleFor = (id: string) =>
-      pageData.lifecycle.phases.find((item) => item.id === id)?.title ?? id;
-    return `You're viewing ${titleFor(selectedPhaseId)}. The project is in ${titleFor(currentId)}.`;
-  })();
-  $: if (
-    pageData.lifecycle.phaseOne.viewerHasDemandSignal ||
-    pageData.lifecycle.phaseOne.viewerHasOppositionSignal
-  ) {
-    signalRemovalNudge = false;
-  }
+  $: detailVotes = pendingVotes.filter((item) => item.voteKind === 'edit' || item.voteKind === 'update');
+  $: phaseChangeVotes = pendingVotes.filter((item) => item.voteKind === 'phase_change');
+  $: participationHubVotes = hubVotes.filter(
+    (item) => item.voteKind !== 'edit' && item.voteKind !== 'update' && item.voteKind !== 'phase_change'
+  );
+  $: showParticipationJoin =
+    !isPersonalServiceProject(pageData.projectMode) &&
+    !pageData.viewerIsMember &&
+    pageData.viewerCanToggleMembership;
 
   function handleSignalChange(result: SignalToggleResult) {
     pageData = applySignalToggleToDetailPhaseOneImmutable(pageData, result);
-    if (result.action === 'removed') {
-      signalRemovalNudge = true;
-    }
   }
 
   function handleMembershipChange(next: { viewerIsMember: boolean; memberCount: number }) {
     pageData = { ...pageData, ...next };
   }
 
-  function handleParticipationDismiss() {
-    signalRemovalNudge = false;
-    participationOpen = false;
-  }
+  async function handleMembershipToggle() {
+    if (!requireViewer($page.data.bootstrap?.viewer, 'Sign in to join this project.')) {
+      return;
+    }
 
-  function handleParticipationStep(event: CustomEvent<{ stepId: string }>) {
-    if (event.detail.stepId === 'vote' || event.detail.stepId === 'phase-vote') {
-      votesOpen = true;
+    const wasMember = pageData.viewerIsMember;
+    const previousCount = pageData.memberCount;
+    handleMembershipChange({
+      viewerIsMember: !wasMember,
+      memberCount: previousCount + (wasMember ? -1 : 1)
+    });
+
+    try {
+      await toggleProjectMembership(pageData.slug);
+      void invalidateProjectDetail(pageData.slug);
+    } catch {
+      handleMembershipChange({
+        viewerIsMember: wasMember,
+        memberCount: previousCount
+      });
     }
   }
 
@@ -562,7 +553,7 @@
   async function handlePendingAction(item: PendingVoteItem) {
     if (item.voteKind === 'pull_request_merge') {
       softwareWizardRequest = { mode: 'record-merge', requestId: item.id };
-      activeTab = 'overview';
+      activeTab = 'participation';
       await tick();
       scrollToPendingVote(item.voteKind, item.id);
       return;
@@ -570,7 +561,7 @@
 
     if (item.voteKind === 'pull_request' && item.softwareStage) {
       softwareWizardRequest = { mode: 'vote-pr', requestId: item.id };
-      activeTab = 'overview';
+      activeTab = 'participation';
       await tick();
       scrollToPendingVote(item.voteKind, item.id);
     }
@@ -582,28 +573,67 @@
     <DetailTopTabs {activeTab} ariaLabel="Project detail tabs" {selectTab} {prefetchTab} />
 
     <div
-      class="tab-panel overview-tab"
-      class:tab-panel-hidden={activeTab !== 'overview'}
-      hidden={activeTab !== 'overview'}
-      inert={activeTab !== 'overview'}
+      class="tab-panel context-tab"
+      class:tab-panel-hidden={activeTab !== 'context'}
+      hidden={activeTab !== 'context'}
+      inert={activeTab !== 'context'}
     >
       <ProjectOverviewHeader
         data={pageData}
-        {selectedPhaseId}
-        bind:detailsOpen
-        bind:participationOpen
-        bind:votesOpen
-        showVoteFold={hubVotes.length > 0}
-        voteCount={hubVotes.length}
         {showMembersPanel}
         onToggleMembers={handleMembersPanelOpen}
-        votesRenderedInHub={hubVotes.length > 0}
         signalChange={handleSignalChange}
         onMembershipChange={handleMembershipChange}
+        actionsActive={activeTab === 'context'}
+        {detailVotes}
+        onDetailVote={handlePendingVote}
+        onDetailAssess={handlePendingAssess}
+        onDetailAction={handlePendingAction}
+        openVoteKind={autoExpandVoteKind}
+        openVoteId={autoExpandVoteTarget}
       />
-      {#if votesOpen && (hubVotes.length > 0 || (autoExpandVoteKind && autoExpandVoteTarget))}
+    </div>
+
+    <div
+      class="tab-panel participation-tab"
+      class:tab-panel-hidden={activeTab !== 'participation'}
+      hidden={activeTab !== 'participation'}
+      inert={activeTab !== 'participation'}
+    >
+      <DetailActionDock active={activeTab === 'participation'}>
+        {#if showParticipationJoin}
+          <div class="participation-membership">
+            <MembershipSplitButton
+              joined={pageData.viewerIsMember}
+              count={pageData.memberCount}
+              canToggle={pageData.viewerCanToggleMembership}
+              canOpenMembers={!isPersonalServiceProject(pageData.projectMode)}
+              membersOpen={showMembersPanel}
+              joinAriaLabel="Join project"
+              membersAriaLabel={`${pageData.memberCount} members`}
+              onToggleJoin={handleMembershipToggle}
+              onOpenMembers={handleMembersPanelOpen}
+            />
+          </div>
+        {/if}
+        <div id="detail-participation-actions"></div>
+      </DetailActionDock>
+      {#if phaseChangeVotes.length > 0 || (autoExpandVoteKind === 'phase_change' && autoExpandVoteTarget)}
         <PendingVotesPanel
-          items={hubVotes}
+          items={phaseChangeVotes}
+          lookupItems={pendingVotes}
+          variant="phase-title"
+          panelId="phase-change-votes-panel"
+          openVoteKind={autoExpandVoteKind}
+          openVoteId={autoExpandVoteTarget}
+          onVote={handlePendingVote}
+          onAssess={handlePendingAssess}
+          onAction={handlePendingAction}
+        />
+      {/if}
+      {#if votesOpen && (participationHubVotes.length > 0 || (autoExpandVoteKind && autoExpandVoteTarget && autoExpandVoteKind !== 'edit' && autoExpandVoteKind !== 'update' && autoExpandVoteKind !== 'phase_change'))}
+        <PendingVotesPanel
+          items={participationHubVotes}
           lookupItems={pendingVotes}
           openVoteKind={autoExpandVoteKind}
           openVoteId={autoExpandVoteTarget}
@@ -612,31 +642,9 @@
           onAction={handlePendingAction}
         />
       {/if}
-      {#if participationOpen}
-        <section id="detail-participation-panel" class="participation-panel">
-          <ParticipationSteps
-            steps={participationSteps}
-            currentStepId={currentParticipationStep}
-            {pendingVotes}
-            {pageData}
-            viewingNote={phaseViewingNote}
-            placement="lead"
-            on:dismiss={handleParticipationDismiss}
-            on:stepAction={handleParticipationStep}
-          />
-        </section>
-      {/if}
-      {#if !isPersonalServiceProject(data.projectMode)}
-        <ProjectMembersPanel
-          {data}
-          open={showMembersPanel}
-          on:close={() => (showMembersPanel = false)}
-        />
-      {/if}
       <div id="governance" class="overview-governance">
         <ProjectLifecyclePanel
           data={pageData}
-          {phaseViewingNote}
           bind:selectedPhaseId
           {autoExpandVoteCards}
           {autoExpandVoteKind}
@@ -645,7 +653,7 @@
           {autoAssessCriterionId}
           {participationAssessPlanId}
           {participationAssessCriterionId}
-          votesRenderedInHub={hubVotes.length > 0}
+          votesRenderedInHub={phaseChangeVotes.length > 0}
           {softwareWizardRequest}
           onSoftwareWizardRequestHandled={() => {
             softwareWizardRequest = null;
@@ -708,6 +716,14 @@
     {/if}
   </section>
 
+  {#if !isPersonalServiceProject(pageData.projectMode)}
+    <ProjectMembersPanel
+      data={pageData}
+      open={showMembersPanel}
+      on:close={() => (showMembersPanel = false)}
+    />
+  {/if}
+
   {#if assessmentPlanSnapshot && Wizard && pendingAssessmentOpen}
     <svelte:component
       this={Wizard}
@@ -746,55 +762,73 @@
     overflow-x: clip;
   }
 
-  .tab-panel.overview-tab,
-  .overview-tab {
+  .tab-panel.context-tab,
+  .tab-panel.participation-tab,
+  .context-tab,
+  .participation-tab {
     display: flex;
     flex-direction: column;
     overflow: visible;
+    padding-bottom: calc(var(--detail-action-dock-height, 0px) + 12px);
   }
 
-  .overview-tab > :global(*) {
+  .hero-card:has(> .context-tab:not(.tab-panel-hidden)),
+  .hero-card:has(> .participation-tab:not(.tab-panel-hidden)) {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    min-height: calc(
+      100dvh - var(--topbar-height, 56px) - var(--shell-bottom-nav-offset, 0px) - 32px
+    );
+    margin-bottom: -16px;
+    padding-bottom: var(--detail-action-dock-height, 0px);
+  }
+
+  .tab-panel.context-tab,
+  .tab-panel.participation-tab {
+    flex: 1 1 auto;
+    padding-bottom: 0;
+  }
+
+  .participation-tab > :global(*) {
     order: 50;
   }
 
-  .overview-tab :global(.participation-panel) {
-    order: 5;
-    margin: 8px 0 0;
+  .participation-tab :global(.detail-action-dock) {
+    order: 0;
   }
 
-  .overview-tab :global(.overview-type-row) {
-    order: 1;
-  }
-
-  .overview-tab :global(.overview-heading) {
-    order: 2;
-  }
-
-  .overview-tab :global(.pending-votes-panel) {
-    order: 3;
-  }
-
-  .overview-tab :global(.overview-governance) {
+  .participation-tab :global(.overview-governance) {
     display: contents;
   }
 
-  .overview-tab :global(.overview-phase-tabs) {
+  .participation-tab :global(.overview-phase-tabs) {
+    order: 1;
+    margin: 0;
+  }
+
+  .participation-tab :global(.pending-votes-panel.phase-title) {
+    order: 2;
+    margin-top: 12px;
+  }
+
+  .participation-tab :global(.overview-phase-context) {
+    order: 3;
+    margin-top: 16px;
+  }
+
+  .participation-tab :global(.pending-votes-panel) {
     order: 4;
-    margin: 28px 0 0;
   }
 
-  .overview-tab :global(.overview-phase-work) {
-    order: 6;
-    margin-top: 20px;
+  .participation-tab :global(.overview-phase-work) {
+    order: 5;
+    margin-top: 16px;
   }
 
-  .overview-tab :global(.overview-actions) {
-    order: 7;
-  }
-
-  .overview-tab :global(.overview-composer),
-  .overview-tab :global(.overview-edit-votes) {
-    order: 8;
+  .participation-tab :global(.overview-composer),
+  .participation-tab :global(.overview-edit-votes) {
+    order: 5;
   }
 
   .tab-panel-hidden {
@@ -812,11 +846,6 @@
     background: var(--panel);
     min-width: 0;
     overflow: visible;
-  }
-
-  .participation-panel {
-    min-width: 0;
-    margin: 8px 0 0;
   }
 
   @media (max-width: 1080px) {
@@ -842,6 +871,14 @@
       padding-top: 0;
       margin-top: 0;
       border-radius: 0;
+    }
+
+    .hero-card:has(> .context-tab:not(.tab-panel-hidden)),
+    .hero-card:has(> .participation-tab:not(.tab-panel-hidden)) {
+      min-height: calc(
+        100dvh - var(--topbar-height, 56px) - var(--shell-bottom-nav-offset, 0px)
+      );
+      margin-bottom: -4px;
     }
 
     .hero-card.chat-tab-active {

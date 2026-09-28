@@ -3,6 +3,7 @@
   import ProjectValueCard from '$lib/components/cards/project-detail/ProjectValueCard.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
   import AddValueSheet from '$lib/components/shared/AddValueSheet.svelte';
+  import PhaseEmptyState from '$lib/components/shared/PhaseEmptyState.svelte';
   import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import { sortValuesForRating } from '$lib/utils/sortDetailValues';
@@ -214,6 +215,12 @@
     </div>
   {:else}
     <div id="participation-values" class="surface-stack compact-stack">
+      {#if rankedValues.length === 0}
+        <PhaseEmptyState
+          body="Add the first value this phase should be judged against."
+          title="No values yet"
+        />
+      {/if}
       {#each rankedValues as value (value.id)}
         <ProjectValueCard canVote={canVoteValues} options={importanceOptions} {value} {vote} />
       {/each}

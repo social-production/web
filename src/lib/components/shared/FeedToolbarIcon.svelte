@@ -22,13 +22,17 @@
     | 'user'
     | 'bell'
     | 'message'
+    | 'send'
     | 'more'
     | 'calendar'
     | 'calendar-x'
     | 'calendar-range'
     | 'search'
     | 'link'
-    | 'loudspeaker';
+    | 'loudspeaker'
+    | 'bug'
+    | 'lightbulb'
+    | 'pencil';
 </script>
 
 <svg aria-hidden="true" viewBox="0 0 24 24" class="toolbar-icon">
@@ -188,6 +192,15 @@
       stroke-width="1.8"
       stroke-linejoin="round"
     />
+  {:else if name === 'send'}
+    <path
+      d="M20.5 4.2 3.8 10.2c-.8.3-.7 1.4.1 1.6l6.2 1.6 1.6 6.2c.2.8 1.3.9 1.6.1l6.8-15.5Z"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linejoin="round"
+    />
+    <path d="M10.1 13.4 14.4 9.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
   {:else if name === 'more'}
     <circle cx="6" cy="12" r="1.5" fill="currentColor" />
     <circle cx="12" cy="12" r="1.5" fill="currentColor" />
@@ -235,6 +248,45 @@
       stroke-width="1.8"
       stroke-linecap="round"
     />
+  {:else if name === 'bug'}
+    <path
+      d="M9.5 8.5V6.8a2.5 2.5 0 0 1 5 0v1.7M8 10.5h8v4.2a4 4 0 0 1-8 0v-4.2Z"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M12 10.5v8M5.5 11.2 8 12.4M18.5 11.2 16 12.4M6 7.8l2 1.3M18 7.8 16 9.1M6 15.7 8 14.4M18 15.7 16 14.4"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+    />
+  {:else if name === 'lightbulb'}
+    <path
+      d="M12 4.5a6 6 0 0 0-3.9 10.6c.9.8 1.4 1.8 1.5 2.9h4.8c.1-1.1.6-2.1 1.5-2.9A6 6 0 0 0 12 4.5Z"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M9.8 20h4.4M10.4 17.9h3.2"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+    />
+  {:else if name === 'pencil'}
+    <path
+      d="M4 20h4L19.2 8.8a1.8 1.8 0 0 0 0-2.5l-1.5-1.5a1.8 1.8 0 0 0-2.5 0L4 16v4Z"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linejoin="round"
+    />
+    <path d="M12.8 6.2 17.8 11.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" />
   {:else}
     <path d="M5 17l4-6 3.5 4L16 9l3 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" />
     <path d="M5 19h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" />

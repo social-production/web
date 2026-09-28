@@ -3,7 +3,7 @@ import { fetchScopeFeed } from './feeds';
 import { parseInviteToken } from '$lib/utils/invite-token';
 import { validateHandle } from '$lib/utils/handles';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
-import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
+import type { DiscoverScopeItem, ScopeDirectoryItem } from '$lib/types/bootstrap';
 import type { CreateChannelInput, CreateCommunityInput, CreateResult } from '$lib/types/feed';
 import type {
   CommunityDirectInviteResult,
@@ -120,6 +120,33 @@ export async function fetchTaggableScopes(
     channels: res.channels.map(mapTaggableScope),
     communities: res.communities.map(mapTaggableScope)
   };
+}
+
+interface BackendDiscoverScopeItem {
+  slug: string;
+  label: string;
+  href: string;
+  description: string;
+  visibility: 'public' | 'private';
+  member_count: number;
+  viewer_is_member: boolean;
+}
+
+export async function fetchDiscoverScopes(
+  kind: 'channel' | 'community'
+): Promise<DiscoverScopeItem[]> {
+  const res = await apiClient.get<{ kind: string; items: BackendDiscoverScopeItem[] }>(
+    `/scopes/discover?kind=${kind}&limit=200`
+  );
+  return res.items.map((item) => ({
+    slug: item.slug,
+    label: item.label,
+    href: item.href,
+    description: item.description,
+    visibility: item.visibility,
+    memberCount: item.member_count,
+    viewerIsMember: item.viewer_is_member
+  }));
 }
 
 export async function fetchChannel(slug: string): Promise<ScopePageData | null> {

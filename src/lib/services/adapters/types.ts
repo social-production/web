@@ -1,4 +1,9 @@
-import type { BootstrapPayload, ScopeDirectoryItem, ViewerSummary } from '$lib/types/bootstrap';
+import type {
+  BootstrapPayload,
+  DiscoverScopeItem,
+  ScopeDirectoryItem,
+  ViewerSummary
+} from '$lib/types/bootstrap';
 import type {
   AuthResult,
   OnboardingPageData,
@@ -72,6 +77,12 @@ import type { FeedPageResult } from '$lib/types/pagination';
 import type { SearchPageData } from '$lib/types/search';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
 import type { LocationPrecision, LocationRecord } from '$lib/types/location';
+import type {
+  CreateFeedbackInput,
+  CreateFeedbackResult,
+  FeedbackItem,
+  FeedbackPageResult,
+} from '$lib/types/feedback';
 import type {
   CommunityDirectInviteResult,
   ScopeInviteCreateResult,
@@ -212,6 +223,13 @@ export interface AppAdapter {
     limit?: number;
     offset?: number;
   }): Promise<FeedPageResult<PersonalFeedItem>>;
+  getFeedbackPage(options?: {
+    filter?: 'all' | 'bugs' | 'suggestions';
+    sort?: 'trending' | 'recent';
+    limit?: number;
+    offset?: number;
+  }): Promise<FeedbackPageResult>;
+  getFeedbackItem(id: string): Promise<FeedbackItem | null>;
   getChannel(slug: string): Promise<ScopePageData | null>;
   getCommunity(slug: string): Promise<ScopePageData | null>;
   getPlatform(): Promise<ScopePageData | null>;
@@ -270,6 +288,7 @@ export interface AppAdapter {
   createThread(input: CreateThreadInput): Promise<CreateResult>;
   createEvent(input: CreateEventInput): Promise<CreateResult>;
   createPost(input: CreatePostInput): Promise<CreateResult>;
+  createFeedback(input: CreateFeedbackInput): Promise<CreateFeedbackResult>;
   createChannel(input: CreateChannelInput): Promise<CreateResult>;
   createCommunity(input: CreateCommunityInput): Promise<CreateResult>;
   createHelpRequest(input: CreateHelpRequestInput): Promise<CreateResult>;
@@ -278,6 +297,7 @@ export interface AppAdapter {
     kind?: 'channel' | 'community',
     limit?: number
   ): Promise<{ channels: ScopeDirectoryItem[]; communities: ScopeDirectoryItem[] }>;
+  getDiscoverScopes(kind: 'channel' | 'community'): Promise<DiscoverScopeItem[]>;
   getPost(id: string): Promise<PostPageData | null>;
   getHelpRequest(id: string): Promise<HelpRequestPageData | null>;
   commitHelpRequestRole(

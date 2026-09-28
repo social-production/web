@@ -1,6 +1,7 @@
 <script lang="ts">
   import ProjectValueCard from '$lib/components/cards/project-detail/ProjectValueCard.svelte';
   import AddValueSheet from '$lib/components/shared/AddValueSheet.svelte';
+  import PhaseEmptyState from '$lib/components/shared/PhaseEmptyState.svelte';
   import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import { sortValuesForRating } from '$lib/utils/sortDetailValues';
@@ -28,6 +29,12 @@
 <section class="phase-surface">
   {#if data.governance !== 'organizer_controlled'}
     <div id="participation-values" class="surface-stack compact-stack">
+      {#if rankedValues.length === 0}
+        <PhaseEmptyState
+          body="Add the first value people should use when judging this event."
+          title="No values yet"
+        />
+      {/if}
       {#each rankedValues as value (value.id)}
         <ProjectValueCard
           canVote={canVoteValues}

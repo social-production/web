@@ -17,6 +17,7 @@ export const scopesDomain: Partial<AppAdapter> = {
   createChannel: stubMethod(provider, domain, 'createChannel') as AppAdapter['createChannel'],
   createCommunity: stubMethod(provider, domain, 'createCommunity') as AppAdapter['createCommunity'],
   getTaggableScopes: stubMethod(provider, domain, 'getTaggableScopes') as AppAdapter['getTaggableScopes'],
+  getDiscoverScopes: stubMethod(provider, domain, 'getDiscoverScopes') as AppAdapter['getDiscoverScopes'],
   toggleScopeMembership: stubMethod(provider, domain, 'toggleScopeMembership') as AppAdapter['toggleScopeMembership'],
   redeemScopeInvite: stubMethod(provider, domain, 'redeemScopeInvite') as AppAdapter['redeemScopeInvite'],
   createScopeInvite: stubMethod(provider, domain, 'createScopeInvite') as AppAdapter['createScopeInvite'],
