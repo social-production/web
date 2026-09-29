@@ -1,4 +1,6 @@
 <script lang="ts">
+  import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
+  import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import type {
     ProjectApprovalVote,
@@ -25,12 +27,16 @@
     () => {};
   export let softwareWizardRequest: { mode: 'record-merge' | 'vote-pr'; requestId: string } | null = null;
   export let onSoftwareWizardRequestHandled: () => void = () => {};
+
+  let softwareGovernancePanel: ProjectSoftwareGovernancePanel | null = null;
 </script>
 
 <section class="phase-surface">
   {#if data.lifecycle.usesPlatformLifecycle && data.lifecycle.phaseFive.softwareGovernance}
+    {@const governance = data.lifecycle.phaseFive.softwareGovernance}
     <ProjectSoftwareGovernancePanel
-      governance={data.lifecycle.phaseFive.softwareGovernance}
+      bind:this={softwareGovernancePanel}
+      {governance}
       createPullRequest={createPullRequest}
       requestMergeCapabilityChange={requestMergeCapabilityChange}
       requestRepositoryReplacement={requestRepositoryReplacement}
@@ -39,6 +45,34 @@
       {softwareWizardRequest}
       {onSoftwareWizardRequestHandled}
     />
+    <PhaseWorkToolbar>
+      <svelte:fragment slot="governance">
+      {#if governance.viewerCanCreatePullRequests}
+        <RoundPlusButton
+          label="Pull request"
+          ariaLabel="New pull request"
+          participationAction="make-pull-request"
+          action={() => softwareGovernancePanel?.openCreatePullRequest()}
+        />
+      {/if}
+      {#if governance.viewerCanRequestRepositoryReplacement}
+        <RoundPlusButton
+          label="Replace repository"
+          ariaLabel="Replace repository"
+          participationAction="replace-repository"
+          action={() => softwareGovernancePanel?.openSoftwareWizard('repository-replacement')}
+        />
+      {/if}
+      {#if governance.viewerCanRequestMergeCapabilityChanges}
+        <RoundPlusButton
+          label="Merge capability"
+          ariaLabel="Change merge capability"
+          participationAction="change-merge-capability"
+          action={() => softwareGovernancePanel?.openSoftwareWizard('merge-capability')}
+        />
+      {/if}
+      </svelte:fragment>
+    </PhaseWorkToolbar>
   {/if}
 </section>
 

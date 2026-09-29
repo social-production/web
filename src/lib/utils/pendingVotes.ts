@@ -30,7 +30,8 @@ export type PendingVoteKind =
   | 'pull_request'
   | 'merge_capability'
   | 'repository_replacement'
-  | 'pull_request_merge';
+  | 'pull_request_merge'
+  | 'request_settings';
 
 export interface PendingVoteItem {
   id: string;
@@ -105,14 +106,15 @@ function pushPhaseChangeVotes(
   items: PendingVoteItem[],
   requests: ProjectLifecyclePhaseChangeRequest[] | EventLifecyclePhaseChangeRequest[],
   canVote: boolean,
-  data: ProjectPageData | EventPageData
+  data: ProjectPageData | EventPageData,
+  includeCast = false
 ) {
   if (!canVote) {
     return;
   }
 
   for (const request of requests) {
-    if (!isUnvoted(request.voteSummary.activeVote)) {
+    if (!includeCast && !isUnvoted(request.voteSummary.activeVote)) {
       continue;
     }
 
@@ -139,14 +141,15 @@ function pushPhaseChangeVotes(
 function pushUpdateVotes(
   items: PendingVoteItem[],
   requests: ProjectUpdateRequest[] | EventUpdateRequest[],
-  canVote: boolean
+  canVote: boolean,
+  includeCast = false
 ) {
   if (!canVote) {
     return;
   }
 
   for (const request of requests) {
-    if (!isUnvoted(request.voteSummary.activeVote)) {
+    if (!includeCast && !isUnvoted(request.voteSummary.activeVote)) {
       continue;
     }
 
@@ -170,14 +173,15 @@ function pushEditVotes(
   requests: ProjectEditRequest[] | EventEditRequest[],
   canVote: boolean,
   currentTitle: string,
-  currentDescription: string
+  currentDescription: string,
+  includeCast = false
 ) {
   if (!canVote) {
     return;
   }
 
   for (const request of requests) {
-    if (!isUnvoted(request.voteSummary.activeVote)) {
+    if (!includeCast && !isUnvoted(request.voteSummary.activeVote)) {
       continue;
     }
 
@@ -202,7 +206,8 @@ function pushPlanVotes(
   items: PendingVoteItem[],
   plans: (ProjectProductionPlan | ProjectDistributionPlan | EventPlan)[],
   canVote: boolean,
-  planPhaseId?: 'phase-2' | 'phase-3'
+  planPhaseId?: 'phase-2' | 'phase-3',
+  includeCast = false
 ) {
   if (!canVote) {
     return;
@@ -253,7 +258,7 @@ function pushPlanVotes(
       continue;
     }
 
-    if (isUnvoted(plan.overallApproval.activeVote)) {
+    if (includeCast || isUnvoted(plan.overallApproval.activeVote)) {
       items.push({
         id: plan.id,
         voteKind: 'plan',
@@ -271,7 +276,33 @@ function pushPlanVotes(
   }
 }
 
-function pushSoftwareGovernanceActions(items: PendingVoteItem[], data: ProjectPageData) {
+function pushRequestSettingsVotes(items: PendingVoteItem[], data: ProjectPageData, includeCast = false) {
+  const system = data.lifecycle.requestSystem;
+  if (!system?.viewerCanVoteOnSettingsChanges) {
+    return;
+  }
+
+  for (const request of system.settingsChangeRequests) {
+    if (!includeCast && !isUnvoted(request.voteSummary.activeVote)) {
+      continue;
+    }
+
+    items.push({
+      id: request.id,
+      voteKind: 'request_settings',
+      label: 'Request settings',
+      title: request.proposedSettings.summary,
+      reason: request.reason,
+      voteSummary: request.voteSummary,
+      approvalThresholdPercent: request.approvalThresholdPercent,
+      authorUsername: request.authorUsername,
+      createdAt: request.createdAt,
+      canVote: true
+    });
+  }
+}
+
+function pushSoftwareGovernanceActions(items: PendingVoteItem[], data: ProjectPageData, includeCast = false) {
   const governance = data.lifecycle.phaseFive?.softwareGovernance;
   if (!governance) {
     return;
@@ -329,7 +360,7 @@ function pushSoftwareGovernanceActions(items: PendingVoteItem[], data: ProjectPa
     if (
       !request.viewerCanVote ||
       !request.voteSummary ||
-      !isUnvoted(request.voteSummary.activeVote) ||
+      (!includeCast && !isUnvoted(request.voteSummary.activeVote)) ||
       !request.canStillPass ||
       request.passesApprovalThreshold
     ) {
@@ -354,7 +385,7 @@ function pushSoftwareGovernanceActions(items: PendingVoteItem[], data: ProjectPa
     if (
       !request.viewerCanVote ||
       !request.voteSummary ||
-      !isUnvoted(request.voteSummary.activeVote) ||
+      (!includeCast && !isUnvoted(request.voteSummary.activeVote)) ||
       !request.canStillPass ||
       request.passesApprovalThreshold
     ) {
@@ -376,26 +407,46 @@ function pushSoftwareGovernanceActions(items: PendingVoteItem[], data: ProjectPa
   }
 }
 
-export function collectProjectPendingVotes(data: ProjectPageData): PendingVoteItem[] {
+export function collectProjectPendingVotes(data: ProjectPageData, includeCast = false): PendingVoteItem[] {
   const items: PendingVoteItem[] = [];
 
-  pushPhaseChangeVotes(items, data.lifecycle.phaseChangeRequests, data.lifecycle.viewerCanVoteOnPhaseChanges, data);
-  pushUpdateVotes(items, data.updateRequests, data.viewerCanVoteOnUpdateRequests);
+  pushPhaseChangeVotes(
+    items,
+    data.lifecycle.phaseChangeRequests,
+    data.lifecycle.viewerCanVoteOnPhaseChanges,
+    data,
+    includeCast
+  );
+  pushUpdateVotes(items, data.updateRequests, data.viewerCanVoteOnUpdateRequests, includeCast);
   pushEditVotes(
     items,
     data.editRequests,
     data.viewerCanVoteOnEditRequests,
     data.title,
-    data.description
+    data.description,
+    includeCast
   );
 
   if (data.lifecycle.currentPhaseId === 'phase-2') {
-    pushPlanVotes(items, data.lifecycle.phaseTwo.plans, data.lifecycle.phaseTwo.viewerCanVoteOnPlans, 'phase-2');
+    pushPlanVotes(
+      items,
+      data.lifecycle.phaseTwo.plans,
+      data.lifecycle.phaseTwo.viewerCanVoteOnPlans,
+      'phase-2',
+      includeCast
+    );
   } else if (data.lifecycle.currentPhaseId === 'phase-3') {
-    pushPlanVotes(items, data.lifecycle.phaseThree.plans, data.lifecycle.phaseThree.viewerCanVoteOnPlans, 'phase-3');
+    pushPlanVotes(
+      items,
+      data.lifecycle.phaseThree.plans,
+      data.lifecycle.phaseThree.viewerCanVoteOnPlans,
+      'phase-3',
+      includeCast
+    );
   }
 
-  pushSoftwareGovernanceActions(items, data);
+  pushRequestSettingsVotes(items, data, includeCast);
+  pushSoftwareGovernanceActions(items, data, includeCast);
 
   return items;
 }
@@ -408,21 +459,28 @@ export function hubActionVotes(items: PendingVoteItem[]) {
   return items.filter((item) => !isPlanSurfaceVote(item));
 }
 
-export function collectEventPendingVotes(data: EventPageData): PendingVoteItem[] {
+export function collectEventPendingVotes(data: EventPageData, includeCast = false): PendingVoteItem[] {
   const items: PendingVoteItem[] = [];
 
-  pushPhaseChangeVotes(items, data.lifecycle.phaseChangeRequests, data.lifecycle.viewerCanVoteOnPhaseChanges, data);
-  pushUpdateVotes(items, data.updateRequests, data.viewerCanVoteOnUpdateRequests);
+  pushPhaseChangeVotes(
+    items,
+    data.lifecycle.phaseChangeRequests,
+    data.lifecycle.viewerCanVoteOnPhaseChanges,
+    data,
+    includeCast
+  );
+  pushUpdateVotes(items, data.updateRequests, data.viewerCanVoteOnUpdateRequests, includeCast);
   pushEditVotes(
     items,
     data.editRequests,
     data.viewerCanVoteOnEditRequests,
     data.title,
-    data.description
+    data.description,
+    includeCast
   );
 
   if (data.lifecycle.currentPhaseId === 'event-plan') {
-    pushPlanVotes(items, data.lifecycle.phaseTwo.plans, data.lifecycle.phaseTwo.viewerCanVoteOnPlans);
+    pushPlanVotes(items, data.lifecycle.phaseTwo.plans, data.lifecycle.phaseTwo.viewerCanVoteOnPlans, undefined, includeCast);
   }
 
   return items;
@@ -514,6 +572,8 @@ export function historyEntryToVoteItem(entry: DecisionHistoryEntry): PendingVote
 
   return {
     ...base,
+    voteKind: 'request_settings',
+    label: 'Request settings',
     title: payload.proposedSettings.summary,
     description: payload.previousSettings.summary,
     reason: payload.reason

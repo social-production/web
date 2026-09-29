@@ -63,8 +63,8 @@
     bind:body={draftUpdateBody}
     message={updateMessage}
     pending={updatePending}
-    sheetTitle="Add update"
-    submitLabel="Propose update"
+    sheetTitle="Post an update"
+    submitLabel="Propose"
     placeholder="Share what changed for this event..."
     labelledById="event-add-update-sheet"
     onSubmit={submitUpdate}

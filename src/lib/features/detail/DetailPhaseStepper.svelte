@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { participationPhaseLabel } from '$lib/features/projects/detail/activityHistoryPresentation';
+
   type DetailPhaseStep = {
     id: string;
     title: string;
@@ -13,7 +15,7 @@
 </script>
 
 <nav class="phase-bar overview-phase-tabs" aria-label="Phases">
-  {#each steps as step, index (step.id)}
+  {#each steps as step (step.id)}
     <button
       class="segment"
       class:active={activeId === step.id}
@@ -28,8 +30,7 @@
       title={`${step.title} · ${step.progressLabel}`}
       on:click={() => onSelect(step.id)}
     >
-      <span class="index" aria-hidden="true">{index + 1}</span>
-      <span class="label">{step.title}</span>
+      <span class="label">{participationPhaseLabel(step.title)}</span>
     </button>
   {/each}
 </nav>
@@ -69,12 +70,6 @@
 
   .segment:last-child {
     border-right: 0;
-  }
-
-  .index {
-    flex: 0 0 auto;
-    font-size: 11px;
-    font-weight: 800;
   }
 
   .label {

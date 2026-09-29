@@ -85,7 +85,7 @@
     left: 0;
     right: 0;
     bottom: var(--shell-safe-bottom);
-    z-index: 55;
+    z-index: var(--z-shell-nav);
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;

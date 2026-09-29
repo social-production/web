@@ -36,8 +36,8 @@
   }
 </script>
 
-<OverlaySheet bind:open title="Add feedback" labelledById="feedback-compose-sheet" wide>
-  <form class="feedback-form" on:submit|preventDefault={handleSubmit}>
+<OverlaySheet bind:open hideClose title="Add feedback" labelledById="feedback-compose-sheet" wide>
+  <form id="feedback-compose-form" class="feedback-form" on:submit|preventDefault={handleSubmit}>
     {#if message}
       <div class="warning-card" role="alert">{message}</div>
     {/if}
@@ -75,14 +75,15 @@
         rows="7"
       ></textarea>
     </label>
-
-    <div class="actions">
-      <button class="secondary-button" type="button" on:click={() => (open = false)}>Cancel</button>
-      <button class="primary-button" disabled={pending || !title.trim() || !description.trim()} type="submit">
+  </form>
+  <svelte:fragment slot="footer">
+    <div class="sheet-actions">
+      <button class="sheet-cancel" type="button" on:click={() => (open = false)}>Cancel</button>
+      <button class="sheet-submit" disabled={pending || !title.trim() || !description.trim()} form="feedback-compose-form" type="submit">
         {pending ? 'Submitting…' : 'Submit feedback'}
       </button>
     </div>
-  </form>
+  </svelte:fragment>
 </OverlaySheet>
 
 <style>
@@ -155,37 +156,5 @@
     color: var(--text-main);
     font-size: 13px;
     font-weight: 700;
-  }
-
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .primary-button,
-  .secondary-button {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .primary-button {
-    border: 1px solid var(--brand);
-    background: var(--brand);
-    color: var(--page-bg);
-  }
-
-  .primary-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .secondary-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-soft);
   }
 </style>

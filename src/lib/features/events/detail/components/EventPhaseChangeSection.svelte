@@ -356,11 +356,12 @@
     {#if canProposeReturn}
       <OverlaySheet
         bind:open={showRevertComposer}
+        hideClose
         title={revertComposerTitle()}
         labelledById="event-return-phase-sheet"
         on:close={closeRevertComposer}
       >
-        <form class="sheet-form" on:submit|preventDefault={submitRevertRequest}>
+        <form id="event-return-phase-form" class="sheet-form" on:submit|preventDefault={submitRevertRequest}>
           {#if revertMessage}
             <div class="inline-alert" role="alert">{revertMessage}</div>
           {/if}
@@ -376,24 +377,27 @@
             <span class="field-inline-label">Reason</span>
             <textarea bind:value={revertReason} rows="3" placeholder={revertPhasePlaceholder()}></textarea>
           </label>
-          <div class="composer-actions">
-            <button class="detail-action-button" type="button" on:click={closeRevertComposer}>Cancel</button>
-            <button class="primary-button" type="submit">
+        </form>
+        <svelte:fragment slot="footer">
+          <div class="sheet-actions">
+            <button class="sheet-cancel" type="button" on:click={closeRevertComposer}>Cancel</button>
+            <button class="sheet-submit" form="event-return-phase-form" type="submit">
               {revertActionLabel()}
             </button>
           </div>
-        </form>
+        </svelte:fragment>
       </OverlaySheet>
     {/if}
 
     {#if data.lifecycle.nextPhaseId}
       <OverlaySheet
         bind:open={showNextPhaseComposer}
+        hideClose
         title={nextPhaseActionLabel() ?? 'Advance'}
         labelledById="event-advance-phase-sheet"
         on:close={closeNextPhaseComposer}
       >
-        <form class="sheet-form" on:submit|preventDefault={submitNextPhaseRequest}>
+        <form id="event-advance-phase-form" class="sheet-form" on:submit|preventDefault={submitNextPhaseRequest}>
           {#if nextPhaseMessage}
             <div class="inline-alert" role="alert">{nextPhaseMessage}</div>
           {/if}
@@ -404,7 +408,14 @@
           {#if !canAdvanceCurrentPhase}
             <div class="inline-note">
               {#if data.lifecycle.currentPhaseId === 'proposal'}
-                Proposal advancement is still locked until support is above the required threshold.
+                <QuorumSentence
+                  text="Proposal advancement is still locked until support is above the required threshold."
+                  votesRequired={data.lifecycle.quorumVotesRequired}
+                  audienceSize={data.lifecycle.voteContextPopulation}
+                  audienceLabel={data.lifecycle.voteContextLabel}
+                  usesPlatform={data.lifecycle.voteContextLabel.toLowerCase().includes('platform')}
+                  entityLabel="event"
+                />
               {:else if data.lifecycle.currentPhaseId === 'event-plan'}
                 Planning cannot advance until a plan clears
                 <QuorumSentence
@@ -419,13 +430,15 @@
               {/if}
             </div>
           {/if}
-          <div class="composer-actions">
-            <button class="detail-action-button" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
-            <button class="primary-button" type="submit">
+        </form>
+        <svelte:fragment slot="footer">
+          <div class="sheet-actions">
+            <button class="sheet-cancel" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
+            <button class="sheet-submit" form="event-advance-phase-form" type="submit">
               {nextPhaseActionLabel()}
             </button>
           </div>
-        </form>
+        </svelte:fragment>
       </OverlaySheet>
     {/if}
   </div>
@@ -456,8 +469,7 @@
     justify-content: flex-end;
   }
 
-  .action-group,
-  .composer-actions {
+  .action-group {
     display: flex;
     gap: 12px;
     align-items: center;
@@ -482,15 +494,6 @@
     color: var(--text-main);
     font-size: 13px;
     font-weight: 600;
-  }
-
-  .primary-button {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-    background: var(--brand);
-    color: var(--page-bg);
   }
 
   .field-inline-label {

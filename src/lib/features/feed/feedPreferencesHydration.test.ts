@@ -49,6 +49,23 @@ describe('feed preference hydration', () => {
     });
   });
 
+  it('lets an explicit global scope win over a saved regional scope', () => {
+    const resolved = resolveFeedCorePreferences({
+      params: new URLSearchParams('scope=global'),
+      saved: { scope: 'region', filter: 'all', sort: 'trending', window: 'all' },
+      defaults: { scope: 'global', filter: 'all', sort: 'trending', window: 'all' },
+      normalizeScope: (value) => {
+        const normalized = (value ?? '').trim().toLowerCase();
+        return normalized === 'home' || normalized === 'global' || normalized === 'region'
+          ? normalized
+          : 'global';
+      },
+      normalizeFilter: normalizeFeedFilter
+    });
+
+    expect(resolved.scope).toBe('global');
+  });
+
   it('falls back to defaults when URL and saved values are absent', () => {
     expect(
       resolvePreferenceKey(null, null, 'trending', normalizeFeedSort)

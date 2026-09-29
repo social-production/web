@@ -29,15 +29,17 @@
   }
 
   h2 {
-    font-size: 14px;
+    margin: 0;
+    font-size: 22px;
     font-weight: 700;
+    letter-spacing: -0.02em;
   }
 
   .description {
-    margin-top: 4px;
+    margin-top: 8px;
     color: var(--text-soft);
-    font-size: 12px;
-    line-height: 1.4;
+    font-size: 15px;
+    line-height: 1.5;
   }
 
   .body {

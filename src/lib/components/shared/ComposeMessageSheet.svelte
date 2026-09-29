@@ -218,7 +218,7 @@
   }
 </script>
 
-<OverlaySheet bind:open {labelledById} title="New message" on:close={handleClose}>
+<OverlaySheet bind:open hideClose {labelledById} title="New message" on:close={handleClose}>
   <div class="compose-form">
     <div class="composer-mode-row" role="tablist" aria-label="Message type">
       <button
@@ -316,13 +316,15 @@
     {#if composerError}
       <p class="composer-feedback">{composerError}</p>
     {/if}
-
-    <div class="composer-actions">
-      <button class="primary-button" disabled={submitting} type="button" on:click={submitNewConversation}>
+  </div>
+  <svelte:fragment slot="footer">
+    <div class="sheet-actions">
+      <button class="sheet-cancel" type="button" on:click={handleClose}>Cancel</button>
+      <button class="sheet-submit" disabled={submitting} type="button" on:click={submitNewConversation}>
         {submitting ? 'Sending…' : 'Send'}
       </button>
     </div>
-  </div>
+  </svelte:fragment>
 </OverlaySheet>
 
 <style>
@@ -333,7 +335,6 @@
   }
 
   .composer-mode-row,
-  .composer-actions,
   .selected-row {
     display: flex;
     gap: 8px;
@@ -423,30 +424,6 @@
     color: var(--accent-warm-strong);
     font-size: 12px;
     font-weight: 700;
-  }
-
-  .composer-actions {
-    justify-content: flex-end;
-  }
-
-  .primary-button {
-    padding: 8px 12px;
-    border: 1px solid var(--brand);
-    border-radius: var(--radius-sm);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .primary-button:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--brand-soft) 65%, white 10%);
-  }
-
-  .primary-button:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
   }
 
   .sr-only {

@@ -15,6 +15,8 @@ export const messagesDomain: Partial<AppAdapter> = {
   getConversationMessages: stubMethod(provider, domain, 'getConversationMessages') as AppAdapter['getConversationMessages'],
   getMessageContacts: stubMethod(provider, domain, 'getMessageContacts') as AppAdapter['getMessageContacts'],
   sendMessage: stubMethod(provider, domain, 'sendMessage') as AppAdapter['sendMessage'],
+  pinMessage: stubMethod(provider, domain, 'pinMessage') as AppAdapter['pinMessage'],
+  unpinMessage: stubMethod(provider, domain, 'unpinMessage') as AppAdapter['unpinMessage'],
   startDirectMessage: stubMethod(provider, domain, 'startDirectMessage') as AppAdapter['startDirectMessage'],
   createGroupConversation: stubMethod(provider, domain, 'createGroupConversation') as AppAdapter['createGroupConversation'],
   renameGroupConversation: stubMethod(provider, domain, 'renameGroupConversation') as AppAdapter['renameGroupConversation'],

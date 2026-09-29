@@ -84,15 +84,18 @@
     };
   });
 
-  async function submitProjectMessage(body: string) {
+  const fastapiChat =
+    (import.meta.env.VITE_BACKEND ?? '').trim().toLowerCase() === 'fastapi';
+
+  async function submitProjectMessage(body: string, files?: File[]) {
     registerEntityType(data.id, 'project');
 
     const viewerUsername = $page.data.bootstrap?.viewer?.username ?? 'you';
-    const optimistic = createOptimisticComment(viewerUsername, body);
+    const optimistic = createOptimisticComment(viewerUsername, body, files);
     optimisticComments = [...optimisticComments, optimistic];
 
     try {
-      await addComment({ id: data.id, type: 'project' }, body);
+      await addComment({ id: data.id, type: 'project' }, body, undefined, files);
       void invalidate('inbox:messages');
     } catch {
       optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
@@ -110,6 +113,7 @@
 >
   <LinkedChatReadMarker subjectType="project" subjectId={data.id} />
   <LiveChatPanel
+    allowAttachments={fastapiChat}
     comments={discussion}
     embedded={isCompact || fullscreen}
     emptyCopy="No project chat yet."
@@ -121,7 +125,7 @@
     onSubmitMessage={submitProjectMessage}
     placeholder="Message the project..."
     reportTargetType="comment"
-    showHeader={!(isCompact || fullscreen)}
+    showHeader={true}
     subjectId={data.id}
     submitLabel="Send"
     title="# project-chat"

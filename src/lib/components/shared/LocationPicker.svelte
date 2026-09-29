@@ -162,9 +162,11 @@
     debouncedPositionSuggestions.cancel();
   });
 
-  function setValue(next: LocationPickerValue) {
+  function setValue(next: LocationPickerValue, options: { syncQuery?: boolean } = {}) {
     value = next;
-    query = next.displayLabel;
+    if (options.syncQuery !== false) {
+      query = next.displayLabel;
+    }
     syncedSignature = externalSignature(next);
     dispatch('change', next);
   }
@@ -245,18 +247,21 @@
     void runSearch(query);
     const trimmed = query.trim();
     if (value.mode === 'physical' && trimmed && !preserveCoordsWhileEditing) {
-      setValue({
-        ...value,
-        mode: 'physical',
-        displayLabel: trimmed,
-        locationId: null,
-        providerPlaceId: null,
-        latitude: null,
-        longitude: null,
-        region: null,
-        country: null,
-        isOnline: false
-      });
+      setValue(
+        {
+          ...value,
+          mode: 'physical',
+          displayLabel: trimmed,
+          locationId: null,
+          providerPlaceId: null,
+          latitude: null,
+          longitude: null,
+          region: null,
+          country: null,
+          isOnline: false
+        },
+        { syncQuery: false }
+      );
     }
   }
 

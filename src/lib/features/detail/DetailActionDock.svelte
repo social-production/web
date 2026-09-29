@@ -87,7 +87,7 @@
 <style>
   .detail-action-dock {
     position: fixed;
-    z-index: 34;
+    z-index: var(--z-dock);
     left: var(--left-width, 0px);
     right: var(--right-width, 0px);
     bottom: var(--shell-bottom-nav-offset, 0px);

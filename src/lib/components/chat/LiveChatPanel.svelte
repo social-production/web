@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { apiAssetUrl } from '$lib/api/drivers/fastapi/client';
   import { createEventDispatcher } from 'svelte';
   import { browser } from '$app/environment';
   import { goto, invalidateAll } from '$app/navigation';
@@ -9,10 +10,12 @@
   import type { ContentReportSummary, DetailComment, ModerationState } from '$lib/types/detail';
   import type { CommentSubjectType, ReportTargetType } from '$lib/types/governance';
   import { linkifyMessageBody } from '$lib/utils/linkifyMessageBody';
-  import { ChatSendError } from '$lib/utils/discussionState';
   import { moderatedPlaceholder, shouldHideModeratedBody } from '$lib/utils/moderation';
   import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
   import { scrollCenteredInContainer } from '$lib/utils/comment-scroll';
+  import { portal } from '$lib/utils/portal';
+  import type { MessageAttachment } from '$lib/types/inbox';
+  import { compressChatPhoto, rejectOutgoingAttachment } from '$lib/features/messages/attachmentLimits';
   import { onMount, tick } from 'svelte';
 
   type ChatMessage = {
@@ -24,6 +27,8 @@
     report?: ContentReportSummary | null;
     moderationState?: ModerationState;
     showAuthor?: boolean;
+    attachments?: MessageAttachment[];
+    pinned?: boolean;
   };
 
   export let comments: DetailComment[] = [];
@@ -41,8 +46,10 @@
   export let fitViewport = false;
   export let variant: 'chat' | 'message' = 'chat';
   export let reportTargetType: ReportTargetType | undefined = undefined;
-  export let onSubmitMessage: ((body: string) => Promise<void> | void) | null = null;
+  export let onSubmitMessage: ((body: string, files?: File[]) => Promise<void> | void) | null = null;
   export let onModerated: (() => Promise<void> | void) | null = null;
+  export let allowAttachments = false;
+  export let onTogglePin: ((messageId: string, pinned: boolean) => Promise<void> | void) | null = null;
 
   const dispatch = createEventDispatcher<{ moderated: void }>();
 
@@ -64,6 +71,94 @@
   let lastScrollSubjectKey = '';
   let lastAutoScrollKey = '';
   let keyboardOpen = false;
+  let pendingAttachments: Array<{ id: string; file: File; previewUrl: string }> = [];
+  let attachmentError = '';
+  let photoInput: HTMLInputElement | null = null;
+  let fileInput: HTMLInputElement | null = null;
+  const maxPendingAttachments = 10;
+
+  function formatByteSize(bytes: number) {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+
+    if (bytes < 1024 * 1024) {
+      return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    }
+
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function releasePendingAttachment(id?: string) {
+    const dropping = id
+      ? pendingAttachments.filter((item) => item.id === id)
+      : pendingAttachments;
+
+    for (const item of dropping) {
+      if (item.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    }
+
+    pendingAttachments = id ? pendingAttachments.filter((item) => item.id !== id) : [];
+  }
+
+  function rememberAttachment(file: File, previewUrl = '') {
+    if (pendingAttachments.length >= maxPendingAttachments) {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      attachmentError = `You can attach up to ${maxPendingAttachments} files`;
+      return;
+    }
+
+    pendingAttachments = [
+      ...pendingAttachments,
+      {
+        id: `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        previewUrl
+      }
+    ];
+    attachmentError = '';
+  }
+
+  async function choosePhoto(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const files = [...(input.files ?? [])];
+    input.value = '';
+
+    for (const file of files) {
+      const rejection = rejectOutgoingAttachment(file);
+
+      if (rejection) {
+        attachmentError = rejection;
+        continue;
+      }
+
+      try {
+        const compressed = await compressChatPhoto(file);
+        rememberAttachment(compressed, URL.createObjectURL(compressed));
+      } catch (err) {
+        attachmentError = err instanceof Error ? err.message : 'Could not process image.';
+      }
+    }
+  }
+
+  function chooseFile(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const files = [...(input.files ?? [])];
+    input.value = '';
+
+    for (const file of files) {
+      const rejection = rejectOutgoingAttachment(file);
+
+      if (rejection) {
+        attachmentError = rejection;
+        continue;
+      }
+
+      rememberAttachment(file);
+    }
+  }
 
   function formatMessageTime(value: string) {
     const date = new Date(value);
@@ -193,8 +288,52 @@
     }
   }
 
+  let viewerPhoto: { url: string; filename: string } | null = null;
+  let viewerReturnFocus: HTMLElement | null = null;
+
   function scrollChatLogToBottom() {
-    chatLogElement?.scrollTo({ top: chatLogElement.scrollHeight, behavior: 'auto' });
+    const log = chatLogElement;
+    if (!log) {
+      return;
+    }
+    const apply = () => {
+      log.scrollTop = log.scrollHeight;
+    };
+    apply();
+    requestAnimationFrame(apply);
+  }
+
+  function watchChatMedia(node: HTMLElement) {
+    const onLoad = (event: Event) => {
+      if (event.target instanceof HTMLImageElement) {
+        scrollChatLogToBottom();
+      }
+    };
+    node.addEventListener('load', onLoad, true);
+    return {
+      destroy() {
+        node.removeEventListener('load', onLoad, true);
+      }
+    };
+  }
+
+  function openPhotoViewer(url: string, filename: string, event: MouseEvent) {
+    viewerReturnFocus = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    viewerPhoto = { url, filename };
+    tick().then(() => document.getElementById('photo-viewer-close')?.focus());
+  }
+
+  function closePhotoViewer() {
+    viewerPhoto = null;
+    viewerReturnFocus?.focus();
+    viewerReturnFocus = null;
+  }
+
+  function handleViewerKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && viewerPhoto) {
+      event.preventDefault();
+      closePhotoViewer();
+    }
   }
 
   function centerMessageInChatLog(messageId: string) {
@@ -328,7 +467,11 @@
         body: item.body,
         createdAt: item.createdAt,
         report: item.report ?? null,
-        moderationState: item.moderationState
+        moderationState: item.moderationState,
+        attachments: item.attachments?.map((attachment) => ({
+          ...attachment,
+          url: attachment.url || apiAssetUrl(`/governance/attachments/${attachment.id}`)
+        }))
       });
       flattened.push(...flattenComments(item.replies));
     }
@@ -385,8 +528,9 @@
 
   async function submitMessage() {
     const body = draftMessage.trim();
+    const files = pendingAttachments.map((item) => item.file);
 
-    if (!body || submitPending) {
+    if ((!body && files.length === 0) || submitPending) {
       return;
     }
 
@@ -395,7 +539,7 @@
 
     try {
       if (onSubmitMessage) {
-        await onSubmitMessage(body);
+        await onSubmitMessage(body, files.length ? files : undefined);
       } else if (subjectId && subjectType) {
         await addComment({ id: subjectId, type: subjectType }, body);
         await invalidateAll();
@@ -404,6 +548,9 @@
         return;
       }
 
+      releasePendingAttachment();
+      attachmentError = '';
+
       if (highlightedCommentId) {
         await clearHighlightedCommentTarget();
         await tick();
@@ -411,9 +558,13 @@
 
       await tick();
       scrollChatLogToBottom();
+      window.setTimeout(scrollChatLogToBottom, 180);
+      window.setTimeout(scrollChatLogToBottom, 600);
     } catch (err) {
-      if (err instanceof ChatSendError) {
-        draftMessage = body;
+      draftMessage = body;
+
+      if (err instanceof Error && err.message) {
+        attachmentError = err.message;
       }
     } finally {
       submitPending = false;
@@ -470,7 +621,7 @@
   });
 </script>
 
-<svelte:window on:resize={syncPanelHeight} />
+<svelte:window on:keydown={handleViewerKeydown} on:resize={syncPanelHeight} />
 
 <section
   bind:this={panelElement}
@@ -492,12 +643,15 @@
     </div>
   {/if}
 
-  <div bind:this={chatLogElement} class="chat-log">
+  <div bind:this={chatLogElement} class="chat-log" use:watchChatMedia>
     <div class="chat-log-stack">
       {#if visibleMessages.length === 0}
         <div class="empty-state">{emptyCopy}</div>
       {:else}
         {#each visibleMessages as message (message.id)}
+          {@const photos = (message.attachments ?? []).filter((item) => item.kind === 'image' && item.url)}
+          {@const files = (message.attachments ?? []).filter((item) => item.kind !== 'image')}
+          {@const caption = !messageBodyIsHidden(message) && Boolean(message.body.trim())}
           <article
             id={`comment-${message.id}`}
             class:highlighted={highlightedCommentId === message.id}
@@ -505,27 +659,16 @@
             class="chat-message"
             use:registerMessageElement={message.id}
           >
-            <div class="message-copy">
-              <div class="message-top-row">
-                {#if message.showAuthor ?? true}
-                  <a class="author-link" href={`/profile/${message.authorUsername}`}>{message.authorUsername}</a>
-                {/if}
-                {#if subjectId}
-                  <div class="message-actions" aria-label="Message actions">
-                    <ReportMenu
-                      blockedMessage={viewerUsername === message.authorUsername ? "You can't report yourself" : ''}
-                      hasActiveReport={Boolean(message.report)}
-                      isUnderReview={message.report?.resolution === 'under_review' || message.report?.resolution === 'open' || message.moderationState === 'under_review'}
-                      itemLabel={variant === 'message' ? 'message' : 'comment'}
-                      moderationState={message.moderationState}
-                      pending={reportPending}
-                      report={message.report ?? null}
-                      on:compose={() => openReportComposer(message)}
-                      on:vote={(event) => voteOnActiveReport(message.report?.id ?? '', event.detail.vote)}
-                    />
-                  </div>
-                {/if}
-              </div>
+            <div
+              class="message-copy"
+              class:captionless={photos.length > 0 && !caption}
+              class:has-caption={photos.length > 0 && caption}
+              class:photo-stack={photos.length > 0}
+              class:multi-photo={photos.length > 1}
+            >
+              {#if message.showAuthor ?? true}
+                <a class="author-link" href={`/profile/${message.authorUsername}`}>{message.authorUsername}</a>
+              {/if}
               {#if supportsHiddenToggle(message)}
                 <button
                   aria-expanded={revealedMessageIds.has(message.id)}
@@ -542,22 +685,147 @@
                 </button>
               {/if}
 
-              {#if !messageBodyIsHidden(message)}
-                <p class:moderated={isModeratedAway(message)}>
-                  {#if variant === 'message' && !isModeratedAway(message)}
-                    {@html linkifyMessageBody(messageDisplayBody(message))}
-                  {:else}
-                    {messageDisplayBody(message)}
+              {#if photos.length > 0}
+                <div class="photo-row">
+                  {#each photos as photo (photo.id)}
+                    <button
+                      class="photo-button"
+                      type="button"
+                      aria-label={`View ${photo.filename}`}
+                      on:click={(event) => openPhotoViewer(photo.url ?? '', photo.filename, event)}
+                    >
+                      <img class="message-photo" alt={photo.filename} src={photo.url} />
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+
+              {#if !messageBodyIsHidden(message) && files.length > 0}
+                <div class="file-row">
+                  {#each files as attachment, fileIndex (attachment.id)}
+                    <div class="message-file-bubble">
+                      {#if attachment.url}
+                        <a class="message-file" href={attachment.url} download={attachment.filename}>
+                          <span class="message-file-name">{attachment.filename}</span>
+                          <span class="message-file-size">{formatByteSize(attachment.byteSize)}</span>
+                        </a>
+                      {:else}
+                        <span class="message-file-name">{attachment.filename}</span>
+                      {/if}
+                      {#if !caption && photos.length === 0 && fileIndex === files.length - 1}
+                        <span class="message-footer">
+                          <span class="message-time">{formatMessageTime(message.createdAt)}</span>
+                          {#if subjectId}
+                            <span class="message-actions" aria-label="Message actions">
+                              <ReportMenu
+                                blockedMessage={viewerUsername === message.authorUsername ? "You can't report yourself" : ''}
+                                extraActionLabel={onTogglePin ? (message.pinned ? 'Unpin' : 'Pin') : ''}
+                                hasActiveReport={Boolean(message.report)}
+                                isUnderReview={message.report?.resolution === 'under_review' || message.report?.resolution === 'open' || message.moderationState === 'under_review'}
+                                itemLabel={variant === 'message' ? 'message' : 'comment'}
+                                moderationState={message.moderationState}
+                                onExtraAction={onTogglePin
+                                  ? () => onTogglePin?.(message.id, Boolean(message.pinned))
+                                  : null}
+                                pending={reportPending}
+                                report={message.report ?? null}
+                                on:compose={() => openReportComposer(message)}
+                                on:vote={(event) => voteOnActiveReport(message.report?.id ?? '', event.detail.vote)}
+                              />
+                            </span>
+                          {/if}
+                        </span>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+
+              {#if caption}
+                <div class="caption-block" class:caption-bubble={photos.length > 0 && caption}>
+                  {#if !messageBodyIsHidden(message) && caption}
+                    <p class:moderated={isModeratedAway(message)}>
+                      {#if !isModeratedAway(message)}
+                        {@html linkifyMessageBody(messageDisplayBody(message))}
+                      {:else}
+                        {messageDisplayBody(message)}
+                      {/if}
+                      {#if photos.length === 0}
+                      <span class="message-footer">
+                        <span class="message-time">{formatMessageTime(message.createdAt)}</span>
+                        {#if subjectId}
+                          <span class="message-actions" aria-label="Message actions">
+                            <ReportMenu
+                              blockedMessage={viewerUsername === message.authorUsername ? "You can't report yourself" : ''}
+                              extraActionLabel={onTogglePin ? (message.pinned ? 'Unpin' : 'Pin') : ''}
+                              hasActiveReport={Boolean(message.report)}
+                              isUnderReview={message.report?.resolution === 'under_review' || message.report?.resolution === 'open' || message.moderationState === 'under_review'}
+                              itemLabel={variant === 'message' ? 'message' : 'comment'}
+                              moderationState={message.moderationState}
+                              onExtraAction={onTogglePin
+                                ? () => onTogglePin?.(message.id, Boolean(message.pinned))
+                                : null}
+                              pending={reportPending}
+                              report={message.report ?? null}
+                              on:compose={() => openReportComposer(message)}
+                              on:vote={(event) => voteOnActiveReport(message.report?.id ?? '', event.detail.vote)}
+                            />
+                          </span>
+                        {/if}
+                      </span>
+                      {/if}
+                    </p>
                   {/if}
-                </p>
+                </div>
+              {/if}
+
+              {#if photos.length > 0 || (!caption && files.length === 0)}
+                <div class="message-footer photo-footer">
+                  <span class="message-time">{formatMessageTime(message.createdAt)}</span>
+                  {#if subjectId}
+                    <span class="message-actions" aria-label="Message actions">
+                      <ReportMenu
+                        blockedMessage={viewerUsername === message.authorUsername ? "You can't report yourself" : ''}
+                        extraActionLabel={onTogglePin ? (message.pinned ? 'Unpin' : 'Pin') : ''}
+                        hasActiveReport={Boolean(message.report)}
+                        isUnderReview={message.report?.resolution === 'under_review' || message.report?.resolution === 'open' || message.moderationState === 'under_review'}
+                        itemLabel={variant === 'message' ? 'message' : 'comment'}
+                        moderationState={message.moderationState}
+                        onExtraAction={onTogglePin
+                          ? () => onTogglePin?.(message.id, Boolean(message.pinned))
+                          : null}
+                        pending={reportPending}
+                        report={message.report ?? null}
+                        on:compose={() => openReportComposer(message)}
+                        on:vote={(event) => voteOnActiveReport(message.report?.id ?? '', event.detail.vote)}
+                      />
+                    </span>
+                  {/if}
+                </div>
               {/if}
             </div>
-            <span class="message-time">{formatMessageTime(message.createdAt)}</span>
           </article>
         {/each}
       {/if}
     </div>
   </div>
+
+  {#if viewerPhoto}
+    <div class="photo-viewer" role="presentation" use:portal={'body'}>
+      <button class="photo-viewer-scrim" type="button" aria-label="Close photo" on:click={closePhotoViewer}></button>
+      <div
+        aria-label={viewerPhoto.filename}
+        aria-modal="true"
+        class="photo-viewer-frame"
+        role="dialog"
+      >
+        <img alt={viewerPhoto.filename} src={viewerPhoto.url} />
+        <button id="photo-viewer-close" class="photo-viewer-close" type="button" on:click={closePhotoViewer}>
+          Close
+        </button>
+      </div>
+    </div>
+  {/if}
 
   <ReportComposerModal
     bind:description={reportDetails}
@@ -570,6 +838,61 @@
   />
 
   <div class="composer-card">
+    {#if allowAttachments}
+      <div class="attach-row">
+        <button aria-label="Add a photo" class="attach-button" type="button" on:click={() => photoInput?.click()}>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14">
+            <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+            <circle cx="8.5" cy="10" r="1.5" fill="currentColor" />
+            <path d="M21 16l-5-5-8 8" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+        </button>
+        <button aria-label="Add a file" class="attach-button" type="button" on:click={() => fileInput?.click()}>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14">
+            <path
+              d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.82-2.83l8.48-8.48"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+          </svg>
+        </button>
+        {#each pendingAttachments as item (item.id)}
+          <div class="attach-preview">
+            {#if item.previewUrl}
+              <img alt="" src={item.previewUrl} />
+            {:else}
+              <span>{item.file.name}</span>
+            {/if}
+            <button aria-label="Remove attachment" type="button" on:click={() => releasePendingAttachment(item.id)}>
+              Remove
+            </button>
+          </div>
+        {/each}
+      </div>
+      <input
+        bind:this={photoInput}
+        accept="image/jpeg,image/png,image/webp"
+        aria-hidden="true"
+        class="attach-input"
+        multiple
+        tabindex="-1"
+        type="file"
+        on:change={choosePhoto}
+      />
+      <input
+        bind:this={fileInput}
+        aria-hidden="true"
+        class="attach-input"
+        multiple
+        tabindex="-1"
+        type="file"
+        on:change={chooseFile}
+      />
+    {/if}
+    {#if attachmentError}
+      <p class="attach-error" role="alert">{attachmentError}</p>
+    {/if}
     <div class="composer-input-shell">
       <textarea
         bind:value={draftMessage}
@@ -596,7 +919,9 @@
 
   .chat-panel {
     grid-template-rows: auto minmax(0, 1fr) auto;
-    height: min(780px, max(460px, calc(100dvh - 208px)));
+    height: min(780px, max(320px, calc(100dvh - var(--topbar-height, 56px) - 168px)));
+    max-height: calc(100dvh - var(--topbar-height, 56px) - 80px);
+    min-height: 0;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     overflow: hidden;
@@ -640,6 +965,8 @@
     overflow-y: auto;
     background: var(--panel);
     padding: 16px 16px 10px;
+    container-type: size;
+    container-name: chat-log;
   }
 
   .chat-log-stack {
@@ -651,8 +978,8 @@
 
   .chat-message {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
     align-items: end;
     padding: 0;
     border: none;
@@ -664,7 +991,7 @@
   .message-copy {
     gap: 6px;
     width: fit-content;
-    max-width: min(calc(100% - 4.75rem), 52rem);
+    max-width: min(100%, 52rem);
     justify-self: start;
     padding: 7px 11px 8px;
     border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
@@ -674,8 +1001,8 @@
 
   .chat-message.own .message-copy {
     justify-self: end;
-    background: color-mix(in srgb, var(--brand-soft) 72%, white 28%);
-    border-color: color-mix(in srgb, var(--brand) 52%, var(--panel-border));
+    background: var(--chat-bubble-own-bg);
+    border-color: var(--chat-bubble-own-border);
   }
 
   .chat-message.highlighted .message-copy {
@@ -689,8 +1016,7 @@
     text-decoration: none;
   }
 
-  h2,
-  .author-link {
+  h2 {
     color: var(--text-main);
   }
 
@@ -706,6 +1032,7 @@
 
   .author-link {
     display: inline-block;
+    color: var(--brand-strong);
     font-size: 12px;
     font-weight: 800;
     margin-bottom: 0;
@@ -715,6 +1042,298 @@
     margin: 0;
     color: var(--text-main);
     white-space: pre-wrap;
+  }
+
+  .message-copy.photo-stack,
+  .chat-message.own .message-copy.photo-stack,
+  .chat-message.highlighted .message-copy.photo-stack {
+    display: grid;
+    justify-items: start;
+    width: max-content;
+    max-width: min(100%, 240px);
+    padding: 0;
+    gap: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .message-copy.photo-stack.multi-photo {
+    max-width: min(100%, 488px);
+  }
+
+  .message-copy.photo-stack:has(.file-row) {
+    max-width: min(100%, 320px);
+  }
+
+  .message-copy.photo-stack.multi-photo:has(.file-row) {
+    max-width: min(100%, 488px);
+  }
+
+  .chat-message.own .message-copy.photo-stack {
+    justify-self: end;
+    justify-items: end;
+  }
+
+  .message-copy.photo-stack .author-link,
+  .chat-message.own .message-copy.photo-stack .author-link {
+    justify-self: start;
+  }
+
+  .photo-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .chat-message.own .photo-row {
+    justify-content: flex-end;
+  }
+
+  .message-copy.captionless {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .photo-button {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
+    line-height: 0;
+  }
+
+  .message-photo {
+    display: block;
+    width: auto;
+    max-width: min(240px, 100%);
+    height: auto;
+    max-height: min(360px, calc(100dvh - 360px));
+    max-height: min(360px, calc(100cqh - 28px));
+    object-fit: contain;
+    border-radius: 12px;
+  }
+
+  .message-copy.has-caption .message-photo {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .caption-block {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .caption-bubble {
+    width: 100%;
+    max-width: 240px;
+    padding: 6px 10px 4px;
+    border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    background: color-mix(in srgb, var(--panel-strong) 84%, white 16%);
+  }
+
+  .chat-message.own .caption-bubble {
+    background: var(--chat-bubble-own-bg);
+    border-color: var(--chat-bubble-own-border);
+  }
+
+  .message-copy.photo-stack:has(.file-row) .caption-bubble {
+    max-width: min(100%, 280px);
+    margin-top: 4px;
+    border-top: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+    border-radius: 12px;
+  }
+
+  .photo-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-sheet-elevated);
+    display: grid;
+    place-items: center;
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .photo-viewer-scrim {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: color-mix(in srgb, #000 78%, transparent);
+    cursor: zoom-out;
+  }
+
+  .photo-viewer-frame {
+    position: relative;
+    z-index: 1;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    justify-items: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding: 28px 24px calc(20px + var(--shell-bottom-nav-offset, 0px) + var(--shell-safe-bottom, 0px));
+    pointer-events: none;
+  }
+
+  .photo-viewer-frame img {
+    width: auto;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+    max-width: calc(100vw - 48px);
+    max-height: calc(100dvh - 128px - var(--shell-bottom-nav-offset, 0px) - var(--shell-safe-bottom, 0px));
+    object-fit: contain;
+    pointer-events: auto;
+  }
+
+  .photo-viewer-close {
+    justify-self: end;
+    margin-top: 16px;
+    min-height: var(--shell-touch-min, 44px);
+    padding: 0 16px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--text-main);
+    font-weight: 800;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  @media (min-width: 1081px) {
+    .photo-viewer-frame {
+      padding: 56px 72px 40px;
+    }
+
+    .photo-viewer-frame img {
+      max-width: calc(100vw - 144px);
+      max-height: calc(100dvh - 176px);
+    }
+  }
+
+  .file-row {
+    display: grid;
+    gap: 4px;
+    width: max-content;
+    max-width: min(100%, 280px);
+    margin-top: 4px;
+  }
+
+  .message-copy:not(.photo-stack) .file-row {
+    margin-top: 0;
+  }
+
+  .message-file-bubble {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    width: max-content;
+    max-width: 100%;
+  }
+
+  .message-copy.photo-stack .message-file-bubble {
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--panel-strong) 84%, white 16%);
+  }
+
+  .chat-message.own .message-copy.photo-stack .message-file-bubble {
+    background: var(--chat-bubble-own-bg);
+    border-color: var(--chat-bubble-own-border);
+  }
+
+  .message-file {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    color: var(--text-main);
+    font-weight: 700;
+    text-decoration: underline;
+  }
+
+  .message-file-name {
+    color: var(--text-main);
+    font-weight: 700;
+  }
+
+  .message-file-size {
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .attach-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    min-height: 36px;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .attach-button {
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-soft);
+  }
+
+  .attach-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: var(--text-main);
+    font-size: 13px;
+  }
+
+  .attach-preview img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+
+  .attach-preview button {
+    border: none;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .attach-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .attach-error {
+    margin: 0;
+    color: var(--danger);
+    font-size: 13px;
   }
 
   .message-copy p.moderated {
@@ -733,46 +1352,57 @@
     color: var(--brand);
   }
 
-  .message-top-row,
+  .message-footer,
   .message-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 2px;
   }
 
-  .message-top-row {
-    justify-content: space-between;
-    gap: 12px;
+  .message-footer {
+    display: inline-flex;
+    justify-content: flex-end;
+    width: max-content;
+    max-width: 100%;
+    margin-left: 8px;
     min-width: 0;
+    vertical-align: baseline;
+    white-space: nowrap;
+  }
+
+  .message-footer.photo-footer {
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 4px;
+    margin-left: 0;
   }
 
   .message-actions {
-    margin-left: auto;
-    justify-content: flex-end;
     flex-shrink: 0;
+  }
+
+  .message-footer :global(.report-trigger) {
+    padding: 0 2px;
+    min-height: 0;
   }
 
   .composer-card {
     position: sticky;
     bottom: 0;
     z-index: 2;
+    gap: 0;
     border-top: 1px solid var(--panel-border);
-    padding: 12px 16px 16px;
+    padding: 0 0 8px;
     background: var(--panel);
   }
 
   .message-time {
-    align-self: end;
-    justify-self: end;
-    width: 10.75ch;
-    min-width: 10.75ch;
     color: var(--text-soft);
     font-size: 11px;
     line-height: 1.2;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
-    padding-bottom: 2px;
-    text-align: right;
   }
 
   .hidden-toggle {
@@ -801,17 +1431,23 @@
 
   textarea {
     width: 100%;
-    min-height: 104px;
-    padding: 12px 90px 12px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
+    min-height: 72px;
+    padding: 8px 84px 8px 4px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     color: var(--text-main);
     resize: none;
   }
 
+  textarea:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--brand) 55%, transparent);
+    outline-offset: 2px;
+  }
+
   .composer-input-shell {
     position: relative;
+    padding: 0 10px;
   }
 
   .primary-button {
@@ -854,22 +1490,12 @@
   }
 
   @media (max-width: 760px) {
-    .chat-message {
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 4px;
-    }
-
     .message-time {
-      justify-self: end;
-      width: auto;
-      min-width: 0;
       font-size: 10px;
-      padding-bottom: 2px;
-      margin-top: 0;
     }
 
     .message-copy {
-      max-width: min(calc(100% - 3rem), 52rem);
+      max-width: min(100%, 52rem);
     }
   }
 </style>

@@ -2,6 +2,7 @@ import { apiClient } from '../client';
 import type { AppAdapter } from '$lib/services/adapters/types';
 import type { ViewerSummary } from '$lib/types/bootstrap';
 import type {
+  ConversationMessagesResult,
   CreateGroupMessageInput,
   DirectMessage,
   MessageConversationResult,
@@ -98,15 +99,15 @@ export async function fetchConversationMessages(
   conversationId: string,
   _viewerId: string,
   _participants: ViewerSummary[]
-): Promise<DirectMessage[]> {
+): Promise<ConversationMessagesResult> {
   try {
     const res = await apiClient.get<{ messages?: DirectMessage[] }>(
       `/messages/conversations/${encodeURIComponent(conversationId)}/messages`
     );
-    return res.messages ?? [];
+    return { messages: res.messages ?? [], pins: [], canPin: false };
   } catch (err) {
     if ((err as { status?: number }).status === 401 || (err as { status?: number }).status === 404) {
-      return [];
+      return { messages: [], pins: [], canPin: false };
     }
     throw err;
   }
@@ -123,10 +124,28 @@ export async function fetchMessageContacts(query: string, limit = 8): Promise<Vi
   }
 }
 
-export async function fetchSendMessage(conversationId: string, body: string): Promise<void> {
+export async function fetchSendMessage(
+  conversationId: string,
+  body: string,
+  _file?: File | File[] | null
+): Promise<void> {
   await apiClient.post(`/messages/conversations/${encodeURIComponent(conversationId)}/messages`, {
     body
   });
+}
+
+export async function fetchPinMessage(
+  _conversationId: string,
+  _messageId: string
+): Promise<void> {
+  throw new Error('Pinning is not available on this backend');
+}
+
+export async function fetchUnpinMessage(
+  _conversationId: string,
+  _messageId: string
+): Promise<void> {
+  throw new Error('Pinning is not available on this backend');
 }
 
 export async function fetchStartDirectMessage(
@@ -190,6 +209,8 @@ export const messagesDomain: Partial<AppAdapter> = {
   getConversationMessages: fetchConversationMessages,
   getMessageContacts: fetchMessageContacts,
   sendMessage: fetchSendMessage,
+  pinMessage: fetchPinMessage,
+  unpinMessage: fetchUnpinMessage,
   startDirectMessage: fetchStartDirectMessage,
   createGroupConversation: fetchCreateGroupConversation,
   renameGroupConversation: fetchRenameGroupConversation,

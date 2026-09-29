@@ -194,8 +194,8 @@
   .content :global(.footer),
   .content :global(.detail-row.footer) {
     margin-top: 14px;
-    padding-top: 14px;
-    border-top-color: color-mix(in srgb, var(--panel-border) 78%, transparent);
+    padding-top: 0;
+    border-top: none;
   }
 
   .content :global(.content-meta-row) {

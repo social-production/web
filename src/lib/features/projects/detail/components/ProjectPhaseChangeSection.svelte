@@ -461,11 +461,12 @@
     {#if personalDirectPhaseChange ? canDirectReturn : canProposeReturn}
       <OverlaySheet
         bind:open={showRevertComposer}
+        hideClose
         title={revertComposerTitle()}
         labelledById="project-return-phase-sheet"
         on:close={closeRevertComposer}
       >
-        <form class="sheet-form" on:submit|preventDefault={submitRevertRequest}>
+        <form id="project-return-phase-form" class="sheet-form" on:submit|preventDefault={submitRevertRequest}>
           {#if revertMessage}
             <div class="inline-alert" role="alert">{revertMessage}</div>
           {/if}
@@ -487,24 +488,27 @@
                 : 'State clearly why the project should return to an earlier planning phase.'}
             ></textarea>
           </label>
-          <div class="composer-actions">
-            <button class="detail-action-button" type="button" on:click={closeRevertComposer}>Cancel</button>
-            <button class="primary-button" type="submit">
+        </form>
+        <svelte:fragment slot="footer">
+          <div class="sheet-actions">
+            <button class="sheet-cancel" type="button" on:click={closeRevertComposer}>Cancel</button>
+            <button class="sheet-submit" form="project-return-phase-form" type="submit">
               {revertActionLabel()}
             </button>
           </div>
-        </form>
+        </svelte:fragment>
       </OverlaySheet>
     {/if}
 
     {#if data.lifecycle.nextPhaseId}
       <OverlaySheet
         bind:open={showNextPhaseComposer}
+        hideClose
         title={nextPhaseActionLabel() ?? 'Advance'}
         labelledById="project-advance-phase-sheet"
         on:close={closeNextPhaseComposer}
       >
-        <form class="sheet-form" on:submit|preventDefault={submitNextPhaseRequest}>
+        <form id="project-advance-phase-form" class="sheet-form" on:submit|preventDefault={submitNextPhaseRequest}>
           {#if nextPhaseMessage}
             <div class="inline-alert" role="alert">{nextPhaseMessage}</div>
           {/if}
@@ -544,13 +548,15 @@
             <span class="field-inline-label">Reason</span>
             <textarea bind:value={nextPhaseReason} rows="3" placeholder={nextPhasePlaceholder()}></textarea>
           </label>
-          <div class="composer-actions">
-            <button class="detail-action-button" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
-            <button class="primary-button" type="submit">
+        </form>
+        <svelte:fragment slot="footer">
+          <div class="sheet-actions">
+            <button class="sheet-cancel" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
+            <button class="sheet-submit" form="project-advance-phase-form" type="submit">
               {nextPhaseActionLabel()}
             </button>
           </div>
-        </form>
+        </svelte:fragment>
       </OverlaySheet>
     {/if}
   </div>
@@ -581,8 +587,7 @@
     justify-content: flex-end;
   }
 
-  .action-group,
-  .composer-actions {
+  .action-group {
     display: flex;
     gap: 12px;
     align-items: center;
@@ -619,15 +624,6 @@
   .conversion-note {
     display: grid;
     gap: 6px;
-  }
-
-  .primary-button {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-    background: var(--brand);
-    color: var(--page-bg);
   }
 
   strong,

@@ -24,6 +24,7 @@
   {#each tabs as tab}
     <button
       class:active-tab={activeTab === tab.id}
+      class:participation-tab={tab.id === 'participation'}
       class="top-tab detail-surface-tab"
       role="tab"
       type="button"
@@ -84,7 +85,7 @@
     .top-tab-row {
       position: sticky;
       top: var(--topbar-height, 0px);
-      z-index: 40;
+      z-index: var(--z-detail-tabs);
       width: auto;
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));

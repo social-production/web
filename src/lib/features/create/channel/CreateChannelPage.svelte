@@ -1,7 +1,6 @@
 <script lang="ts">
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
-  import PreviewTile from '$lib/features/create/shared/PreviewTile.svelte';
   import { createChannel } from '$lib/services/commands/create';
   import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
   import { canonicalizeHandle, validateHandle } from '$lib/utils/handles';
@@ -54,8 +53,8 @@
 <CreateFlowLayout>
   <svelte:fragment slot="primary">
     <CreatePanel
-      title="Channel setup"
-      description="Define the topic surface first. Communities can overlap with it later without replacing it."
+      title="Create channel"
+      description="A channel is a topic surface. It gathers related threads and project activity without defining who belongs together."
     >
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
         <label>
@@ -86,26 +85,6 @@
           <p class="status-note">{statusMessage}</p>
         {/if}
       </form>
-    </CreatePanel>
-  </svelte:fragment>
-
-  <svelte:fragment slot="secondary">
-    <CreatePanel
-      title="Live preview"
-      description="How the new topic surface will appear in lists."
-      surface="transparent"
-    >
-      <PreviewTile
-        title={handleCheck.ok ? handleCheck.display : name.trim() || 'Untitled channel'}
-        body={description.trim() || 'Describe the topic this channel gathers without turning it into a social group.'}
-        meta="Topic channel"
-      />
-    </CreatePanel>
-
-    <CreatePanel title="Discovery note" description="What makes a channel different from a community.">
-      <p class="helper-text">
-        Channels stay topic-based. They gather related threads and project activity without defining who belongs together socially.
-      </p>
     </CreatePanel>
   </svelte:fragment>
 </CreateFlowLayout>

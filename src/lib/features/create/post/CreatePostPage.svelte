@@ -1,11 +1,9 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import PersonalPostCard from '$lib/components/cards/personal-feed/PersonalPostCard.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import { createPost } from '$lib/services/commands/create';
-  import type { PersonalPostItem } from '$lib/types/feed';
   import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 
   let body = '';
@@ -13,28 +11,11 @@
   let isSubmitting = false;
   let hasAppliedPrefill = false;
 
-  $: viewer = $page.data.bootstrap?.viewer ?? null;
   $: prefillBody = $page.url.searchParams.get('prefill')?.trim() ?? '';
   $: if (!hasAppliedPrefill && prefillBody && !body.trim()) {
     body = prefillBody;
     hasAppliedPrefill = true;
   }
-
-  $: previewItem = viewer
-    ? ({
-        kind: 'post',
-        id: 'post-preview',
-        href: '#',
-        author: viewer,
-        audience: 'public',
-        voteTargetId: 'post-preview',
-        body: body.trim() || 'Share a direct post to your personal timeline...',
-        voteCount: 0,
-        activeVote: 0,
-        commentCount: 0,
-        createdAt: new Date().toISOString()
-      } satisfies PersonalPostItem)
-    : null;
 
   $: canSubmit = body.trim().length > 0;
 
@@ -66,7 +47,10 @@
 
 <CreateFlowLayout>
   <svelte:fragment slot="primary">
-    <CreatePanel title="New post" description="Share a public post to your timeline.">
+    <CreatePanel
+      title="New post"
+      description="A post is a short public note on your personal feed."
+    >
       <div class="composer">
         <p class="audience-cue">Public</p>
         <label>
@@ -92,14 +76,6 @@
           </button>
         </div>
       </div>
-    </CreatePanel>
-  </svelte:fragment>
-
-  <svelte:fragment slot="secondary">
-    <CreatePanel title="Live preview" description="How this will read in Personal." surface="transparent">
-      {#if previewItem}
-        <PersonalPostCard item={previewItem} />
-      {/if}
     </CreatePanel>
   </svelte:fragment>
 </CreateFlowLayout>

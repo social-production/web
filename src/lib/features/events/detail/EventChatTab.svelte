@@ -72,15 +72,18 @@
     return () => stopChatLive?.();
   });
 
-  async function submitEventMessage(body: string) {
+  const fastapiChat =
+    (import.meta.env.VITE_BACKEND ?? '').trim().toLowerCase() === 'fastapi';
+
+  async function submitEventMessage(body: string, files?: File[]) {
     registerEntityType(data.id, 'event');
 
     const viewerUsername = $page.data.bootstrap?.viewer?.username ?? 'you';
-    const optimistic = createOptimisticComment(viewerUsername, body);
+    const optimistic = createOptimisticComment(viewerUsername, body, files);
     optimisticComments = [...optimisticComments, optimistic];
 
     try {
-      await addComment({ id: data.id, type: 'event' }, body);
+      await addComment({ id: data.id, type: 'event' }, body, undefined, files);
       void invalidate('inbox:messages');
     } catch {
       optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
@@ -94,6 +97,7 @@
 <section class="chat-shell" class:chat-shell-fullscreen={fullscreen}>
   <LinkedChatReadMarker subjectType="event" subjectId={data.id} />
   <LiveChatPanel
+    allowAttachments={fastapiChat}
     comments={discussion}
     embedded={fullscreen}
     emptyCopy="No event chat yet."
@@ -105,7 +109,7 @@
     onSubmitMessage={submitEventMessage}
     placeholder="Message members..."
     reportTargetType="comment"
-    showHeader={!fullscreen}
+    showHeader={true}
     subjectId={data.id}
     submitLabel="Send message"
     title="Event chat"

@@ -1,16 +1,61 @@
-export type AboutTabId = 'why' | 'produce' | 'costs' | 'governance' | 'join';
+export type AboutTabId = 'purpose' | 'strategy' | 'roadmap' | 'costs' | 'governance' | 'moderation' | 'join';
 
 export type AboutTab = {
   id: AboutTabId;
   label: string;
 };
 
-export const ABOUT_TABS: AboutTab[] = [
-  { id: 'why', label: 'Why' },
-  { id: 'produce', label: 'Strategy' },
-  { id: 'costs', label: 'Costs & Ownership' },
+export const ABOUT_SECTIONS: AboutTab[] = [
+  { id: 'purpose', label: 'Purpose' },
+  { id: 'strategy', label: 'Strategy' },
+  { id: 'roadmap', label: 'Roadmap' },
+  { id: 'costs', label: 'Costs' },
   { id: 'governance', label: 'Governance' },
+  { id: 'moderation', label: 'Moderation' },
   { id: 'join', label: 'Join' }
+];
+
+export const ABOUT_TABS: AboutTab[] = ABOUT_SECTIONS;
+
+export const aboutRoadmap = [
+  {
+    label: 'Now',
+    title: 'Web prototype',
+    current: true,
+    points: [
+      'FastAPI backend and a SvelteKit app people can use today.',
+      'Facilitation only: projects, events, help, and shared decisions. No asset holding.',
+      'Public use as the prototype becomes stable.'
+    ]
+  },
+  {
+    label: 'Next',
+    title: 'Legal entity and funding',
+    current: false,
+    points: [
+      'A community-controlled non-profit holds donated funds.',
+      'Stewardship stays elected and recallable, with no discretionary slush fund.',
+      'Physical means of production can be coordinated once that structure exists.'
+    ]
+  },
+  {
+    label: 'Later',
+    title: 'Peer-to-peer infrastructure',
+    current: false,
+    points: [
+      'Move hosting toward infrastructure the users run together.',
+      'Reduce dependence on a single conventional server.'
+    ]
+  },
+  {
+    label: 'Aim',
+    title: 'Shutdown-resistant coordination',
+    current: false,
+    points: [
+      'Keep useful activity organised for need rather than sale.',
+      'Make the network hard to capture or switch off.'
+    ]
+  }
 ];
 
 export type QuorumExample = {

@@ -5,18 +5,14 @@
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
-  import { activityOverlapsIsoDay, isoDayFromValue } from '$lib/utils/calendarDay';
+  import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
+  import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import DecisionHistoryCard from '$lib/components/shared/DecisionHistoryCard.svelte';
   import ActivityHistorySection from '$lib/features/projects/detail/components/ActivityHistorySection.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
   import { isProjectActivityPhase } from '$lib/features/projects/projectMode';
-  import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
-  import {
-    formatProjectVoteRequirement,
-    formatProjectVoteSummary
-  } from '$lib/utils/projectVotes';
   import {
     buildSpecializedRequestPayload,
     createDraftActivityRole,
@@ -140,6 +136,7 @@
     requestId: string,
     vote: ProjectApprovalVote | null
   ) => void | Promise<void> = () => {};
+  $: void voteOnRequestSettingsChange;
   export let createPullRequest: (input: ProjectSoftwarePullRequestInput) => void | Promise<void> = () => {};
   export let requestMergeCapabilityChange: (
     input: ProjectSoftwareMergeCapabilityChangeInput
@@ -279,17 +276,6 @@
   function closeRequestPlanning() {
     planningRequestId = null;
     resetRequestPlanningForm();
-  }
-
-  function scrollComposerIntoView(element: HTMLElement | null) {
-    if (typeof window === 'undefined' || !element) {
-      return;
-    }
-
-    element.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
   }
 
   async function openRequestPlanning(request: ProjectServiceRequestItem) {
@@ -496,35 +482,43 @@
     await openRequestComposerForActivity(activityId);
   }
 
-  async function toggleRequestSettingsComposerPanel() {
-    const willOpen = !showRequestSettingsComposer;
+  async function openDockedActivity() {
+    activeTab = 'live';
+    closeCalendarActionTarget();
 
-    if (!willOpen) {
-      closeRequestSettingsComposer();
+    if (previewDayIso) {
+      await openComposerForDay(previewDayIso);
       return;
     }
 
+    await openComposer();
+  }
+
+  async function openDockedServiceRequest() {
+    activeTab = 'live';
+    closeCalendarActionTarget();
+
+    if (selectedLiveActivityId) {
+      await openRequestComposerForActivity(selectedLiveActivityId);
+      return;
+    }
+
+    if (previewDayIso) {
+      await openRequestComposerForDay(previewDayIso);
+      return;
+    }
+
+    await openRequestComposer();
+  }
+
+  function openDockedRequestSettings() {
     requestSettingsForm = createRequestSettingsForm(data);
     showRequestSettingsComposer = true;
-    showRequestSettingsVote = false;
-    await tick();
-    scrollComposerIntoView(requestSettingsComposerElement);
-
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => {
-        scrollComposerIntoView(requestSettingsComposerElement);
-      });
-    }
   }
 
   function closeRequestSettingsComposer() {
     showRequestSettingsComposer = false;
     requestSettingsForm = createRequestSettingsForm(data);
-  }
-
-  function toggleRequestSettingsVotePanel() {
-    showRequestSettingsVote = !showRequestSettingsVote;
-    showRequestSettingsComposer = false;
   }
 
   async function submitRequestSettingsChange() {
@@ -554,7 +548,6 @@
   let planningRequestId: string | null = null;
   let requestPlanningForm: RequestPlanningForm = createRequestPlanningForm(data);
   let showRequestSettingsComposer = false;
-  let showRequestSettingsVote = false;
   let requestSettingsForm: RequestSettingsForm = createRequestSettingsForm(data);
   let requestSettingsComposerElement: HTMLDivElement | null = null;
   let specializedRequestForm: SpecializedRequestForm = createSpecializedRequestForm();
@@ -598,18 +591,20 @@
     }
   ]);
   $: canSubmitRequests = data.lifecycle.requestSystem?.viewerCanSubmitRequests ?? false;
-  $: hasQuickAction = canCreateActivities || canSubmitRequests;
   $: calendarSelectedDayIso =
     previewDayIso || (showRequestComposer ? serviceRequestForm.scheduledAt : activityForm.scheduledAt);
   $: calendarSelectedActivityId =
     selectedRequestActivityId ??
     (calendarActionTarget?.kind === 'activity' ? calendarActionTarget.activityId : '');
+  $: selectedLiveActivityId = data.lifecycle.phaseFive.activities.some(
+    (activity) => activity.id === calendarSelectedActivityId
+  )
+    ? calendarSelectedActivityId
+    : '';
   $: actionPickerStyle = buildActionPickerStyle(
     calendarActionAnchor,
     actionPickerElement?.offsetHeight ?? 260
   );
-  $: requestSettingsVotes = data.lifecycle.requestSystem?.settingsChangeRequests ?? [];
-  $: requestSettingsVoteCount = requestSettingsVotes.length;
   $: if (highlightedRequestId) {
     showRequestsSheet = true;
   }
@@ -622,12 +617,6 @@
   );
   $: calendarHistoryCount =
     data.lifecycle.phaseFive.history.length + softwareGovernanceHistory.length;
-  $: selectedAgendaDay = isoDayFromValue(calendarSelectedDayIso);
-  $: dayActivities = selectedAgendaDay
-    ? data.lifecycle.phaseFive.activities.filter((activity) =>
-        activityOverlapsIsoDay(activity, selectedAgendaDay)
-      )
-    : data.lifecycle.phaseFive.activities;
   $: unifiedCalendarHistory = (
     [
       ...data.lifecycle.phaseFive.history.map((item) => ({
@@ -680,9 +669,6 @@
   $: if (!showRequestComposer) {
     specializedRequestForm = createSpecializedRequestForm();
   }
-  $: if (requestSettingsVoteCount === 0) {
-    showRequestSettingsVote = false;
-  }
   $: if (highlightedRequestId) {
     showRequestsSheet = true;
     activeTab = 'live';
@@ -694,93 +680,73 @@
 
 <section id="participation-activities" class="phase-surface">
   {#if data.lifecycle.currentSubtype === 'software'}
-    <details class="governance-disclosure">
-      <summary>Software governance</summary>
-      {#if data.lifecycle.phaseFive.softwareGovernance}
-        <ProjectSoftwareGovernancePanel
-          bind:this={softwareGovernancePanel}
-          governance={data.lifecycle.phaseFive.softwareGovernance}
-          createPullRequest={createPullRequest}
-          requestMergeCapabilityChange={requestMergeCapabilityChange}
-          requestRepositoryReplacement={requestRepositoryReplacement}
-          recordMerge={recordPullRequestMerge}
-          {votePullRequest}
-          {softwareWizardRequest}
-          {onSoftwareWizardRequestHandled}
-        />
-      {:else}
-        <div class="software-governance-placeholder">
-          <h3>Software governance</h3>
-          <p>Pull request tools appear here once a leading software plan is approved for this project.</p>
-        </div>
-      {/if}
-    </details>
+    {#if data.lifecycle.phaseFive.softwareGovernance}
+      <ProjectSoftwareGovernancePanel
+        bind:this={softwareGovernancePanel}
+        governance={data.lifecycle.phaseFive.softwareGovernance}
+        createPullRequest={createPullRequest}
+        requestMergeCapabilityChange={requestMergeCapabilityChange}
+        requestRepositoryReplacement={requestRepositoryReplacement}
+        recordMerge={recordPullRequestMerge}
+        {votePullRequest}
+        {softwareWizardRequest}
+        {onSoftwareWizardRequestHandled}
+      />
+    {:else}
+      <div class="software-governance-placeholder">
+        <h3>Software governance</h3>
+        <p>Pull request tools appear here once a leading software plan is approved for this project.</p>
+      </div>
+    {/if}
   {/if}
 
-  {#if calendarActionTarget}
+  {#if calendarActionTarget && calendarActionTarget.kind !== 'activity'}
     <div bind:this={actionPickerElement} class="mechanics-card action-picker-card" style={actionPickerStyle}>
       <div class="request-header-row">
         <div>
           <h3>
-            {#if calendarActionTarget.kind === 'general'}
-              Choose next step
-            {:else if calendarActionTarget.kind === 'day'}
+            {#if calendarActionTarget.kind === 'day'}
               Choose action for {calendarActionTarget.isoDay}
             {:else}
-              Choose action for this slot
+              Choose next step
             {/if}
           </h3>
           <p>
-            {#if calendarActionTarget.kind === 'general'}
-              Start a scheduled activity{canSubmitPullRequest ? ', submit a pull request,' : ''} or open a new {requestFormCopy.actionLabel.toLowerCase()} form.
-            {:else if calendarActionTarget.kind === 'activity'}
-              Open the scheduled activity to sign up, or use its time window to place a {requestFormCopy.actionLabel.toLowerCase()} request.
-            {:else}
+            {#if calendarActionTarget.kind === 'day'}
               Choose whether this time should become a new activity{canSubmitPullRequest ? ', a pull request,' : ''} or a {requestFormCopy.actionLabel.toLowerCase()} request.
+            {:else}
+              Start a scheduled activity{canSubmitPullRequest ? ', submit a pull request,' : ''} or open a new {requestFormCopy.actionLabel.toLowerCase()} form.
             {/if}
           </p>
         </div>
       </div>
 
       <div class="action-picker-grid">
-        {#if calendarActionTarget.kind === 'general' || calendarActionTarget.kind === 'day'}
-          {#if canCreateActivities}
-            <button class="action-choice" type="button" on:click={chooseCreateActivity}>
-              <strong>Create activity</strong>
-              <span>
-                {calendarActionTarget.kind === 'day'
-                  ? 'Open the activity planner with this day prefilled.'
-                  : 'Open the activity planner.'}
-              </span>
-            </button>
-          {/if}
-          {#if canSubmitPullRequest && calendarActionTarget.kind === 'general'}
-            <button class="action-choice" type="button" on:click={chooseSubmitPullRequest}>
-              <strong>Submit pull request</strong>
-              <span>Open the existing software governance wizard when the change itself needs approval.</span>
-            </button>
-          {/if}
-          {#if canSubmitRequests}
-            <button class="action-choice" type="button" on:click={chooseRequestServiceForDay}>
-              <strong>{requestFormCopy.actionLabel}</strong>
-              <span>
-                {calendarActionTarget.kind === 'day'
-                  ? 'Open the request form and prefill the selected time.'
-                  : 'Open the request form.'}
-              </span>
-            </button>
-          {/if}
-        {:else}
-          <button class="action-choice" type="button" on:click={chooseOpenActivity}>
-            <strong>Open activity / sign up</strong>
-            <span>Jump to the scheduled activity below the calendar and choose a role.</span>
+        {#if canCreateActivities}
+          <button class="action-choice" type="button" on:click={chooseCreateActivity}>
+            <strong>Create activity</strong>
+            <span>
+              {calendarActionTarget.kind === 'day'
+                ? 'Open the activity planner with this day prefilled.'
+                : 'Open the activity planner.'}
+            </span>
           </button>
-          {#if canSubmitRequests}
-            <button class="action-choice" type="button" on:click={chooseRequestServiceForActivity}>
-              <strong>{requestFormCopy.actionLabel}</strong>
-              <span>Use this slot's window as the request time.</span>
-            </button>
-          {/if}
+        {/if}
+        {#if canSubmitPullRequest && calendarActionTarget.kind === 'general'}
+          <button class="action-choice" type="button" on:click={chooseSubmitPullRequest}>
+            <strong>Submit pull request</strong>
+            <span>Open the existing software governance wizard when the change itself needs approval.</span>
+          </button>
+        {/if}
+        {#if canSubmitRequests}
+          <button class="action-choice" type="button" on:click={chooseRequestServiceForDay}>
+            <strong>{requestFormCopy.actionLabel}</strong>
+            <span>
+              {calendarActionTarget.kind === 'day'
+                ? 'Open the request form and prefill the selected time.'
+                : 'Open the request form.'}
+            </span>
+          </button>
         {/if}
       </div>
 
@@ -790,9 +756,41 @@
     </div>
   {/if}
 
+  {#if calendarActionTarget?.kind === 'activity'}
+    <OverlaySheet
+      open
+      hideClose
+      elevated
+      title="This time slot"
+      labelledById="slot-action-sheet"
+      on:close={closeCalendarActionTarget}
+    >
+      <div class="slot-sheet-copy">
+        <p>Open the scheduled activity to sign up, or use its time window to place a request.</p>
+        <div class="slot-choice">
+          <strong>Open activity / sign up</strong>
+          <span>Jump to the scheduled activity and choose a role.</span>
+        </div>
+        <div class="slot-choice">
+          <strong>{requestFormCopy.actionLabel}</strong>
+          <span>Use this slot's window as the request time.</span>
+        </div>
+      </div>
+      <svelte:fragment slot="footer">
+        <div class="sheet-actions">
+          <button class="sheet-cancel" type="button" on:click={closeCalendarActionTarget}>Cancel</button>
+          <button class="sheet-cancel" type="button" on:click={chooseOpenActivity}>Open activity</button>
+          <button class="sheet-submit" type="button" on:click={chooseRequestServiceForActivity}>
+            {requestFormCopy.actionLabel}
+          </button>
+        </div>
+      </svelte:fragment>
+    </OverlaySheet>
+  {/if}
+
   <ProjectActivityCalendarCard
     activities={calendarActivities}
-    canCreate={hasQuickAction}
+    canCreate={false}
     createActive={showComposer || showRequestComposer || calendarActionTarget?.kind === 'general'}
     createAriaLabel="Open activity or request actions"
     createButtonLabel="Add"
@@ -803,13 +801,76 @@
     activitySelect={handleActivitySelection}
   />
 
-  {#if data.lifecycle.requestSystem}
-    <div class="composer-actions request-action-row">
-      <button class="secondary-button" type="button" on:click={() => (showRequestsSheet = true)}>
-        Requests{sortedRequests.length ? ` · ${sortedRequests.length}` : ''}
-      </button>
-    </div>
-  {/if}
+  <PhaseWorkToolbar>
+    {#if canCreateActivities}
+      <RoundPlusButton
+        standout
+        label="Create activity"
+        ariaLabel="Create activity"
+        participationAction="create-activity"
+        action={() => openDockedActivity()}
+      />
+    {/if}
+    {#if selectedLiveActivityId}
+      <RoundPlusButton
+        label="Open activity"
+        ariaLabel="Open activity and sign up for a service role"
+        participationAction="open-activity"
+        action={() => focusActivityCard(selectedLiveActivityId)}
+      />
+    {/if}
+    {#if canSubmitRequests}
+      <RoundPlusButton
+        standout={!canCreateActivities}
+        label={requestFormCopy.actionLabel}
+        ariaLabel={requestFormCopy.actionLabel}
+        participationAction="request-service"
+        action={() => openDockedServiceRequest()}
+      />
+    {/if}
+    {#if data.lifecycle.requestSystem && (data.lifecycle.requestSystem.viewerCanReviewRequests || sortedRequests.length > 0)}
+      <RoundPlusButton
+        label="Requests"
+        ariaLabel="Show service requests"
+        participationAction="review-requests"
+        action={() => (showRequestsSheet = true)}
+      />
+    {/if}
+    {#if data.lifecycle.requestSystem?.viewerCanRequestSettingsChanges}
+      <RoundPlusButton
+        label="Request settings"
+        ariaLabel="Request service settings changes"
+        participationAction="request-settings"
+        action={() => openDockedRequestSettings()}
+      />
+    {/if}
+    <svelte:fragment slot="governance">
+      {#if data.lifecycle.phaseFive.softwareGovernance?.viewerCanCreatePullRequests}
+        <RoundPlusButton
+          label="Pull request"
+          ariaLabel="New pull request"
+          participationAction="make-pull-request"
+          action={() => softwareGovernancePanel?.openCreatePullRequest()}
+        />
+      {/if}
+      {#if data.lifecycle.phaseFive.softwareGovernance?.viewerCanRequestRepositoryReplacement}
+        <RoundPlusButton
+          label="Replace repository"
+          ariaLabel="Replace repository"
+          participationAction="replace-repository"
+          action={() => softwareGovernancePanel?.openSoftwareWizard('repository-replacement')}
+        />
+      {/if}
+      {#if data.lifecycle.phaseFive.softwareGovernance?.viewerCanRequestMergeCapabilityChanges}
+        <RoundPlusButton
+          label="Merge capability"
+          ariaLabel="Change merge capability"
+          participationAction="change-merge-capability"
+          action={() => softwareGovernancePanel?.openSoftwareWizard('merge-capability')}
+        />
+      {/if}
+    </svelte:fragment>
+  </PhaseWorkToolbar>
 
     {#if data.lifecycle.requestSystem}
       <OverlaySheet bind:open={showRequestsSheet} title={requestFormCopy.sectionTitle} labelledById="collective-requests-sheet">
@@ -819,141 +880,87 @@
             <h3>{requestFormCopy.sectionTitle}</h3>
             <p>{data.lifecycle.requestSystem.settings.summary}</p>
           </div>
-          <div class="section-actions">
-            {#if requestSettingsVoteCount > 0}
-              <button class="vote-chip notice-chip" type="button" on:click={toggleRequestSettingsVotePanel}>
-                Vote now ({requestSettingsVoteCount})
-              </button>
-            {/if}
-            {#if data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}
-              <button
-                class:active-toggle={showRequestSettingsComposer}
-                class="secondary-button"
-                type="button"
-                on:click={toggleRequestSettingsComposerPanel}
-              >
-                Edit request settings
-              </button>
-            {/if}
-          </div>
         </div>
 
-        {#if requestSettingsVoteCount > 0 && showRequestSettingsVote}
-          <div class="composer-card settings-panel">
-            <div class="request-header-row">
-              <div>
-                <h3>Active request settings votes</h3>
-                <p>
-                  {#if requestSettingsVoteCount === 1}
-                    One settings change vote is open right now.
-                  {:else}
-                    {requestSettingsVoteCount} settings change votes are open right now.
-                  {/if}
-                </p>
-              </div>
-            </div>
-
-            <div class="surface-stack">
-              {#each requestSettingsVotes as requestSettingsVote (requestSettingsVote.id)}
-                <article class="vote-request-card">
-                  <div class="vote-card-top">
-                    <div class="vote-card-copy">
-                      <span class="vote-kicker">Settings change</span>
-                      <strong>{requestSettingsVote.proposedSettings.summary}</strong>
+        {#if !data.lifecycle.requestSystem.enabled && sortedRequests.length === 0}
+          <div class="empty-card">Requests are currently turned off.</div>
+        {:else if sortedRequests.length === 0}
+          <div class="empty-card">No open requests right now.</div>
+        {:else}
+          <div class="card-rail">
+            {#each sortedRequests as request}
+              <div id={`request-card-${request.id}`} class="rail-card">
+                <CollapsibleServiceRequestCard
+                  request={request}
+                  expanded={planningRequestId === request.id || highlightedRequestId === request.id}
+                  highlighted={highlightedRequestId === request.id}
+                >
+                  {#if data.lifecycle.requestSystem.viewerCanReviewRequests && request.status === 'open'}
+                    <div class="composer-actions review-actions">
+                      <button class="vote-chip" type="button" on:click={() => openRequestPlanning(request)}>
+                        Plan request
+                      </button>
+                      <button
+                        class="vote-chip negative"
+                        type="button"
+                        on:click={() => updateRequestStatus(request.id, 'declined')}
+                      >
+                        Decline
+                      </button>
                     </div>
-                    <span class="vote-requirement">
-                      {formatProjectVoteRequirement(
-                        requestSettingsVote.voteSummary,
-                        requestSettingsVote.approvalThresholdPercent
-                      )}
-                    </span>
-                  </div>
+                  {/if}
 
-                  <p>{requestSettingsVote.reason}</p>
-
-                  <div class="vote-summary-row">
-                    <span>{formatProjectVoteSummary(requestSettingsVote.voteSummary)}</span>
-                  </div>
-
-                  <VoteCardFooter
-                    authorUsername={requestSettingsVote.authorUsername}
-                    createdAt={requestSettingsVote.createdAt}
-                    activeVote={requestSettingsVote.voteSummary.activeVote}
-                    canVote={data.lifecycle.requestSystem.viewerCanVoteOnSettingsChanges}
-                    onVote={(vote) => voteOnRequestSettingsChange(requestSettingsVote.id, vote)}
-                  />
-                </article>
-              {/each}
-            </div>
-          </div>
-        {/if}
-
-        {#if showRequestSettingsComposer && data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}
-          <div bind:this={requestSettingsComposerElement} class="composer-card settings-panel">
-            <div class="request-header-row">
-              <div>
-                <h3>Edit request settings</h3>
-                <p>Each vote runs on its own and applies automatically once it reaches 66% approval and the required vote count.</p>
+                  {#if planningRequestId === request.id}
+                    <div class="composer-card planner-card">
+                      <input bind:value={requestPlanningForm.title} maxlength="120" placeholder="Scheduled activity title" />
+                      <input bind:value={requestPlanningForm.locationLabel} maxlength="120" placeholder="Place" />
+                      <select bind:value={requestPlanningForm.linkedPlanPhaseId}>
+                        <option value="" disabled>Choose stage</option>
+                        {#each data.lifecycle.phaseFive.selectablePlanPhases as stage}
+                          <option value={stage.id}>{stage.label}</option>
+                        {/each}
+                      </select>
+                      <ProjectActivityRolesEditor bind:roles={requestPlanningForm.roleRequirements} />
+                      <div class="count-field">
+                        <span class="count-field-label">
+                          <span class="field-inline-label">Minimum people:</span>
+                          <span class="count-note">Calculated from the role minimums above.</span>
+                        </span>
+                        <div class="count-readout">
+                          <strong>{requestPlanningMinimumParticipants}</strong>
+                        </div>
+                      </div>
+                      <textarea
+                        bind:value={requestPlanningForm.note}
+                        rows="3"
+                        placeholder="How should this request be carried out?"
+                      ></textarea>
+                      <div class="composer-actions">
+                        <button class="secondary-button" type="button" on:click={closeRequestPlanning}>
+                          Cancel
+                        </button>
+                        <button class="primary-button" type="button" on:click={() => submitRequestPlanning(request.id)}>
+                          Schedule activity
+                        </button>
+                      </div>
+                    </div>
+                  {/if}
+                </CollapsibleServiceRequestCard>
               </div>
-            </div>
-
-            <label class="checkbox-row">
-              <input bind:checked={requestSettingsForm.enabled} type="checkbox" />
-              <span>Enable requests</span>
-            </label>
-
-            {#if requestSettingsForm.enabled}
-              <label>
-                <span class="field-inline-label">Request mode</span>
-                <select bind:value={requestSettingsForm.requestMode}>
-                  <option value="calendar">Scheduled slots only</option>
-                  <option value="direct">Message requests only</option>
-                  <option value="both">Scheduled slots and message requests</option>
-                </select>
-              </label>
-              <p class="field-help">Scheduled slots start from listed times. Message requests let people write in without choosing a listed slot.</p>
-
-              {#if requestSettingsForm.requestMode === 'both'}
-                <label class="checkbox-row">
-                  <input bind:checked={requestSettingsForm.allowOffScheduleRequests} type="checkbox" />
-                  <span>Allow message requests when no slot is listed</span>
-                </label>
-              {/if}
-            {/if}
-
-            {#if !requestSettingsChanged}
-              <p class="field-help">Choose a different request setup before adding a reason or starting a vote.</p>
-            {/if}
-
-            <label>
-              <span class="field-inline-label">Reason</span>
-              <textarea
-                bind:value={requestSettingsForm.reason}
-                disabled={!requestSettingsChanged}
-                rows="3"
-                placeholder={requestSettingsChanged
-                  ? 'Explain why the request flow should change right now.'
-                  : 'Choose a different request setup to unlock the reason field.'}
-              ></textarea>
-            </label>
-
-            <div class="composer-actions">
-              <button class="secondary-button" type="button" on:click={closeRequestSettingsComposer}>
-                Cancel
-              </button>
-              <button
-                class="primary-button"
-                disabled={!requestSettingsCanSubmit}
-                type="button"
-                on:click={submitRequestSettingsChange}
-              >
-                Start vote
-              </button>
-            </div>
+            {/each}
           </div>
         {/if}
+      </section>
+      </OverlaySheet>
 
-        {#if canSubmitRequests && showRequestComposer}
+      <OverlaySheet
+        bind:open={showRequestComposer}
+        hideClose
+        title={requestFormCopy.composerTitle}
+        labelledById="collective-request-form-sheet"
+        on:close={handleCloseRequestComposer}
+      >
+        
           <div bind:this={serviceRequestComposerElement} class="composer-card">
             {#if selectedRequestActivity}
               <div class="selection-note">
@@ -1039,83 +1046,87 @@
               <div class="feedback-card" role="status">{serviceRequestFeedback}</div>
             {/if}
 
-            <div class="composer-actions">
-              <button class="secondary-button" type="button" on:click={handleCloseRequestComposer}>Cancel</button>
-              <button class="primary-button" type="button" on:click={handleSubmitServiceRequest}>{requestFormCopy.submitLabel}</button>
             </div>
+        <svelte:fragment slot="footer">
+          <div class="sheet-actions">
+            <button class="sheet-cancel" type="button" on:click={handleCloseRequestComposer}>Cancel</button>
+            <button class="sheet-submit" type="button" on:click={handleSubmitServiceRequest}>Request</button>
           </div>
-        {/if}
-
-        {#if !data.lifecycle.requestSystem.enabled && sortedRequests.length === 0}
-          <div class="empty-card">Requests are currently turned off.</div>
-        {:else if sortedRequests.length === 0}
-          <div class="empty-card">No open requests right now.</div>
-        {:else}
-          <div class="card-rail">
-            {#each sortedRequests as request}
-              <div id={`request-card-${request.id}`} class="rail-card">
-                <CollapsibleServiceRequestCard
-                  request={request}
-                  expanded={planningRequestId === request.id || highlightedRequestId === request.id}
-                  highlighted={highlightedRequestId === request.id}
-                >
-                  {#if data.lifecycle.requestSystem.viewerCanReviewRequests && request.status === 'open'}
-                    <div class="composer-actions review-actions">
-                      <button class="vote-chip" type="button" on:click={() => openRequestPlanning(request)}>
-                        Plan request
-                      </button>
-                      <button
-                        class="vote-chip negative"
-                        type="button"
-                        on:click={() => updateRequestStatus(request.id, 'declined')}
-                      >
-                        Decline
-                      </button>
-                    </div>
-                  {/if}
-
-                  {#if planningRequestId === request.id}
-                    <div class="composer-card planner-card">
-                      <input bind:value={requestPlanningForm.title} maxlength="120" placeholder="Scheduled activity title" />
-                      <input bind:value={requestPlanningForm.locationLabel} maxlength="120" placeholder="Place" />
-                      <select bind:value={requestPlanningForm.linkedPlanPhaseId}>
-                        <option value="" disabled>Choose stage</option>
-                        {#each data.lifecycle.phaseFive.selectablePlanPhases as stage}
-                          <option value={stage.id}>{stage.label}</option>
-                        {/each}
-                      </select>
-                      <ProjectActivityRolesEditor bind:roles={requestPlanningForm.roleRequirements} />
-                      <div class="count-field">
-                        <span class="count-field-label">
-                          <span class="field-inline-label">Minimum people:</span>
-                          <span class="count-note">Calculated from the role minimums above.</span>
-                        </span>
-                        <div class="count-readout">
-                          <strong>{requestPlanningMinimumParticipants}</strong>
-                        </div>
-                      </div>
-                      <textarea
-                        bind:value={requestPlanningForm.note}
-                        rows="3"
-                        placeholder="How should this request be carried out?"
-                      ></textarea>
-                      <div class="composer-actions">
-                        <button class="secondary-button" type="button" on:click={closeRequestPlanning}>
-                          Cancel
-                        </button>
-                        <button class="primary-button" type="button" on:click={() => submitRequestPlanning(request.id)}>
-                          Schedule activity
-                        </button>
-                      </div>
-                    </div>
-                  {/if}
-                </CollapsibleServiceRequestCard>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </section>
+        </svelte:fragment>
       </OverlaySheet>
+
+      {#if data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}
+        <OverlaySheet
+          bind:open={showRequestSettingsComposer}
+          hideClose
+          title="Request settings"
+          labelledById="collective-request-settings-sheet"
+          on:close={closeRequestSettingsComposer}
+        >
+        
+          <div bind:this={requestSettingsComposerElement} class="composer-card">
+            <div class="request-header-row">
+              <div>
+                <h3>Request settings</h3>
+                <p>Each vote runs on its own and applies automatically once it reaches 66% approval and the required vote count.</p>
+              </div>
+            </div>
+
+            <label class="checkbox-row">
+              <input bind:checked={requestSettingsForm.enabled} type="checkbox" />
+              <span>Enable requests</span>
+            </label>
+
+            {#if requestSettingsForm.enabled}
+              <label>
+                <span class="field-inline-label">Request mode</span>
+                <select bind:value={requestSettingsForm.requestMode}>
+                  <option value="calendar">Scheduled slots only</option>
+                  <option value="direct">Message requests only</option>
+                  <option value="both">Scheduled slots and message requests</option>
+                </select>
+              </label>
+              <p class="field-help">Scheduled slots start from listed times. Message requests let people write in without choosing a listed slot.</p>
+
+              {#if requestSettingsForm.requestMode === 'both'}
+                <label class="checkbox-row">
+                  <input bind:checked={requestSettingsForm.allowOffScheduleRequests} type="checkbox" />
+                  <span>Allow message requests when no slot is listed</span>
+                </label>
+              {/if}
+            {/if}
+
+            {#if !requestSettingsChanged}
+              <p class="field-help">Choose a different request setup before adding a reason or starting a vote.</p>
+            {/if}
+
+            <label>
+              <span class="field-inline-label">Reason</span>
+              <textarea
+                bind:value={requestSettingsForm.reason}
+                disabled={!requestSettingsChanged}
+                rows="3"
+                placeholder={requestSettingsChanged
+                  ? 'Explain why the request flow should change right now.'
+                  : 'Choose a different request setup to unlock the reason field.'}
+              ></textarea>
+            </label>
+          </div>
+          <svelte:fragment slot="footer">
+            <div class="sheet-actions">
+              <button class="sheet-cancel" type="button" on:click={closeRequestSettingsComposer}>Cancel</button>
+              <button
+                class="sheet-submit"
+                disabled={!requestSettingsCanSubmit}
+                type="button"
+                on:click={submitRequestSettingsChange}
+              >
+                Start vote
+              </button>
+            </div>
+          </svelte:fragment>
+        </OverlaySheet>
+      {/if}
     {/if}
 
     <section class="card-rail-section">
@@ -1141,11 +1152,11 @@
         </div>
       {/if}
 
-      {#if dayActivities.length === 0}
-        <div class="empty-card">No activities on this day.</div>
+      {#if data.lifecycle.phaseFive.activities.length === 0}
+        <div class="empty-card">No activities scheduled yet.</div>
       {:else}
         <div class="card-rail">
-          {#each dayActivities as activity (activity.id)}
+          {#each data.lifecycle.phaseFive.activities as activity (activity.id)}
             <div id={`activity-card-${activity.id}`} class="rail-card">
               <CollapsibleActivityCard
                 activity={activity}
@@ -1161,6 +1172,7 @@
         </div>
       {/if}
     </section>
+  {#if calendarHistoryCount > 0}
   <details class="history-section" bind:open={historyOpen}>
     <summary class="history-summary">
       <span>History</span>
@@ -1219,6 +1231,7 @@
       {/if}
     </div>
   </details>
+  {/if}
 </section>
 
 <style>
@@ -1259,10 +1272,33 @@
   .unified-history,
   .composer-card,
   .mechanics-card,
-  .surface-stack,
   .number-grid {
     display: grid;
     gap: 12px;
+  }
+
+  .slot-sheet-copy {
+    display: grid;
+    gap: 12px;
+    padding: 4px 20px 20px;
+  }
+
+  .slot-sheet-copy p,
+  .slot-choice span {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .slot-choice {
+    display: grid;
+    gap: 4px;
+  }
+
+  .slot-choice strong {
+    color: var(--text-main);
+    font-size: 15px;
   }
 
   .unified-history-copy {
@@ -1272,19 +1308,49 @@
     line-height: 1.45;
   }
 
+  :global(.overlay-footer:has(.sheet-actions)) {
+    gap: 0;
+    padding: 0 0 env(safe-area-inset-bottom);
+  }
+
+  .sheet-actions {
+    display: flex;
+    width: 100%;
+  }
+
+  .sheet-actions > .sheet-cancel,
+  .sheet-actions > .sheet-submit {
+    flex: 1 1 0;
+  }
+
+  .sheet-cancel,
+  .sheet-submit {
+    min-height: 56px;
+    border: 0;
+    border-radius: 0;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .sheet-cancel {
+    background: var(--panel-strong);
+    color: var(--text-main);
+    box-shadow: inset -1px 0 0 var(--panel-border);
+  }
+
+  .sheet-submit {
+    background: var(--brand);
+    color: var(--page-bg);
+  }
+
   .request-header-row,
-  .composer-actions,
-  .vote-summary-row,
-  .section-actions {
+  .composer-actions {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
     align-items: center;
-  }
-
-  .request-header-row,
-  .composer-actions,
-  .section-actions {
     justify-content: space-between;
   }
 
@@ -1309,6 +1375,10 @@
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
     padding-right: 2px;
+  }
+
+  .card-rail:has(:global(.activity-card-shell)) {
+    gap: 0;
   }
 
   .rail-card {
@@ -1427,59 +1497,6 @@
     line-height: 1;
   }
 
-  .notice-chip {
-    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
-    color: var(--text-main);
-  }
-
-  .notice-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    background: color-mix(in srgb, var(--brand-soft) 72%, var(--panel));
-  }
-
-  .settings-panel {
-    background: color-mix(in srgb, var(--brand-soft) 24%, var(--panel-strong));
-    scroll-margin-top: 92px;
-  }
-
-  .vote-request-card {
-    display: grid;
-    gap: 12px;
-    padding: 16px;
-    border: 1px solid color-mix(in srgb, var(--brand) 16%, var(--panel-border));
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--panel) 82%, var(--panel-strong));
-  }
-
-  .vote-card-top {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-  }
-
-  .vote-card-copy {
-    display: grid;
-    gap: 4px;
-  }
-
-  .vote-kicker {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-  }
-
-  .vote-requirement {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text-main);
-  }
-
-
   .vote-chip.negative {
     color: var(--tablet-community-text);
   }
@@ -1553,13 +1570,6 @@
     color: var(--text-soft);
   }
 
-  .secondary-button.active-toggle {
-    border-color: color-mix(in srgb, var(--brand-strong) 62%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 46%, var(--panel));
-    color: var(--brand-strong);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 24%, transparent);
-  }
-
   @media (max-width: 760px) {
     .section-head,
     .number-grid,
@@ -1572,20 +1582,4 @@
     }
   }
 
-  .governance-disclosure {
-    display: grid;
-    gap: 10px;
-  }
-
-  .governance-disclosure summary {
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--brand-strong);
-    list-style: none;
-  }
-
-  .governance-disclosure summary::-webkit-details-marker {
-    display: none;
-  }
 </style>

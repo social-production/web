@@ -1,6 +1,5 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import HelpRequestCard from '$lib/components/cards/public-feed/HelpRequestCard.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
@@ -13,7 +12,7 @@
   import { createHelpRequest } from '$lib/services/commands/create';
   import { emptyLocationPickerValue, type LocationPickerValue } from '$lib/types/locationPicker';
   import type { ScopeDirectoryItem } from '$lib/types/bootstrap';
-  import type { PublicHelpRequestItem, TagRef } from '$lib/types/feed';
+  import type { TagRef } from '$lib/types/feed';
   import {
     applyScopePrefillToSelections,
     readScopePrefillFromSearchParams
@@ -237,27 +236,6 @@
         ? locationValue.displayLabel.trim() || 'Add a location'
         : 'Choose physical or online';
 
-  $: previewItem = ({
-    kind: 'help-request',
-    id: 'help-request-preview',
-    href: '#',
-    createdAt: new Date().toISOString(),
-    title: requestTitle.trim() || 'Help request title',
-    body: body.trim() || 'Describe the one-off help you need, like a lift or moving assistance.',
-    authorUsername: $page.data.bootstrap?.viewer?.username ?? 'you',
-    locationLabel: previewLocationLabel,
-    scheduleLabel,
-    roles: roles
-      .filter((role) => role.roleLabel.trim())
-      .map((role) => ({ title: role.roleLabel.trim(), description: role.description.trim(), slots: role.slots })),
-    channelTags: previewChannelTags,
-    communityTags: previewCommunityTags,
-    voteCount: 0,
-    activeVote: 0,
-    commentCount: 0,
-    lastActivityAt: new Date().toISOString()
-  }) satisfies PublicHelpRequestItem;
-
   $: canContinueBasics = requestTitle.trim().length > 0 && body.trim().length > 0;
   $: canContinueLocation =
     locationIntent !== 'later' &&
@@ -477,7 +455,7 @@
   <svelte:fragment slot="primary">
     <CreatePanel
       title="Ask for help"
-      description="Describe what you need, then review before publishing."
+      description="A help request asks people to take a role for a specific need, with a time and a place."
     >
       <CreateWizard
         steps={wizardSteps}
@@ -686,10 +664,6 @@
         </svelte:fragment>
       </CreateWizard>
     </CreatePanel>
-  </svelte:fragment>
-
-  <svelte:fragment slot="secondary">
-    <HelpRequestCard item={previewItem} />
   </svelte:fragment>
 </CreateFlowLayout>
 

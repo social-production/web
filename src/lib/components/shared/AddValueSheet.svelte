@@ -11,17 +11,19 @@
   }
 </script>
 
-<OverlaySheet bind:open title="Add value" labelledById="add-value-sheet">
-  <form class="add-value-form" on:submit|preventDefault={handleSubmit}>
+<OverlaySheet bind:open hideClose title="Add value" labelledById="add-value-sheet">
+  <form id="add-value-form" class="add-value-form" on:submit|preventDefault={handleSubmit}>
     <label class="field">
       <span class="field-label">What should this achieve?</span>
       <input bind:value maxlength="160" {placeholder} />
     </label>
-    <div class="actions">
-      <button class="secondary-button" type="button" on:click={() => (open = false)}>Cancel</button>
-      <button class="primary-button" disabled={!value.trim()} type="submit">Add value</button>
-    </div>
   </form>
+  <svelte:fragment slot="footer">
+    <div class="sheet-actions">
+      <button class="sheet-cancel" type="button" on:click={() => (open = false)}>Cancel</button>
+      <button class="sheet-submit" disabled={!value.trim()} form="add-value-form" type="submit">Add value</button>
+    </div>
+  </svelte:fragment>
 </OverlaySheet>
 
 <style>
@@ -49,37 +51,5 @@
     border-radius: var(--radius-sm);
     background: var(--panel);
     color: var(--text-main);
-  }
-
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .primary-button,
-  .secondary-button {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .primary-button {
-    border: 1px solid var(--brand);
-    background: var(--brand);
-    color: var(--page-bg);
-  }
-
-  .primary-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .secondary-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-soft);
   }
 </style>

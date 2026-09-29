@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, tick } from 'svelte';
   import type { ContentReportSummary, ContentReportVote, ModerationState } from '$lib/types/detail';
   import { formatReportThresholdLines, moderationStatusLabel } from '$lib/utils/moderation';
   import { portal } from '$lib/utils/portal';
@@ -13,6 +13,8 @@
   export let hasActiveReport = false;
   /** When false, only the status trigger is shown (no compose/vote actions). */
   export let interactive = true;
+  export let extraActionLabel = '';
+  export let onExtraAction: (() => void) | null = null;
 
   const dispatch = createEventDispatcher<{
     compose: void;
@@ -21,6 +23,8 @@
 
   let menuOpen = false;
   let showingBlockedMessage = false;
+  let triggerButton: HTMLButtonElement | null = null;
+  let dialogElement: HTMLDivElement | null = null;
 
   $: statusLabel = moderationStatusLabel({
     moderationState,
@@ -42,6 +46,17 @@
   function closeMenu() {
     menuOpen = false;
     showingBlockedMessage = false;
+    triggerButton?.focus();
+  }
+
+  async function focusDialog() {
+    await tick();
+    dialogElement?.querySelector<HTMLElement>('button, [href], select, textarea')?.focus();
+  }
+
+  function runExtraAction() {
+    onExtraAction?.();
+    closeMenu();
   }
 
   function toggleMenu() {
@@ -55,6 +70,7 @@
 
     menuOpen = true;
     showingBlockedMessage = false;
+    void focusDialog();
   }
 
   function handleTriggerClick(event: MouseEvent) {
@@ -130,6 +146,7 @@
     class:read-only={!interactive}
     class="report-trigger"
     type="button"
+    bind:this={triggerButton}
     on:click={handleTriggerClick}
   >
     {#if statusLabel}
@@ -146,24 +163,27 @@
 
 {#if interactive && menuOpen}
   <div
-    aria-hidden="true"
     class="report-menu-backdrop"
     on:click={handleBackdropClick}
     on:keydown={handleBackdropKeydown}
     role="presentation"
-    style="position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:24px;background:color-mix(in srgb, var(--text-main) 20%, transparent);"
     tabindex="-1"
     use:portal={'body'}
   >
     <div
+      aria-labelledby="report-menu-title"
       aria-modal="true"
+      bind:this={dialogElement}
       class="report-menu"
       on:click|stopPropagation
       on:keydown|stopPropagation
       role="dialog"
-      style="position:relative;z-index:1;width:min(340px, calc(100vw - 40px));"
       tabindex="-1"
     >
+      <h2 class="menu-title" id="report-menu-title">{triggerLabel}</h2>
+      {#if extraActionLabel}
+        <button class="menu-item" type="button" on:click={runExtraAction}>{extraActionLabel}</button>
+      {/if}
       {#if report}
         <p class="menu-label">{resolutionLabel(report.resolution)} - {reasonLabel(report.reason)}</p>
         <p class="menu-copy report-message">
@@ -388,5 +408,54 @@
     border: 1px solid var(--panel-border);
     background: var(--panel);
     color: var(--text-soft);
+  }
+
+  .report-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-sheet);
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--shell-scrim);
+  }
+
+  .report-menu {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 8px;
+    width: min(340px, calc(100vw - 40px));
+    padding: 14px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-md);
+    background: var(--panel);
+  }
+
+  .menu-title {
+    margin: 0;
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .menu-item,
+  .menu-dismiss,
+  .vote-chip {
+    min-height: var(--shell-touch-min, 44px);
+  }
+
+  @media (max-width: 760px) {
+    .report-menu-backdrop {
+      place-items: end stretch;
+      padding: 0;
+    }
+
+    .report-menu {
+      width: 100%;
+      margin-bottom: var(--shell-bottom-nav-offset, 0px);
+      padding: 16px 16px calc(16px + var(--shell-safe-bottom, 0px));
+      border-radius: 16px 16px 0 0;
+    }
   }
 </style>

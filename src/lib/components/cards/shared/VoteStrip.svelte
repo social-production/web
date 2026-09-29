@@ -29,6 +29,7 @@
     viewerSignal = null,
     disabled = false,
     labeled = false,
+    docked = false,
     canSupport = true,
     canOppose = true,
     onvote,
@@ -44,6 +45,7 @@
     viewerSignal?: 'demand' | 'opposition' | null;
     disabled?: boolean;
     labeled?: boolean;
+    docked?: boolean;
     canSupport?: boolean;
     canOppose?: boolean;
     onvote?: VoteHandler;
@@ -260,7 +262,7 @@
     </button>
   </div>
 {:else}
-  <div class="vote-strip">
+  <div class="vote-strip" class:docked>
     <button
       aria-label="Vote up"
       class:active-up={localActiveVote === 1}
@@ -347,6 +349,74 @@
     color: #ef4444;
   }
 
+  .vote-strip.docked {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: stretch;
+    width: 100%;
+    gap: 0;
+    min-height: 56px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .vote-strip.docked:hover {
+    border: 0;
+    background: transparent;
+  }
+
+  .vote-strip.docked .vote-button {
+    width: 100%;
+    height: 100%;
+    min-height: 56px;
+    border-radius: 0;
+    font-size: 22px;
+    font-weight: 800;
+  }
+
+  .vote-strip.docked .vote-count {
+    display: grid;
+    place-items: center;
+    min-width: 56px;
+    padding: 0 8px;
+    font-size: 22px;
+    font-weight: 800;
+  }
+
+  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:first-of-type,
+  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:first-of-type:hover {
+    background: var(--brand);
+    color: var(--page-bg);
+  }
+
+  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:last-of-type,
+  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:last-of-type:hover {
+    background: var(--danger);
+    color: white;
+  }
+
+  .vote-strip.docked:has(.active-up) .vote-button,
+  .vote-strip.docked:has(.active-down) .vote-button,
+  .vote-strip.docked:has(.active-up) .vote-button:hover,
+  .vote-strip.docked:has(.active-down) .vote-button:hover {
+    background: var(--panel-strong);
+    color: var(--text-main);
+  }
+
+  .vote-strip.docked .vote-button.active-up,
+  .vote-strip.docked .vote-button.active-up:hover {
+    background: var(--panel-strong);
+    color: #22c55e;
+  }
+
+  .vote-strip.docked .vote-button.active-down,
+  .vote-strip.docked .vote-button.active-down:hover {
+    background: var(--panel-strong);
+    color: #ef4444;
+  }
+
   .signal-strip {
     gap: 4px;
     padding: 4px 6px;
@@ -416,14 +486,14 @@
   }
 
   @media (max-width: 760px) {
-    .vote-strip:not(.labeled) {
+    .vote-strip:not(.labeled):not(.docked) {
       gap: 4px;
       min-height: 24px;
       padding: 2px 4px;
       border-color: color-mix(in srgb, var(--panel-border) 88%, transparent);
     }
 
-    .vote-strip:not(.labeled) .vote-button {
+    .vote-strip:not(.labeled):not(.docked) .vote-button {
       width: 20px;
       height: 20px;
       font-size: 10px;

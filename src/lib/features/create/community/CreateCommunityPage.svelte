@@ -2,7 +2,6 @@
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
-  import PreviewTile from '$lib/features/create/shared/PreviewTile.svelte';
   import { createCommunity } from '$lib/services/commands/create';
   import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
   import { canonicalizeHandle, validateHandle } from '$lib/utils/handles';
@@ -57,8 +56,8 @@
 <CreateFlowLayout>
   <svelte:fragment slot="primary">
     <CreatePanel
-      title="Community setup"
-      description="Shape the public social space first, then refine norms and membership controls later."
+      title="Create community"
+      description="A community is a social space that connects people to projects and discussion, without forcing every topic into one channel."
     >
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
         <label>
@@ -97,26 +96,6 @@
           <p class="status-note">{statusMessage}</p>
         {/if}
       </form>
-    </CreatePanel>
-  </svelte:fragment>
-
-  <svelte:fragment slot="secondary">
-    <CreatePanel
-      title="Live preview"
-      description="How the new community row will read in discovery."
-      surface="transparent"
-    >
-      <PreviewTile
-        title={handleCheck.ok ? handleCheck.display : name.trim() || 'Untitled community'}
-        body={description.trim() || 'Describe who this community is for and why people gather here.'}
-        meta={openness === 'invite_only' ? 'Invite-only community' : 'Open community'}
-      />
-    </CreatePanel>
-
-    <CreatePanel title="Discovery note" description="What this surface is meant to do.">
-      <p class="helper-text">
-        Communities connect people to projects and thread discussion without forcing every topic into one shared channel feed.
-      </p>
     </CreatePanel>
   </svelte:fragment>
 </CreateFlowLayout>

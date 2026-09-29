@@ -7,32 +7,19 @@
   } from '$lib/copy/softwareLicensePolicy';
 
   export let compact = false;
-  let detailsOpen = false;
 </script>
 
 <aside class="license-notice" aria-label="Software license guidance">
-  <div class="license-head">
-    <strong>License: {SOFTWARE_LICENSE_DEFAULT_LABEL}</strong>
-    <button
-      class="help-trigger"
-      type="button"
-      aria-expanded={detailsOpen}
-      on:click={() => (detailsOpen = !detailsOpen)}
-    >
-      {detailsOpen ? 'Hide why' : 'Why this license?'}
-    </button>
-  </div>
+  <strong>License: {SOFTWARE_LICENSE_DEFAULT_LABEL}</strong>
   {#if !compact}
     <p>{softwareLicenseGuidanceTitle}</p>
   {/if}
-  {#if detailsOpen || !compact}
-    <p>{softwareLicenseGuidanceBody}</p>
-    <ul>
-      {#each softwareLicenseGuidanceWhy as reason}
-        <li>{reason}</li>
-      {/each}
-    </ul>
-  {/if}
+  <p>{softwareLicenseGuidanceBody}</p>
+  <ul>
+    {#each softwareLicenseGuidanceWhy as reason}
+      <li>{reason}</li>
+    {/each}
+  </ul>
 </aside>
 
 <style>
@@ -45,30 +32,10 @@
     background: color-mix(in srgb, var(--brand-soft) 45%, var(--panel));
   }
 
-  .license-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
   .license-notice strong {
     color: var(--text-main);
     font-size: 13px;
     font-weight: 700;
-  }
-
-  .help-trigger {
-    border: 1px solid var(--panel-border);
-    border-radius: 999px;
-    background: var(--panel-strong);
-    color: var(--brand-strong);
-    font: inherit;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 4px 10px;
-    cursor: pointer;
   }
 
   .license-notice p,

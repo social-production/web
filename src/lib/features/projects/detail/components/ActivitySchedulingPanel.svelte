@@ -22,7 +22,6 @@
     suggestEventActivityRole
   } from '$lib/services/commands/events';
   import { invalidateEventDetail, invalidateProjectDetail } from '$lib/utils/detailInvalidation';
-  import { activityOverlapsIsoDay, isoDayFromValue } from '$lib/utils/calendarDay';
 
   type CalendarInteractionAnchor = {
     clientX: number;
@@ -59,6 +58,7 @@
   export let closeComposer: () => void = () => {};
   export let daySelect: (isoDay: string, anchor?: CalendarInteractionAnchor) => void | Promise<void> = () => {};
   export let createAction: (anchor?: CalendarInteractionAnchor) => void | Promise<void> = () => {};
+  export let showExtraDock = false;
   export let canSubmitPullRequest = false;
   export let openPullRequestWizard: () => void = () => {};
   export let changecommitment: (activityId: string, roleLabel: string | null) => void | Promise<void> = () => {};
@@ -180,15 +180,6 @@
 
   $: historyCount = unifiedHistory.length;
   $: hasUnifiedHistory = historyCount > 0;
-  $: agendaDayIso = isoDayFromValue(selectedDayIso);
-  $: dayLiveActivities = agendaDayIso
-    ? liveActivities.filter((activity) => activityOverlapsIsoDay(activity, agendaDayIso))
-    : liveActivities;
-  $: dayEmptyMessage = agendaDayIso
-    ? liveActivities.length === 0
-      ? emptyLiveMessage
-      : 'No activities on this day.'
-    : emptyLiveMessage;
 </script>
 
 <section class="scheduling-panel">
@@ -196,6 +187,7 @@
     activities={calendarActivities}
     {plannedDayIsos}
     {canCreate}
+    {showExtraDock}
     createActive={createActive || showSoftwareActionPicker}
     {createAriaLabel}
     {createButtonLabel}
@@ -204,7 +196,11 @@
     {daySelect}
     createAction={handleCreateAction}
     activitySelect={handleActivitySelection}
-  />
+  >
+    <svelte:fragment slot="extra">
+      <slot name="dock-extra" />
+    </svelte:fragment>
+  </ProjectActivityCalendarCard>
 
   {#if showSoftwareActionPicker}
     <div class="software-action-picker" role="group" aria-label="Choose next software action">
@@ -245,9 +241,11 @@
       />
     {/if}
 
-    {#if dayLiveActivities.length > 0}
+    {#if liveActivities.length === 0}
+      <div class="empty-card">{emptyLiveMessage}</div>
+    {:else}
       <div class="card-rail">
-        {#each dayLiveActivities as activity (activity.id)}
+        {#each liveActivities as activity (activity.id)}
           <div id={`activity-card-${activity.id}`} class="rail-card">
             <CollapsibleActivityCard
               activity={activity}
@@ -264,6 +262,7 @@
     {/if}
   </section>
 
+  {#if historyCount > 0}
   <details class="history-section" bind:open={historyOpen}>
     <summary class="history-summary">
       <span>History</span>
@@ -310,6 +309,7 @@
       </div>
     {/if}
   </details>
+  {/if}
 </section>
 
 <style>
@@ -321,6 +321,10 @@
   .software-action-grid {
     display: grid;
     gap: 12px;
+  }
+
+  .card-rail:has(:global(.activity-card-shell)) {
+    gap: 0;
   }
 
   .software-action-picker {

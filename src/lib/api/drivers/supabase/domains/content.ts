@@ -55,8 +55,13 @@ export async function fetchComments(
 export async function fetchAddComment(
   subject: CommentSubjectRef,
   body: string,
-  parentId?: string
+  parentId?: string,
+  file?: File | File[] | null
 ): Promise<void> {
+  const files = !file ? [] : Array.isArray(file) ? file : [file];
+  if (files.length) {
+    throw new Error('Photo and file attachments are available on the FastAPI backend.');
+  }
   await apiClient.post('/governance/comments', { subject, body, parentId });
 }
 

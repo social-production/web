@@ -5,8 +5,8 @@
   export let body = '';
   export let message = '';
   export let pending = false;
-  export let sheetTitle = 'Add update';
-  export let submitLabel = 'Propose update';
+  export let sheetTitle = 'Post an update';
+  export let submitLabel = 'Propose';
   export let placeholder = 'Share what changed...';
   export let labelledById = 'add-update-sheet';
   export let onSubmit: () => void | Promise<void> = () => {};
@@ -17,50 +17,62 @@
 </script>
 
 <OverlaySheet bind:open title={sheetTitle} {labelledById}>
-  <form class="update-form" on:submit|preventDefault={handleSubmit}>
+  <p slot="subtitle" class="sheet-lead">
+    Share what changed so people following this can see the latest status.
+  </p>
+  <form id={labelledById + '-form'} class="update-form" on:submit|preventDefault={handleSubmit}>
     {#if message}
       <div class="warning-card" role="alert">{message}</div>
     {/if}
     <label class="field">
-      <span class="field-label">Update</span>
-      <textarea bind:value={body} rows="5" {placeholder}></textarea>
+      <span class="sr-only">Update</span>
+      <textarea bind:value={body} rows="8" {placeholder}></textarea>
     </label>
-    <div class="actions">
-      <button class="secondary-button" type="button" on:click={() => (open = false)}>Cancel</button>
-      <button class="primary-button" disabled={pending || !body.trim()} type="submit">
-        {submitLabel}
-      </button>
-    </div>
   </form>
+  <div slot="footer" class="sheet-actions">
+    <button class="sheet-cancel" type="button" on:click={() => (open = false)}>Cancel</button>
+    <button class="sheet-submit" disabled={pending || !body.trim()} form={labelledById + '-form'} type="submit">
+      {pending ? 'Working...' : submitLabel}
+    </button>
+  </div>
 </OverlaySheet>
 
 <style>
+  .sheet-lead {
+    margin: 6px 0 0;
+    color: var(--text-soft);
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
   .update-form {
     display: grid;
     gap: 16px;
-    padding: 8px 16px 4px;
+    padding: 8px 20px 20px;
   }
 
   .field {
     display: grid;
-    gap: 6px;
   }
 
-  .field-label {
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
   }
 
   textarea {
     width: 100%;
-    padding: 12px;
+    padding: 14px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
     color: var(--text-main);
+    font-size: 16px;
     resize: vertical;
-    min-height: 120px;
+    min-height: 180px;
   }
 
   .warning-card {
@@ -73,35 +85,35 @@
     font-weight: 700;
   }
 
-  .actions {
+  .sheet-actions {
     display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    flex-wrap: wrap;
+    width: 100%;
   }
 
-  .primary-button,
-  .secondary-button {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
+  .sheet-cancel,
+  .sheet-submit {
+    flex: 1 1 0;
+    min-height: 52px;
+    border: 0;
+    border-radius: 0;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
   }
 
-  .primary-button {
-    border: 1px solid var(--brand);
+  .sheet-cancel {
+    border-right: 1px solid var(--panel-border);
+    background: var(--panel-strong);
+    color: var(--text-main);
+  }
+
+  .sheet-submit {
     background: var(--brand);
     color: var(--page-bg);
   }
 
-  .primary-button:disabled {
+  .sheet-submit:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-  }
-
-  .secondary-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-soft);
   }
 </style>

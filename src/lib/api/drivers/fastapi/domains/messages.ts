@@ -1,8 +1,11 @@
-import { apiClient, extractErrorMessage } from '../client';
+import { apiAssetUrl, apiClient, extractErrorMessage } from '../client';
 import { registerEntityType } from '../typeRegistry';
 import type {
+  ConversationMessagesResult,
+  ConversationPin,
   CreateGroupMessageInput,
   DirectMessage,
+  MessageAttachment,
   MessageConversationResult,
   MessageLinkedChat,
   MessagesPageData
@@ -46,6 +49,14 @@ interface BackendConversationsListResponse {
   items: BackendConversation[];
 }
 
+interface BackendAttachment {
+  id: string;
+  kind: 'image' | 'file';
+  filename: string;
+  content_type: string;
+  byte_size: number;
+}
+
 interface BackendMessage {
   id: string;
   conversation_id: string;
@@ -56,12 +67,21 @@ interface BackendMessage {
   report?: unknown;
   moderation_state?: string;
   moderationState?: string;
+  attachments?: BackendAttachment[];
+}
+
+interface BackendPin {
+  message_id: string;
+  pinned_at: string;
+  preview: string;
 }
 
 interface BackendConversationMessagesResponse {
   conversation_id: string;
   total: number;
   items: BackendMessage[];
+  pins?: BackendPin[];
+  can_pin?: boolean;
 }
 
 interface BackendLinkedChat {
@@ -123,6 +143,25 @@ function mapConversation(c: BackendConversation, viewerId?: string) {
   };
 }
 
+function mapAttachment(attachment: BackendAttachment): MessageAttachment {
+  return {
+    id: attachment.id,
+    kind: attachment.kind,
+    filename: attachment.filename,
+    contentType: attachment.content_type,
+    byteSize: attachment.byte_size,
+    url: apiAssetUrl(`/messages/attachments/${attachment.id}`)
+  };
+}
+
+function mapPin(pin: BackendPin): ConversationPin {
+  return {
+    messageId: pin.message_id,
+    preview: pin.preview,
+    pinnedAt: pin.pinned_at
+  };
+}
+
 function mapMessage(
   message: BackendMessage,
   viewerId: string,
@@ -140,7 +179,8 @@ function mapMessage(
     createdAt: message.created_at,
     isOwn: senderId === viewerId,
     report: mapContentReport(message.report),
-    moderationState: mapModerationState(message)
+    moderationState: mapModerationState(message),
+    attachments: (message.attachments ?? []).map(mapAttachment)
   };
 }
 
@@ -199,11 +239,15 @@ export async function fetchConversationMessages(
   conversationId: string,
   viewerId: string,
   participants: ViewerSummary[]
-): Promise<DirectMessage[]> {
+): Promise<ConversationMessagesResult> {
   const res = await apiClient.get<BackendConversationMessagesResponse>(
     `/messages/conversations/${conversationId}/messages`
   );
-  return res.items.map((message) => mapMessage(message, viewerId, participants));
+  return {
+    messages: res.items.map((message) => mapMessage(message, viewerId, participants)),
+    pins: (res.pins ?? []).map(mapPin),
+    canPin: Boolean(res.can_pin)
+  };
 }
 
 export async function fetchMessageContacts(query: string, limit = 8): Promise<ViewerSummary[]> {
@@ -221,11 +265,42 @@ export async function fetchMessageContacts(query: string, limit = 8): Promise<Vi
   }));
 }
 
-export async function fetchSendMessage(conversationId: string, body: string): Promise<void> {
+export async function fetchSendMessage(
+  conversationId: string,
+  body: string,
+  file?: File | File[] | null
+): Promise<void> {
+  const files = !file ? [] : Array.isArray(file) ? file : [file];
   try {
+    if (files.length) {
+      const form = new FormData();
+      form.append('body', body);
+      for (const item of files) {
+        form.append('file', item, item.name);
+      }
+      await apiClient.postForm(`/messages/conversations/${conversationId}/messages`, form);
+      return;
+    }
+
     await apiClient.post(`/messages/conversations/${conversationId}/messages`, { body });
   } catch (err) {
     throw new Error(extractErrorMessage(err, 'Could not send message'));
+  }
+}
+
+export async function fetchPinMessage(conversationId: string, messageId: string): Promise<void> {
+  try {
+    await apiClient.post(`/messages/conversations/${conversationId}/pins/${messageId}`);
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Could not pin message'));
+  }
+}
+
+export async function fetchUnpinMessage(conversationId: string, messageId: string): Promise<void> {
+  try {
+    await apiClient.delete(`/messages/conversations/${conversationId}/pins/${messageId}`);
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Could not unpin message'));
   }
 }
 

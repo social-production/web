@@ -1,6 +1,5 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import ThreadCard from '$lib/components/cards/public-feed/ThreadCard.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
   import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
@@ -310,7 +309,10 @@
 
 <CreateFlowLayout>
   <svelte:fragment slot="primary">
-    <CreatePanel title="Create thread" description="Write the opening post, add a discovery tag, then publish.">
+    <CreatePanel
+      title="Create thread"
+      description="A thread is a discussion people can follow and reply to. Tag it to a channel or community so it shows up where that topic already lives."
+    >
       <CreateWizard
         steps={wizardSteps}
         bind:stepIndex
@@ -387,14 +389,6 @@
           {/if}
         </svelte:fragment>
       </CreateWizard>
-    </CreatePanel>
-  </svelte:fragment>
-
-  <svelte:fragment slot="secondary">
-    <CreatePanel title="Live preview" description="How the thread will look in the feed." surface="transparent">
-      {#if previewItem}
-        <ThreadCard item={previewItem} />
-      {/if}
     </CreatePanel>
   </svelte:fragment>
 </CreateFlowLayout>

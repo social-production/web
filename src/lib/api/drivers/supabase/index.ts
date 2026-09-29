@@ -92,6 +92,8 @@ import {
   fetchRemoveGroupConversationMember,
   fetchRenameGroupConversation,
   fetchSendMessage,
+  fetchPinMessage,
+  fetchUnpinMessage,
   fetchStartDirectMessage
 } from './domains/messages';
 import {
@@ -276,8 +278,8 @@ export function createSupabaseDriver(): AppAdapter {
     async getComments(subjectType, subjectId) {
       return fetchComments(subjectType, subjectId);
     },
-    async addComment(subject, body, parentId) {
-      return fetchAddComment(subject, body, parentId);
+    async addComment(subject, body, parentId, file) {
+      return fetchAddComment(subject, body, parentId, file);
     },
     async submitReport(subjectId, target, reason, details) {
       return fetchSubmitReport(subjectId, target, reason, details);
@@ -601,8 +603,8 @@ export function createSupabaseDriver(): AppAdapter {
     async getMessageContacts(query, limit) {
       return fetchMessageContacts(query, limit);
     },
-    async sendMessage(conversationId, body) {
-      return fetchSendMessage(conversationId, body);
+    async sendMessage(conversationId, body, file) {
+      return fetchSendMessage(conversationId, body, file);
     },
     async startDirectMessage(username, body) {
       return fetchStartDirectMessage(username, body);
@@ -624,6 +626,12 @@ export function createSupabaseDriver(): AppAdapter {
     },
     async markLinkedChatRead(subjectType, subjectId) {
       return fetchMarkLinkedChatRead(subjectType, subjectId);
+    },
+    async pinMessage(conversationId, messageId) {
+      return fetchPinMessage(conversationId, messageId);
+    },
+    async unpinMessage(conversationId, messageId) {
+      return fetchUnpinMessage(conversationId, messageId);
     },
 
     async getPublicFeed(options) {

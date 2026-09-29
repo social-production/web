@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ContentReportReason } from '$lib/types/detail';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, tick } from 'svelte';
   import { portal } from '$lib/utils/portal';
 
   export let open = false;
@@ -11,8 +11,19 @@
 
   const dispatch = createEventDispatcher<{ close: void; submit: void }>();
 
+  let dialogElement: HTMLDivElement | null = null;
+
   function closeModal() {
     dispatch('close');
+  }
+
+  async function focusDialog() {
+    await tick();
+    dialogElement?.querySelector<HTMLElement>('select, textarea, button')?.focus();
+  }
+
+  $: if (open) {
+    void focusDialog();
   }
 
   function handleBackdropClick(event: MouseEvent) {
@@ -43,26 +54,25 @@
 
 {#if open}
   <div
-    aria-hidden="true"
     class="report-modal-backdrop"
     on:click={handleBackdropClick}
     on:keydown={handleBackdropKeydown}
-    style="position:fixed;inset:0;z-index:10001;display:grid;place-items:center;padding:24px;background:color-mix(in srgb, var(--text-main) 20%, transparent);"
+    role="presentation"
     tabindex="-1"
     use:portal={'body'}
   >
     <div
-      aria-label={`Report ${itemLabel}`}
+      aria-labelledby="report-composer-title"
       aria-modal="true"
+      bind:this={dialogElement}
       class="report-modal"
       on:click|stopPropagation
       on:keydown|stopPropagation
       role="dialog"
-      style="position:relative;z-index:1;width:min(420px, calc(100vw - 40px));"
       tabindex="-1"
     >
       <div class="report-modal-copy">
-        <h2>Report {itemLabel}</h2>
+        <h2 id="report-composer-title">Report {itemLabel}</h2>
         <p>Choose a reason and add any useful context.</p>
       </div>
 
@@ -90,12 +100,50 @@
 {/if}
 
 <style>
-  .report-modal-backdrop,
+  .report-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-sheet-elevated);
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--shell-scrim);
+  }
+
   .report-modal,
   .field-stack,
   .report-modal-copy {
     display: grid;
     gap: 12px;
+  }
+
+  .report-modal {
+    width: min(420px, calc(100vw - 40px));
+  }
+
+  @media (max-width: 760px) {
+    .report-modal-backdrop {
+      place-items: end stretch;
+      padding: 0;
+    }
+
+    .report-modal {
+      width: 100%;
+      margin-bottom: var(--shell-bottom-nav-offset, 0px);
+      padding-bottom: calc(18px + var(--shell-safe-bottom, 0px));
+      border-radius: 16px 16px 0 0;
+    }
+
+    .report-actions {
+      flex-direction: column;
+    }
+
+    .report-actions :global(button),
+    .primary-button,
+    .secondary-button {
+      width: 100%;
+      min-height: var(--shell-touch-min, 44px);
+    }
   }
 
   .report-modal {

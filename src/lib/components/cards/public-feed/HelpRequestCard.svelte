@@ -121,8 +121,6 @@
     flex-wrap: nowrap;
     justify-content: space-between;
     margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid var(--panel-border);
     font-size: 13px;
     color: var(--text-soft);
   }

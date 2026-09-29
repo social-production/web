@@ -171,6 +171,10 @@
     gap: 12px;
   }
 
+  .surface-stack:has(:global(.activity-card-shell)) {
+    gap: 0;
+  }
+
   .request-header-row,
   .composer-actions {
     display: flex;

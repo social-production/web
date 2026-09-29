@@ -4,6 +4,7 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
+  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import HelpRequestOverviewHeader from '$lib/features/help-requests/detail/HelpRequestOverviewHeader.svelte';
   import HelpRequestRolesSection from '$lib/features/help-requests/detail/HelpRequestRolesSection.svelte';
@@ -117,15 +118,18 @@
     }
   }
 
-  async function submitHelpRequestMessage(body: string) {
+  const fastapiChat =
+    (import.meta.env.VITE_BACKEND ?? '').trim().toLowerCase() === 'fastapi';
+
+  async function submitHelpRequestMessage(body: string, files?: File[]) {
     registerEntityType(data.id, 'help_request');
 
     const viewerUsername = $page.data.bootstrap?.viewer?.username ?? 'you';
-    const optimistic = createOptimisticComment(viewerUsername, body);
+    const optimistic = createOptimisticComment(viewerUsername, body, files);
     optimisticComments = [...optimisticComments, optimistic];
 
     try {
-      await addComment({ id: data.id, type: 'help_request' }, body);
+      await addComment({ id: data.id, type: 'help_request' }, body, undefined, files);
       void invalidate('inbox:messages');
     } catch {
       optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
@@ -146,32 +150,45 @@
   <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
     <div class="top-tab-row" role="tablist" aria-label="Help request detail tabs">
       <button
+        aria-label="Details"
+        aria-selected={activeTab === 'overview'}
         class:active-tab={activeTab === 'overview'}
-        class="top-tab"
+        class="top-tab detail-surface-tab"
         role="tab"
         type="button"
         on:click={() => selectTab('overview')}
       >
-        Overview
+        <span class="tab-icon" aria-hidden="true">
+          <FeedToolbarIcon name="list" />
+        </span>
+        <span class="tab-label">Details</span>
       </button>
       <button
+        aria-label="Chat"
+        aria-selected={activeTab === 'chat'}
         class:active-tab={activeTab === 'chat'}
-        class="top-tab"
+        class="top-tab detail-surface-tab"
         role="tab"
         type="button"
         on:click={() => selectTab('chat')}
       >
-        Chat
+        <span class="tab-icon" aria-hidden="true">
+          <FeedToolbarIcon name="message" />
+        </span>
+        <span class="tab-label">Chat</span>
       </button>
     </div>
 
     {#if activeTab === 'overview'}
-      <HelpRequestOverviewHeader {data} />
-      <HelpRequestRolesSection {data} />
+      <div class="context-tab">
+        <HelpRequestOverviewHeader {data} />
+        <HelpRequestRolesSection {data} actionsActive={activeTab === 'overview'} />
+      </div>
     {:else}
       <section class="chat-shell" class:chat-shell-compact={activeTab === 'chat' && isCompact}>
         <LinkedChatReadMarker subjectType="help_request" subjectId={data.id} />
         <LiveChatPanel
+          allowAttachments={fastapiChat}
           comments={discussion}
           embedded={activeTab === 'chat' && isCompact}
           emptyCopy="No help request chat yet."
@@ -185,7 +202,7 @@
           onSubmitMessage={submitHelpRequestMessage}
           placeholder="Write a message..."
           reportTargetType="comment"
-          showHeader={!(activeTab === 'chat' && isCompact)}
+          showHeader={true}
           subjectId={data.id}
           submitLabel="Send message"
           title="Help request chat"
@@ -200,6 +217,12 @@
   .page {
     display: grid;
     gap: 20px;
+    min-width: 0;
+    padding-bottom: calc(var(--detail-action-dock-height, 0px) + 12px);
+  }
+
+  .page:has(> .hero-card > .context-tab) {
+    padding-bottom: 0;
   }
 
   .hero-card {
@@ -211,7 +234,27 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
+    min-width: 0;
     overflow: visible;
+  }
+
+  .context-tab {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .hero-card:has(> .context-tab) {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    min-height: calc(
+      100dvh - var(--topbar-height, 56px) - var(--shell-bottom-nav-offset, 0px) - 32px
+    );
+    margin-bottom: -16px;
+    padding-bottom: var(--detail-action-dock-height, 0px);
   }
 
   .top-tab-row {
@@ -228,6 +271,17 @@
     transform: translateY(-44%);
     z-index: 1;
     box-shadow: 0 10px 24px color-mix(in srgb, var(--page-bg) 82%, transparent);
+  }
+
+  .tab-icon {
+    display: none;
+    width: 18px;
+    height: 18px;
+  }
+
+  .tab-icon :global(.toolbar-icon) {
+    width: 18px;
+    height: 18px;
   }
 
   .chat-shell {
@@ -250,21 +304,15 @@
   }
 
   .top-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     min-width: 108px;
-    padding: 9px 14px;
-    border: 1px solid transparent;
+    padding: 9px 12px;
     border-radius: calc(var(--radius-sm) - 2px);
-    background: transparent;
-    color: var(--text-soft);
     font-size: 13px;
     font-weight: 700;
-    cursor: pointer;
-  }
-
-  .top-tab.active-tab {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
   }
 
   @media (max-width: 1080px) {
@@ -287,10 +335,17 @@
 
     .hero-card {
       min-width: 0;
-      overflow-x: clip;
-      overflow-y: clip;
-      padding-top: 16px;
-      margin-top: 12px;
+      overflow: visible;
+      padding-top: 0;
+      margin-top: 0;
+      border-radius: 0;
+    }
+
+    .hero-card:has(> .context-tab) {
+      min-height: calc(
+        100dvh - var(--topbar-height, 56px) - var(--shell-bottom-nav-offset, 0px)
+      );
+      margin-bottom: -4px;
     }
 
     .hero-card.chat-tab-active {
@@ -321,19 +376,36 @@
     }
 
     .top-tab-row {
-      position: static;
-      width: 100%;
+      position: sticky;
+      top: var(--topbar-height, 0px);
+      z-index: var(--z-detail-tabs);
+      width: auto;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       transform: none;
-      box-shadow: none;
-      margin-bottom: 12px;
+      margin: 0 -16px 12px;
+      padding: 8px 16px;
+      border: 0;
+      border-bottom: 1px solid var(--panel-border);
+      border-radius: 0;
+      background: var(--toolbar-background, var(--panel));
+      box-shadow: 0 8px 16px color-mix(in srgb, var(--page-bg) 55%, transparent);
     }
 
     .top-tab {
       min-width: 0;
-      padding: 8px 6px;
+      padding: 10px 6px;
       font-size: 12px;
+    }
+
+    .tab-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tab-label {
+      display: none;
     }
   }
 </style>

@@ -183,11 +183,64 @@ export function createFastApiClient() {
     },
     delete<T>(path: string): Promise<T> {
       return request<T>('DELETE', path);
+    },
+    postForm<T>(path: string, form: FormData): Promise<T> {
+      return requestForm<T>(path, form);
     }
   };
 }
 
 export const apiClient = createFastApiClient();
+
+export function apiAssetUrl(path: string): string {
+  const base = getBaseUrl().replace(/\/$/, '');
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+async function requestForm<T>(path: string, form: FormData, allowRefresh = true): Promise<T> {
+  const isBrowser = typeof window !== 'undefined';
+  if (allowRefresh && isBrowser && path !== '/auth/refresh') {
+    await keepSessionFresh();
+  }
+
+  const response = await fetch(`${getBaseUrl()}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: buildHeaders('POST'),
+    body: form
+  });
+
+  if (
+    response.status === 401 &&
+    allowRefresh &&
+    isBrowser &&
+    shouldAttemptSessionRefresh() &&
+    path !== '/auth/refresh'
+  ) {
+    try {
+      const refreshed = await refreshSession();
+      if (refreshed) {
+        return requestForm<T>(path, form, false);
+      }
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  if (!response.ok) {
+    if (response.status === 401 && isBrowser) {
+      clearAuthenticatedSession();
+      clearBootstrapCache();
+    }
+
+    throw {
+      status: response.status,
+      body: await readResponseBody(response)
+    };
+  }
+
+  return parseJsonResponse<T>(response);
+}
 
 const MAX_ERROR_MESSAGE_LENGTH = 200;
 const INVALID_RESPONSE_MESSAGE = 'The server returned an unexpected response.';

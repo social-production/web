@@ -1,5 +1,5 @@
 import { currentAdapter } from '$lib/services/adapters';
-import type { CreateGroupMessageInput, DirectMessage } from '$lib/types/inbox';
+import type { ConversationMessagesResult, CreateGroupMessageInput, DirectMessage } from '$lib/types/inbox';
 import type { ViewerSummary } from '$lib/types/bootstrap';
 
 export function getNotifications() {
@@ -18,7 +18,7 @@ export function getConversationMessages(
   conversationId: string,
   viewerId: string,
   participants: ViewerSummary[]
-): Promise<DirectMessage[]> {
+): Promise<ConversationMessagesResult> {
   return currentAdapter.getConversationMessages(conversationId, viewerId, participants);
 }
 

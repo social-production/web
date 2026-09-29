@@ -1,5 +1,6 @@
 <script lang="ts">
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
+  import { historyCardTone } from '$lib/features/projects/detail/activityHistoryPresentation';
   import HistoryCompletionSideRow from '$lib/features/projects/detail/components/HistoryCompletionSideRow.svelte';
   import HistoryRatingComposer from '$lib/features/projects/detail/components/HistoryRatingComposer.svelte';
   import { formatRelativeTime } from '$lib/utils/time';
@@ -136,7 +137,11 @@
   {:else}
     <div class="card-rail">
       {#each items as item (item.id)}
-        <div id={`history-card-${item.id}`} class="rail-card">
+        <div id={`history-card-${item.id}`} class={`rail-card tone-${historyCardTone({
+          completion: item.aggregateCompletionTone,
+          ratingAverage: item.aggregateRating?.average ?? null,
+          ratingCount: item.aggregateRating?.count ?? 0
+        })}`}>
           <CollapsibleActivityCard
             activity={item.activity}
             badgeLabel={historyBadgeLabel(item)}
@@ -346,6 +351,10 @@
     gap: 12px;
   }
 
+  .card-rail:has(:global(.activity-card-shell)) {
+    gap: 0;
+  }
+
   .section-head,
   .section-copy {
     display: flex;
@@ -406,6 +415,32 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+  }
+
+  .tone-good,
+  .tone-mixed,
+  .tone-poor {
+    --history-stripe: var(--panel-border);
+  }
+
+  .tone-good {
+    --history-stripe: #22c55e;
+  }
+
+  .tone-mixed {
+    --history-stripe: var(--status-yellow);
+  }
+
+  .tone-poor {
+    --history-stripe: var(--danger);
+  }
+
+  .tone-good :global(.activity-card-shell),
+  .tone-mixed :global(.activity-card-shell),
+  .tone-poor :global(.activity-card-shell) {
+    border-color: var(--panel-border);
+    background: var(--panel-strong);
+    box-shadow: inset 4px 0 0 var(--history-stripe);
   }
 
   .role-badge {

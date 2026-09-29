@@ -135,8 +135,6 @@
 
   .footer {
     margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid var(--panel-border);
   }
 
   .engagement-row {

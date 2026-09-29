@@ -47,7 +47,7 @@ import type {
 import type { PlatformAssetsPageData } from '$lib/types/assets';
 import type {
   CreateGroupMessageInput,
-  DirectMessage,
+  ConversationMessagesResult,
   MessageConversationResult,
   MessageLinkedChat,
   MessagesPageData,
@@ -271,7 +271,7 @@ export interface AppAdapter {
     conversationId: string,
     viewerId: string,
     participants: ViewerSummary[]
-  ): Promise<DirectMessage[]>;
+  ): Promise<ConversationMessagesResult>;
   getMessageContacts(query: string, limit?: number): Promise<ViewerSummary[]>;
   getSearch(
     query: string,
@@ -542,7 +542,12 @@ export interface AppAdapter {
     subjectType: CommentSubjectType | string,
     subjectId: string
   ): Promise<DetailComment[]>;
-  addComment(subject: CommentSubjectRef, body: string, parentId?: string): Promise<void>;
+  addComment(
+    subject: CommentSubjectRef,
+    body: string,
+    parentId?: string,
+    file?: File | File[] | null
+  ): Promise<void>;
   submitReport(
     subjectId: string,
     target: ReportTargetRef,
@@ -628,7 +633,9 @@ export interface AppAdapter {
   markAllNotificationsRead(): Promise<void>;
   markConversationRead(conversationId: string): Promise<void>;
   markLinkedChatRead(subjectType: string, subjectId: string): Promise<void>;
-  sendMessage(conversationId: string, body: string): Promise<void>;
+  pinMessage(conversationId: string, messageId: string): Promise<void>;
+  unpinMessage(conversationId: string, messageId: string): Promise<void>;
+  sendMessage(conversationId: string, body: string, file?: File | File[] | null): Promise<void>;
   startDirectMessage(participantUsername: string, body: string): Promise<MessageConversationResult>;
   createGroupConversation(input: CreateGroupMessageInput): Promise<MessageConversationResult>;
   renameGroupConversation(

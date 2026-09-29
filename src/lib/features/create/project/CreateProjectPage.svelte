@@ -1,6 +1,5 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import ProjectCard from '$lib/components/cards/public-feed/ProjectCard.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
@@ -346,7 +345,9 @@
   <svelte:fragment slot="primary">
     <CreatePanel
       title="Create project"
-      description="Choose the type, fill the details, then review before creating."
+      description={`${selectedTypeOption.summary} ${selectedTypeOption.lifecycleNote}${
+        isPersonalServiceProject(selectedType) ? ` ${selectedServiceModeOption.summary}` : ''
+      }`}
     >
       <CreateWizard
         steps={wizardSteps}
@@ -465,38 +466,6 @@
       </CreateWizard>
     </CreatePanel>
   </svelte:fragment>
-
-  <svelte:fragment slot="secondary">
-    <CreatePanel
-      title="Live preview"
-      description="How the project will appear in the feed."
-      surface="transparent"
-    >
-      <ProjectCard item={projectPreview} />
-    </CreatePanel>
-
-    <CreatePanel title="About this type" description={selectedTypeOption.summary}>
-      <div class="type-guidance">
-        <div class="type-guidance-block">
-          <span class="type-guidance-heading">Best for</span>
-          <ul>
-            {#each selectedTypeOption.bestFor as item}
-              <li>{item}</li>
-            {/each}
-          </ul>
-        </div>
-        <p class="type-guidance-lifecycle">{selectedTypeOption.lifecycleNote}</p>
-        {#if isPersonalServiceProject(selectedType)}
-          <p class="type-guidance-lifecycle">{selectedServiceModeOption.lifecycleNote}</p>
-        {/if}
-        {#if personalServiceUsesPlatformTag}
-          <p class="type-guidance-note">
-            Personal service projects cannot use the platform channel.
-          </p>
-        {/if}
-      </div>
-    </CreatePanel>
-  </svelte:fragment>
 </CreateFlowLayout>
 
 <style>
@@ -526,38 +495,5 @@
   .status-note {
     margin: 0;
     color: var(--danger, #c0392b);
-  }
-
-  .type-guidance {
-    display: grid;
-    gap: 10px;
-  }
-
-  .type-guidance p,
-  .type-guidance-note,
-  .type-guidance-lifecycle {
-    margin: 0;
-    color: var(--text-soft);
-    font-size: 13px;
-    line-height: 1.45;
-  }
-
-  .type-guidance-block {
-    display: grid;
-    gap: 6px;
-  }
-
-  .type-guidance-heading {
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .type-guidance ul {
-    margin: 0;
-    padding-left: 18px;
-    color: var(--text-soft);
-    font-size: 12px;
-    line-height: 1.45;
   }
 </style>

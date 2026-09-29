@@ -11,7 +11,7 @@
   import ProposeEditSheet from '$lib/components/shared/ProposeEditSheet.svelte';
   import AddUpdateSheet from '$lib/components/shared/AddUpdateSheet.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
-  import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
+  import VoteDockControl from '$lib/components/shared/VoteDockControl.svelte';
   import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
   import DetailActionDock from '$lib/features/detail/DetailActionDock.svelte';
   import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
@@ -85,7 +85,7 @@
   const showMembershipButton = $derived(!isPersonalServiceProject(data.projectMode));
   const canProposeEdit = $derived(data.viewerCanRequestEdit);
   const canProposeUpdate = $derived(data.viewerCanRequestUpdate);
-  const updateActionLabel = $derived(isPersonalServiceProject(data.projectMode) ? 'Post update' : 'Propose update');
+  const updateActionLabel = $derived(isPersonalServiceProject(data.projectMode) ? 'Post' : 'Propose');
   const editActionLabel = $derived(isPersonalServiceProject(data.projectMode) ? 'Save details' : 'Propose Edit');
   const latestUpdate = $derived(data.updates[0] ?? null);
 
@@ -256,18 +256,6 @@
   <div class="heading overview-heading">
     <div class="identity-row">
       <div class="identity-copy">
-        {#if detailVotes.length > 0}
-          <PendingVotesPanel
-            items={detailVotes}
-            lookupItems={detailVotes}
-            panelId="detail-votes-panel"
-            {openVoteKind}
-            {openVoteId}
-            onVote={(item, vote) => onDetailVote?.(item, vote)}
-            onAssess={(item) => onDetailAssess?.(item)}
-            onAction={(item) => onDetailAction?.(item)}
-          />
-        {/if}
         <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
           <h1>{data.title}</h1>
         </ModerationRestrictionNotice>
@@ -324,6 +312,16 @@
           onOpenMembers={() => onToggleMembers?.()}
         />
       {/if}
+
+      <VoteDockControl
+        items={detailVotes}
+        sheetId="project-detail-votes"
+        revealKind={openVoteKind}
+        revealId={openVoteId}
+        onVote={(item, vote) => onDetailVote?.(item, vote)}
+        onAssess={(item) => onDetailAssess?.(item)}
+        onAction={(item) => onDetailAction?.(item)}
+      />
 
       {#if data.viewerCanShare}
         <ShareUserMenu
@@ -385,7 +383,7 @@
   bind:body={draftUpdateBody}
   message={updateMessage}
   pending={updatePending}
-  sheetTitle="Add update"
+  sheetTitle="Post an update"
   submitLabel={updateActionLabel}
   placeholder="Share what changed on this project..."
   labelledById="project-add-update-sheet"
@@ -512,7 +510,8 @@
 
   .control-actions > :global(.quiet-control),
   .control-actions > :global(.membership-split),
-  .control-actions > :global(.share-shell) {
+  .control-actions > :global(.share-shell),
+  .control-actions > :global(.vote-dock) {
     display: flex;
     flex: 1 1 0;
     align-items: stretch;

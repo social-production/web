@@ -1048,7 +1048,7 @@
   .topbar {
     position: sticky;
     top: 0;
-    z-index: 60;
+    z-index: var(--z-topbar);
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
@@ -1149,7 +1149,7 @@
     transform: none;
     margin-top: 0;
     pointer-events: auto;
-    z-index: 70;
+    z-index: var(--z-topbar-pinned);
   }
 
   .topbar-flow-spacer {
@@ -1256,7 +1256,7 @@
   .map-overlay {
     position: fixed;
     inset: var(--topbar-height) 0 var(--shell-bottom-nav-offset, 0px) 0;
-    z-index: 35;
+    z-index: var(--z-map);
     padding: 12px;
     background: var(--page-background);
     overflow: hidden;

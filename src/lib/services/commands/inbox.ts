@@ -86,8 +86,16 @@ export function markLinkedChatRead(subjectType: string, subjectId: string, clear
   });
 }
 
-export function sendMessage(threadId: string, body: string) {
-  return currentAdapter.sendMessage(threadId, body);
+export function sendMessage(threadId: string, body: string, file?: File | File[] | null) {
+  return currentAdapter.sendMessage(threadId, body, file);
+}
+
+export function pinMessage(conversationId: string, messageId: string) {
+  return currentAdapter.pinMessage(conversationId, messageId);
+}
+
+export function unpinMessage(conversationId: string, messageId: string) {
+  return currentAdapter.unpinMessage(conversationId, messageId);
 }
 
 export function startDirectMessage(participantUsername: string, body: string) {

@@ -8,7 +8,7 @@
   export let usesPlatform = false;
   export let entityLabel: 'project' | 'event' = 'project';
 
-  $: match = text.match(/^(.*?\b)(quorum)(\b.*)$/i);
+  $: match = text.match(/^(.*?\b)(quorum|threshold)(\b.*)$/i);
 </script>
 
 {#if match}

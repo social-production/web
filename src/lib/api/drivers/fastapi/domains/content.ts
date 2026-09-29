@@ -1,4 +1,4 @@
-import { apiClient, extractErrorMessage } from '../client';
+import { apiAssetUrl, apiClient, extractErrorMessage } from '../client';
 import { registerEntityType, registerCommentIds } from '../typeRegistry';
 import type { ContentReportSummary, ContentReportVote, PostPageData, ThreadPageData } from '$lib/types/detail';
 import type { CreatePostInput, CreateResult, CreateThreadInput } from '$lib/types/feed';
@@ -53,6 +53,7 @@ export interface BackendComment {
   report?: unknown;
   moderation_state?: string;
   moderationState?: string;
+  attachments?: Array<Record<string, unknown>>;
 }
 
 function mapRemovedByReport(
@@ -67,10 +68,31 @@ function mapRemovedByReport(
   );
 }
 
+function mapCommentAttachments(
+  raw: Array<Record<string, unknown>> | undefined
+): DetailComment['attachments'] {
+  if (!raw?.length) return undefined;
+  const attachments = raw.flatMap((item) => {
+    const id = String(item.id ?? '');
+    if (!id) return [];
+    const explicitUrl = typeof item.url === 'string' ? item.url : '';
+    return [{
+      id,
+      kind: item.kind === 'image' ? 'image' as const : 'file' as const,
+      filename: String(item.filename ?? 'file'),
+      contentType: String(item.contentType ?? item.content_type ?? ''),
+      byteSize: Number(item.byteSize ?? item.byte_size ?? 0),
+      url: explicitUrl || apiAssetUrl(`/governance/attachments/${id}`)
+    }];
+  });
+  return attachments.length ? attachments : undefined;
+}
+
 export function mapComment(c: BackendComment): DetailComment {
   registerEntityType(c.id, 'comment');
   const report = mapContentReport(c.report);
   const moderationState = mapModerationState(c);
+  const attachments = mapCommentAttachments(c.attachments);
   return {
     id: c.id,
     authorUsername: c.author_username ?? '',
@@ -80,6 +102,7 @@ export function mapComment(c: BackendComment): DetailComment {
     activeVote: (c.active_vote ?? 0) as VoteDirection,
     report,
     ...(moderationState ? { moderationState } : {}),
+    ...(attachments ? { attachments } : {}),
     replies: (c.replies ?? []).map(mapComment),
   };
 }
@@ -184,9 +207,23 @@ export type CommentSubjectType = import('$lib/types/governance').CommentSubjectT
 export async function fetchAddComment(
   subject: { id: string; type: CommentSubjectType },
   body: string,
-  parentId?: string
+  parentId?: string,
+  file?: File | File[] | null
 ): Promise<void> {
   registerEntityType(subject.id, subject.type);
+  const files = !file ? [] : Array.isArray(file) ? file : [file];
+  if (files.length) {
+    const form = new FormData();
+    form.set('subject_type', subject.type);
+    form.set('subject_id', subject.id);
+    form.set('body', body);
+    if (parentId) form.set('parent_id', parentId);
+    for (const item of files) {
+      form.append('file', item, item.name);
+    }
+    await apiClient.postForm('/governance/comments', form);
+    return;
+  }
   await apiClient.post('/governance/comments', {
     subject_type: subject.type,
     subject_id: subject.id,

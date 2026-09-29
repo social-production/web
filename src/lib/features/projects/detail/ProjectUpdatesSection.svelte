@@ -18,7 +18,7 @@
   $: showGovernanceVotes = !isPersonalServiceProject(data.projectMode);
   $: canProposeUpdate =
     data.viewerCanRequestUpdate && (!showGovernanceVotes || data.updateRequests.length === 0);
-  $: updateActionLabel = isPersonalServiceProject(data.projectMode) ? 'Post update' : 'Propose update';
+  $: updateActionLabel = isPersonalServiceProject(data.projectMode) ? 'Post' : 'Propose';
 
   function toggleUpdateComposer() {
     showUpdateComposer = !showUpdateComposer;
@@ -74,7 +74,7 @@
     bind:body={draftUpdateBody}
     message={updateMessage}
     pending={updatePending}
-    sheetTitle="Add update"
+    sheetTitle="Post an update"
     submitLabel={updateActionLabel}
     placeholder="Share what changed on this project..."
     labelledById="project-add-update-sheet"

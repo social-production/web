@@ -84,7 +84,9 @@ import {
   fetchAddGroupConversationMember,
   fetchRemoveGroupConversationMember,
   fetchMarkConversationRead,
-  fetchMarkLinkedChatRead
+  fetchMarkLinkedChatRead,
+  fetchPinMessage,
+  fetchUnpinMessage
 } from './domains/messages';
 import {
   fetchProject, fetchProjectHistory, fetchProjectLinks, fetchCreateProject, fetchToggleProjectMembership,
@@ -235,8 +237,8 @@ export function createFastApiDriver(): AppAdapter {
       return fetchComments(subjectType, subjectId);
     },
 
-    async addComment(subject, body, parentId) {
-      return fetchAddComment(subject, body, parentId);
+    async addComment(subject, body, parentId, file) {
+      return fetchAddComment(subject, body, parentId, file);
     },
 
     async submitReport(subjectId, target, reason, details) {
@@ -420,8 +422,8 @@ export function createFastApiDriver(): AppAdapter {
       return fetchMessageContacts(query, limit);
     },
 
-    async sendMessage(conversationId, body) {
-      return fetchSendMessage(conversationId, body);
+    async sendMessage(conversationId, body, file) {
+      return fetchSendMessage(conversationId, body, file);
     },
 
     async startDirectMessage(username, body) {
@@ -450,6 +452,14 @@ export function createFastApiDriver(): AppAdapter {
 
     async markLinkedChatRead(subjectType, subjectId) {
       return fetchMarkLinkedChatRead(subjectType, subjectId);
+    },
+
+    async pinMessage(conversationId, messageId) {
+      return fetchPinMessage(conversationId, messageId);
+    },
+
+    async unpinMessage(conversationId, messageId) {
+      return fetchUnpinMessage(conversationId, messageId);
     },
 
     async getPublicFeed(options) {

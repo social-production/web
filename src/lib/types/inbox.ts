@@ -25,6 +25,15 @@ export interface NotificationsPageData {
   items: NotificationItem[];
 }
 
+export interface MessageAttachment {
+  id: string;
+  kind: 'image' | 'file';
+  filename: string;
+  contentType: string;
+  byteSize: number;
+  url: string;
+}
+
 export interface DirectMessage {
   id: string;
   sender: ViewerSummary;
@@ -33,6 +42,20 @@ export interface DirectMessage {
   isOwn: boolean;
   report?: ContentReportSummary | null;
   moderationState?: ModerationState;
+  attachments?: MessageAttachment[];
+  pinned?: boolean;
+}
+
+export interface ConversationPin {
+  messageId: string;
+  preview: string;
+  pinnedAt: string;
+}
+
+export interface ConversationMessagesResult {
+  messages: DirectMessage[];
+  pins: ConversationPin[];
+  canPin: boolean;
 }
 
 export interface MessageConversationResult {

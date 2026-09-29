@@ -76,7 +76,9 @@
           <span class="wizard-step-number">{stepIndex + 1}/{stepCount}</span>
           <span class="wizard-title">{title}</span>
         </div>
-        <button class="cancel-button" type="button" on:click={() => dispatch('close')}>Cancel</button>
+        {#if !compact}
+          <button class="cancel-button" type="button" on:click={() => dispatch('close')}>Cancel</button>
+        {/if}
         <div class="progress-track" aria-hidden="true">
           <span class="progress-fill" style={`width: ${progressPercent}%`}></span>
         </div>
@@ -86,16 +88,19 @@
         <slot />
       </div>
 
-      {#if showFooter}
-        <footer class="wizard-footer" class:compact>
-          {#if canGoBack}
-            <button class="secondary-button" type="button" on:click={() => dispatch('back')}>Back</button>
-          {:else}
-            <span class="footer-spacer"></span>
+      {#if showFooter || compact}
+        <footer class="wizard-footer">
+          {#if compact}
+            <button class="secondary-button" type="button" on:click={() => dispatch('close')}>Cancel</button>
           {/if}
-          <button class="primary-button" disabled={!canGoNext} type="button" on:click={() => dispatch('next')}>
-            {nextLabel}
-          </button>
+          {#if showFooter && canGoBack}
+            <button class="secondary-button" type="button" on:click={() => dispatch('back')}>Back</button>
+          {/if}
+          {#if showFooter}
+            <button class="primary-button" disabled={!canGoNext} type="button" on:click={() => dispatch('next')}>
+              {nextLabel}
+            </button>
+          {/if}
         </footer>
       {/if}
     </div>
@@ -159,8 +164,12 @@
   }
 
   .wizard-header.compact {
-    padding: 6px 10px 4px;
-    gap: 4px;
+    padding: 12px 16px 8px;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'title'
+      'progress';
   }
 
   .wizard-header-main {
@@ -187,8 +196,7 @@
   }
 
   .wizard-header.compact .cancel-button {
-    min-height: 28px;
-    font-size: 12px;
+    display: none;
   }
 
   .wizard-step-number {
@@ -259,49 +267,36 @@
 
   .wizard-footer {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom);
     border-top: 1px solid var(--panel-border);
     background: var(--panel);
   }
 
-  .wizard-footer.compact {
-    padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
-  }
-
-  .footer-spacer {
-    flex: 1;
-  }
-
   .secondary-button,
   .primary-button {
-    min-height: 40px;
-    padding: 8px 14px;
-    border-radius: var(--radius-sm);
-    font-size: 14px;
-    font-weight: 700;
+    flex: 1 1 0;
+    min-height: 56px;
+    margin: 0;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 0;
+    font-size: 16px;
+    font-weight: 800;
     cursor: pointer;
   }
 
-  .wizard-footer.compact .secondary-button,
-  .wizard-footer.compact .primary-button {
-    min-height: 36px;
-    padding: 6px 12px;
-    font-size: 13px;
-  }
-
   .secondary-button {
-    border: 1px solid var(--panel-border);
     background: var(--panel-strong);
     color: var(--text-main);
+    box-shadow: inset -1px 0 0 var(--panel-border);
   }
 
   .primary-button {
-    border: 1px solid color-mix(in srgb, var(--brand) 55%, var(--panel-border));
     background: var(--brand);
-    color: var(--brand-contrast, #fff);
+    color: var(--page-bg);
   }
 
   .secondary-button:disabled,

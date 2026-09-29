@@ -4,14 +4,11 @@
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
+  import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
+  import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import ActivityHistorySection from '$lib/features/projects/detail/components/ActivityHistorySection.svelte';
-  import VoteCardFooter from '$lib/components/shared/VoteCardFooter.svelte';
   import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
-  import {
-    formatProjectVoteRequirement,
-    formatProjectVoteSummary
-  } from '$lib/utils/projectVotes';
   import type {
     ProjectActivityRoleInput,
     ProjectApprovalVote,
@@ -43,9 +40,6 @@
   type ComparableRequestSettings = Omit<RequestSettingsForm, 'reason'>;
 
   type ServiceTab = 'live' | 'history';
-  type RequestSettingsVote = NonNullable<
-    NonNullable<ProjectPageData['lifecycle']['requestSystem']>['settingsChangeRequests']
-  >[number];
 
   export let data: ProjectPageData;
   export let highlightedActivityId: string | null = null;
@@ -80,6 +74,7 @@
     requestId: string,
     vote: ProjectApprovalVote | null
   ) => void | Promise<void> = () => {};
+  $: void voteOnRequestSettingsChange;
   export let toggleHistoryCompletion: (
     historyId: string,
     role: ProjectServiceHistoryCompletionRole,
@@ -320,46 +315,51 @@
     await openPersonalServiceRequestComposer();
   }
 
-  function scrollComposerIntoView(element: HTMLElement | null) {
-    if (typeof window === 'undefined' || !element) {
+  async function openRequestForDay(isoDay: string) {
+    activeTab = 'live';
+    const slot = firstAvailabilityForDay(isoDay);
+
+    if (!slot) {
+      selectedActivityId = '';
+      serviceRequestForm.scheduledAt = `${isoDay}T18:00`;
+      serviceRequestForm.endsAt = `${isoDay}T19:00`;
+      await openPersonalServiceRequestComposerForDay(isoDay);
       return;
     }
 
-    element.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
+    selectedActivityId = slot.id;
+    serviceRequestForm.scheduledAt = localDateTimeValue(slot.startAt);
+    serviceRequestForm.endsAt = localDateTimeValue(slot.endAt);
+    await openPersonalServiceRequestComposerForDay(isoDay);
   }
 
-  async function toggleRequestSettingsComposerPanel() {
-    const willOpen = !showRequestSettingsComposer;
-
-    if (!willOpen) {
-      closeRequestSettingsComposer();
+  async function openDockedServiceRequest() {
+    if (!usesCalendar || personalRequestMode === 'direct') {
+      await openDirectRequestComposer();
       return;
     }
 
+    if (previewDayIso) {
+      await openRequestForDay(previewDayIso);
+      return;
+    }
+
+    if (personalRequestMode === 'both' || allowOffScheduleRequests) {
+      await openDirectRequestComposer();
+      return;
+    }
+
+    await openGeneralRequestComposer();
+  }
+
+  async function openDockedRequestSettings() {
     requestSettingsForm = createRequestSettingsForm();
     showRequestSettingsComposer = true;
-    showRequestSettingsVote = false;
-    await tick();
-    scrollComposerIntoView(requestSettingsComposerElement);
-
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => {
-        scrollComposerIntoView(requestSettingsComposerElement);
-      });
-    }
   }
 
   function closeRequestSettingsComposer() {
     showRequestSettingsComposer = false;
     requestSettingsForm = createRequestSettingsForm();
-  }
-
-  function toggleRequestSettingsVotePanel() {
-    showRequestSettingsVote = !showRequestSettingsVote;
-    showRequestSettingsComposer = false;
   }
 
   async function submitRequestSettingsChange() {
@@ -381,7 +381,6 @@
   let selectedActivityId = '';
   let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let showRequestSettingsComposer = false;
-  let showRequestSettingsVote = false;
   let requestSettingsForm: RequestSettingsForm = createRequestSettingsForm();
   let requestSettingsComposerElement: HTMLDivElement | null = null;
 
@@ -397,10 +396,7 @@
   $: personalRequestMode = data.lifecycle.personalService?.requestMode ?? 'calendar';
   $: allowOffScheduleRequests = data.lifecycle.requestSystem?.settings.allowOffScheduleRequests ?? false;
   $: availabilityRules = data.lifecycle.personalService?.availabilityRules ?? [];
-  $: allowsDirectRequests = personalRequestMode === 'direct' || personalRequestMode === 'both';
-  $: showDirectRequestButton =
-    (data.lifecycle.requestSystem?.viewerCanSubmitRequests ?? false) &&
-    (allowsDirectRequests || allowOffScheduleRequests);
+  $: showServiceRequestAction = data.lifecycle.requestSystem?.viewerCanSubmitRequests ?? false;
   $: requestScheduleRequired = data.lifecycle.requestSystem?.requiresSchedule ?? false;
   $: showRequestScheduleFields =
     requestScheduleRequired || !!serviceRequestForm.scheduledAt || !!selectedActivityId;
@@ -417,8 +413,8 @@
   $: sortedRequests = [...(data.lifecycle.requestSystem?.requests ?? [])].sort(
     (left, right) => +new Date(right.createdAt) - +new Date(left.createdAt)
   );
-  $: requestSettingsVotes = data.lifecycle.requestSystem?.settingsChangeRequests ?? [];
-  $: requestSettingsVoteCount = requestSettingsVotes.length;
+  $: showRequestsAction =
+    (data.lifecycle.requestSystem?.viewerCanReviewRequests ?? false) || sortedRequests.length > 0;
   $: requestHistory = data.lifecycle.phaseFive.history.filter((item) => item.source === 'request');
   $: selfPlannedHistory = data.lifecycle.phaseFive.history.filter(
     (item) => item.source === 'self-planned'
@@ -453,9 +449,6 @@
   $: if (!showRequestSettingsComposer) {
     requestSettingsForm = createRequestSettingsForm();
   }
-  $: if (requestSettingsVoteCount === 0) {
-    showRequestSettingsVote = false;
-  }
   $: if (highlightedActivityId || highlightedRequestId) {
     activeTab = 'live';
     if (highlightedRequestId) {
@@ -468,7 +461,7 @@
   {#if usesCalendar}
     <ProjectActivityCalendarCard
       activities={calendarActivities}
-      canCreate={calendarCanCreate}
+      canCreate={false}
       createActive={calendarCreateActive}
       createButtonLabel="Add availability"
       createAriaLabel="Add availability"
@@ -478,31 +471,48 @@
       createAction={openCalendarComposer}
       activitySelect={openCalendarComposerForActivity}
     />
-
-    {#if showDirectRequestButton && usesCalendar}
-      <div class="composer-actions request-action-row">
-        <button class="secondary-button" type="button" on:click={openDirectRequestComposer}>Direct request</button>
-      </div>
-    {/if}
   {:else}
     <div class="empty-card helper-card">
       <p>This service is currently running through direct written requests instead of listed availability.</p>
     </div>
-
-    {#if data.lifecycle.requestSystem?.viewerCanSubmitRequests}
-      <div class="composer-actions request-action-row">
-        <button class="primary-button" type="button" on:click={openGeneralRequestComposer}>New request</button>
-      </div>
-    {/if}
   {/if}
 
-    {#if data.lifecycle.requestSystem}
-      <div class="composer-actions request-action-row">
-        <button class="secondary-button" type="button" on:click={() => (showRequestsSheet = true)}>
-          Requests{sortedRequests.length ? ` · ${sortedRequests.length}` : ''}
-        </button>
-      </div>
+  <PhaseWorkToolbar>
+    {#if calendarCanCreate}
+      <RoundPlusButton
+        standout
+        label="Add availability"
+        ariaLabel="Add availability"
+        participationAction="add-availability"
+        action={() => openCalendarComposer()}
+      />
     {/if}
+    {#if showRequestsAction}
+      <RoundPlusButton
+        label="Requests"
+        ariaLabel="Open service requests"
+        participationAction="review-requests"
+        action={() => (showRequestsSheet = true)}
+      />
+    {/if}
+    {#if data.lifecycle.requestSystem?.viewerCanRequestSettingsChanges}
+      <RoundPlusButton
+        label="Request settings"
+        ariaLabel="Request service settings changes"
+        participationAction="request-settings"
+        action={() => openDockedRequestSettings()}
+      />
+    {/if}
+    {#if showServiceRequestAction}
+      <RoundPlusButton
+        standout
+        label="Request service"
+        ariaLabel="Request this service"
+        participationAction="request-service"
+        action={() => openDockedServiceRequest()}
+      />
+    {/if}
+  </PhaseWorkToolbar>
 
     {#if data.lifecycle.requestSystem}
       <OverlaySheet bind:open={showRequestsSheet} title="Requests" labelledById="personal-requests-sheet">
@@ -512,171 +522,7 @@
             <h3>Requests</h3>
             <p>{data.lifecycle.requestSystem.settings.summary}</p>
           </div>
-          <div class="section-actions">
-            {#if requestSettingsVoteCount > 0}
-              <button class="vote-chip notice-chip" type="button" on:click={toggleRequestSettingsVotePanel}>
-                Vote now ({requestSettingsVoteCount})
-              </button>
-            {/if}
-            {#if data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}
-              <button
-                class:active-toggle={showRequestSettingsComposer}
-                class="secondary-button"
-                type="button"
-                on:click={toggleRequestSettingsComposerPanel}
-              >
-                Edit request settings
-              </button>
-            {/if}
-          </div>
         </div>
-
-        {#if requestSettingsVoteCount > 0 && showRequestSettingsVote}
-          <div class="composer-card settings-panel">
-            <div class="request-header-row">
-              <div>
-                <h3>Active request settings votes</h3>
-                <p>
-                  {#if requestSettingsVoteCount === 1}
-                    One settings change vote is open right now.
-                  {:else}
-                    {requestSettingsVoteCount} settings change votes are open right now.
-                  {/if}
-                </p>
-              </div>
-            </div>
-
-            <div class="surface-stack">
-              {#each requestSettingsVotes as requestSettingsVote (requestSettingsVote.id)}
-                <article class="vote-request-card">
-                  <div class="vote-card-top">
-                    <div class="vote-card-copy">
-                      <span class="vote-kicker">Settings change</span>
-                      <strong>{requestSettingsVote.proposedSettings.summary}</strong>
-                    </div>
-                    <span class="vote-requirement">
-                      {formatProjectVoteRequirement(
-                        requestSettingsVote.voteSummary,
-                        requestSettingsVote.approvalThresholdPercent
-                      )}
-                    </span>
-                  </div>
-
-                  <p>{requestSettingsVote.reason}</p>
-
-                  <div class="vote-summary-row">
-                    <span>{formatProjectVoteSummary(requestSettingsVote.voteSummary)}</span>
-                  </div>
-
-                  <VoteCardFooter
-                    authorUsername={requestSettingsVote.authorUsername}
-                    createdAt={requestSettingsVote.createdAt}
-                    activeVote={requestSettingsVote.voteSummary.activeVote}
-                    canVote={data.lifecycle.requestSystem.viewerCanVoteOnSettingsChanges}
-                    onVote={(vote) => voteOnRequestSettingsChange(requestSettingsVote.id, vote)}
-                  />
-                </article>
-              {/each}
-            </div>
-          </div>
-        {/if}
-
-        {#if showRequestSettingsComposer && data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}
-          <div bind:this={requestSettingsComposerElement} class="composer-card settings-panel">
-            <div class="request-header-row">
-              <div>
-                <h3>Edit request settings</h3>
-                <p>These settings apply immediately because the project creator is the only person running this service.</p>
-              </div>
-            </div>
-
-            <label class="checkbox-row">
-              <input bind:checked={requestSettingsForm.enabled} type="checkbox" />
-              <span>Enable requests</span>
-            </label>
-
-            {#if requestSettingsForm.enabled}
-              <label>
-                <span class="field-inline-label">Request mode</span>
-                <select bind:value={requestSettingsForm.requestMode}>
-                  <option value="calendar">Scheduled slots only</option>
-                  <option value="direct">Message requests only</option>
-                  <option value="both">Scheduled slots and message requests</option>
-                </select>
-              </label>
-              {#if requestSettingsForm.requestMode === 'calendar' || requestSettingsForm.requestMode === 'both'}
-                <label class="checkbox-row">
-                  <input bind:checked={requestSettingsForm.allowOffScheduleRequests} type="checkbox" />
-                  <span>Allow off-schedule requests</span>
-                </label>
-              {/if}
-              <p class="field-help">Scheduled slots start from listed times. Message requests let people write in without choosing a listed slot. Off-schedule requests can ask for a time that is not already listed.</p>
-            {/if}
-
-            {#if !requestSettingsChanged}
-              <p class="field-help">Choose a different request setup before saving.</p>
-            {/if}
-
-            <div class="composer-actions">
-              <button class="secondary-button" type="button" on:click={closeRequestSettingsComposer}>
-                Cancel
-              </button>
-              <button
-                class="primary-button"
-                disabled={!requestSettingsCanSubmit}
-                type="button"
-                on:click={submitRequestSettingsChange}
-              >
-                Save settings
-              </button>
-            </div>
-          </div>
-        {/if}
-
-        {#if data.lifecycle.requestSystem?.viewerCanSubmitRequests && showPersonalServiceRequestComposer}
-          <div bind:this={serviceRequestComposerElement} class="composer-card">
-            <DirectUsePolicyNotice variant="request" context="service" />
-            <div class="request-header-row">
-              <div>
-                <h3>Request service</h3>
-                <p>
-                  Sending a request opens a one-to-one chat with the creator in Messages.
-                  {#if showRequestScheduleFields}
-                    Start from the selected available time and add the details for the creator.
-                  {:else}
-                    Describe what you need so the creator can review the request and reply.
-                  {/if}
-                </p>
-              </div>
-            </div>
-            <input bind:value={serviceRequestForm.title} maxlength="120" placeholder="Request title" />
-            {#if showRequestScheduleFields}
-              <div class="number-grid">
-                <label>
-                  <span class="field-inline-label">Start time</span>
-                  <input bind:value={serviceRequestForm.scheduledAt} type="datetime-local" />
-                </label>
-                <label>
-                  <span class="field-inline-label">Finish time</span>
-                  <input bind:value={serviceRequestForm.endsAt} type="datetime-local" />
-                </label>
-              </div>
-            {/if}
-            <textarea
-              bind:value={serviceRequestForm.body}
-              rows="3"
-              placeholder={showRequestScheduleFields
-                ? 'What do you need help with?'
-                : 'What do you need, and what should the creator expect?'}
-            ></textarea>
-            <div class="composer-actions">
-              <button class="secondary-button" type="button" on:click={closePersonalServiceRequestComposer}>
-                Cancel
-              </button>
-              <button class="primary-button" type="button" on:click={submitServiceRequest}>Send request</button>
-            </div>
-          </div>
-        {/if}
 
         {#if data.lifecycle.requestSystem.viewerCanReviewRequests}
           {#if !data.lifecycle.requestSystem.enabled && sortedRequests.length === 0}
@@ -730,6 +576,116 @@
         {/if}
       </section>
       </OverlaySheet>
+
+      <OverlaySheet
+        bind:open={showPersonalServiceRequestComposer}
+        hideClose
+        title="Request service"
+        labelledById="personal-request-form-sheet"
+        on:close={closePersonalServiceRequestComposer}
+      >
+        <div bind:this={serviceRequestComposerElement} class="composer-card">
+          <DirectUsePolicyNotice variant="request" context="service" />
+          <div class="request-header-row">
+            <div>
+              <h3>Request service</h3>
+              <p>
+                Sending a request opens a one-to-one chat with the creator in Messages.
+                {#if showRequestScheduleFields}
+                  Start from the selected available time and add the details for the creator.
+                {:else}
+                  Describe what you need so the creator can review the request and reply.
+                {/if}
+              </p>
+            </div>
+          </div>
+          <input bind:value={serviceRequestForm.title} maxlength="120" placeholder="Request title" />
+          {#if showRequestScheduleFields}
+            <div class="number-grid">
+              <label>
+                <span class="field-inline-label">Start time</span>
+                <input bind:value={serviceRequestForm.scheduledAt} type="datetime-local" />
+              </label>
+              <label>
+                <span class="field-inline-label">Finish time</span>
+                <input bind:value={serviceRequestForm.endsAt} type="datetime-local" />
+              </label>
+            </div>
+          {/if}
+          <textarea
+            bind:value={serviceRequestForm.body}
+            rows="3"
+            placeholder={showRequestScheduleFields
+              ? 'What do you need help with?'
+              : 'What do you need, and what should the creator expect?'}
+          ></textarea>
+          </div>
+        <svelte:fragment slot="footer">
+          <div class="sheet-actions">
+            <button class="sheet-cancel" type="button" on:click={closePersonalServiceRequestComposer}>Cancel</button>
+            <button class="sheet-submit" type="button" on:click={submitServiceRequest}>Request</button>
+          </div>
+        </svelte:fragment>
+      </OverlaySheet>
+
+      {#if data.lifecycle.requestSystem.viewerCanRequestSettingsChanges}
+        <OverlaySheet
+          bind:open={showRequestSettingsComposer}
+          hideClose
+          title="Request settings"
+          labelledById="personal-request-settings-sheet"
+          on:close={closeRequestSettingsComposer}
+        >
+          <div bind:this={requestSettingsComposerElement} class="composer-card">
+            <div class="request-header-row">
+              <div>
+                <h3>Request settings</h3>
+                <p>These settings apply immediately because the project creator is the only person running this service.</p>
+              </div>
+            </div>
+
+            <label class="checkbox-row">
+              <input bind:checked={requestSettingsForm.enabled} type="checkbox" />
+              <span>Enable requests</span>
+            </label>
+
+            {#if requestSettingsForm.enabled}
+              <label>
+                <span class="field-inline-label">Request mode</span>
+                <select bind:value={requestSettingsForm.requestMode}>
+                  <option value="calendar">Scheduled slots only</option>
+                  <option value="direct">Message requests only</option>
+                  <option value="both">Scheduled slots and message requests</option>
+                </select>
+              </label>
+              {#if requestSettingsForm.requestMode === 'calendar' || requestSettingsForm.requestMode === 'both'}
+                <label class="checkbox-row">
+                  <input bind:checked={requestSettingsForm.allowOffScheduleRequests} type="checkbox" />
+                  <span>Allow off-schedule requests</span>
+                </label>
+              {/if}
+              <p class="field-help">Scheduled slots start from listed times. Message requests let people write in without choosing a listed slot. Off-schedule requests can ask for a time that is not already listed.</p>
+            {/if}
+
+            {#if !requestSettingsChanged}
+              <p class="field-help">Choose a different request setup before saving.</p>
+            {/if}
+          </div>
+          <svelte:fragment slot="footer">
+            <div class="sheet-actions">
+              <button class="sheet-cancel" type="button" on:click={closeRequestSettingsComposer}>Cancel</button>
+              <button
+                class="sheet-submit"
+                disabled={!requestSettingsCanSubmit}
+                type="button"
+                on:click={submitRequestSettingsChange}
+              >
+                Save settings
+              </button>
+            </div>
+          </svelte:fragment>
+        </OverlaySheet>
+      {/if}
     {/if}
 
     <section class="card-rail-section">
@@ -745,6 +701,7 @@
       {#if data.lifecycle.phaseFive.viewerCanCreateActivities}
         <OverlaySheet
           bind:open={showPersonalActivityComposer}
+          hideClose
           title="Add availability"
           labelledById="personal-availability-sheet"
           on:close={closePersonalActivityComposer}
@@ -786,10 +743,6 @@
                 <input bind:this={activityEndInputElement} bind:value={activityForm.endsAt} type="datetime-local" />
               </label>
             </div>
-            <div class="composer-actions">
-              <button class="secondary-button" type="button" on:click={closePersonalActivityComposer}>Cancel</button>
-              <button class="primary-button" type="button" on:click={submitActivity}>Add availability</button>
-            </div>
           {:else}
             <label>
               <span class="field-inline-label">Weekday</span>
@@ -810,12 +763,18 @@
               </label>
             </div>
             <input bind:value={weeklyNote} maxlength="120" placeholder="Optional note" />
-            <div class="composer-actions">
-              <button class="secondary-button" type="button" on:click={closePersonalActivityComposer}>Cancel</button>
-              <button class="primary-button" type="button" on:click={submitWeeklyRule}>Add weekly hours</button>
-            </div>
           {/if}
         </div>
+        <svelte:fragment slot="footer">
+          <div class="sheet-actions">
+            <button class="sheet-cancel" type="button" on:click={closePersonalActivityComposer}>Cancel</button>
+            {#if availabilityKind === 'one-off'}
+              <button class="sheet-submit" type="button" on:click={submitActivity}>Add availability</button>
+            {:else}
+              <button class="sheet-submit" type="button" on:click={submitWeeklyRule}>Add weekly hours</button>
+            {/if}
+          </div>
+        </svelte:fragment>
         </OverlaySheet>
       {/if}
 
@@ -855,6 +814,7 @@
         </div>
       {/if}
     </section>
+  {#if data.lifecycle.phaseFive.history.length > 0}
   <details class="history-section" bind:open={historyOpen}>
     <summary class="history-summary">
       <span>History</span>
@@ -884,6 +844,7 @@
       />
     </div>
   </details>
+  {/if}
 </section>
 
 <style>
@@ -919,7 +880,6 @@
   }
 
   .phase-surface,
-  .surface-stack,
   .card-rail-section,
   .history-stack,
   .composer-card {
@@ -927,20 +887,49 @@
     gap: 12px;
   }
 
+  :global(.overlay-footer:has(.sheet-actions)) {
+    gap: 0;
+    padding: 0 0 env(safe-area-inset-bottom);
+  }
+
+  .sheet-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .sheet-cancel,
+  .sheet-submit {
+    min-height: 56px;
+    border: 0;
+    border-radius: 0;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .sheet-cancel {
+    background: var(--panel-strong);
+    color: var(--text-main);
+    box-shadow: inset -1px 0 0 var(--panel-border);
+  }
+
+  .sheet-submit {
+    background: var(--brand);
+    color: var(--page-bg);
+  }
+
   .request-header-row,
   .binary-row,
-  .composer-actions,
-  .number-grid,
-  .section-actions,
-  .vote-summary-row {
+  .number-grid {
     display: flex;
     gap: 12px;
     align-items: center;
     flex-wrap: wrap;
   }
 
-  .request-header-row,
-  .section-actions {
+  .request-header-row {
     justify-content: space-between;
   }
 
@@ -961,6 +950,10 @@
     padding-right: 2px;
   }
 
+  .card-rail:has(:global(.activity-card-shell)) {
+    gap: 0;
+  }
+
   .rail-card {
     min-width: 0;
   }
@@ -976,66 +969,6 @@
   .helper-card {
     background: var(--panel);
   }
-
-  .settings-panel {
-    scroll-margin-top: 92px;
-  }
-
-  .request-action-row {
-    justify-content: flex-start;
-  }
-
-  .notice-chip {
-    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
-    color: var(--text-main);
-  }
-
-  .notice-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    background: color-mix(in srgb, var(--brand-soft) 72%, var(--panel));
-  }
-
-  .settings-panel {
-    background: color-mix(in srgb, var(--brand-soft) 24%, var(--panel-strong));
-  }
-
-  .vote-request-card {
-    display: grid;
-    gap: 12px;
-    padding: 16px;
-    border: 1px solid color-mix(in srgb, var(--brand) 16%, var(--panel-border));
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--panel) 82%, var(--panel-strong));
-  }
-
-  .vote-card-top {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-  }
-
-  .vote-card-copy {
-    display: grid;
-    gap: 4px;
-  }
-
-  .vote-kicker {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-  }
-
-  .vote-requirement {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text-main);
-  }
-
 
   .checkbox-row {
     display: flex;
@@ -1066,7 +999,6 @@
     color: var(--text-soft);
   }
 
-  strong,
   h3,
   .field-inline-label {
     color: var(--text-main);
@@ -1105,25 +1037,14 @@
     font-size: 12px;
   }
 
-  .primary-button,
-  .secondary-button,
   .vote-chip {
     padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .primary-button {
-    background: var(--brand);
-    color: var(--page-bg);
-  }
-
-  .secondary-button,
-  .vote-chip {
     border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
     background: var(--panel);
     color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
   }
 
   .vote-chip.selected {
@@ -1160,13 +1081,6 @@
     border: 0;
     background: transparent;
     cursor: pointer;
-  }
-
-  .secondary-button.active-toggle {
-    border-color: color-mix(in srgb, var(--brand-strong) 62%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 46%, var(--panel));
-    color: var(--brand-strong);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 24%, transparent);
   }
 
   @media (max-width: 760px) {

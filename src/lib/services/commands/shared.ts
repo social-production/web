@@ -8,8 +8,13 @@ import { applyVoteTarget, invalidateFeedEngagementCache } from '$lib/utils/feedS
 import type { VoteEngagement } from '$lib/utils/feedSignals';
 import { measureAsync } from '$lib/utils/performanceDebug';
 
-export function addComment(subject: CommentSubjectRef, body: string, parentId?: string) {
-  return currentAdapter.addComment(subject, body, parentId);
+export function addComment(
+  subject: CommentSubjectRef,
+  body: string,
+  parentId?: string,
+  file?: File | File[] | null
+) {
+  return currentAdapter.addComment(subject, body, parentId, file);
 }
 
 export function submitReport(

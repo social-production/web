@@ -27,19 +27,22 @@
 </script>
 
 <div class="quorum-copy">
-  {#if votesRequired <= 0}
-    <p>No votes required yet. Quorum is derived once this {entityLabel} has an active audience.</p>
-  {:else}
-    <p>
-      Right now this {entityLabel} needs
-      <strong>{formatCount(votesRequired)} {votesRequired === 1 ? 'vote' : 'votes'} cast</strong>
-      from an audience of
-      <strong>{formatCount(audienceSize)} {audienceLabel}</strong>
-      {#if currentPercent}
-        ({currentPercent} of N)
-      {/if}.
-    </p>
-  {/if}
+  <section class="current-card">
+    <span class="kicker">This {entityLabel}</span>
+    {#if votesRequired <= 0}
+      <p class="lead">No votes required yet. Quorum is derived once this {entityLabel} has an active audience.</p>
+    {:else}
+      <p class="lead">
+        <strong>{formatCount(votesRequired)}</strong>
+        {votesRequired === 1 ? 'vote' : 'votes'} from
+        <strong>{formatCount(audienceSize)}</strong>
+        {audienceLabel}
+        {#if currentPercent}
+          <span class="pct">({currentPercent} of N)</span>
+        {/if}
+      </p>
+    {/if}
+  </section>
 
   <p>
     That audience (N) is weekly unique people who took a meaningful action in the last 7 days
@@ -48,20 +51,21 @@
     {:else}
       among members of this {entityLabel}
     {/if}.
-    N is not the quorum — the required vote count is a sample sized from N, so not everyone has to vote.
+    N is not the quorum. The required vote count is a sample sized from N, so not everyone has to vote.
   </p>
 
   <p>
     Once quorum is met, a decision still needs at least <strong>66% yes among votes cast</strong>.
-    Meeting quorum unlocks a decision; it does not auto-advance the {entityLabel}.
+    Meeting quorum unlocks a decision. It does not auto-advance the {entityLabel}.
   </p>
 
   <div class="math-card" aria-label="Quorum formula">
+    <h3>How the number is set</h3>
     <p><strong>Audience N</strong> = weekly unique actives in this vote context</p>
     <p><strong>Margin of error</strong> tightens as N grows (about 10% for tiny groups, toward 2% at large scale)</p>
     <p>
       <strong>Quorum</strong> = min(ceil(0.75 × N), Cochran sample size for that margin). Tiny groups
-      often land near 75% of N; large groups need a much smaller share.
+      often land near 75% of N. Large groups need a much smaller share.
     </p>
     <p><strong>Pass</strong> when votes cast ≥ quorum and yes / total ≥ 66%</p>
   </div>
@@ -90,59 +94,83 @@
 <style>
   .quorum-copy {
     display: grid;
-    gap: 10px;
+    gap: 14px;
+    padding: 4px 16px 24px;
   }
 
   .quorum-copy p,
   .quorum-copy li {
     margin: 0;
     color: var(--text-soft);
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.5;
   }
 
   .quorum-copy strong,
-  .example-card h4 {
+  .example-card h4,
+  .math-card h3 {
     color: var(--text-main);
-    font-size: 13px;
   }
 
+  .current-card,
   .math-card,
   .example-card {
     display: grid;
-    gap: 6px;
-    padding: 10px 12px;
+    gap: 8px;
+    padding: 14px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: var(--panel);
+    background: var(--panel-strong);
+  }
+
+  .current-card {
+    background: color-mix(in srgb, var(--brand-soft) 55%, var(--panel));
+    border-color: color-mix(in srgb, var(--brand) 35%, var(--panel-border));
+  }
+
+  .kicker {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--brand-strong);
+  }
+
+  .lead {
+    color: var(--text-main);
+    font-size: 18px;
+    line-height: 1.35;
+    font-weight: 650;
+  }
+
+  .math-card h3,
+  .example-card h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
   }
 
   .formula-steps {
     margin: 0;
     padding-left: 1.2em;
     display: grid;
-    gap: 6px;
+    gap: 8px;
   }
 
   .example-grid {
     display: grid;
-    gap: 8px;
-  }
-
-  .example-card h4 {
-    margin: 0;
-    font-size: 12px;
-    font-weight: 700;
+    gap: 10px;
   }
 
   .meta,
   .pct {
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 600;
   }
 
   .stat {
     color: var(--text-main);
-    font-weight: 600;
+    font-weight: 650;
   }
 </style>

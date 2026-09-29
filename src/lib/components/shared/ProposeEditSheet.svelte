@@ -19,7 +19,10 @@
 </script>
 
 <OverlaySheet bind:open title={sheetTitle} {labelledById}>
-  <form class="edit-form" on:submit|preventDefault={handleSubmit}>
+  <p slot="subtitle" class="sheet-lead">
+    Change the title and description. Others can review this before it applies.
+  </p>
+  <form id={labelledById + '-form'} class="edit-form" on:submit|preventDefault={handleSubmit}>
     {#if message}
       <div class="warning-card" role="alert">{message}</div>
     {/if}
@@ -29,22 +32,27 @@
     </label>
     <label class="field">
       <span class="field-label">Description</span>
-      <textarea bind:value={description} rows="5" placeholder={descriptionPlaceholder}></textarea>
+      <textarea bind:value={description} rows="6" placeholder={descriptionPlaceholder}></textarea>
     </label>
-    <div class="actions">
-      <button class="secondary-button" type="button" on:click={() => (open = false)}>Cancel</button>
-      <button class="primary-button" disabled={pending || !title.trim() || !description.trim()} type="submit">
-        {submitLabel}
-      </button>
-    </div>
   </form>
+  <div slot="footer" class="sheet-actions">
+    <button class="sheet-cancel" type="button" on:click={() => (open = false)}>Cancel</button>
+    <button
+      class="sheet-submit"
+      disabled={pending || !title.trim() || !description.trim()}
+      form={labelledById + '-form'}
+      type="submit"
+    >
+      {pending ? 'Working...' : submitLabel}
+    </button>
+  </div>
 </OverlaySheet>
 
 <style>
   .edit-form {
     display: grid;
     gap: 16px;
-    padding: 8px 16px 4px;
+    padding: 8px 20px 20px;
   }
 
   .field {
@@ -83,35 +91,42 @@
     font-weight: 700;
   }
 
-  .actions {
+  .sheet-lead {
+    margin: 6px 0 0;
+    color: var(--text-soft);
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .sheet-actions {
     display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    flex-wrap: wrap;
+    width: 100%;
   }
 
-  .primary-button,
-  .secondary-button {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
+  .sheet-cancel,
+  .sheet-submit {
+    flex: 1 1 0;
+    min-height: 52px;
+    border: 0;
+    border-radius: 0;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
   }
 
-  .primary-button {
-    border: 1px solid var(--brand);
+  .sheet-cancel {
+    border-right: 1px solid var(--panel-border);
+    background: var(--panel-strong);
+    color: var(--text-main);
+  }
+
+  .sheet-submit {
     background: var(--brand);
     color: var(--page-bg);
   }
 
-  .primary-button:disabled {
+  .sheet-submit:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-  }
-
-  .secondary-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-soft);
   }
 </style>

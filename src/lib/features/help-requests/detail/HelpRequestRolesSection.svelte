@@ -1,9 +1,13 @@
 <script lang="ts">
   import { invalidate } from '$app/navigation';
-  import { commitHelpRequestRole, uncommitHelpRequestRole } from '$lib/services/commands/shared';
+  import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import DetailActionDock from '$lib/features/detail/DetailActionDock.svelte';
+  import { commitHelpRequestRole, setVote, uncommitHelpRequestRole } from '$lib/services/commands/shared';
   import type { HelpRequestPageData, HelpRequestRoleData } from '$lib/types/detail';
+  import type { VoteDirection } from '$lib/types/feed';
 
   export let data: HelpRequestPageData;
+  export let actionsActive = true;
 
   let rolePending = '';
   let roleMessage = '';
@@ -12,12 +16,20 @@
     return role.slots <= 0 || role.filledCount < role.slots;
   }
 
-  function commitmentButtonLabel(role: HelpRequestRoleData) {
-    if (role.isViewerAssigned) {
-      return 'Leave role';
+  function signupLabel(role: HelpRequestRoleData) {
+    if (rolePending === role.roleId) {
+      return 'Working...';
     }
 
-    return roleHasOpenCapacity(role) ? 'Take role' : 'Role full';
+    if (role.isViewerAssigned) {
+      return 'Leave';
+    }
+
+    return roleHasOpenCapacity(role) ? 'Sign up' : 'Full';
+  }
+
+  async function handleVote({ vote }: { vote: VoteDirection }) {
+    await setVote({ id: data.id, type: 'help_request' }, vote);
   }
 
   async function handleRoleCommitment(role: HelpRequestRoleData) {
@@ -47,120 +59,132 @@
   }
 </script>
 
-<section class="roles-section" aria-label="Roles needed">
-  <div class="section-header">
-    <h2>Roles needed</h2>
-  </div>
+<DetailActionDock active={actionsActive}>
+  <div class="context-dock">
+    {#if data.roles.length > 0}
+      <div class="role-stack">
+        {#each data.roles as role}
+          <article class="role-bar">
+            <div class="role-copy">
+              <strong>{role.title}</strong>
+              {#if role.description}
+                <p>{role.description}</p>
+              {/if}
+              <span>
+                {role.filledCount} signed up
+                {#if role.slots > 0}
+                  · {role.slots} needed
+                {/if}
+              </span>
+            </div>
+            <button
+              class:selected={role.isViewerAssigned}
+              class="signup"
+              disabled={rolePending === role.roleId || (!role.isViewerAssigned && !roleHasOpenCapacity(role))}
+              type="button"
+              on:click={() => handleRoleCommitment(role)}
+            >
+              {signupLabel(role)}
+            </button>
+          </article>
+        {/each}
+      </div>
+    {/if}
 
-  {#if data.roles.length === 0}
-    <p class="empty-copy">No roles listed yet.</p>
-  {:else}
-    <div class="roles-grid">
-      {#each data.roles as role}
-        <article class="role-card">
-          <h3>{role.title}</h3>
-          {#if role.description}
-            <p>{role.description}</p>
-          {/if}
-          <span class="slots">
-            {role.filledCount} signed up
-            {#if role.slots > 0}
-              · {role.slots} needed
-            {/if}
-          </span>
-          <button
-            class:selected={role.isViewerAssigned}
-            class="vote-chip"
-            disabled={rolePending === role.roleId || (!role.isViewerAssigned && !roleHasOpenCapacity(role))}
-            type="button"
-            on:click={() => handleRoleCommitment(role)}
-          >
-            {rolePending === role.roleId ? 'Working...' : commitmentButtonLabel(role)}
-          </button>
-        </article>
-      {/each}
+    <div class="signal-row">
+      <VoteStrip
+        activeVote={data.activeVote}
+        count={data.voteCount}
+        docked
+        syncKey={data.id}
+        onvote={handleVote}
+      />
     </div>
-  {/if}
+  </div>
+</DetailActionDock>
 
-  {#if roleMessage}
-    <p class="role-message">{roleMessage}</p>
-  {/if}
-</section>
+{#if roleMessage}
+  <p class="role-message">{roleMessage}</p>
+{/if}
 
 <style>
-  .roles-section {
-    padding-top: 8px;
-    border-top: 1px solid var(--panel-border);
-  }
-
-  .section-header {
+  .context-dock {
     display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: baseline;
-    flex-wrap: wrap;
-    margin-bottom: 12px;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
   }
 
-  .section-header h2 {
-    margin: 0;
-    font-size: 18px;
-    color: var(--text-main);
+  .role-stack {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
   }
 
-  .empty-copy,
-  .role-message {
-    color: var(--text-soft);
-  }
-
-  .roles-grid {
+  .role-bar {
     display: grid;
-    gap: 10px;
-  }
-
-  .role-card {
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-  }
-
-  .role-card h3 {
-    margin: 0 0 6px;
-    font-size: 16px;
-  }
-
-  .role-card p {
-    margin: 0 0 8px;
-    color: var(--text-soft);
-  }
-
-  .slots {
-    display: block;
-    margin-bottom: 10px;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text-main);
-  }
-
-  .vote-chip {
-    padding: 6px 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
+    gap: 8px;
+    width: 100%;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--panel-border);
     background: var(--panel);
+  }
+
+  .role-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .role-copy strong {
+    color: var(--text-main);
+    font-size: 15px;
+  }
+
+  .role-copy p,
+  .role-copy span {
+    margin: 0;
     color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .signup {
+    width: 100%;
+    min-height: 48px;
+    border: 0;
+    border-radius: 0;
+    background: var(--brand);
+    color: var(--page-bg);
+    font-size: 16px;
+    font-weight: 800;
     cursor: pointer;
   }
 
-  .vote-chip.selected {
-    border-color: var(--brand);
-    color: var(--brand-strong);
+  .signup.selected {
+    background: var(--panel-strong);
+    color: var(--text-main);
+    box-shadow: inset 0 0 0 1px var(--panel-border);
   }
 
-  .vote-chip:disabled {
-    opacity: 0.6;
+  .signup:disabled {
+    opacity: 0.55;
     cursor: not-allowed;
+  }
+
+  .signal-row {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .signal-row :global(.vote-strip.docked) {
+    width: 100%;
+  }
+
+  .role-message {
+    margin: 8px 0 0;
+    color: var(--danger);
+    font-size: 13px;
+    font-weight: 700;
   }
 </style>

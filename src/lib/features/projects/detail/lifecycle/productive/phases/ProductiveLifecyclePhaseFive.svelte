@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import ActivitySchedulingPanel from '$lib/features/projects/detail/components/ActivitySchedulingPanel.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import { isProjectActivityPhase } from '$lib/features/projects/projectMode';
@@ -173,9 +174,16 @@
     data.lifecycle.currentSubtype === 'software'
       ? 'No activity or software governance has moved into history yet.'
       : 'No activity has moved into history yet.';
+  $: softwareGovernance = data.lifecycle.phaseFive.softwareGovernance;
   $: canSubmitPullRequest =
+    data.lifecycle.currentSubtype === 'software' && !!softwareGovernance?.viewerCanCreatePullRequests;
+  $: showSoftwareDock =
     data.lifecycle.currentSubtype === 'software' &&
-    !!data.lifecycle.phaseFive.softwareGovernance?.viewerCanCreatePullRequests;
+    Boolean(
+      softwareGovernance?.viewerCanCreatePullRequests ||
+        softwareGovernance?.viewerCanRequestRepositoryReplacement ||
+        softwareGovernance?.viewerCanRequestMergeCapabilityChanges
+    );
 
   async function handleGovernanceVote(entry: DecisionHistoryEntry, vote: ProjectApprovalVote | null) {
     switch (entry.kind) {
@@ -197,27 +205,24 @@
 
 <section id="participation-activities" class="phase-surface">
   {#if data.lifecycle.currentSubtype === 'software'}
-    <details class="governance-disclosure">
-      <summary>Software governance</summary>
-      {#if data.lifecycle.phaseFive.softwareGovernance}
-        <ProjectSoftwareGovernancePanel
-          bind:this={softwareGovernancePanel}
-          governance={data.lifecycle.phaseFive.softwareGovernance}
-          createPullRequest={createPullRequest}
-          requestMergeCapabilityChange={requestMergeCapabilityChange}
-          requestRepositoryReplacement={requestRepositoryReplacement}
-          recordMerge={recordPullRequestMerge}
-          {votePullRequest}
-          {softwareWizardRequest}
-          {onSoftwareWizardRequestHandled}
-        />
-      {:else}
-        <div class="software-governance-placeholder">
-          <h3>Software governance</h3>
-          <p>Pull request tools appear here once a leading software plan is approved for this project.</p>
-        </div>
-      {/if}
-    </details>
+    {#if softwareGovernance}
+      <ProjectSoftwareGovernancePanel
+        bind:this={softwareGovernancePanel}
+        governance={softwareGovernance}
+        createPullRequest={createPullRequest}
+        requestMergeCapabilityChange={requestMergeCapabilityChange}
+        requestRepositoryReplacement={requestRepositoryReplacement}
+        recordMerge={recordPullRequestMerge}
+        {votePullRequest}
+        {softwareWizardRequest}
+        {onSoftwareWizardRequestHandled}
+      />
+    {:else}
+      <div class="software-governance-placeholder">
+        <h3>Software governance</h3>
+        <p>Pull request tools appear here once a leading software plan is approved for this project.</p>
+      </div>
+    {/if}
   {/if}
 
   <ActivitySchedulingPanel
@@ -247,6 +252,7 @@
       selectedCalendarDayIso = isoDay;
     }}
     createAction={toggleActivityComposer}
+    showExtraDock={showSoftwareDock}
     canSubmitPullRequest={canSubmitPullRequest}
     openPullRequestWizard={openSoftwarePullRequestWizard}
     {changecommitment}
@@ -259,7 +265,34 @@
     onGovernanceVote={handleGovernanceVote}
     onLiveActivitySelect={focusActivityCard}
     onHistoryActivitySelect={focusHistoryCard}
-  />
+  >
+    <svelte:fragment slot="dock-extra">
+      {#if softwareGovernance?.viewerCanCreatePullRequests}
+        <RoundPlusButton
+          label="Pull request"
+          ariaLabel="New pull request"
+          participationAction="make-pull-request"
+          action={() => softwareGovernancePanel?.openCreatePullRequest()}
+        />
+      {/if}
+      {#if softwareGovernance?.viewerCanRequestRepositoryReplacement}
+        <RoundPlusButton
+          label="Replace repository"
+          ariaLabel="Replace repository"
+          participationAction="replace-repository"
+          action={() => softwareGovernancePanel?.openSoftwareWizard('repository-replacement')}
+        />
+      {/if}
+      {#if softwareGovernance?.viewerCanRequestMergeCapabilityChanges}
+        <RoundPlusButton
+          label="Merge capability"
+          ariaLabel="Change merge capability"
+          participationAction="change-merge-capability"
+          action={() => softwareGovernancePanel?.openSoftwareWizard('merge-capability')}
+        />
+      {/if}
+    </svelte:fragment>
+  </ActivitySchedulingPanel>
 </section>
 
 <style>
@@ -287,20 +320,4 @@
     line-height: 1.45;
   }
 
-  .governance-disclosure {
-    display: grid;
-    gap: 10px;
-  }
-
-  .governance-disclosure summary {
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--brand-strong);
-    list-style: none;
-  }
-
-  .governance-disclosure summary::-webkit-details-marker {
-    display: none;
-  }
-</style>
+  </style>

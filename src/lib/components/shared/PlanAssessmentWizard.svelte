@@ -365,15 +365,14 @@
       {/if}
 
       {#if currentContext && currentContext.blocks.length > 0}
-        <details class="criterion-context">
-          <summary>Show plan details for this criterion</summary>
+        <div class="criterion-context">
           {#each currentContext.blocks as block}
             <div class="context-block">
               <span class="context-block-label">{block.label}</span>
               <p class="context-block-value">{block.value}</p>
             </div>
           {/each}
-        </details>
+        </div>
       {/if}
 
       {#if reviewMode}
@@ -469,21 +468,10 @@
   .criterion-context {
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    padding: 8px 10px;
+    padding: 12px;
     display: grid;
-    gap: 8px;
-  }
-
-  .criterion-context summary {
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text-soft);
-    list-style: none;
-  }
-
-  .criterion-context summary::-webkit-details-marker {
-    display: none;
+    gap: 10px;
+    background: var(--panel-strong);
   }
 
   h2 {
@@ -510,10 +498,12 @@
   .rating-chip {
     flex: 1 1 0;
     min-width: 0;
+    min-height: 52px;
     display: grid;
     gap: 2px;
+    align-content: center;
     justify-items: center;
-    padding: 10px 4px;
+    padding: 8px 4px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
@@ -555,32 +545,41 @@
 
   .overall-actions,
   .rating-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0;
+    width: 100%;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
   }
 
   .vote-chip {
-    min-width: 88px;
-    min-height: 40px;
+    min-height: 52px;
     padding: 8px 14px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
+    border: 0;
+    border-radius: 0;
+    background: var(--brand);
+    color: var(--page-bg, #fff);
+    font: inherit;
+    font-size: 16px;
     font-weight: 700;
     cursor: pointer;
   }
 
+  .vote-chip.negative {
+    background: var(--danger);
+    color: #fff;
+    box-shadow: inset 1px 0 0 color-mix(in srgb, #fff 25%, transparent);
+  }
+
   .vote-chip.selected {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
+    background: var(--panel-strong);
+    color: #22c55e;
   }
 
   .vote-chip.negative.selected {
-    border-color: var(--tablet-community-bg);
-    background: color-mix(in srgb, var(--tablet-community-bg) 18%, var(--panel));
-    color: var(--tablet-community-text);
+    background: var(--panel-strong);
+    color: #ef4444;
   }
 
   .vote-chip:disabled {

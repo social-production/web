@@ -9,7 +9,7 @@
   import DetailTopTabs from '$lib/features/detail/DetailTopTabs.svelte';
   import DetailActionDock from '$lib/features/detail/DetailActionDock.svelte';
   import { detailTabFromParam, type DetailTabId } from '$lib/features/detail/detailTabs';
-  import PendingVotesPanel from '$lib/components/shared/PendingVotesPanel.svelte';
+  import VoteDockControl from '$lib/components/shared/VoteDockControl.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import MembershipSplitButton from '$lib/components/shared/MembershipSplitButton.svelte';
   import {
@@ -21,6 +21,7 @@
     setProjectPlanValueVote,
     setProjectPullRequestVote,
     setProjectRepositoryReplacementVote,
+    setProjectServiceRequestSettingsChangeVote,
     setProjectUpdateVote,
     toggleProjectMembership,
   } from '$lib/services/commands/projects';
@@ -37,7 +38,6 @@
   import { invalidateProjectDetail } from '$lib/utils/detailInvalidation';
   import {
     collectProjectPendingVotes,
-    hubActionVotes,
     scrollToPendingVote,
     type PendingVoteItem,
   } from '$lib/utils/pendingVotes';
@@ -154,7 +154,6 @@
   let assessmentRatingOverlay: Record<string, PlanCriterionRating | null> = {};
   let assessmentPlanSnapshot: NonNullable<ReturnType<typeof findProjectPlan>>['plan'] | null = null;
   let isCompact = false;
-  let votesOpen = true;
 
   onMount(() => {
     const media = window.matchMedia('(max-width: 1080px)');
@@ -191,7 +190,6 @@
   });
 
   async function focusVoteTarget(voteKind: string | null, voteTarget: string | null) {
-    votesOpen = true;
     await tick();
     if (typeof document === 'undefined') {
       return;
@@ -409,12 +407,11 @@
     showMembersPanel = false;
   }
 
-  $: pendingVotes = collectProjectPendingVotes(pageData);
-  $: hubVotes = hubActionVotes(pendingVotes);
-  $: detailVotes = pendingVotes.filter((item) => item.voteKind === 'edit' || item.voteKind === 'update');
-  $: phaseChangeVotes = pendingVotes.filter((item) => item.voteKind === 'phase_change');
-  $: participationHubVotes = hubVotes.filter(
-    (item) => item.voteKind !== 'edit' && item.voteKind !== 'update' && item.voteKind !== 'phase_change'
+  $: dockVotes = collectProjectPendingVotes(pageData);
+  $: detailVotes = dockVotes.filter((item) => item.voteKind === 'edit' || item.voteKind === 'update');
+  $: phaseChangeVotes = dockVotes.filter((item) => item.voteKind === 'phase_change');
+  $: participationVotes = dockVotes.filter(
+    (item) => item.voteKind !== 'edit' && item.voteKind !== 'update'
   );
   $: showParticipationJoin =
     !isPersonalServiceProject(pageData.projectMode) &&
@@ -526,6 +523,9 @@
       case 'repository_replacement':
         await setProjectRepositoryReplacementVote(data.slug, item.id, vote);
         break;
+      case 'request_settings':
+        await setProjectServiceRequestSettingsChangeVote(data.slug, item.id, vote);
+        break;
       case 'plan':
         if (item.planCriterionId) {
           await handlePendingAssess(item);
@@ -617,31 +617,17 @@
           </div>
         {/if}
         <div id="detail-participation-actions"></div>
+        <VoteDockControl
+          items={participationVotes}
+          sheetId="project-participation-votes"
+          buttonTarget="phase-nav-vote"
+          revealKind={autoExpandVoteKind === 'edit' || autoExpandVoteKind === 'update' ? null : autoExpandVoteKind}
+          revealId={autoExpandVoteKind === 'edit' || autoExpandVoteKind === 'update' ? null : autoExpandVoteTarget}
+          onVote={handlePendingVote}
+          onAssess={handlePendingAssess}
+          onAction={handlePendingAction}
+        />
       </DetailActionDock>
-      {#if phaseChangeVotes.length > 0 || (autoExpandVoteKind === 'phase_change' && autoExpandVoteTarget)}
-        <PendingVotesPanel
-          items={phaseChangeVotes}
-          lookupItems={pendingVotes}
-          variant="phase-title"
-          panelId="phase-change-votes-panel"
-          openVoteKind={autoExpandVoteKind}
-          openVoteId={autoExpandVoteTarget}
-          onVote={handlePendingVote}
-          onAssess={handlePendingAssess}
-          onAction={handlePendingAction}
-        />
-      {/if}
-      {#if votesOpen && (participationHubVotes.length > 0 || (autoExpandVoteKind && autoExpandVoteTarget && autoExpandVoteKind !== 'edit' && autoExpandVoteKind !== 'update' && autoExpandVoteKind !== 'phase_change'))}
-        <PendingVotesPanel
-          items={participationHubVotes}
-          lookupItems={pendingVotes}
-          openVoteKind={autoExpandVoteKind}
-          openVoteId={autoExpandVoteTarget}
-          onVote={handlePendingVote}
-          onAssess={handlePendingAssess}
-          onAction={handlePendingAction}
-        />
-      {/if}
       <div id="governance" class="overview-governance">
         <ProjectLifecyclePanel
           data={pageData}
@@ -669,7 +655,7 @@
     </div>
     {#if ChatTab}
       <div
-        class="tab-panel"
+        class="tab-panel chat-tab"
         class:tab-panel-hidden={activeTab !== 'chat'}
         hidden={activeTab !== 'chat'}
         inert={activeTab !== 'chat'}
@@ -846,6 +832,50 @@
     background: var(--panel);
     min-width: 0;
     overflow: visible;
+  }
+
+  @media (min-width: 1081px) {
+    .hero-card:has(> .chat-tab:not(.tab-panel-hidden)) {
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      height: calc(100dvh - var(--topbar-height, 56px) - var(--shell-bottom-nav-offset, 0px) - 32px);
+      min-height: 0;
+      padding: 0;
+      overflow: visible;
+    }
+
+    .chat-tab:not(.tab-panel-hidden) {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .chat-tab :global(.chat-shell) {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+      margin: 0;
+    }
+
+    .chat-tab :global(.chat-panel) {
+      flex: 1 1 auto;
+      height: auto;
+      min-height: 0;
+      max-height: none;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .chat-tab :global(.chat-header) {
+      min-height: 72px;
+      padding: 30px 16px 14px;
+      align-content: end;
+    }
   }
 
   @media (max-width: 1080px) {

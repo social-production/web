@@ -29,11 +29,18 @@
     addGroupConversationMember,
     markConversationRead,
     markLinkedChatRead,
+    pinMessage,
     removeGroupConversationMember,
     renameGroupConversation,
     sendMessage,
+    unpinMessage,
   } from '$lib/services/commands/inbox';
-  import type { DirectMessage, MessageLinkedChat, MessagesPageData } from '$lib/types/inbox';
+  import type {
+    ConversationPin,
+    DirectMessage,
+    MessageLinkedChat,
+    MessagesPageData,
+  } from '$lib/types/inbox';
   import type { ViewerSummary } from '$lib/types/bootstrap';
   import type { DetailComment } from '$lib/types/detail';
   import { tick } from 'svelte';
@@ -56,6 +63,7 @@
   let showComposer = false;
   let groupMemberDraft = '';
   let composerError = '';
+  let conversationLoadError = '';
   let showGroupOptions = false;
   let showAddMembers = false;
   let showRemoveMembers = false;
@@ -71,6 +79,12 @@
   let linkedChatOptimisticComments: DetailComment[] = [];
   let linkedChatDiscussion: DetailComment[] = [];
   let conversationMessagesById: Record<string, DirectMessage[]> = {};
+  let pinsByConversationId: Record<string, ConversationPin[]> = {};
+  let canPinByConversationId: Record<string, boolean> = {};
+  let highlightedMessageId: string | null = null;
+  let pinError = '';
+  const fastapiMessaging =
+    (import.meta.env.VITE_BACKEND ?? '').trim().toLowerCase() === 'fastapi';
   let messagesLoadingById: Record<string, boolean> = {};
   let contactSuggestions: ViewerSummary[] = [];
   let contactSearchKey = '';
@@ -119,6 +133,10 @@
   $: activeConversationMessagesLoading = activeConversationId
     ? (messagesLoadingById[activeConversationId] ?? false)
     : false;
+  $: activePins = activeConversationId ? (pinsByConversationId[activeConversationId] ?? []) : [];
+  $: canPinActiveConversation = activeConversationId
+    ? Boolean(canPinByConversationId[activeConversationId])
+    : false;
   $: activeConversationMessages = activeConversationId
     ? (conversationMessagesById[activeConversationId] ?? []).map((message) => ({
         id: message.id,
@@ -129,6 +147,8 @@
         report: message.report ?? null,
         moderationState: message.moderationState,
         showAuthor: !message.isOwn,
+        attachments: message.attachments ?? [],
+        pinned: activePins.some((pin) => pin.messageId === message.id),
       }))
     : [];
   $: directConversationPartner =
@@ -445,17 +465,27 @@
     }
 
     try {
-      const messages = await getConversationMessages(
+      const thread = await getConversationMessages(
         conversationId,
         data.viewer.id,
         conversation.participants
       );
       conversationMessagesById = {
         ...conversationMessagesById,
-        [conversationId]: messages,
+        [conversationId]: thread.messages,
       };
+      pinsByConversationId = {
+        ...pinsByConversationId,
+        [conversationId]: thread.pins,
+      };
+      canPinByConversationId = {
+        ...canPinByConversationId,
+        [conversationId]: thread.canPin,
+      };
+      conversationLoadError = '';
       return true;
-    } catch {
+    } catch (error) {
+      console.error('Could not load conversation messages', error);
       return false;
     } finally {
       if (!options.silent) {
@@ -626,7 +656,11 @@
       }
       cachedBottomNavPx = bottomPx;
     }
-    const nextHeight = Math.max(viewportHeight - topOffset - bottomPx, 320);
+    const scrollParent = messagesShellElement.closest('.main-content');
+    const padBottom = scrollParent
+      ? parseFloat(getComputedStyle(scrollParent).paddingBottom) || 0
+      : 0;
+    const nextHeight = Math.max(viewportHeight - topOffset - bottomPx - padBottom, 320);
     messagesShellElement.style.setProperty(
       '--messages-shell-height',
       `${Math.floor(nextHeight)}px`
@@ -683,13 +717,16 @@
     groupSettingsFeedback = '';
     directOptionsFeedback = '';
 
+    activeConversationId = conversationId;
+    conversationLoadError = '';
+    highlightedMessageId = null;
+    pinError = '';
+
     const loaded = await loadConversationMessages(conversationId);
 
     if (!loaded) {
-      return false;
+      conversationLoadError = 'Could not load messages.';
     }
-
-    activeConversationId = conversationId;
 
     if (browser) {
       void goto(`/messages?conversation=${encodeURIComponent(conversationId)}`, {
@@ -699,14 +736,26 @@
       });
     }
 
-    if (unreadCount > 0) {
+    if (loaded && unreadCount > 0) {
       await markConversationRead(conversationId, unreadCount);
       await refreshMessagesInbox();
       await loadConversationMessages(conversationId, { silent: true });
     }
 
     await focusConversationShell();
-    return true;
+    return loaded;
+  }
+
+  async function retryActiveConversation() {
+    if (!activeConversationId) {
+      return;
+    }
+
+    conversationLoadError = '';
+    const loaded = await loadConversationMessages(activeConversationId);
+    if (!loaded) {
+      conversationLoadError = 'Could not load messages.';
+    }
   }
 
   let handledOpenConversationId: string | null = null;
@@ -829,13 +878,17 @@
     return true;
   }
 
-  async function submitConversationMessage(body: string) {
+  async function submitConversationMessage(body: string, files?: File[]) {
     if (!activeConversation) {
       return;
     }
 
     const conversationId = activeConversation.id;
     const optimisticId = `pending-${Date.now()}`;
+    const previewUrls = (files ?? [])
+      .filter((file) => file.type.startsWith('image/'))
+      .map((file) => URL.createObjectURL(file));
+    let previewIndex = 0;
     const optimisticMessage: DirectMessage = {
       id: optimisticId,
       body,
@@ -847,6 +900,14 @@
         profileImageUrl: data.viewer.profileImageUrl,
       },
       report: null,
+      attachments: (files ?? []).map((file, index) => ({
+        id: `${optimisticId}-${index}`,
+        kind: file.type.startsWith('image/') ? 'image' : 'file',
+        filename: file.name,
+        contentType: file.type || 'application/octet-stream',
+        byteSize: file.size,
+        url: file.type.startsWith('image/') ? previewUrls[previewIndex++] : '',
+      })),
     };
 
     conversationMessagesById = {
@@ -856,7 +917,7 @@
 
     composerError = '';
     try {
-      await sendMessage(conversationId, body);
+      await sendMessage(conversationId, body, files);
       await loadConversationMessages(conversationId, { silent: true });
       void refreshMessagesInbox();
     } catch (err) {
@@ -878,16 +939,51 @@
       } else {
         composerError = 'Could not send message';
       }
-      throw new ChatSendError();
+      throw new ChatSendError(composerError);
+    } finally {
+      for (const previewUrl of previewUrls) {
+        URL.revokeObjectURL(previewUrl);
+      }
     }
   }
 
-  async function submitLinkedChatMessage(body: string) {
+  async function focusPinnedMessage(messageId: string) {
+    if (highlightedMessageId === messageId) {
+      highlightedMessageId = null;
+      await tick();
+    }
+
+    highlightedMessageId = messageId;
+  }
+
+  async function toggleConversationPin(messageId: string, pinned: boolean) {
+    if (!activeConversationId) {
+      return;
+    }
+
+    composerError = '';
+    pinError = '';
+
+    try {
+      if (pinned) {
+        await unpinMessage(activeConversationId, messageId);
+      } else {
+        await pinMessage(activeConversationId, messageId);
+      }
+
+      await loadConversationMessages(activeConversationId, { silent: true });
+    } catch (err) {
+      composerError = err instanceof Error ? err.message : 'Could not update the pin';
+      pinError = composerError;
+    }
+  }
+
+  async function submitLinkedChatMessage(body: string, files?: File[]) {
     if (!activeLinkedChat) {
       return;
     }
 
-    const optimistic = createOptimisticComment(data.viewer.username, body);
+    const optimistic = createOptimisticComment(data.viewer.username, body, files);
     linkedChatOptimisticComments = [...linkedChatOptimisticComments, optimistic];
 
     registerEntityType(activeLinkedChat.subjectId, linkedChatEntityType(activeLinkedChat.kind));
@@ -898,7 +994,9 @@
           id: activeLinkedChat.subjectId,
           type: linkedChatEntityType(activeLinkedChat.kind),
         },
-        body
+        body,
+        undefined,
+        files
       );
     } catch {
       linkedChatOptimisticComments = linkedChatOptimisticComments.filter(
@@ -1133,6 +1231,32 @@
             >
           </div>
         {/if}
+
+        {#if activePins.length}
+          <div class="pin-bar" aria-label="Pinned messages">
+            {#each activePins as pin (pin.messageId)}
+              <div class="pin-chip">
+                <button class="pin-jump" type="button" on:click={() => focusPinnedMessage(pin.messageId)}>
+                  {pin.preview || 'Pinned message'}
+                </button>
+                {#if canPinActiveConversation}
+                  <button
+                    aria-label={`Unpin ${pin.preview || 'message'}`}
+                    class="pin-remove"
+                    type="button"
+                    on:click={() => toggleConversationPin(pin.messageId, true)}
+                  >
+                    Unpin
+                  </button>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        {#if pinError}
+          <p class="pin-error" role="alert">{pinError}</p>
+        {/if}
       </header>
 
       {#if activeConversation?.kind === 'group' && showGroupOptions}
@@ -1267,12 +1391,25 @@
       {/if}
 
       {#if activeConversation}
+        {#if conversationLoadError}
+          <div class="conversation-load-error" role="alert">
+            <p>{conversationLoadError}</p>
+            <button type="button" on:click={retryActiveConversation}>Try again</button>
+          </div>
+        {/if}
         <LiveChatPanel
+          allowAttachments={fastapiMessaging}
           embedded={true}
-          emptyCopy={activeConversationMessagesLoading ? 'Loading messages...' : 'No messages yet.'}
+          emptyCopy={activeConversationMessagesLoading
+            ? 'Loading messages...'
+            : conversationLoadError
+              ? ''
+              : 'No messages yet.'}
+          highlightedCommentId={highlightedMessageId}
           messages={activeConversationMessages}
           onModerated={refreshActiveThread}
           onSubmitMessage={submitConversationMessage}
+          onTogglePin={fastapiMessaging && canPinActiveConversation ? toggleConversationPin : null}
           placeholder="Write a message..."
           reportTargetType="message"
           showHeader={false}
@@ -1282,6 +1419,7 @@
         />
       {:else if activeLinkedChat}
         <LiveChatPanel
+          allowAttachments={fastapiMessaging}
           comments={linkedChatDiscussion}
           embedded={true}
           emptyCopy={linkedChatCommentsLoading
@@ -1501,6 +1639,53 @@
     align-items: center;
   }
 
+  .pin-bar {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-top: 4px;
+  }
+
+  .pin-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    max-width: 240px;
+    padding: 4px 8px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel);
+  }
+
+  .pin-jump,
+  .pin-remove {
+    border: none;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .pin-jump {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pin-remove {
+    color: var(--text-soft);
+  }
+
+  .pin-error {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--danger);
+    font-size: 13px;
+  }
+
   .chat-identity,
   .conversation-copy,
   .composer-field,
@@ -1634,6 +1819,35 @@
     border-color: var(--brand);
     background: var(--brand-soft);
     color: var(--brand-strong);
+  }
+
+  .conversation-load-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0;
+    padding: 10px 16px;
+    background: var(--panel-strong);
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .conversation-load-error p {
+    margin: 0;
+  }
+
+  .conversation-load-error button {
+    flex: 0 0 auto;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
   }
 
   .composer-feedback {

@@ -194,43 +194,13 @@
       <div>
         <h3>Software governance</h3>
         <p>
-          Create pull requests and manage repository roles here. Votes, merges, and merge confirmations appear in the
-          main Action needed panel and right rail.
+          Pull requests, the official repository, and who can merge are managed here. Open a pull request, replace the
+          repository, or change merge capability from the controller at the bottom.
         </p>
-      </div>
-      <div class="panel-actions">
-        {#if governance.viewerCanCreatePullRequests}
-          <button
-            class="detail-action-button"
-            type="button"
-            data-participation-action="make-pull-request"
-            on:click={() => openWizard('create-pr')}
-          >
-            New pull request
-          </button>
-        {/if}
-        {#if governance.viewerCanRequestRepositoryReplacement}
-          <button
-            class="detail-action-button"
-            type="button"
-            on:click={() => openWizard('repository-replacement')}
-          >
-            Replace repository
-          </button>
-        {/if}
-        {#if governance.viewerCanRequestMergeCapabilityChanges}
-          <button
-            class="detail-action-button"
-            type="button"
-            on:click={() => openWizard('merge-capability')}
-          >
-            Change merge capability
-          </button>
-        {/if}
       </div>
     </div>
 
-    <div class="detail-card metadata-lines">
+    <div class="metadata-lines">
       <p>
         Official repository:
         <a class="repo-link" href={normalizeExternalUrl(governance.repositoryUrl)} rel="noreferrer" target="_blank">
@@ -454,48 +424,8 @@
   }
 
   .panel-header {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-  }
-
-  .panel-actions {
-    display: flex;
-    gap: 8px;
-    align-items: stretch;
-    justify-content: flex-start;
-    flex-wrap: nowrap;
-  }
-
-  .panel-actions :global(.detail-action-button) {
-    white-space: nowrap;
-  }
-
-  @media (max-width: 760px) {
-    .panel-header {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .panel-actions {
-      width: 100%;
-      gap: 6px;
-    }
-
-    .panel-actions :global(.detail-action-button) {
-      flex: 1 1 0;
-      min-width: 0;
-      min-height: 52px;
-      padding: 8px 6px;
-      white-space: normal;
-      text-align: center;
-      font-size: 11px;
-      line-height: 1.25;
-      align-items: center;
-      justify-content: center;
-    }
+    display: grid;
+    gap: 6px;
   }
 
   .panel-header h3,
@@ -519,14 +449,17 @@
     background: var(--panel-strong);
   }
 
-  .metadata-lines p {
-    margin: 0;
-    line-height: 1.45;
+  .metadata-lines {
+    display: grid;
+    gap: 2px;
   }
 
+  .metadata-lines p,
   .github-note {
-    font-size: 12px;
-    line-height: 1.4;
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .history-list,
@@ -739,5 +672,10 @@
     text-decoration: underline;
     text-underline-offset: 2px;
     font-weight: 700;
+  }
+
+  .metadata-lines .repo-link {
+    color: var(--text-main);
+    font-weight: 400;
   }
 </style>

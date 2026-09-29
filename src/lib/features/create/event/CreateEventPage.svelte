@@ -1,6 +1,5 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import EventCard from '$lib/components/cards/public-feed/EventCard.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import TimePicker from '$lib/components/shared/TimePicker.svelte';
@@ -20,7 +19,7 @@
   } from '$lib/features/events/detail/lifecycle/eventLifecycleShared';
   import { createEvent } from '$lib/services/commands/create';
   import type { ScopeDirectoryItem, ViewerSummary } from '$lib/types/bootstrap';
-  import type { EventAudience, EventGovernance, PublicEventItem, TagKind, TagRef } from '$lib/types/feed';
+  import type { EventAudience, EventGovernance, TagKind, TagRef } from '$lib/types/feed';
   import { emptyLocationPickerValue, type LocationPickerValue } from '$lib/types/locationPicker';
   import {
     applyScopePrefillToSelections,
@@ -145,7 +144,6 @@
     );
   }
 
-  $: viewer = $page.data.bootstrap?.viewer ?? null;
   $: updateTaggableScopes(channelQuery, communityQuery);
   $: allChannelOptions = mergeScopeOptions(channelSuggestionPool, selectedChannelOptions);
   $: allCommunityOptions = mergeScopeOptions(communitySuggestionPool, selectedCommunityOptionsCache);
@@ -334,43 +332,6 @@
     ? validatePrivatePlan(planForm)
     : { schedule: null, validationMessages: [] as string[] };
   $: canContinuePlan = planValidation.validationMessages.length === 0;
-
-  $: previewItem = viewer
-    ? ({
-        kind: 'event',
-        id: 'event-preview',
-        slug: 'event-preview',
-        href: '#',
-        createdAt: new Date().toISOString(),
-        title: title.trim() || 'Untitled event',
-        description:
-          description.trim() ||
-          'Describe the event, who it is for, and what should happen.',
-        isPrivate,
-        stage: requiresUpfrontPlan
-          ? 'Activity'
-          : 'Proposal',
-        channelTags: selectedScopeTags(selectedChannelIds, allChannelOptions, 'channel'),
-        communityTags: selectedScopeTags(selectedCommunityIds, allCommunityOptions, 'community'),
-        createdByUsername: viewer.username,
-        timeLabel: planForm.startTimeLabel.trim() || '',
-        locationLabel:
-          locationIntent === 'online'
-            ? 'Online'
-            : locationIntent === 'physical'
-              ? locationValue.displayLabel.trim() || 'Physical location'
-              : 'Location TBD',
-        voteCount: 0,
-        activeVote: 0,
-        supportCount: 0,
-        opposeCount: 0,
-        favorability: null,
-        viewerSignal: null,
-        commentCount: 0,
-        memberCount: 1 + invitedUsernames.length,
-        lastActivityAt: new Date().toISOString()
-      } satisfies PublicEventItem)
-    : null;
 
   $: canSubmit =
     title.trim().length > 0 &&
@@ -572,7 +533,7 @@
   <svelte:fragment slot="primary">
     <CreatePanel
       title="Create event"
-      description="Choose audience first, then fill the sections that apply."
+      description="An event gathers people for a planned occasion. Public events start as proposals. Private events can open straight into activity when an organizer sets the plan."
     >
       <CreateWizard
         steps={wizardSteps}
@@ -843,22 +804,6 @@
           {/if}
         </svelte:fragment>
       </CreateWizard>
-    </CreatePanel>
-  </svelte:fragment>
-
-  <svelte:fragment slot="secondary">
-    <CreatePanel
-      title="Live preview"
-      description={requiresUpfrontPlan
-        ? 'Organizer-controlled private events start in Activity once the plan is set. Members join and sign up for roles; organizers manage the plan and activities.'
-        : isPrivate
-          ? 'Collaborative private events follow the same signals → values → plans flow as public events.'
-          : 'Shows how the proposal will appear before schedule details are finalized.'}
-      surface="transparent"
-    >
-      {#if previewItem}
-        <EventCard item={previewItem} />
-      {/if}
     </CreatePanel>
   </svelte:fragment>
 </CreateFlowLayout>

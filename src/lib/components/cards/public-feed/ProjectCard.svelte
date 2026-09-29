@@ -120,8 +120,6 @@
     align-items: center;
     gap: 8px;
     margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid var(--panel-border);
     color: var(--text-soft);
     font-size: 13px;
   }

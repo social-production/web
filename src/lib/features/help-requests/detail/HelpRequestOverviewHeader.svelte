@@ -1,108 +1,101 @@
 <script lang="ts">
-  import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
-  import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
-  import { setVote } from '$lib/services/commands/shared';
+  import { page } from '$app/stores';
   import type { HelpRequestPageData } from '$lib/types/detail';
-  import type { VoteDirection } from '$lib/types/feed';
+  import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
   import { formatLocalDateTime } from '$lib/utils/time';
 
   export let data: HelpRequestPageData;
 
   $: combinedTags = [...data.channelTags, ...data.communityTags];
-  $: signedUp = data.roles.reduce((total, role) => total + role.filledCount, 0);
-  $: needed = data.roles.reduce((total, role) => total + role.slots, 0);
-  $: whenLabel = data.scheduleLabel?.trim() || formatLocalDateTime(data.neededAt);
-
-  async function handleVote({ vote }: { vote: VoteDirection }) {
-    await setVote({ id: data.id, type: 'help_request' }, vote);
-  }
+  $: timeLabel = data.neededAt
+    ? formatLocalDateTime(data.neededAt)
+    : isImplementedScheduleLabel(data.scheduleLabel)
+      ? data.scheduleLabel.trim()
+      : '';
+  $: locationLabel = isImplementedScheduleLabel(data.locationLabel) ? data.locationLabel.trim() : '';
 </script>
 
-<div class="header-row">
-  <div class="chips">
-    <SurfaceTypeLabel kind="help-request" />
-    <ReportControl
-      hasActiveReport={Boolean(data.report)}
-      isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
-      itemLabel="help request"
-      moderationState={data.moderationState}
-      report={data.report}
-      ownerUsername={data.authorUsername}
-      subjectId={data.id}
-      targetId={data.id}
-      targetType="help_request"
+<div class="context-panel">
+  <div class="header-row">
+    <div class="chips">
+      <SurfaceTypeLabel kind="help-request" />
+      <ReportControl
+        hasActiveReport={Boolean(data.report)}
+        isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
+        itemLabel="help request"
+        moderationState={data.moderationState}
+        report={data.report}
+        ownerUsername={data.authorUsername}
+        subjectId={data.id}
+        targetId={data.id}
+        targetType="help_request"
+      />
+    </div>
+
+    <div class="header-actions">
+      <TagList tags={combinedTags} maxVisible={1} />
+    </div>
+  </div>
+
+  <div class="heading overview-heading">
+    <div class="identity-copy">
+      <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
+        <h1>{data.title}</h1>
+      </ModerationRestrictionNotice>
+      {#if timeLabel}
+        <p class="live-fact">{timeLabel}</p>
+      {/if}
+      {#if locationLabel}
+        <p class="live-fact">{locationLabel}</p>
+      {/if}
+      <GuestBrowseLine kind="help request" />
+      <p class="overview-copy">{data.body}</p>
+    </div>
+  </div>
+
+  <div class="context-meta">
+    <ContentMetaRow
+      authorUsername={data.authorUsername}
+      authorHref={`/profile/${data.authorUsername}?from=${encodeURIComponent($page.url.pathname)}`}
+      createdAt={data.createdAt}
     />
   </div>
-
-  <div class="header-actions">
-      <TagList tags={combinedTags} maxVisible={null} />
-  </div>
-</div>
-
-<ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
-  <h1>{data.title}</h1>
-  <GuestBrowseLine kind="help request" />
-  <p class="overview-copy">{data.body}</p>
-</ModerationRestrictionNotice>
-
-<section class="meta-block" aria-label="Help request overview details">
-  <ul class="meta-list">
-    {#if data.locationLabel}
-      <li class="meta-item">
-        <strong>Location</strong>
-        <span>{data.locationLabel}</span>
-      </li>
-    {/if}
-    {#if whenLabel}
-      <li class="meta-item">
-        <strong>When</strong>
-        <span>{whenLabel}</span>
-      </li>
-    {/if}
-    {#if needed > 0}
-      <li class="meta-item">
-        <strong>Signups</strong>
-        <span>{signedUp} signed up · {needed} needed</span>
-      </li>
-    {/if}
-  </ul>
-</section>
-
-<div class="overview-footer-row">
-  <VoteStrip activeVote={data.activeVote} count={data.voteCount} syncKey={data.id} onvote={handleVote} />
-  <a class="comment-link" href={`/help-requests/${data.id}?tab=chat`}>
-    <CountPill label={`${data.commentCount} comments`} />
-  </a>
-  <span class="footer-author-row">
-    <ContentMetaRow authorUsername={data.authorUsername} createdAt={data.createdAt} />
-  </span>
 </div>
 
 <style>
+  .context-panel {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+  }
+
   .header-row,
   .chips,
-  .header-actions,
-  .overview-footer-row {
+  .header-actions {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     align-items: center;
     flex-wrap: wrap;
+    min-width: 0;
   }
 
   .header-row {
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
+    flex-wrap: nowrap;
   }
 
   .chips {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
   }
 
   .header-actions {
@@ -119,90 +112,59 @@
     flex: 0 0 auto;
   }
 
-  h1 {
-    margin-top: 10px;
-    font-size: 24px;
-    letter-spacing: -0.02em;
-    color: var(--text-main);
+  .heading {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 16px;
+    padding-bottom: 12px;
   }
 
-  strong {
-    font-size: 14px;
-    color: var(--text-main);
+  .identity-copy {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  .live-fact {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .overview-copy {
-    margin: 8px 0 16px;
-    max-width: 78ch;
-    color: var(--text-soft);
-    line-height: 1.55;
-  }
-
-  .meta-block {
-    padding: 18px 0 12px;
-    border-top: 1px solid var(--panel-border);
-  }
-
-  .meta-list {
-    display: grid;
-    gap: 14px;
     margin: 0;
-    padding: 0;
-    list-style: none;
+    max-width: 78ch;
+    color: var(--text-main);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
   }
 
-  .meta-item {
-    display: grid;
-    gap: 6px;
-  }
-
-  .meta-item span {
-    color: var(--text-soft);
-    line-height: 1.5;
-  }
-
-  .overview-footer-row {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    padding-top: 16px;
-    padding-bottom: 12px;
-    border-top: 1px solid var(--panel-border);
-  }
-
-  .footer-author-row {
-    margin-left: auto;
-    max-width: 100%;
+  .context-meta {
     display: flex;
     justify-content: flex-end;
-    overflow: visible;
-    color: var(--text-soft);
+    width: 100%;
+    min-width: 0;
+    margin-top: auto;
+    padding-top: 12px;
   }
 
-  .footer-author-row :global(.content-meta-row),
-  .footer-author-row :global(.inline-link) {
-    max-width: none;
-    overflow: visible;
-    text-overflow: clip;
-  }
-
-  .comment-link {
-    color: inherit;
-    text-decoration: none;
-  }
-
-  @media (max-width: 760px) {
-    .overview-footer-row {
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .footer-author-row :global(.content-meta-row) {
-      overflow: visible;
-    }
-
-    .footer-author-row :global(.inline-link) {
-      flex: 0 0 auto;
-    }
+  .context-meta :global(.content-meta-row) {
+    margin-left: auto;
+    max-width: 100%;
   }
 </style>

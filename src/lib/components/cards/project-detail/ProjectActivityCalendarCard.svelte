@@ -1,7 +1,8 @@
 <script lang="ts">
+  import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import type { ProjectActivityItem } from '$lib/types/detail';
-  import { formatIsoDayLabel, isoDayFromValue } from '$lib/utils/calendarDay';
+  import { isoDayFromValue } from '$lib/utils/calendarDay';
 
   type CalendarInteractionAnchor = {
     clientX: number;
@@ -13,6 +14,7 @@
   export let selectedDayIso = '';
   export let selectedActivityId = '';
   export let canCreate = false;
+  export let showExtraDock = false;
   export let createActive = false;
   export let createButtonLabel = 'Add activity';
   export let createAriaLabel = 'Add activity';
@@ -252,9 +254,6 @@
     (calendarDays.some((day) => day.isoDay === todayIso) ? todayIso : '') ||
     calendarDays.find((day) => day.items.length > 0)?.isoDay ||
     '';
-  $: agendaDay = calendarDays.find((day) => day.isoDay === agendaDayIso) ?? null;
-  $: agendaItems = agendaDay?.items ?? [];
-  $: agendaLabel = agendaDayIso ? formatIsoDayLabel(agendaDayIso) : '';
 
   function elementAnchor(element: HTMLElement): CalendarInteractionAnchor {
     const rect = element.getBoundingClientRect();
@@ -308,12 +307,16 @@
 
 <div class="calendar-shell surface-card">
   <div class="calendar-toolbar">
-    <button class="month-button" type="button" on:click={() => shiftVisibleMonth(-1)}>
-      Prev
+    <button aria-label="Previous month" class="month-button" type="button" on:click={() => shiftVisibleMonth(-1)}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
+        <path d="M14.5 6.5 9 12l5.5 5.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+      </svg>
     </button>
     <strong class="month-label">{visibleMonthLabel}</strong>
-    <button class="month-button" type="button" on:click={() => shiftVisibleMonth(1)}>
-      Next
+    <button aria-label="Next month" class="month-button" type="button" on:click={() => shiftVisibleMonth(1)}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
+        <path d="m9.5 6.5 5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+      </svg>
     </button>
   </div>
 
@@ -384,45 +387,24 @@
       </div>
     {/each}
   </div>
-
-  {#if agendaDayIso}
-    <div class="day-agenda">
-      <div class="agenda-head">
-        <strong>{agendaLabel}</strong>
-        <span>{agendaItems.length} {agendaItems.length === 1 ? 'activity' : 'activities'}</span>
-      </div>
-      {#if agendaItems.length === 0}
-        <p class="agenda-empty">No activities.</p>
-      {:else}
-        <div class="agenda-list">
-          {#each agendaItems as item (item.id)}
-            <button
-              class={`agenda-row tone-${item.statusTone}`}
-              class:selected-activity={selectedActivityId === item.id}
-              type="button"
-              on:click={(event) =>
-                activitySelect(item.id, eventAnchor(event, event.currentTarget as HTMLElement))}
-            >
-              <span class="agenda-time">{item.startTimeLabel}–{item.endTimeLabel}</span>
-              <span class="agenda-title">{item.title}</span>
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  {/if}
 </div>
 
-{#if canCreate}
-  <div class="create-row">
-    <RoundPlusButton
-      action={(event) => createAction(event ? eventAnchor(event, event.currentTarget as HTMLElement) : undefined)}
-      active={createActive}
-      label={createButtonLabel}
-      ariaLabel={createAriaLabel}
-      participationAction="propose-activity"
-    />
-  </div>
+{#if canCreate || showExtraDock}
+  <PhaseWorkToolbar>
+    {#if canCreate}
+      <RoundPlusButton
+        standout
+        action={(event) => createAction(event ? eventAnchor(event, event.currentTarget as HTMLElement) : undefined)}
+        active={createActive}
+        label={createButtonLabel}
+        ariaLabel={createAriaLabel}
+        participationAction="propose-activity"
+      />
+    {/if}
+    <svelte:fragment slot="governance">
+      <slot name="extra" />
+    </svelte:fragment>
+  </PhaseWorkToolbar>
 {/if}
 
 <style>
@@ -454,14 +436,16 @@
   }
 
   .month-button {
-    padding: 8px 12px;
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
     border: 1px solid var(--panel-border);
     border-radius: 999px;
     background: var(--panel);
     color: var(--text-main);
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
     transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
   }
 
@@ -485,7 +469,7 @@
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 4px;
+    gap: 0;
     min-width: 0;
   }
 
@@ -504,7 +488,7 @@
     position: relative;
     overflow: hidden;
     border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
+    border-radius: 0;
     background: var(--panel);
     min-width: 0;
     min-height: 96px;
@@ -633,78 +617,6 @@
   .tone-muted,
   .activity-dot.tone-muted {
     background: color-mix(in srgb, var(--text-soft) 35%, var(--panel));
-  }
-
-  .day-agenda {
-    display: grid;
-    gap: 8px;
-    padding-top: 4px;
-    border-top: 1px solid var(--panel-border);
-  }
-
-  .agenda-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    align-items: baseline;
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .agenda-head strong {
-    color: var(--text-main);
-    font-size: 13px;
-  }
-
-  .agenda-empty {
-    margin: 0;
-    color: var(--text-soft);
-    font-size: 13px;
-  }
-
-  .agenda-list {
-    display: grid;
-    gap: 6px;
-  }
-
-  .agenda-row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 10px;
-    align-items: center;
-    width: 100%;
-    min-height: 44px;
-    padding: 8px 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-main);
-    text-align: left;
-    cursor: pointer;
-    font: inherit;
-  }
-
-  .agenda-row.selected-activity,
-  .agenda-row:hover,
-  .agenda-row:focus-visible {
-    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 40%, var(--panel));
-  }
-
-  .agenda-time {
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-
-  .agenda-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-    font-weight: 700;
   }
 
   @container (max-width: 560px) {

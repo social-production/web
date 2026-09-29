@@ -3,6 +3,7 @@ import {
   clearBootstrapCache,
   isBootstrapCacheConsistentWithAuth,
   isBootstrapCacheFresh,
+  patchBootstrapCacheSettings,
   readBootstrapCache,
   readCachedSettings,
   resetBootstrapCacheStaleGuardForTests,
@@ -38,6 +39,19 @@ describe('bootstrapCache', () => {
     writeBootstrapCache(sampleBootstrap('user-1'), settings);
     expect(readBootstrapCache()?.viewer?.id).toBe('user-1');
     expect(readCachedSettings()?.publicFeedPreferences.sort).toBe('recent');
+  });
+
+  it('keeps a patched public feed scope for the next home load', () => {
+    const settings = {
+      profileUsername: 'ada',
+      publicFeedPreferences: { scope: 'region', filter: 'all', sort: 'trending', window: 'all' }
+    } as SettingsPageData;
+    writeBootstrapCache(sampleBootstrap('user-1'), settings);
+    patchBootstrapCacheSettings({
+      ...settings,
+      publicFeedPreferences: { scope: 'global', filter: 'all', sort: 'trending', window: 'all' }
+    });
+    expect(readCachedSettings()?.publicFeedPreferences.scope).toBe('global');
   });
 
   it('rejects a cached viewer when there is no remembered auth', () => {

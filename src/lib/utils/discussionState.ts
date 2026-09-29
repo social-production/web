@@ -22,7 +22,23 @@ export function isOptimisticCommentId(id: string): boolean {
   return id.startsWith('pending-');
 }
 
-export function createOptimisticComment(authorUsername: string, body: string): DetailComment {
+export function createOptimisticComment(
+  authorUsername: string,
+  body: string,
+  file?: File | File[] | null
+): DetailComment {
+  const files = !file ? [] : Array.isArray(file) ? file : [file];
+  const attachments = files.length
+    ? files.map((item, index) => ({
+        id: `pending-file-${Date.now()}-${index}`,
+        kind: item.type.startsWith('image/') ? ('image' as const) : ('file' as const),
+        filename: item.name || 'file',
+        contentType: item.type,
+        byteSize: item.size,
+        url: item.type.startsWith('image/') ? URL.createObjectURL(item) : ''
+      }))
+    : undefined;
+
   return {
     id: `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     authorUsername,
@@ -31,6 +47,7 @@ export function createOptimisticComment(authorUsername: string, body: string): D
     voteCount: 0,
     activeVote: 0,
     report: null,
+    ...(attachments ? { attachments } : {}),
     replies: []
   };
 }
@@ -47,6 +64,12 @@ function serverHasMatchingComment(
     }
 
     if (comment.body !== optimistic.body) {
+      return false;
+    }
+
+    const optimisticFiles = (optimistic.attachments ?? []).map((item) => item.filename).join('\n');
+    const serverFiles = (comment.attachments ?? []).map((item) => item.filename).join('\n');
+    if (optimisticFiles && serverFiles && optimisticFiles !== serverFiles) {
       return false;
     }
 
@@ -79,6 +102,9 @@ export function pruneOptimisticComments(
     const keep = !serverHasMatchingComment(serverDiscussion, comment);
     if (!keep) {
       changed = true;
+      for (const attachment of comment.attachments ?? []) {
+        if (attachment.url.startsWith('blob:')) URL.revokeObjectURL(attachment.url);
+      }
     }
     return keep;
   });

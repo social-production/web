@@ -1585,7 +1585,7 @@
 
   .custom-date-menu-portaled {
     position: fixed;
-    z-index: 80;
+    z-index: var(--z-menu);
   }
 
   .custom-date-field {

@@ -18,6 +18,7 @@
   } from '$lib/services/queries/feeds';
   import { getSettings } from '$lib/services/queries/account';
   import { updateSettings } from '$lib/services/commands/account';
+  import { patchBootstrapCacheSettings, readCachedSettings } from '$lib/services/bootstrapCache';
   import { searchLocations } from '$lib/services/queries/locations';
   import { readDefaultLocation, writeDefaultLocation } from '$lib/location/defaults';
   import {
@@ -99,6 +100,8 @@
   let includeOnline = false;
   let placeQuery = '';
   let placeLabel = '';
+  let placeSearchFocused = false;
+  let placeBlurTimer: ReturnType<typeof setTimeout> | null = null;
   let centerLat: number | null = null;
   let centerLon: number | null = null;
   let placeSuggestions: Array<{ label: string; lat: number; lon: number }> = [];
@@ -326,6 +329,7 @@
     centerLat = suggestion.lat;
     centerLon = suggestion.lon;
     placeSuggestions = [];
+    placeSearchFocused = false;
     const viewerId = $page.data.bootstrap?.viewer?.id ?? null;
     writeDefaultLocation(viewerId, {
       displayLabel: suggestion.label,
@@ -376,6 +380,30 @@
     debouncedSearchPlaces(placeQuery);
   }
 
+  function focusPlaceSearch() {
+    if (placeBlurTimer) {
+      clearTimeout(placeBlurTimer);
+      placeBlurTimer = null;
+    }
+    placeSearchFocused = true;
+  }
+
+  function blurPlaceSearch() {
+    placeBlurTimer = setTimeout(() => {
+      const active = document.activeElement;
+      if (active instanceof Element && active.closest('.place-search')) {
+        placeSearchFocused = true;
+        placeBlurTimer = null;
+        return;
+      }
+      placeSearchFocused = false;
+      placeSuggestions = [];
+      placeBlurTimer = null;
+    }, 180);
+  }
+
+  $: placeSearchExpanded = placeSearchFocused || placeSuggestions.length > 0;
+
   async function persistPreferences() {
     if (!preferencesReady || isHydratingPreferences || !$page.data.bootstrap?.viewer) {
       return;
@@ -385,6 +413,14 @@
     const signature = preferenceSignature(preferences);
     if (signature === lastPersistedPreferences) {
       return;
+    }
+
+    const cached = readCachedSettings() ?? $page.data.settings ?? null;
+    if (cached) {
+      patchBootstrapCacheSettings({
+        ...cached,
+        publicFeedPreferences: preferences
+      });
     }
 
     await updateSettings({ publicFeedPreferences: preferences });
@@ -443,11 +479,7 @@
   async function syncFeedQueryToUrl() {
     const params = new URLSearchParams($page.url.searchParams);
 
-    if (activeScope === 'global') {
-      params.delete('scope');
-    } else {
-      params.set('scope', activeScope);
-    }
+    params.set('scope', activeScope);
 
     if (activeFilter === 'all') {
       params.delete('filter');
@@ -619,7 +651,7 @@
         ariaLabel="Choose public feed scope"
         defaultValue="global"
         options={scopeOptions}
-        showTriggerLabel={showTriggerLabels}
+        showTriggerLabel={activeScope !== 'region' && showTriggerLabels}
         on:change={handlePreferencesChange}
       >
         <FeedToolbarIcon
@@ -633,7 +665,7 @@
         defaultValue="all"
         options={filterOptions}
         showOptionIcons
-        showTriggerLabel={showTriggerLabels}
+        showTriggerLabel={activeScope !== 'region' && showTriggerLabels}
         on:change={handlePreferencesChange}
       >
         <FeedToolbarIcon name="filter" />
@@ -643,7 +675,7 @@
         bind:value={activeSort}
         ariaLabel="Sort public feed by"
         options={sortOptions}
-        showTriggerLabel={showTriggerLabels}
+        showTriggerLabel={activeScope !== 'region' && showTriggerLabels}
         on:change={handlePreferencesChange}
       >
         <FeedToolbarIcon name="sort" />
@@ -654,7 +686,7 @@
         ariaLabel="Public feed time window"
         defaultValue="all"
         options={windowOptions}
-        showTriggerLabel={showTriggerLabels}
+        showTriggerLabel={activeScope !== 'region' && showTriggerLabels}
         on:change={handlePreferencesChange}
       >
         <FeedToolbarIcon name="clock" />
@@ -664,10 +696,31 @@
         <RadiusCombobox
           bind:value={activeRadius}
           ariaLabel="Region radius"
+          compact
           options={radiusOptions}
           portaled
           on:change={handleRadiusChange}
         />
+
+        <label class="place-search" class:expanded={placeSearchExpanded}>
+          <input
+            aria-label="Place"
+            bind:value={placeQuery}
+            placeholder="Place"
+            on:focus={focusPlaceSearch}
+            on:blur={blurPlaceSearch}
+            on:input={() => void searchPlaces()}
+          />
+        </label>
+
+        <button
+          aria-label="Use my location"
+          class="icon-button"
+          type="button"
+          on:click={() => void useDeviceCenter()}
+        >
+          <FeedToolbarIcon name="locate" />
+        </button>
 
         <button
           aria-label="Include online list"
@@ -687,28 +740,6 @@
     </div>
 
     {#if activeScope === 'region'}
-      <div class="controls-row controls-row-region">
-        <label class="place-search">
-          <input
-            aria-label="Place"
-            bind:value={placeQuery}
-            placeholder="City or address"
-            on:input={() => void searchPlaces()}
-          />
-        </label>
-
-        <button
-          aria-label="Use my location"
-          class="icon-button"
-          type="button"
-          on:click={() => void useDeviceCenter()}
-        >
-          <FeedToolbarIcon name="locate" />
-        </button>
-      </div>
-    {/if}
-
-    {#if activeScope === 'region'}
       {#if locationMessage}
         <p class="inline-alert" role="alert">{locationMessage}</p>
       {/if}
@@ -716,7 +747,7 @@
         <ul class="suggestions">
           {#each placeSuggestions as suggestion}
             <li>
-              <button type="button" on:click={() => selectPlace(suggestion)}
+              <button type="button" on:mousedown|preventDefault on:click={() => selectPlace(suggestion)}
                 >{suggestion.label}</button
               >
             </li>
@@ -769,6 +800,8 @@
 
   .feed-page {
     gap: 0;
+    min-width: 0;
+    overflow-x: clip;
   }
 
   .stack {
@@ -791,47 +824,58 @@
   }
 
   .toolbar-card {
+    position: relative;
     padding: 12px var(--page-gutter);
     border: none;
     border-bottom: 1px solid var(--panel-border);
     border-radius: 0;
     background: transparent;
+    overflow: visible;
   }
 
   .toolbar-card-region {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
+    align-items: flex-start;
+    min-width: 0;
   }
 
   .controls-row {
     display: flex;
+    flex: 1 1 100%;
     align-items: center;
-    gap: 6px;
-    overflow-x: auto;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
     padding-bottom: 2px;
-    min-width: 0;
-  }
-
-  .controls-row-region {
-    flex: 1 1 auto;
-    min-width: 0;
   }
 
   .place-search {
-    flex: 1 1 140px;
-    min-width: 88px;
-    max-width: 220px;
+    position: relative;
+    flex: 1 1 72px;
+    min-width: 56px;
+    max-width: 112px;
+  }
+
+  .place-search.expanded {
+    position: absolute;
+    z-index: 6;
+    top: 12px;
+    left: var(--page-gutter);
+    right: var(--page-gutter);
+    max-width: none;
+    min-width: 0;
   }
 
   .place-search input {
     width: 100%;
+    height: 32px;
     border: 1px solid var(--panel-border);
     border-radius: 8px;
     background: var(--panel);
     color: var(--text-main);
-    padding: 6px 8px;
+    padding: 4px 8px;
     font: inherit;
     font-size: 13px;
     overflow: hidden;
@@ -839,16 +883,9 @@
     white-space: nowrap;
   }
 
-  @media (min-width: 761px) {
-    .place-search {
-      max-width: 120px;
-    }
-  }
-
-  @media (max-width: 760px) {
-    .controls-row-region {
-      flex: 1 1 100%;
-    }
+  .place-search.expanded input {
+    background: var(--panel-strong);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--page-bg) 55%, transparent);
   }
 
   .icon-button {

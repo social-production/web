@@ -97,6 +97,7 @@ export interface DetailComment {
   activeVote: VoteDirection;
   report?: ContentReportSummary | null;
   moderationState?: ModerationState;
+  attachments?: import('$lib/types/inbox').MessageAttachment[];
   replies: DetailComment[];
 }
 
