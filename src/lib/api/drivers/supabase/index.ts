@@ -21,7 +21,7 @@ import {
   fetchSetReportVote,
   fetchSetVote,
   fetchSubmitReport,
-  fetchThread
+  fetchThread,
 } from './domains/content';
 import {
   fetchAddEventActivity,
@@ -52,7 +52,7 @@ import {
   fetchSetEventValueImportance,
   fetchShareEventWithUser,
   fetchToggleEventHistoryCompletion,
-  fetchToggleEventMembership
+  fetchToggleEventMembership,
 } from './domains/events';
 import {
   fetchHomeFeed,
@@ -65,20 +65,20 @@ import {
   fetchRegionFeed,
   fetchRegionFeedPage,
   fetchScopeFeedPage,
-  fetchUserFeedPage
+  fetchUserFeedPage,
 } from './domains/feeds';
 import {
   fetchCommitHelpRequestRole,
   fetchCreateHelpRequest,
   fetchHelpRequest,
-  fetchUncommitHelpRequestRole
+  fetchUncommitHelpRequestRole,
 } from './domains/helpRequests';
 import {
   fetchCreateLocation,
   fetchIpLocationHint,
   fetchLocation,
   fetchLocationReverse,
-  fetchLocationSearch
+  fetchLocationSearch,
 } from './domains/locations';
 import {
   fetchAddGroupConversationMember,
@@ -94,12 +94,12 @@ import {
   fetchSendMessage,
   fetchPinMessage,
   fetchUnpinMessage,
-  fetchStartDirectMessage
+  fetchStartDirectMessage,
 } from './domains/messages';
 import {
   fetchMarkAllNotificationsRead,
   fetchMarkNotificationRead,
-  fetchNotifications
+  fetchNotifications,
 } from './domains/notifications';
 import {
   fetchAddProjectActivity,
@@ -147,7 +147,7 @@ import {
   fetchToggleProjectMembership,
   fetchToggleProjectServiceHistoryCompletion,
   fetchUpdateProjectDetails,
-  fetchUpdateProjectProductionPlan
+  fetchUpdateProjectProductionPlan,
 } from './domains/projects';
 import { fetchSearch } from './domains/search';
 import {
@@ -164,7 +164,7 @@ import {
   fetchRemoveVolunteer,
   fetchTaggableScopes,
   fetchToggleScopeMembership,
-  fetchVolunteerForBoard
+  fetchVolunteerForBoard,
 } from './domains/scopes';
 import {
   fetchAcceptFollowRequest,
@@ -174,7 +174,8 @@ import {
   fetchRejectFollowRequest,
   fetchSettings,
   fetchUnfollowUser,
-  fetchUpdateSettings
+  fetchUpdateSettings,
+  setAccountStance as postAccountStance,
 } from './domains/users';
 
 export { createSupabaseClient } from './client';
@@ -186,20 +187,20 @@ const bootstrapFallback: BootstrapPayload = {
   featureFlags: {
     assets: false,
     funding: false,
-    platform: true
+    platform: true,
   },
   unreadCounts: {
     notifications: 0,
-    messages: 0
+    messages: 0,
   },
   directory: {
     platform: null,
     channels: [],
-    communities: []
+    communities: [],
   },
   suggestedContacts: [],
   activityRail: [],
-  activityRailHistory: []
+  activityRailHistory: [],
 };
 
 export function createSupabaseDriver(): AppAdapter {
@@ -677,6 +678,9 @@ export function createSupabaseDriver(): AppAdapter {
     async getProfile(username) {
       return fetchProfile(username);
     },
+    async setAccountStance(username, stance) {
+      return postAccountStance(username, stance);
+    },
     async followUser(username) {
       return fetchFollowUser(username);
     },
@@ -723,6 +727,6 @@ export function createSupabaseDriver(): AppAdapter {
 
     hydrateClientState() {
       return Promise.resolve(true);
-    }
+    },
   } as AppAdapter;
 }

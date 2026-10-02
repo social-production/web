@@ -55,13 +55,21 @@ export async function fetchFollowRequests(): Promise<ViewerSummary[]> {
   }
 }
 
+export async function setAccountStance(
+  _username: string,
+  _stance: 'vouch' | 'bot' | 'clear'
+): Promise<void> {
+  throw new Error('Account stances are not available on the Supabase driver yet.');
+}
+
 export const usersDomain: Partial<AppAdapter> = {
   getSettings: fetchSettings,
   updateSettings: fetchUpdateSettings,
   getProfile: fetchProfile,
+  setAccountStance,
   followUser: fetchFollowUser,
   unfollowUser: fetchUnfollowUser,
   acceptFollowRequest: fetchAcceptFollowRequest,
   rejectFollowRequest: fetchRejectFollowRequest,
-  getFollowRequests: fetchFollowRequests
+  getFollowRequests: fetchFollowRequests,
 };

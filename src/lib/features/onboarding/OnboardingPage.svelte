@@ -1,6 +1,8 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
+  import { SIGNUP_ENABLED, TURNSTILE_SITE_KEY } from '$lib/config/env';
+  import TurnstileWidget from '$lib/components/shared/TurnstileWidget.svelte';
   import { signIn, signUp } from '$lib/services/commands/account';
   import type { AccountOption, OnboardingPageData } from '$lib/types/account';
   import { canonicalizeHandle, validateHandle } from '$lib/utils/handles';
@@ -24,6 +26,7 @@
   let mode: 'login' | 'signup' = requestedMode === 'login' ? 'login' : 'signup';
   let username = '';
   let password = '';
+  let captchaToken = '';
   let statusMessage = '';
   let isSubmitting = false;
 
@@ -32,6 +35,11 @@
     Array.isArray(data?.accountModes) && data.accountModes.length > 0
       ? data.accountModes
       : FALLBACK_MODES;
+  $: visibleModes = SIGNUP_ENABLED
+    ? accountModes
+    : accountModes.filter((option) => option.value !== 'signup');
+  $: activeModeValue = !SIGNUP_ENABLED && mode === 'signup' ? 'login' : mode;
+  $: captchaRequired = activeModeValue === 'signup' && Boolean(TURNSTILE_SITE_KEY);
   $: pageTitle = viewer
     ? `You're signed in as @${viewer.username}`
     : data?.title?.trim() || 'Sign in or create an account';
@@ -39,8 +47,8 @@
     ? 'This account is already active. Go to the feed, or sign out from Settings first if you need to switch people.'
     : data?.intro?.trim() ||
       'Sign in to post, follow people, and create projects, threads, and events.';
-  $: activeMode = accountModes.find((option) => option.value === mode) ?? null;
-  $: handleCheck = mode === 'signup' ? validateHandle(username, 'Username') : null;
+  $: activeMode = visibleModes.find((option) => option.value === activeModeValue) ?? null;
+  $: handleCheck = activeModeValue === 'signup' ? validateHandle(username, 'Username') : null;
   $: canonicalPreview =
     handleCheck && handleCheck.ok ? `/profile/${handleCheck.canonical}` : username.trim()
       ? `/profile/${canonicalizeHandle(username)}`
@@ -56,20 +64,29 @@
     statusMessage = '';
 
     try {
-      if (mode === 'signup') {
+      if (activeModeValue === 'signup') {
+        if (!SIGNUP_ENABLED) {
+          statusMessage = 'Signups are currently closed.';
+          return;
+        }
         const handle = validateHandle(username, 'Username');
         if (!handle.ok) {
           statusMessage = handle.error;
           return;
         }
+        if (captchaRequired && !captchaToken) {
+          statusMessage = 'Complete the captcha to create an account.';
+          return;
+        }
       }
 
       const result =
-        mode === 'login'
+        activeModeValue === 'login'
           ? await signIn({ username, password })
           : await signUp({
               username: username.trim(),
-              password
+              password,
+              captchaToken
             });
 
       if (!result.ok) {
@@ -99,15 +116,19 @@
 
   {#if !viewer}
   <section class="panel">
-    <p class="mode-hint">Choose <strong>Sign up</strong> for a new account, or <strong>Log in</strong> if you already have one.</p>
+    {#if SIGNUP_ENABLED}
+      <p class="mode-hint">Choose <strong>Sign up</strong> for a new account, or <strong>Log in</strong> if you already have one.</p>
+    {:else}
+      <p class="mode-hint">Signups are currently closed. Log in if you already have an account.</p>
+    {/if}
     <div class="choice-row" role="tablist" aria-label="Account mode">
-      {#each accountModes as option}
+      {#each visibleModes as option}
         <button
-          class:active={mode === option.value}
+          class:active={activeModeValue === option.value}
           class="toggle-chip"
           type="button"
           role="tab"
-          aria-selected={mode === option.value}
+          aria-selected={activeModeValue === option.value}
           on:click={() => (mode = option.value as 'login' | 'signup')}
         >
           {option.label}
@@ -123,7 +144,7 @@
         <span class="field-label">Username</span>
         <input bind:value={username} autocomplete="username" />
       </label>
-      {#if mode === 'signup' && username.trim()}
+      {#if activeModeValue === 'signup' && username.trim()}
         {#if handleCheck && !handleCheck.ok}
           <p class="status-note">{handleCheck.error}</p>
         {:else if canonicalPreview}
@@ -133,18 +154,24 @@
 
       <label>
         <span class="field-label">Password</span>
-        <input bind:value={password} type="password" autocomplete="current-password" />
+        <input bind:value={password} type="password" autocomplete={activeModeValue === 'signup' ? 'new-password' : 'current-password'} />
       </label>
+
+      {#if captchaRequired}
+        <TurnstileWidget bind:token={captchaToken} />
+      {/if}
 
       <div class="button-row">
         <button
           class="button-primary"
-          disabled={isSubmitting || (mode === 'signup' && Boolean(handleCheck && !handleCheck.ok))}
+          disabled={isSubmitting ||
+            (activeModeValue === 'signup' && Boolean(handleCheck && !handleCheck.ok)) ||
+            (captchaRequired && !captchaToken)}
           type="submit"
         >
           {#if isSubmitting}
             Working...
-          {:else if mode === 'login'}
+          {:else if activeModeValue === 'login'}
             Log in
           {:else}
             Create account

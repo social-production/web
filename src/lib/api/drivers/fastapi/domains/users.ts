@@ -1,14 +1,19 @@
-import { apiClient } from '../client';
+import { apiClient, extractErrorMessage } from '../client';
 import { mapPersonalItem, registerFeedEntity } from './feeds';
 import { DEFAULT_FEED_PAGE_SIZE } from '$lib/types/pagination';
-import type { ProfilePageData, SettingsPageData, SettingsUpdateInput } from '$lib/types/account';
+import type {
+  AccountTrust,
+  ProfilePageData,
+  SettingsPageData,
+  SettingsUpdateInput,
+} from '$lib/types/account';
 import { normalizeNotificationCategories } from '$lib/types/account';
 import type { ViewerSummary } from '$lib/types/bootstrap';
 import {
   buildFeedQueryString,
   normalizeFeedFilter,
   normalizeFeedWindow,
-  toFeedSortPreference
+  toFeedSortPreference,
 } from '$lib/utils/feedQuery';
 
 interface BackendUser {
@@ -42,6 +47,22 @@ interface BackendSettings {
 
 interface BackendFollowItem extends BackendUser {
   follow_status: string;
+  real_r?: number | null;
+  bootstrap_floor?: boolean;
+}
+
+interface BackendAccountTrust {
+  real_r: number;
+  vouch_weight: number;
+  bot_weight: number;
+  bootstrap_floor: boolean;
+  bootstrap_floor_value?: number | null;
+  vouchers: string[];
+  bot_markers: string[];
+  viewer_stance: 'vouch' | 'bot' | null;
+  viewer_can_vouch: boolean;
+  viewer_can_mark_bot: boolean;
+  viewer_can_clear: boolean;
 }
 
 interface BackendFollowList {
@@ -57,6 +78,7 @@ interface BackendProfileResponse {
   is_own_profile: boolean;
   can_view_personal_feed: boolean;
   can_view_public_profile_activity: boolean;
+  trust?: BackendAccountTrust;
 }
 
 interface BackendFollowRequestList {
@@ -64,12 +86,34 @@ interface BackendFollowRequestList {
   items: BackendFollowItem[];
 }
 
-function mapUser(u: BackendUser): ViewerSummary {
+function mapTrust(trust: BackendAccountTrust): AccountTrust {
+  return {
+    realR: trust.real_r,
+    vouchWeight: trust.vouch_weight,
+    botWeight: trust.bot_weight,
+    bootstrapFloor: trust.bootstrap_floor,
+    bootstrapFloorValue:
+      trust.bootstrap_floor && trust.bootstrap_floor_value != null
+        ? trust.bootstrap_floor_value
+        : null,
+    vouchers: trust.vouchers ?? [],
+    botMarkers: trust.bot_markers ?? [],
+    viewerStance: trust.viewer_stance ?? null,
+    viewerCanVouch: trust.viewer_can_vouch,
+    viewerCanMarkBot: trust.viewer_can_mark_bot,
+    viewerCanClear: trust.viewer_can_clear,
+  };
+}
+
+function mapUser(u: BackendFollowItem | BackendUser): ViewerSummary {
+  const follow = u as BackendFollowItem;
   return {
     id: u.id,
     username: u.username,
     bio: u.bio ?? undefined,
     profileImageUrl: u.profile_image_url ?? undefined,
+    realR: typeof follow.real_r === 'number' ? follow.real_r : undefined,
+    bootstrapFloor: Boolean(follow.bootstrap_floor),
   };
 }
 
@@ -82,9 +126,11 @@ function mapSettings(user: BackendUser, s: BackendSettings): SettingsPageData {
     defaultFeed: s.default_feed as SettingsPageData['defaultFeed'],
     publicFeedPreferences: {
       scope: s.public_feed_scope as SettingsPageData['publicFeedPreferences']['scope'],
-      filter: normalizeFeedFilter(s.public_feed_filter) as SettingsPageData['publicFeedPreferences']['filter'],
+      filter: normalizeFeedFilter(
+        s.public_feed_filter
+      ) as SettingsPageData['publicFeedPreferences']['filter'],
       sort: toFeedSortPreference(s.public_feed_sort),
-      window: normalizeFeedWindow(s.public_feed_window)
+      window: normalizeFeedWindow(s.public_feed_window),
     },
     personalFeedPreferences: {
       scope: s.personal_feed_scope as SettingsPageData['personalFeedPreferences']['scope'],
@@ -96,16 +142,18 @@ function mapSettings(user: BackendUser, s: BackendSettings): SettingsPageData {
           ? s.personal_feed_filter
           : 'all') as SettingsPageData['personalFeedPreferences']['filter'],
       sort: toFeedSortPreference(s.personal_feed_sort),
-      window: normalizeFeedWindow(s.personal_feed_window)
+      window: normalizeFeedWindow(s.personal_feed_window),
     },
     hidePublicActivityFromPersonalFeeds: s.hide_public_activity_from_personal_feeds,
     hidePersonalFeedFromNonFollowers: s.hide_personal_feed_from_non_followers,
     hidePublicProfileActivityFromNonFollowers: s.hide_public_profile_activity_from_non_followers,
     requireFollowApproval: s.require_follow_approval,
-    preferredLanguage: (s.preferred_language === 'nl' ? 'nl' : 'en') as SettingsPageData['preferredLanguage'],
+    preferredLanguage: (s.preferred_language === 'nl'
+      ? 'nl'
+      : 'en') as SettingsPageData['preferredLanguage'],
     displayTimezone: s.display_timezone ?? null,
     defaultLocationId: s.default_location_id ?? null,
-    notificationCategories: normalizeNotificationCategories(s.notification_categories)
+    notificationCategories: normalizeNotificationCategories(s.notification_categories),
   };
 }
 
@@ -126,7 +174,8 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
   const body: Record<string, unknown> = {};
   if (input.profileBio !== undefined) body.bio = input.profileBio;
   if (input.profileImageUrl !== undefined) body.profile_image_url = input.profileImageUrl;
-  if (input.appearanceThemeMode !== undefined) body.appearance_theme_mode = input.appearanceThemeMode;
+  if (input.appearanceThemeMode !== undefined)
+    body.appearance_theme_mode = input.appearanceThemeMode;
   if (input.defaultFeed !== undefined) body.default_feed = input.defaultFeed;
   if (input.publicFeedPreferences !== undefined) {
     body.public_feed_scope = input.publicFeedPreferences.scope;
@@ -145,15 +194,13 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
   if (input.hidePersonalFeedFromNonFollowers !== undefined)
     body.hide_personal_feed_from_non_followers = input.hidePersonalFeedFromNonFollowers;
   if (input.hidePublicProfileActivityFromNonFollowers !== undefined)
-    body.hide_public_profile_activity_from_non_followers = input.hidePublicProfileActivityFromNonFollowers;
+    body.hide_public_profile_activity_from_non_followers =
+      input.hidePublicProfileActivityFromNonFollowers;
   if (input.requireFollowApproval !== undefined)
     body.require_follow_approval = input.requireFollowApproval;
-  if (input.preferredLanguage !== undefined)
-    body.preferred_language = input.preferredLanguage;
-  if (input.displayTimezone !== undefined)
-    body.display_timezone = input.displayTimezone;
-  if (input.defaultLocationId !== undefined)
-    body.default_location_id = input.defaultLocationId;
+  if (input.preferredLanguage !== undefined) body.preferred_language = input.preferredLanguage;
+  if (input.displayTimezone !== undefined) body.display_timezone = input.displayTimezone;
+  if (input.defaultLocationId !== undefined) body.default_location_id = input.defaultLocationId;
   if (input.notificationCategories !== undefined)
     body.notification_categories = input.notificationCategories;
   await apiClient.patch('/users/me/settings', body);
@@ -169,7 +216,7 @@ export async function fetchProfile(username: string): Promise<ProfilePageData | 
         `/feeds/user/${encodeURIComponent(username)}${buildFeedQueryString({
           sort: 'recent',
           limit: DEFAULT_FEED_PAGE_SIZE,
-          offset: 0
+          offset: 0,
         })}`
       ),
       profileRes.is_own_profile
@@ -188,8 +235,10 @@ export async function fetchProfile(username: string): Promise<ProfilePageData | 
       canViewPersonalFeed: profileRes.can_view_personal_feed,
       canViewPublicProfileActivity: profileRes.can_view_public_profile_activity,
       viewerIsFollowing: profileRes.viewer_is_following,
-      viewerFollowStatus: (profileRes.viewer_follow_status as ProfilePageData['viewerFollowStatus']) ?? null,
+      viewerFollowStatus:
+        (profileRes.viewer_follow_status as ProfilePageData['viewerFollowStatus']) ?? null,
       isOwnProfile: profileRes.is_own_profile,
+      trust: profileRes.trust ? mapTrust(profileRes.trust) : undefined,
       feed: feedRes.items.flatMap((item) => {
         registerFeedEntity(item);
         const m = mapPersonalItem(item);
@@ -203,7 +252,10 @@ export async function fetchProfile(username: string): Promise<ProfilePageData | 
 }
 
 export async function fetchFollowUser(username: string): Promise<{ followStatus: string | null }> {
-  const res = await apiClient.post<{ follow_status?: string | null }>(`/users/${encodeURIComponent(username)}/follow`, {});
+  const res = await apiClient.post<{ follow_status?: string | null }>(
+    `/users/${encodeURIComponent(username)}/follow`,
+    {}
+  );
   return { followStatus: res.follow_status ?? null };
 }
 
@@ -222,6 +274,17 @@ export async function fetchRejectFollowRequest(username: string): Promise<void> 
 export async function fetchFollowRequests(): Promise<ViewerSummary[]> {
   const res = await apiClient.get<BackendFollowRequestList>('/users/me/follow-requests');
   return res.items.map(mapUser);
+}
+
+export async function setAccountStance(
+  username: string,
+  stance: 'vouch' | 'bot' | 'clear'
+): Promise<void> {
+  try {
+    await apiClient.post(`/users/${encodeURIComponent(username)}/stance`, { stance });
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Could not update that stance.'));
+  }
 }
 
 export async function fetchPeopleSuggestions(

@@ -351,7 +351,8 @@ async function requestGateway<T>(
 export async function authSignUp(
   email: string,
   password: string,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  captchaToken?: string
 ) {
   const response = await fetchJsonOrDirectSupabase(authUrl('/signup'), {
     method: 'POST',
@@ -360,6 +361,9 @@ export async function authSignUp(
       email,
       password,
       data: metadata,
+      ...(captchaToken
+        ? { gotrue_meta_security: { captcha_token: captchaToken } }
+        : {}),
     }),
   });
 

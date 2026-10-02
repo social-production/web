@@ -26,7 +26,8 @@ export async function fetchSignUp(input: SignUpInput): Promise<AuthResult> {
     await apiClient.post<BackendAuthResponse>('/auth/register', {
       username: input.username,
       password: input.password,
-      profile_bio: input.profileBio ?? null
+      profile_bio: input.profileBio ?? null,
+      captcha_token: input.captchaToken ?? null
     });
     markAuthenticatedSession();
     return { ok: true };

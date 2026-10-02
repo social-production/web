@@ -54,11 +54,7 @@
     draftComment = '';
     await composer?.resetHeight();
     const dependency =
-      subjectType === 'post'
-        ? `app:post:${data.id}`
-        : data.slug
-          ? `app:thread:${data.slug}`
-          : null;
+      subjectType === 'post' ? `app:post:${data.id}` : data.slug ? `app:thread:${data.slug}` : null;
     if (dependency) {
       void invalidate(dependency);
     }
@@ -75,7 +71,7 @@
     const next = applyVoteTarget(current.activeVote, current.voteCount, vote);
     voteOverrides = {
       ...voteOverrides,
-      [commentId]: next
+      [commentId]: next,
     };
   }
 </script>
@@ -92,22 +88,16 @@
   </div>
 
   <div class="stack">
-    {#if data.discussion.length === 0}
-      <div class="empty-card">
-        <p>No comments yet.</p>
-      </div>
-    {:else}
-      {#each sortedDiscussion as comment (comment.id)}
-        <DiscussionComment
-          {comment}
-          subjectId={data.id}
-          {subjectType}
-          {highlightedCommentId}
-          {embedded}
-          onVote={(vote) => handleCommentVote(comment.id, vote)}
-        />
-      {/each}
-    {/if}
+    {#each sortedDiscussion as comment (comment.id)}
+      <DiscussionComment
+        {comment}
+        subjectId={data.id}
+        {subjectType}
+        {highlightedCommentId}
+        {embedded}
+        onVote={(vote) => handleCommentVote(comment.id, vote)}
+      />
+    {/each}
   </div>
 </section>
 
@@ -128,8 +118,7 @@
     padding-top: 0;
   }
 
-  .composer-card,
-  .empty-card {
+  .composer-card {
     padding: 0;
     border: none;
     border-radius: 0;
@@ -137,9 +126,24 @@
     min-width: 0;
   }
 
-  .empty-card p {
-    margin: 0;
-    color: var(--text-soft);
-    line-height: 1.45;
+  @media (max-width: 760px) {
+    :global(html:has(.discussion-shell)) {
+      --detail-action-dock-height: 64px;
+    }
+
+    .discussion-shell {
+      padding-bottom: 72px;
+    }
+
+    .composer-card {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: var(--shell-bottom-nav-offset, 0px);
+      z-index: 40;
+      padding: 8px 72px 8px 12px;
+      border-top: 1px solid var(--panel-border);
+      background: var(--panel);
+    }
   }
 </style>

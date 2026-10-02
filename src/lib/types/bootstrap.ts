@@ -5,6 +5,8 @@ export interface ViewerSummary {
   username: string;
   bio?: string;
   profileImageUrl?: string;
+  realR?: number;
+  bootstrapFloor?: boolean;
 }
 
 export interface FeatureFlags {
@@ -45,7 +47,14 @@ export interface ScopeDirectory {
 export interface RightRailActivityItem {
   id: string;
   subjectId: string;
-  kind: 'project' | 'event' | 'request' | 'vote' | 'help-request-open' | 'help-request-signup' | 'help-request-owned';
+  kind:
+    | 'project'
+    | 'event'
+    | 'request'
+    | 'vote'
+    | 'help-request-open'
+    | 'help-request-signup'
+    | 'help-request-owned';
   title: string;
   href: string;
   meta: string;

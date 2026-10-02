@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { browser } from '$app/environment';
+  import { browser, dev } from '$app/environment';
   import { afterNavigate, invalidate } from '$app/navigation';
+  import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import { getSettings } from '$lib/services/queries/account';
   import { getBootstrap } from '$lib/services/queries/bootstrap';
@@ -15,6 +16,8 @@
   import { syncUnreadCountsFromBootstrap } from '$lib/services/commands/inbox';
   import '../app.css';
   import AppShell from '$lib/app/shell/AppShell.svelte';
+  import { PWA_ENABLED } from '$lib/config/env';
+  import InstallAppButton from '$lib/components/shared/InstallAppButton.svelte';
   import { detectShellMode } from '$lib/platform/shellMode';
   import type { LayoutData } from './$types';
 
@@ -68,7 +71,27 @@
     }
   }
 
+  async function syncServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    if (PWA_ENABLED) {
+      try {
+        await navigator.serviceWorker.register(
+          `${base}/service-worker.js`,
+          dev ? { type: 'module' } : undefined
+        );
+      } catch {
+        // The manifest can still offer install if registration fails once.
+      }
+      return;
+    }
+
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+  }
+
   onMount(() => {
+    void syncServiceWorker();
+
     if (data.servedFromCache) {
       const refresh = () => {
         void refreshBootstrapInBackground();
@@ -113,10 +136,14 @@
   <title>Social Production</title>
   <meta
     name="description"
-    content="Phase 1 Social Production frontend with a development adapter and the first Public and Personal routes."
+    content="Collective coordination of activity and production without exchange."
   />
+  {#if PWA_ENABLED}
+    <link rel="manifest" href="{base}/manifest.webmanifest" />
+  {/if}
 </svelte:head>
 
 <AppShell bootstrap={data.bootstrap}>
+  <InstallAppButton />
   <slot />
 </AppShell>

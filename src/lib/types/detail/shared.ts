@@ -1,4 +1,11 @@
-import type { PostBodyLink, ProjectMode, ProjectSubtype, PublicProjectItem, TagRef, VoteDirection } from '$lib/types/feed';
+import type {
+  PostBodyLink,
+  ProjectMode,
+  ProjectSubtype,
+  PublicProjectItem,
+  TagRef,
+  VoteDirection,
+} from '$lib/types/feed';
 
 export interface DetailUpdate {
   id: string;
@@ -13,6 +20,8 @@ export interface DetailMember {
   username: string;
   bio?: string;
   profileImageUrl?: string | null;
+  realR?: number;
+  bootstrapFloor?: boolean;
 }
 
 export type ContentReportReason = 'spam' | 'serious-harm';
@@ -102,13 +111,7 @@ export interface DetailComment {
 }
 
 export type ProjectLifecyclePhaseId =
-  | 'phase-1'
-  | 'phase-2'
-  | 'phase-3'
-  | 'phase-4'
-  | 'phase-5'
-  | 'phase-6'
-  | 'phase-7';
+  'phase-1' | 'phase-2' | 'phase-3' | 'phase-4' | 'phase-5' | 'phase-6' | 'phase-7';
 
 export type EventLifecyclePhaseId = 'proposal' | 'event-plan' | 'activity' | 'closed';
 export type GovernancePhaseId = ProjectLifecyclePhaseId | EventLifecyclePhaseId;

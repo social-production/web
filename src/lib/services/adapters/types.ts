@@ -2,7 +2,7 @@ import type {
   BootstrapPayload,
   DiscoverScopeItem,
   ScopeDirectoryItem,
-  ViewerSummary
+  ViewerSummary,
 } from '$lib/types/bootstrap';
 import type {
   AuthResult,
@@ -241,6 +241,7 @@ export interface AppAdapter {
   getSettings(): Promise<SettingsPageData | null>;
   updateSettings(input: SettingsUpdateInput): Promise<void>;
   getProfile(username: string): Promise<ProfilePageData | null>;
+  setAccountStance(username: string, stance: 'vouch' | 'bot' | 'clear'): Promise<void>;
   followUser(username: string): Promise<{ followStatus: string | null }>;
   unfollowUser(username: string): Promise<void>;
   acceptFollowRequest(username: string): Promise<void>;

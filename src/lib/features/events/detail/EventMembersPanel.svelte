@@ -2,9 +2,14 @@
   import PeopleSheet from '$lib/components/shared/PeopleSheet.svelte';
   import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
-  import { grantEventEditAccess, revokeEventEditAccess, shareEventWithUser } from '$lib/services/commands/events';
+  import {
+    grantEventEditAccess,
+    revokeEventEditAccess,
+    shareEventWithUser,
+  } from '$lib/services/commands/events';
   import { getMessageContacts } from '$lib/services/queries/inbox';
   import type { EventPageData, EventRoleMember, DetailMember } from '$lib/types/detail';
+  import { trustBadges } from '$lib/utils/trustBadges';
 
   export let data: EventPageData;
   export let open = false;
@@ -51,7 +56,7 @@
       const results = await getMessageContacts(query, 8);
       const memberNames = new Set([
         ...data.eventEditors.map((member) => member.username.toLowerCase()),
-        ...data.members.map((member) => member.username.toLowerCase())
+        ...data.members.map((member) => member.username.toLowerCase()),
       ]);
       liveInviteContacts = results
         .filter((contact) => !memberNames.has(contact.username.toLowerCase()))
@@ -59,7 +64,7 @@
           id: contact.id,
           username: contact.username,
           bio: contact.bio ?? '',
-          profileImageUrl: contact.profileImageUrl ?? null
+          profileImageUrl: contact.profileImageUrl ?? null,
         }));
       return liveInviteContacts;
     } catch {
@@ -93,14 +98,17 @@
             id: member.id,
             username: member.username,
             profileImageUrl: member.profileImageUrl ?? null,
-            badges: isCreator(member) ? ['Creator', 'Organizer'] : ['Organizer'],
+            badges: trustBadges(
+              member.realR,
+              member.bootstrapFloor,
+              isCreator(member) ? ['Creator', 'Organizer'] : ['Organizer']
+            ),
             actionLabel:
               data.viewerCanManageEditors && !isCreator(member) ? 'Remove organizer' : undefined,
-            actionKind:
-              data.viewerCanManageEditors && !isCreator(member) ? 'revoke' : undefined,
+            actionKind: data.viewerCanManageEditors && !isCreator(member) ? 'revoke' : undefined,
             actionTone: 'danger' as const,
-            actionDisabled: editorActionPendingId === member.id
-          }))
+            actionDisabled: editorActionPendingId === member.id,
+          })),
         },
         {
           title: secondaryHeading,
@@ -110,11 +118,12 @@
             id: member.id,
             username: member.username,
             profileImageUrl: member.profileImageUrl ?? null,
+            badges: trustBadges(member.realR, member.bootstrapFloor),
             actionLabel: data.viewerCanManageEditors ? 'Promote to organizer' : undefined,
             actionKind: data.viewerCanManageEditors ? 'grant' : undefined,
-            actionDisabled: editorActionPendingId === member.id
-          }))
-        }
+            actionDisabled: editorActionPendingId === member.id,
+          })),
+        },
       ]
     : [
         {
@@ -123,9 +132,13 @@
             id: member.id,
             username: member.username,
             profileImageUrl: member.profileImageUrl ?? null,
-            badges: isCreator(member) ? ['Creator'] : undefined
-          }))
-        }
+            badges: trustBadges(
+              member.realR,
+              member.bootstrapFloor,
+              isCreator(member) ? ['Creator'] : []
+            ),
+          })),
+        },
       ];
 
   async function handleMemberAction(event: CustomEvent<{ memberId: string; actionKind: string }>) {

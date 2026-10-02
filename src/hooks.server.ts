@@ -31,13 +31,14 @@ export const handle: Handle = async ({ event, resolve }) => {
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://basemaps.cartocdn.com https://demotiles.maplibre.org",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data: https://fonts.gstatic.com https://basemaps.cartocdn.com https://demotiles.maplibre.org",
       `connect-src ${connectSrc}`,
       "worker-src 'self' blob:",
-      "child-src 'self' blob:",
+      "frame-src https://challenges.cloudflare.com",
+      "child-src 'self' blob: https://challenges.cloudflare.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'"

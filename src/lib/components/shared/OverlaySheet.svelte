@@ -146,10 +146,10 @@
 
   .overlay-header {
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     justify-content: space-between;
     gap: 12px;
-    padding: 14px 16px;
+    padding: 0 0 0 16px;
     border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
   }
 
@@ -157,6 +157,8 @@
     min-width: 0;
     display: grid;
     gap: 4px;
+    align-content: center;
+    padding: 14px 0;
   }
 
   .overlay-header h2 {
@@ -168,19 +170,26 @@
 
   .overlay-header-actions {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: stretch;
+    align-self: stretch;
+    gap: 0;
     flex-shrink: 0;
   }
 
   .overlay-close {
-    padding: 6px 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    height: 100%;
+    margin: 0;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 0;
+    background: var(--danger);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
     cursor: pointer;
   }
 
@@ -194,8 +203,8 @@
   .overlay-footer {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 16px 20px;
+    gap: 0;
+    padding: 0;
     border-top: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
     background: var(--panel);
   }
@@ -279,7 +288,11 @@
     }
 
     .overlay-header {
-      padding-top: calc(12px + var(--shell-safe-top, 0px));
+      padding-top: 0;
+    }
+
+    .overlay-header-copy {
+      padding-top: calc(14px + var(--shell-safe-top, 0px));
     }
 
     .overlay-body {
@@ -291,7 +304,7 @@
     }
 
     .overlay-footer {
-      padding: 14px 16px calc(24px + var(--shell-safe-bottom, 0px));
+      padding: 0;
     }
   }
 
@@ -315,13 +328,17 @@
     }
 
     .sheet-close {
-      display: inline-flex;
+      display: flex;
       width: 100%;
-      min-height: 56px;
+      height: 100%;
+      min-height: calc(56px + var(--shell-safe-bottom, 0px));
       align-items: center;
       justify-content: center;
+      padding-bottom: var(--shell-safe-bottom, 0px);
       border: 0;
       border-radius: 0;
+      background: var(--danger);
+      color: #fff;
       font-size: 16px;
     }
 
@@ -336,9 +353,13 @@
     }
 
     .overlay-header {
-      align-items: flex-end;
-      padding: 28px 20px 18px;
-      padding-top: calc(36px + var(--shell-safe-top, 0px));
+      align-items: stretch;
+      padding: 0 0 0 20px;
+    }
+
+    .overlay-header-copy {
+      padding-top: calc(28px + var(--shell-safe-top, 0px));
+      padding-bottom: 18px;
     }
 
     .overlay-header h2 {

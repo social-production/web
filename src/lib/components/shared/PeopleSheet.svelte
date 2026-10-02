@@ -29,6 +29,7 @@
   export let description = '';
   export let people: PeopleSheetPerson[] = [];
   export let sections: PeopleSheetSection[] | null = null;
+  export let sectionLayout: 'stack' | 'tabs' = 'stack';
   export let emptyCopy = 'No people yet.';
   export let searchPlaceholder = 'Search people';
 
@@ -38,9 +39,11 @@
   }>();
 
   let query = '';
+  let activeTab = 0;
 
   $: if (!open) {
     query = '';
+    activeTab = 0;
   }
 
   $: resolvedSections =
@@ -48,12 +51,14 @@
     ([
       {
         emptyCopy,
-        members: people
-      }
+        members: people,
+      },
     ] satisfies PeopleSheetSection[]);
 
   function sortPeople(list: PeopleSheetPerson[]) {
-    return [...list].sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: 'base' }));
+    return [...list].sort((a, b) =>
+      a.username.localeCompare(b.username, undefined, { sensitivity: 'base' })
+    );
   }
 
   $: searchNeedle = query.trim().toLowerCase();
@@ -63,8 +68,10 @@
       section.members.filter(
         (member) => !searchNeedle || member.username.toLowerCase().includes(searchNeedle)
       )
-    )
+    ),
   }));
+  $: visibleSections =
+    sectionLayout === 'tabs' ? filteredSections.slice(activeTab, activeTab + 1) : filteredSections;
 
   function handleAction(member: PeopleSheetPerson) {
     if (!member.actionKind) {
@@ -102,8 +109,25 @@
     </div>
   </svelte:fragment>
 
-  {#each filteredSections as section, index}
-    {#if section.title || section.description}
+  {#if sectionLayout === 'tabs' && resolvedSections.length > 1}
+    <div class="sheet-tabs" role="tablist">
+      {#each resolvedSections as section, index}
+        <button
+          aria-selected={activeTab === index}
+          class:active={activeTab === index}
+          role="tab"
+          type="button"
+          on:click={() => (activeTab = index)}
+        >
+          {section.title}
+          <span>{section.members.length}</span>
+        </button>
+      {/each}
+    </div>
+  {/if}
+
+  {#each visibleSections as section, index}
+    {#if sectionLayout !== 'tabs' && (section.title || section.description)}
       <div class="section-copy">
         {#if section.title}
           <h3>{section.title}</h3>
@@ -125,7 +149,11 @@
               href={`/profile/${member.username}?from=${encodeURIComponent($page.url.pathname)}`}
               on:click={handleClose}
             >
-              <AvatarBadge size="sm" username={member.username} imageUrl={member.profileImageUrl ?? null} />
+              <AvatarBadge
+                size="sm"
+                username={member.username}
+                imageUrl={member.profileImageUrl ?? null}
+              />
               <span class="person-copy">
                 <strong>{member.username}</strong>
                 {#if member.badges?.length}
@@ -153,7 +181,7 @@
       {/if}
     </div>
 
-    {#if index < filteredSections.length - 1}
+    {#if sectionLayout !== 'tabs' && index < visibleSections.length - 1}
       <div class="section-divider"></div>
     {/if}
   {/each}
@@ -170,6 +198,42 @@
   .sheet-search {
     padding: 10px 16px 8px;
     border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+  }
+
+  .sheet-tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+  }
+
+  .sheet-tabs button {
+    display: inline-flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    margin: 0;
+    padding: 0 8px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .sheet-tabs button span {
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .sheet-tabs button.active {
+    border-bottom-color: var(--brand);
+    color: var(--text-main);
   }
 
   .sheet-search input {

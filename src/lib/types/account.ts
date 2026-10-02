@@ -29,9 +29,24 @@ export interface SignUpInput {
   username: string;
   password: string;
   profileBio?: string;
+  captchaToken?: string;
 }
 
 export type FollowStatus = 'pending' | 'accepted' | null;
+
+export interface AccountTrust {
+  realR: number;
+  vouchWeight: number;
+  botWeight: number;
+  bootstrapFloor: boolean;
+  bootstrapFloorValue: number | null;
+  vouchers: string[];
+  botMarkers: string[];
+  viewerStance: 'vouch' | 'bot' | null;
+  viewerCanVouch: boolean;
+  viewerCanMarkBot: boolean;
+  viewerCanClear: boolean;
+}
 
 export interface ProfilePageData {
   username: string;
@@ -48,6 +63,7 @@ export interface ProfilePageData {
   viewerFollowStatus: FollowStatus;
   isOwnProfile: boolean;
   feed: PersonalFeedItem[];
+  trust?: AccountTrust;
 }
 
 export type AppearanceThemeMode = 'dark' | 'light';
@@ -56,9 +72,11 @@ export type DefaultFeedMode = 'public' | 'personal';
 export type FeedSortPreference = 'trending' | 'recent';
 export type FeedWindowPreference = 'today' | 'week' | 'month' | 'all';
 export type PublicFeedScopePreference = 'home' | 'global' | 'region';
-export type PublicFeedFilterPreference = 'all' | 'projects' | 'threads' | 'events' | 'help_requests';
+export type PublicFeedFilterPreference =
+  'all' | 'projects' | 'threads' | 'events' | 'help_requests';
 export type PersonalFeedScopePreference = 'following' | 'popular';
-export type PersonalFeedFilterPreference = 'all' | 'activity' | 'posts' | 'events' | 'help_requests';
+export type PersonalFeedFilterPreference =
+  'all' | 'activity' | 'posts' | 'events' | 'help_requests';
 
 export interface PublicFeedPreferences {
   scope: PublicFeedScopePreference;
@@ -81,7 +99,7 @@ export const NOTIFICATION_CATEGORIES = [
   'roles',
   'votes_needed',
   'phase_done',
-  'plan_leading'
+  'plan_leading',
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -92,7 +110,7 @@ export const DEFAULT_NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   'shares_invites',
   'roles',
   'votes_needed',
-  'phase_done'
+  'phase_done',
 ];
 
 export function normalizeNotificationCategories(value: unknown): NotificationCategory[] {

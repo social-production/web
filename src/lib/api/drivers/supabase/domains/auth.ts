@@ -14,10 +14,15 @@ export async function fetchSignIn(input: SignInInput): Promise<AuthResult> {
 
 export async function fetchSignUp(input: SignUpInput): Promise<AuthResult> {
   try {
-    await authSignUp(usernameToAuthEmail(input.username), input.password, {
-      username: input.username.trim(),
-      profile_bio: input.profileBio ?? null
-    });
+    await authSignUp(
+      usernameToAuthEmail(input.username),
+      input.password,
+      {
+        username: input.username.trim(),
+        profile_bio: input.profileBio ?? null
+      },
+      input.captchaToken
+    );
     // Ensure app profile username is set (trigger may race / use email local-part).
     try {
       await apiClient.patch('/users/me/settings', {

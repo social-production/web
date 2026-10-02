@@ -27,6 +27,8 @@
 
 **All votes across the platform require 66% approval of votes cast to pass.** This applies to every vote without exception — plan approvals, phase transitions, reversions, edit approvals, pull request approvals, and board member standing votes. The approval rate never changes. What varies is how many votes must be cast before a result is valid — the quorum.
 
+**Who may vote, and who counts in N, can be limited to established accounts.** Joining, chatting, posting, and signing up for an activity role stay open. Governance votes, the weekly-active population behind quorum, and volunteering as a platform moderator wait until an account is old enough and has done a few real contributions. A moderation removal of that account's content extends the wait. When the trust-ratio switch is on, those same gates also follow each account's effective trust ratio, including a license of 5 vouches. The profile shows the earned ratio only. The switches and the longer strategy are in [SYBIL_RESISTANCE.md](SYBIL_RESISTANCE.md). Defaults leave this off.
+
 **No phase transition is automatic.** Meeting a demand signal threshold or having a plan approved unlocks the ability to hold a transition vote. It does not trigger one. Members decide when the project is ready to move forward.
 
 **The creator of a project or event has no elevated role or authority** once it is created, except in personal service projects and private events which are creator-controlled by design. The one limited exception is software projects, where the creator of an accepted plan initially holds pull request merge capability — a scoped technical role, not a governance privilege.
@@ -798,6 +800,7 @@ required = min( ceil(0.75 × N), cochran(N) )
 
 N = weekly active project/event members (non-platform)
 N = weekly unique active users (platform)
+When the governance warm-up is on, N counts only established accounts. When the trust-ratio switch is also on, N counts only accounts that can vote. See SYBIL_RESISTANCE.md.
 ```
 
 ### Project and Event Sub-Types

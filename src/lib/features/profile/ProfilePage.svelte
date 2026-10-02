@@ -10,22 +10,21 @@
   import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
   import PeopleSheet from '$lib/components/shared/PeopleSheet.svelte';
   import ComposeMessageSheet from '$lib/components/shared/ComposeMessageSheet.svelte';
-  import {
-    DEFAULT_FEED_PAGE_SIZE,
-    appendUniqueById
-  } from '$lib/types/pagination';
+  import { DEFAULT_FEED_PAGE_SIZE, appendUniqueById } from '$lib/types/pagination';
   import { getFollowRequests } from '$lib/services/queries/account';
   import {
     acceptFollowRequest,
     followUser,
     rejectFollowRequest,
-    unfollowUser
+    setAccountStance,
+    unfollowUser,
   } from '$lib/services/commands/account';
   import { getUserFeedPage } from '$lib/services/queries/feeds';
   import type { FollowStatus, ProfilePageData } from '$lib/types/account';
   import type { PersonalFeedItem } from '$lib/types/feed';
   import type { ViewerSummary } from '$lib/types/bootstrap';
   import { profileSortToApiSort, type FeedSortQuery } from '$lib/utils/feedQuery';
+  import { trustBadges } from '$lib/utils/trustBadges';
   import { mergeFeedEngagement } from '$lib/utils/feedSignals';
 
   export let data: ProfilePageData;
@@ -37,12 +36,13 @@
   const sortOptions = [
     { value: 'newest', label: 'Newest' },
     { value: 'top', label: 'Top' },
-    { value: 'oldest', label: 'Oldest' }
+    { value: 'oldest', label: 'Oldest' },
   ];
 
   let activeFilter: FeedFilter = 'all';
   let viewedUsername = data.username;
   let activePeopleList: PeopleListMode = null;
+  let trustOpen = false;
   let composeOpen = false;
   let sortMode: SortMode = 'newest';
   let feedItems: PersonalFeedItem[] = data.feed;
@@ -54,6 +54,8 @@
   let lastLoadedQuery = `${data.username}:recent`;
   let appliedFeedRef = data.feed;
   let followPending = false;
+  let stancePending = false;
+  let stanceMessage = '';
   let followMessage = '';
   let requestActionPending = '';
   let pendingFollowRequests: ViewerSummary[] = data.pendingFollowRequests;
@@ -63,7 +65,7 @@
   $: scopeOptions = [
     { value: 'all', label: 'All' },
     { value: 'public', label: 'Public' },
-    ...(data.canViewPersonalFeed ? [{ value: 'personal', label: 'Personal' as const }] : [])
+    ...(data.canViewPersonalFeed ? [{ value: 'personal', label: 'Personal' as const }] : []),
   ];
 
   function scopeIconFor(filter: FeedFilter): 'filter' | 'globe' | 'people' {
@@ -82,6 +84,7 @@
     viewedUsername = data.username;
     activeFilter = 'all';
     activePeopleList = null;
+    trustOpen = false;
     composeOpen = false;
     sortMode = 'newest';
     feedItems = data.feed;
@@ -128,7 +131,7 @@
         username: data.username,
         sort: requestedSort,
         limit: DEFAULT_FEED_PAGE_SIZE,
-        offset: 0
+        offset: 0,
       });
       if (requestId === feedRequestId) {
         feedItems = pageResult.items;
@@ -155,7 +158,7 @@
         username: data.username,
         sort: apiSort,
         limit: DEFAULT_FEED_PAGE_SIZE,
-        offset: feedOffset
+        offset: feedOffset,
       });
       if (requestId !== feedRequestId) {
         return;
@@ -184,8 +187,7 @@
     if (apiSort === 'recent' && lastLoadedQuery === `${data.username}:recent`) {
       // Merge engagement onto the client list instead of replacing it wholesale,
       // so live votes on paginated rows are not wiped by the recent loader snapshot.
-      feedItems =
-        feedItems.length > 0 ? mergeFeedEngagement(feedItems, data.feed) : data.feed;
+      feedItems = feedItems.length > 0 ? mergeFeedEngagement(feedItems, data.feed) : data.feed;
       feedOffset = Math.max(feedOffset, data.feed.length);
       feedHasMore = data.feed.length >= DEFAULT_FEED_PAGE_SIZE || feedHasMore;
     } else if (apiSort !== 'recent') {
@@ -227,7 +229,6 @@
     })();
   });
 
-
   async function handleFollowRequest(username: string, action: 'accept' | 'reject') {
     requestActionPending = username;
     followMessage = '';
@@ -238,7 +239,9 @@
       } else {
         await rejectFollowRequest(username);
       }
-      pendingFollowRequests = pendingFollowRequests.filter((person) => person.username !== username);
+      pendingFollowRequests = pendingFollowRequests.filter(
+        (person) => person.username !== username
+      );
       await invalidateAll();
     } catch {
       followMessage = 'Could not update follow request. Reload and try again.';
@@ -249,6 +252,27 @@
 
   function togglePeopleList(mode: Exclude<PeopleListMode, null>) {
     activePeopleList = activePeopleList === mode ? null : mode;
+    if (activePeopleList) {
+      trustOpen = false;
+    }
+  }
+
+  function toggleTrustSheet() {
+    trustOpen = !trustOpen;
+    if (trustOpen) {
+      activePeopleList = null;
+    }
+  }
+
+  function trustAction(next: 'vouch' | 'bot') {
+    if (!data.trust || stancePending) {
+      return;
+    }
+    if (data.trust.viewerStance === next) {
+      void updateStance('clear');
+      return;
+    }
+    void updateStance(next);
   }
 
   function matchesFilter(item: PersonalFeedItem, filter: FeedFilter) {
@@ -257,10 +281,31 @@
     }
 
     if (filter === 'public') {
-      return item.kind === 'activity' || item.kind === 'comment-activity' || item.kind === 'help-request' || (item.kind === 'post' && item.audience === 'public');
+      return (
+        item.kind === 'activity' ||
+        item.kind === 'comment-activity' ||
+        item.kind === 'help-request' ||
+        (item.kind === 'post' && item.audience === 'public')
+      );
     }
 
     return item.kind === 'post';
+  }
+
+  async function updateStance(stance: 'vouch' | 'bot' | 'clear') {
+    if (stancePending || data.isOwnProfile) {
+      return;
+    }
+    stancePending = true;
+    stanceMessage = '';
+    try {
+      await setAccountStance(data.username, stance);
+      await invalidateAll();
+    } catch (err) {
+      stanceMessage = err instanceof Error ? err.message : 'Could not update that stance.';
+    } finally {
+      stancePending = false;
+    }
   }
 
   async function toggleFollow() {
@@ -295,14 +340,14 @@
   $: peopleSheetPeople = peopleItems.map((person) => ({
     id: person.id,
     username: person.username,
-    profileImageUrl: person.profileImageUrl ?? null
+    profileImageUrl: person.profileImageUrl ?? null,
+    badges: trustBadges(person.realR, person.bootstrapFloor),
   }));
   $: if (!data.canViewPersonalFeed && activeFilter === 'personal') {
     activeFilter = 'all';
   }
 
-  const BIO_DISPLAY_LIMIT = 160;
-  $: displayBio = data.bio ? data.bio.trim().slice(0, BIO_DISPLAY_LIMIT) : '';
+  $: displayBio = data.bio ? data.bio.trim() : '';
 </script>
 
 <section class="page">
@@ -369,17 +414,94 @@
           </div>
         </div>
       </div>
+      {#if data.trust}
+        <div class="trust-corner">
+          <div
+            class="trust-split"
+            class:rating-only={data.isOwnProfile}
+            class:vouched={!data.isOwnProfile && data.trust.viewerStance === 'vouch'}
+            class:marked={!data.isOwnProfile && data.trust.viewerStance === 'bot'}
+            class:open={trustOpen}
+          >
+            {#if !data.isOwnProfile}
+              <button
+                aria-label={data.trust.viewerStance === 'vouch'
+                  ? `Clear vouch for ${data.username}`
+                  : data.trust.viewerStance === 'bot'
+                    ? `Switch to vouch for ${data.username}`
+                    : `Vouch for ${data.username}`}
+                aria-pressed={data.trust.viewerStance === 'vouch'}
+                class="trust-vouch"
+                disabled={stancePending ||
+                  (data.trust.viewerStance !== 'vouch' && !data.trust.viewerCanVouch)}
+                title={data.trust.viewerStance === 'bot' && data.trust.viewerCanVouch
+                  ? 'Switch to vouch'
+                  : data.trust.viewerStance === 'vouch'
+                    ? 'Clear vouch'
+                    : data.trust.viewerCanVouch
+                      ? 'Vouch'
+                      : 'Vouching needs a trust ratio of at least 0.66.'}
+                type="button"
+                on:click={() => trustAction('vouch')}
+              >
+                Vouch
+              </button>
+            {/if}
+            <button
+              aria-expanded={trustOpen}
+              aria-label={`Trust rating ${data.trust.realR.toFixed(2)}`}
+              class="trust-rating"
+              title={data.trust.bootstrapFloor
+                ? 'Earned ratio. Stances still count while the network is young.'
+                : 'Earned trust ratio'}
+              type="button"
+              on:click={toggleTrustSheet}
+            >
+              {data.trust.realR.toFixed(2)}
+            </button>
+            {#if !data.isOwnProfile}
+              <button
+                aria-label={data.trust.viewerStance === 'bot'
+                  ? `Clear bot mark for ${data.username}`
+                  : data.trust.viewerStance === 'vouch'
+                    ? `Switch to bot mark for ${data.username}`
+                    : `Mark ${data.username} as a bot`}
+                aria-pressed={data.trust.viewerStance === 'bot'}
+                class="trust-bot"
+                disabled={stancePending ||
+                  (data.trust.viewerStance !== 'bot' && !data.trust.viewerCanMarkBot)}
+                title={data.trust.viewerStance === 'vouch' && data.trust.viewerCanMarkBot
+                  ? 'Switch to bot'
+                  : data.trust.viewerStance === 'bot'
+                    ? 'Clear bot mark'
+                    : data.trust.viewerCanMarkBot
+                      ? 'Mark as bot'
+                      : 'Marking as a bot needs licensing vouches first.'}
+                type="button"
+                on:click={() => trustAction('bot')}
+              >
+                Bot
+              </button>
+            {/if}
+          </div>
+        </div>
+      {/if}
     </div>
 
     {#if followMessage}
       <div class="warning-card" role="alert">{followMessage}</div>
+    {/if}
+    {#if stanceMessage}
+      <div class="warning-card" role="alert">{stanceMessage}</div>
     {/if}
   </section>
 
   {#if data.isOwnProfile && pendingFollowRequests.length > 0}
     <section id="follow-requests" class="requests-card">
       <h2>Follow requests</h2>
-      <p class="requests-copy">Approve followers who need your permission before they can see personal content.</p>
+      <p class="requests-copy">
+        Approve followers who need your permission before they can see personal content.
+      </p>
       <div class="people-list">
         {#each pendingFollowRequests as person (person.username)}
           <div class="person-row">
@@ -420,6 +542,30 @@
     people={peopleSheetPeople}
     on:close={() => (activePeopleList = null)}
   />
+
+  {#if data.trust}
+    <PeopleSheet
+      description={data.trust.bootstrapFloor && data.trust.bootstrapFloorValue != null
+        ? `The rating is what this account has earned. Bootstrap floor is ${data.trust.bootstrapFloorValue.toFixed(2)}, so its stances still count until that floor reaches 0.`
+        : 'The rating is the ratio this account has earned.'}
+      open={trustOpen}
+      sectionLayout="tabs"
+      sections={[
+        {
+          title: 'Vouchers',
+          emptyCopy: 'No vouches yet.',
+          members: data.trust.vouchers.map((username) => ({ id: username, username })),
+        },
+        {
+          title: 'Bot marks',
+          emptyCopy: 'No bot marks yet.',
+          members: data.trust.botMarkers.map((username) => ({ id: username, username })),
+        },
+      ]}
+      title="Trust"
+      on:close={() => (trustOpen = false)}
+    />
+  {/if}
 
   <ComposeMessageSheet
     bind:open={composeOpen}
@@ -589,7 +735,6 @@
     align-items: flex-start;
     min-width: 0;
     flex: 1 1 0;
-    padding-right: 176px;
   }
 
   .hero-copy {
@@ -614,13 +759,94 @@
   }
 
   .profile-side {
-    position: absolute;
-    top: 0;
-    right: 0;
-    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    flex: 0 0 auto;
+  }
+
+  .trust-corner {
     display: flex;
     justify-content: flex-end;
-    flex: 0 0 auto;
+    margin-top: 10px;
+  }
+
+  .trust-split {
+    display: inline-flex;
+    align-items: stretch;
+    min-height: 36px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-border);
+    overflow: hidden;
+    gap: 1px;
+  }
+
+  .trust-split.vouched {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 55%, var(--panel-border));
+  }
+
+  .trust-split.marked {
+    border-color: color-mix(in srgb, #b91c1c 55%, var(--panel-border));
+    background: color-mix(in srgb, #b91c1c 35%, var(--panel-border));
+  }
+
+  .trust-split.open {
+    border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
+  }
+
+  .trust-vouch,
+  .trust-rating,
+  .trust-bot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    border: 0;
+    background: var(--panel);
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .trust-vouch,
+  .trust-bot {
+    width: 64px;
+    padding: 0;
+    flex: 0 0 64px;
+  }
+
+  .trust-rating {
+    min-width: 44px;
+    padding: 0 8px;
+    color: var(--text-main);
+  }
+
+  .trust-split.vouched .trust-vouch,
+  .trust-split.vouched .trust-rating {
+    color: var(--brand-strong);
+  }
+
+  .trust-split.marked .trust-bot,
+  .trust-split.marked .trust-rating {
+    color: #b91c1c;
+  }
+
+  .trust-vouch:hover:not(:disabled),
+  .trust-rating:hover,
+  .trust-bot:hover:not(:disabled),
+  .trust-vouch:focus-visible,
+  .trust-rating:focus-visible,
+  .trust-bot:focus-visible {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .trust-vouch:disabled,
+  .trust-bot:disabled {
+    opacity: 0.55;
+    cursor: default;
   }
 
   .stats-row {
@@ -632,7 +858,6 @@
 
   .profile-bio {
     margin: 0;
-    max-width: 42ch;
     padding-left: 10px;
     border-left: 2px solid var(--brand);
     color: var(--text-soft);
@@ -641,10 +866,6 @@
     line-height: 1.45;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
   }
 
   .stat-chip {
@@ -662,7 +883,10 @@
     font-weight: 700;
     cursor: pointer;
     flex: 0 0 auto;
-    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease,
+      border-color 120ms ease;
   }
 
   .stat-chip :global(.toolbar-icon) {
@@ -708,17 +932,10 @@
     color: var(--text-soft);
     flex: 0 0 auto;
     cursor: pointer;
-    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
-  }
-
-  @media (max-width: 720px) {
-    .hero-identity {
-      padding-right: 168px;
-    }
-
-    .profile-side {
-      width: auto;
-    }
+    transition:
+      background-color 120ms ease,
+      color 120ms ease,
+      border-color 120ms ease;
   }
 
   .requests-card h2 {

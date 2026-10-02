@@ -21,6 +21,10 @@ export function followUser(username: string) {
   return currentAdapter.followUser(username);
 }
 
+export function setAccountStance(username: string, stance: 'vouch' | 'bot' | 'clear') {
+  return currentAdapter.setAccountStance(username, stance);
+}
+
 export function unfollowUser(username: string) {
   return currentAdapter.unfollowUser(username);
 }

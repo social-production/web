@@ -15,7 +15,8 @@ import {
   fetchRejectFollowRequest,
   fetchSettings,
   fetchUnfollowUser,
-  fetchUpdateSettings
+  fetchUpdateSettings,
+  setAccountStance as postAccountStance,
 } from './domains/users';
 import {
   fetchPublicFeed,
@@ -28,14 +29,15 @@ import {
   fetchRegionFeedPage,
   fetchMapMarkers,
   fetchScopeFeedPage,
-  fetchUserFeedPage
+  fetchUserFeedPage,
 } from './domains/feeds';
+import { fetchCreateFeedback, fetchFeedbackItem, fetchFeedbackPage } from './domains/feedback';
 import {
-  fetchCreateFeedback,
-  fetchFeedbackItem,
-  fetchFeedbackPage,
-} from './domains/feedback';
-import { fetchCreateHelpRequest, fetchHelpRequest, fetchCommitHelpRequestRole, fetchUncommitHelpRequestRole } from './domains/helpRequests';
+  fetchCreateHelpRequest,
+  fetchHelpRequest,
+  fetchCommitHelpRequestRole,
+  fetchUncommitHelpRequestRole,
+} from './domains/helpRequests';
 import {
   fetchThread,
   fetchPost,
@@ -45,7 +47,7 @@ import {
   fetchComments,
   fetchAddComment,
   fetchSubmitReport,
-  fetchSetReportVote
+  fetchSetReportVote,
 } from './domains/content';
 import {
   fetchChannel,
@@ -61,16 +63,20 @@ import {
   fetchCreateChannel,
   fetchCreateCommunity,
   fetchDiscoverScopes,
-  fetchTaggableScopes
+  fetchTaggableScopes,
 } from './domains/scopes';
 import { fetchSearch } from './domains/search';
-import { fetchNotifications, fetchMarkNotificationRead, fetchMarkAllNotificationsRead } from './domains/notifications';
+import {
+  fetchNotifications,
+  fetchMarkNotificationRead,
+  fetchMarkAllNotificationsRead,
+} from './domains/notifications';
 import {
   fetchCreateLocation,
   fetchIpLocationHint,
   fetchLocation,
   fetchLocationReverse,
-  fetchLocationSearch
+  fetchLocationSearch,
 } from './domains/locations';
 import {
   fetchMessages,
@@ -86,45 +92,92 @@ import {
   fetchMarkConversationRead,
   fetchMarkLinkedChatRead,
   fetchPinMessage,
-  fetchUnpinMessage
+  fetchUnpinMessage,
 } from './domains/messages';
 import {
-  fetchProject, fetchProjectHistory, fetchProjectLinks, fetchCreateProject, fetchToggleProjectMembership,
-  fetchToggleProjectDemandSignal, fetchSetProjectSignal,
-  fetchAddProjectValue, fetchSetProjectValueImportance,
-  fetchAddProjectProductionPlan, fetchUpdateProjectProductionPlan, fetchAddProjectDistributionPlan,
-  fetchSetProjectPlanOverallVote, fetchSetProjectPlanValueVote, fetchSetProjectPlanCriterionRating,
-  fetchAddProjectActivity, fetchSetProjectActivityCommitment, fetchSetProjectActivityRating, fetchDeleteProjectActivityRating,
-  fetchAddProjectPullRequest, fetchSetProjectPullRequestVote, fetchRecordProjectPullRequestMerge,
-  fetchRequestProjectMergeCapabilityChange, fetchSetProjectMergeCapabilityChangeVote,
-  fetchRequestProjectRepositoryReplacement, fetchSetProjectRepositoryReplacementVote,
-  fetchAddProjectServiceRequest, fetchSetProjectServiceRequestStatus,
-  fetchCreateProjectAvailabilityRule, fetchDeleteProjectAvailabilityRule,
-  fetchSuggestProjectActivityRole, fetchDeclineProjectActivityRoleSuggestion,
-  fetchPlanProjectServiceRequest, fetchRequestProjectServiceRequestSettingsChange,
-  fetchSetProjectServiceRequestSettingsChangeVote, fetchToggleProjectServiceHistoryCompletion,
-  fetchRequestProjectPhaseChange, fetchSetProjectPhaseChangeVote,
-  fetchAdvanceProjectPhase, fetchRevertProjectPhase,
-  fetchRequestProjectUpdate, fetchSetProjectUpdateVote,
-  fetchUpdateProjectDetails, fetchRequestProjectEdit, fetchSetProjectEditVote,
+  fetchProject,
+  fetchProjectHistory,
+  fetchProjectLinks,
+  fetchCreateProject,
+  fetchToggleProjectMembership,
+  fetchToggleProjectDemandSignal,
+  fetchSetProjectSignal,
+  fetchAddProjectValue,
+  fetchSetProjectValueImportance,
+  fetchAddProjectProductionPlan,
+  fetchUpdateProjectProductionPlan,
+  fetchAddProjectDistributionPlan,
+  fetchSetProjectPlanOverallVote,
+  fetchSetProjectPlanValueVote,
+  fetchSetProjectPlanCriterionRating,
+  fetchAddProjectActivity,
+  fetchSetProjectActivityCommitment,
+  fetchSetProjectActivityRating,
+  fetchDeleteProjectActivityRating,
+  fetchAddProjectPullRequest,
+  fetchSetProjectPullRequestVote,
+  fetchRecordProjectPullRequestMerge,
+  fetchRequestProjectMergeCapabilityChange,
+  fetchSetProjectMergeCapabilityChangeVote,
+  fetchRequestProjectRepositoryReplacement,
+  fetchSetProjectRepositoryReplacementVote,
+  fetchAddProjectServiceRequest,
+  fetchSetProjectServiceRequestStatus,
+  fetchCreateProjectAvailabilityRule,
+  fetchDeleteProjectAvailabilityRule,
+  fetchSuggestProjectActivityRole,
+  fetchDeclineProjectActivityRoleSuggestion,
+  fetchPlanProjectServiceRequest,
+  fetchRequestProjectServiceRequestSettingsChange,
+  fetchSetProjectServiceRequestSettingsChangeVote,
+  fetchToggleProjectServiceHistoryCompletion,
+  fetchRequestProjectPhaseChange,
+  fetchSetProjectPhaseChangeVote,
+  fetchAdvanceProjectPhase,
+  fetchRevertProjectPhase,
+  fetchRequestProjectUpdate,
+  fetchSetProjectUpdateVote,
+  fetchUpdateProjectDetails,
+  fetchRequestProjectEdit,
+  fetchSetProjectEditVote,
   fetchAddProjectUpdate,
-  fetchCreateProjectManualLinkRequest, fetchSetProjectManualLinkVote,
+  fetchCreateProjectManualLinkRequest,
+  fetchSetProjectManualLinkVote,
   fetchCreateProjectManualLinkSeverRequest,
   fetchShareProjectWithUser,
 } from './domains/projects';
 import {
-  fetchEvent, fetchEventHistory, fetchEventLinks, fetchCreateEvent, fetchToggleEventMembership,
-  fetchSetEventSignal, fetchAddEventValue, fetchSetEventValueImportance,
-  fetchAddEventPlan, fetchSetEventPlanOverallVote, fetchSetEventPlanValueVote, fetchSetEventPlanCriterionRating,
-  fetchAddEventActivity, fetchSetEventActivityCommitment, fetchSetEventActivityRating, fetchDeleteEventActivityRating, fetchToggleEventHistoryCompletion,
-  fetchRequestEventPhaseChange, fetchSetEventPhaseChangeVote,
-  fetchRequestEventUpdate, fetchSetEventUpdateVote,
-  fetchRequestEventEdit, fetchSetEventEditVote,
-  fetchCreateEventManualLinkRequest, fetchSetEventManualLinkVote,
+  fetchEvent,
+  fetchEventHistory,
+  fetchEventLinks,
+  fetchCreateEvent,
+  fetchToggleEventMembership,
+  fetchSetEventSignal,
+  fetchAddEventValue,
+  fetchSetEventValueImportance,
+  fetchAddEventPlan,
+  fetchSetEventPlanOverallVote,
+  fetchSetEventPlanValueVote,
+  fetchSetEventPlanCriterionRating,
+  fetchAddEventActivity,
+  fetchSetEventActivityCommitment,
+  fetchSetEventActivityRating,
+  fetchDeleteEventActivityRating,
+  fetchToggleEventHistoryCompletion,
+  fetchRequestEventPhaseChange,
+  fetchSetEventPhaseChangeVote,
+  fetchRequestEventUpdate,
+  fetchSetEventUpdateVote,
+  fetchRequestEventEdit,
+  fetchSetEventEditVote,
+  fetchCreateEventManualLinkRequest,
+  fetchSetEventManualLinkVote,
   fetchCreateEventManualLinkSeverRequest,
-  fetchGrantEventEditAccess, fetchRevokeEventEditAccess,
+  fetchGrantEventEditAccess,
+  fetchRevokeEventEditAccess,
   fetchShareEventWithUser,
-  fetchSuggestEventActivityRole, fetchDeclineEventActivityRoleSuggestion,
+  fetchSuggestEventActivityRole,
+  fetchDeclineEventActivityRoleSuggestion,
 } from './domains/events';
 
 const bootstrapFallback: BootstrapPayload = {
@@ -132,20 +185,20 @@ const bootstrapFallback: BootstrapPayload = {
   featureFlags: {
     assets: false,
     funding: false,
-    platform: true
+    platform: true,
   },
   unreadCounts: {
     notifications: 0,
-    messages: 0
+    messages: 0,
   },
   directory: {
     platform: null,
     channels: [],
-    communities: []
+    communities: [],
   },
   suggestedContacts: [],
   activityRail: [],
-  activityRailHistory: []
+  activityRailHistory: [],
 };
 
 export function createFastApiDriver(): AppAdapter {
@@ -303,92 +356,250 @@ export function createFastApiDriver(): AppAdapter {
       return fetchDiscoverScopes(kind);
     },
 
-    async getEvent(slug) { return fetchEvent(slug); },
-    async getEventHistory(slug) { return fetchEventHistory(slug); },
-    async getEventLinks(slug) { return fetchEventLinks(slug); },
-    async createEvent(input) { return fetchCreateEvent(input); },
-    async toggleEventMembership(eventSlug) { return fetchToggleEventMembership(eventSlug); },
-    async setEventSignal(slug, signal) { return fetchSetEventSignal(slug, signal); },
-    async addEventValue(slug, label) { return fetchAddEventValue(slug, label); },
-    async setEventValueImportance(slug, valueId, importance) { return fetchSetEventValueImportance(slug, valueId, importance); },
-    async addEventPlan(slug, input) { return fetchAddEventPlan(slug, input); },
-    async setEventPlanOverallVote(slug, planId, vote) { return fetchSetEventPlanOverallVote(slug, planId, vote); },
-    async setEventPlanValueVote(slug, planId, valueId, vote) { return fetchSetEventPlanValueVote(slug, planId, valueId, vote); },
-    async setEventPlanCriterionRating(slug, planId, criterionId, rating) { return fetchSetEventPlanCriterionRating(slug, planId, criterionId, rating); },
-    async addEventActivity(slug, input) { return fetchAddEventActivity(slug, input); },
-    async setEventActivityCommitment(slug, activityId, roleLabel) { return fetchSetEventActivityCommitment(slug, activityId, roleLabel); },
-    async setEventActivityRating(slug, activityId, rating, comment) { return fetchSetEventActivityRating(slug, activityId, rating, comment); },
-    async deleteEventActivityRating(slug, activityId) { return fetchDeleteEventActivityRating(slug, activityId); },
-    async toggleEventHistoryCompletion(slug, historyId, role, selection) { return fetchToggleEventHistoryCompletion(slug, historyId, role, selection); },
-    async requestEventPhaseChange(slug, targetPhaseId, reason) { return fetchRequestEventPhaseChange(slug, targetPhaseId, reason); },
-    async setEventPhaseChangeVote(slug, requestId, vote) { return fetchSetEventPhaseChangeVote(slug, requestId, vote); },
-    async requestEventUpdate(slug, body) { return fetchRequestEventUpdate(slug, body); },
-    async setEventUpdateVote(slug, requestId, vote) { return fetchSetEventUpdateVote(slug, requestId, vote); },
-    async requestEventEdit(slug, title, description) { return fetchRequestEventEdit(slug, title, description); },
-    async setEventEditVote(slug, requestId, vote) { return fetchSetEventEditVote(slug, requestId, vote); },
-    async createEventManualLinkRequest(slug, targetKind, targetSlug, summary, label) { return fetchCreateEventManualLinkRequest(slug, targetKind, targetSlug, summary, label); },
-    async setEventManualLinkVote(slug, requestId, vote) { return fetchSetEventManualLinkVote(slug, requestId, vote); },
-    async createEventManualLinkSeverRequest(slug, linkId, summary) { return fetchCreateEventManualLinkSeverRequest(slug, linkId, summary); },
-    async grantEventEditAccess(slug, userId) { return fetchGrantEventEditAccess(slug, userId); },
-    async revokeEventEditAccess(slug, userId) { return fetchRevokeEventEditAccess(slug, userId); },
-    async shareEventWithUser(slug, username) { return fetchShareEventWithUser(slug, username); },
-    async suggestEventActivityRole(slug, activityId, roleId, userId) { return fetchSuggestEventActivityRole(slug, activityId, roleId, userId); },
-    async declineEventActivityRoleSuggestion(slug, activityId, roleId) { return fetchDeclineEventActivityRoleSuggestion(slug, activityId, roleId); },
+    async getEvent(slug) {
+      return fetchEvent(slug);
+    },
+    async getEventHistory(slug) {
+      return fetchEventHistory(slug);
+    },
+    async getEventLinks(slug) {
+      return fetchEventLinks(slug);
+    },
+    async createEvent(input) {
+      return fetchCreateEvent(input);
+    },
+    async toggleEventMembership(eventSlug) {
+      return fetchToggleEventMembership(eventSlug);
+    },
+    async setEventSignal(slug, signal) {
+      return fetchSetEventSignal(slug, signal);
+    },
+    async addEventValue(slug, label) {
+      return fetchAddEventValue(slug, label);
+    },
+    async setEventValueImportance(slug, valueId, importance) {
+      return fetchSetEventValueImportance(slug, valueId, importance);
+    },
+    async addEventPlan(slug, input) {
+      return fetchAddEventPlan(slug, input);
+    },
+    async setEventPlanOverallVote(slug, planId, vote) {
+      return fetchSetEventPlanOverallVote(slug, planId, vote);
+    },
+    async setEventPlanValueVote(slug, planId, valueId, vote) {
+      return fetchSetEventPlanValueVote(slug, planId, valueId, vote);
+    },
+    async setEventPlanCriterionRating(slug, planId, criterionId, rating) {
+      return fetchSetEventPlanCriterionRating(slug, planId, criterionId, rating);
+    },
+    async addEventActivity(slug, input) {
+      return fetchAddEventActivity(slug, input);
+    },
+    async setEventActivityCommitment(slug, activityId, roleLabel) {
+      return fetchSetEventActivityCommitment(slug, activityId, roleLabel);
+    },
+    async setEventActivityRating(slug, activityId, rating, comment) {
+      return fetchSetEventActivityRating(slug, activityId, rating, comment);
+    },
+    async deleteEventActivityRating(slug, activityId) {
+      return fetchDeleteEventActivityRating(slug, activityId);
+    },
+    async toggleEventHistoryCompletion(slug, historyId, role, selection) {
+      return fetchToggleEventHistoryCompletion(slug, historyId, role, selection);
+    },
+    async requestEventPhaseChange(slug, targetPhaseId, reason) {
+      return fetchRequestEventPhaseChange(slug, targetPhaseId, reason);
+    },
+    async setEventPhaseChangeVote(slug, requestId, vote) {
+      return fetchSetEventPhaseChangeVote(slug, requestId, vote);
+    },
+    async requestEventUpdate(slug, body) {
+      return fetchRequestEventUpdate(slug, body);
+    },
+    async setEventUpdateVote(slug, requestId, vote) {
+      return fetchSetEventUpdateVote(slug, requestId, vote);
+    },
+    async requestEventEdit(slug, title, description) {
+      return fetchRequestEventEdit(slug, title, description);
+    },
+    async setEventEditVote(slug, requestId, vote) {
+      return fetchSetEventEditVote(slug, requestId, vote);
+    },
+    async createEventManualLinkRequest(slug, targetKind, targetSlug, summary, label) {
+      return fetchCreateEventManualLinkRequest(slug, targetKind, targetSlug, summary, label);
+    },
+    async setEventManualLinkVote(slug, requestId, vote) {
+      return fetchSetEventManualLinkVote(slug, requestId, vote);
+    },
+    async createEventManualLinkSeverRequest(slug, linkId, summary) {
+      return fetchCreateEventManualLinkSeverRequest(slug, linkId, summary);
+    },
+    async grantEventEditAccess(slug, userId) {
+      return fetchGrantEventEditAccess(slug, userId);
+    },
+    async revokeEventEditAccess(slug, userId) {
+      return fetchRevokeEventEditAccess(slug, userId);
+    },
+    async shareEventWithUser(slug, username) {
+      return fetchShareEventWithUser(slug, username);
+    },
+    async suggestEventActivityRole(slug, activityId, roleId, userId) {
+      return fetchSuggestEventActivityRole(slug, activityId, roleId, userId);
+    },
+    async declineEventActivityRoleSuggestion(slug, activityId, roleId) {
+      return fetchDeclineEventActivityRoleSuggestion(slug, activityId, roleId);
+    },
 
-    async getProject(slug) { return fetchProject(slug); },
-    async getProjectHistory(slug) { return fetchProjectHistory(slug); },
-    async getProjectLinks(slug) { return fetchProjectLinks(slug); },
-    async createProject(input) { return fetchCreateProject(input); },
-    async toggleProjectMembership(slug) { return fetchToggleProjectMembership(slug); },
-    async toggleProjectDemandSignal(slug) { return fetchToggleProjectDemandSignal(slug); },
-    async setProjectSignal(slug, signal) { return fetchSetProjectSignal(slug, signal); },
-    async addProjectValue(slug, label) { return fetchAddProjectValue(slug, label); },
-    async setProjectValueImportance(slug, valueId, importance) { return fetchSetProjectValueImportance(slug, valueId, importance); },
+    async getProject(slug) {
+      return fetchProject(slug);
+    },
+    async getProjectHistory(slug) {
+      return fetchProjectHistory(slug);
+    },
+    async getProjectLinks(slug) {
+      return fetchProjectLinks(slug);
+    },
+    async createProject(input) {
+      return fetchCreateProject(input);
+    },
+    async toggleProjectMembership(slug) {
+      return fetchToggleProjectMembership(slug);
+    },
+    async toggleProjectDemandSignal(slug) {
+      return fetchToggleProjectDemandSignal(slug);
+    },
+    async setProjectSignal(slug, signal) {
+      return fetchSetProjectSignal(slug, signal);
+    },
+    async addProjectValue(slug, label) {
+      return fetchAddProjectValue(slug, label);
+    },
+    async setProjectValueImportance(slug, valueId, importance) {
+      return fetchSetProjectValueImportance(slug, valueId, importance);
+    },
     async addProjectProductionPlan(slug, input, projectMode) {
       return fetchAddProjectProductionPlan(slug, input, projectMode);
     },
-    async updateProjectProductionPlan(slug, planId, input) { return fetchUpdateProjectProductionPlan(slug, planId, input); },
+    async updateProjectProductionPlan(slug, planId, input) {
+      return fetchUpdateProjectProductionPlan(slug, planId, input);
+    },
     async addProjectDistributionPlan(slug, input, projectMode) {
       return fetchAddProjectDistributionPlan(slug, input, projectMode);
     },
-    async setProjectPlanOverallVote(slug, phaseId, planId, vote) { return fetchSetProjectPlanOverallVote(slug, phaseId, planId, vote); },
-    async setProjectPlanValueVote(slug, phaseId, planId, valueId, vote) { return fetchSetProjectPlanValueVote(slug, phaseId, planId, valueId, vote); },
-    async setProjectPlanCriterionRating(slug, planId, criterionId, rating) { return fetchSetProjectPlanCriterionRating(slug, planId, criterionId, rating); },
-    async addProjectActivity(slug, input) { return fetchAddProjectActivity(slug, input); },
-    async setProjectActivityCommitment(slug, activityId, roleLabel) { return fetchSetProjectActivityCommitment(slug, activityId, roleLabel); },
-    async setProjectActivityRating(slug, activityId, rating, comment) { return fetchSetProjectActivityRating(slug, activityId, rating, comment); },
-    async deleteProjectActivityRating(slug, activityId) { return fetchDeleteProjectActivityRating(slug, activityId); },
-    async addProjectPullRequest(slug, input) { return fetchAddProjectPullRequest(slug, input); },
-    async setProjectPullRequestVote(slug, decisionId, vote) { return fetchSetProjectPullRequestVote(slug, decisionId, vote); },
-    async recordProjectPullRequestMerge(slug, requestId, mergeId, mergeUrl) { return fetchRecordProjectPullRequestMerge(slug, requestId, mergeId, mergeUrl); },
-    async requestProjectMergeCapabilityChange(slug, input) { return fetchRequestProjectMergeCapabilityChange(slug, input); },
-    async setProjectMergeCapabilityChangeVote(slug, decisionId, vote) { return fetchSetProjectMergeCapabilityChangeVote(slug, decisionId, vote); },
-    async requestProjectRepositoryReplacement(slug, input) { return fetchRequestProjectRepositoryReplacement(slug, input); },
-    async setProjectRepositoryReplacementVote(slug, decisionId, vote) { return fetchSetProjectRepositoryReplacementVote(slug, decisionId, vote); },
-    async addProjectServiceRequest(slug, input) { return fetchAddProjectServiceRequest(slug, input); },
-    async setProjectServiceRequestStatus(slug, requestId, status, holdSlot) { return fetchSetProjectServiceRequestStatus(slug, requestId, status, holdSlot); },
-    async createProjectAvailabilityRule(slug, input) { return fetchCreateProjectAvailabilityRule(slug, input); },
-    async deleteProjectAvailabilityRule(slug, ruleId) { return fetchDeleteProjectAvailabilityRule(slug, ruleId); },
-    async suggestProjectActivityRole(slug, activityId, roleId, userId) { return fetchSuggestProjectActivityRole(slug, activityId, roleId, userId); },
-    async declineProjectActivityRoleSuggestion(slug, activityId, roleId) { return fetchDeclineProjectActivityRoleSuggestion(slug, activityId, roleId); },
-    async planProjectServiceRequest(slug, requestId, input) { return fetchPlanProjectServiceRequest(slug, requestId, input); },
-    async requestProjectServiceRequestSettingsChange(slug, input) { return fetchRequestProjectServiceRequestSettingsChange(slug, input); },
-    async setProjectServiceRequestSettingsChangeVote(slug, requestId, vote) { return fetchSetProjectServiceRequestSettingsChangeVote(slug, requestId, vote); },
-    async toggleProjectServiceHistoryCompletion(slug, historyId, role, selection) { return fetchToggleProjectServiceHistoryCompletion(slug, historyId, role, selection); },
-    async requestProjectPhaseChange(slug, targetPhaseId, reason, options) { return fetchRequestProjectPhaseChange(slug, targetPhaseId, reason, options); },
-    async setProjectPhaseChangeVote(slug, requestId, vote) { return fetchSetProjectPhaseChangeVote(slug, requestId, vote); },
-    async advanceProjectPhase(slug, closeNote) { return fetchAdvanceProjectPhase(slug, closeNote); },
-    async revertProjectPhase(slug, targetPhaseId, reason) { return fetchRevertProjectPhase(slug, targetPhaseId, reason); },
-    async requestProjectUpdate(slug, body) { return fetchRequestProjectUpdate(slug, body); },
-    async setProjectUpdateVote(slug, requestId, vote) { return fetchSetProjectUpdateVote(slug, requestId, vote); },
-    async updateProjectDetails(slug, title, description) { return fetchUpdateProjectDetails(slug, title, description); },
-    async requestProjectEdit(slug, title, description) { return fetchRequestProjectEdit(slug, title, description); },
-    async setProjectEditVote(slug, requestId, vote) { return fetchSetProjectEditVote(slug, requestId, vote); },
-    async addProjectUpdate(slug, title, body) { return fetchAddProjectUpdate(slug, title, body); },
-    async createProjectManualLinkRequest(slug, targetKind, targetSlug, summary, label) { return fetchCreateProjectManualLinkRequest(slug, targetKind, targetSlug, summary, label); },
-    async setProjectManualLinkVote(slug, requestId, vote) { return fetchSetProjectManualLinkVote(slug, requestId, vote); },
-    async createProjectManualLinkSeverRequest(slug, linkId, summary) { return fetchCreateProjectManualLinkSeverRequest(slug, linkId, summary); },
-    async shareProjectWithUser(slug, username) { return fetchShareProjectWithUser(slug, username); },
+    async setProjectPlanOverallVote(slug, phaseId, planId, vote) {
+      return fetchSetProjectPlanOverallVote(slug, phaseId, planId, vote);
+    },
+    async setProjectPlanValueVote(slug, phaseId, planId, valueId, vote) {
+      return fetchSetProjectPlanValueVote(slug, phaseId, planId, valueId, vote);
+    },
+    async setProjectPlanCriterionRating(slug, planId, criterionId, rating) {
+      return fetchSetProjectPlanCriterionRating(slug, planId, criterionId, rating);
+    },
+    async addProjectActivity(slug, input) {
+      return fetchAddProjectActivity(slug, input);
+    },
+    async setProjectActivityCommitment(slug, activityId, roleLabel) {
+      return fetchSetProjectActivityCommitment(slug, activityId, roleLabel);
+    },
+    async setProjectActivityRating(slug, activityId, rating, comment) {
+      return fetchSetProjectActivityRating(slug, activityId, rating, comment);
+    },
+    async deleteProjectActivityRating(slug, activityId) {
+      return fetchDeleteProjectActivityRating(slug, activityId);
+    },
+    async addProjectPullRequest(slug, input) {
+      return fetchAddProjectPullRequest(slug, input);
+    },
+    async setProjectPullRequestVote(slug, decisionId, vote) {
+      return fetchSetProjectPullRequestVote(slug, decisionId, vote);
+    },
+    async recordProjectPullRequestMerge(slug, requestId, mergeId, mergeUrl) {
+      return fetchRecordProjectPullRequestMerge(slug, requestId, mergeId, mergeUrl);
+    },
+    async requestProjectMergeCapabilityChange(slug, input) {
+      return fetchRequestProjectMergeCapabilityChange(slug, input);
+    },
+    async setProjectMergeCapabilityChangeVote(slug, decisionId, vote) {
+      return fetchSetProjectMergeCapabilityChangeVote(slug, decisionId, vote);
+    },
+    async requestProjectRepositoryReplacement(slug, input) {
+      return fetchRequestProjectRepositoryReplacement(slug, input);
+    },
+    async setProjectRepositoryReplacementVote(slug, decisionId, vote) {
+      return fetchSetProjectRepositoryReplacementVote(slug, decisionId, vote);
+    },
+    async addProjectServiceRequest(slug, input) {
+      return fetchAddProjectServiceRequest(slug, input);
+    },
+    async setProjectServiceRequestStatus(slug, requestId, status, holdSlot) {
+      return fetchSetProjectServiceRequestStatus(slug, requestId, status, holdSlot);
+    },
+    async createProjectAvailabilityRule(slug, input) {
+      return fetchCreateProjectAvailabilityRule(slug, input);
+    },
+    async deleteProjectAvailabilityRule(slug, ruleId) {
+      return fetchDeleteProjectAvailabilityRule(slug, ruleId);
+    },
+    async suggestProjectActivityRole(slug, activityId, roleId, userId) {
+      return fetchSuggestProjectActivityRole(slug, activityId, roleId, userId);
+    },
+    async declineProjectActivityRoleSuggestion(slug, activityId, roleId) {
+      return fetchDeclineProjectActivityRoleSuggestion(slug, activityId, roleId);
+    },
+    async planProjectServiceRequest(slug, requestId, input) {
+      return fetchPlanProjectServiceRequest(slug, requestId, input);
+    },
+    async requestProjectServiceRequestSettingsChange(slug, input) {
+      return fetchRequestProjectServiceRequestSettingsChange(slug, input);
+    },
+    async setProjectServiceRequestSettingsChangeVote(slug, requestId, vote) {
+      return fetchSetProjectServiceRequestSettingsChangeVote(slug, requestId, vote);
+    },
+    async toggleProjectServiceHistoryCompletion(slug, historyId, role, selection) {
+      return fetchToggleProjectServiceHistoryCompletion(slug, historyId, role, selection);
+    },
+    async requestProjectPhaseChange(slug, targetPhaseId, reason, options) {
+      return fetchRequestProjectPhaseChange(slug, targetPhaseId, reason, options);
+    },
+    async setProjectPhaseChangeVote(slug, requestId, vote) {
+      return fetchSetProjectPhaseChangeVote(slug, requestId, vote);
+    },
+    async advanceProjectPhase(slug, closeNote) {
+      return fetchAdvanceProjectPhase(slug, closeNote);
+    },
+    async revertProjectPhase(slug, targetPhaseId, reason) {
+      return fetchRevertProjectPhase(slug, targetPhaseId, reason);
+    },
+    async requestProjectUpdate(slug, body) {
+      return fetchRequestProjectUpdate(slug, body);
+    },
+    async setProjectUpdateVote(slug, requestId, vote) {
+      return fetchSetProjectUpdateVote(slug, requestId, vote);
+    },
+    async updateProjectDetails(slug, title, description) {
+      return fetchUpdateProjectDetails(slug, title, description);
+    },
+    async requestProjectEdit(slug, title, description) {
+      return fetchRequestProjectEdit(slug, title, description);
+    },
+    async setProjectEditVote(slug, requestId, vote) {
+      return fetchSetProjectEditVote(slug, requestId, vote);
+    },
+    async addProjectUpdate(slug, title, body) {
+      return fetchAddProjectUpdate(slug, title, body);
+    },
+    async createProjectManualLinkRequest(slug, targetKind, targetSlug, summary, label) {
+      return fetchCreateProjectManualLinkRequest(slug, targetKind, targetSlug, summary, label);
+    },
+    async setProjectManualLinkVote(slug, requestId, vote) {
+      return fetchSetProjectManualLinkVote(slug, requestId, vote);
+    },
+    async createProjectManualLinkSeverRequest(slug, linkId, summary) {
+      return fetchCreateProjectManualLinkSeverRequest(slug, linkId, summary);
+    },
+    async shareProjectWithUser(slug, username) {
+      return fetchShareProjectWithUser(slug, username);
+    },
 
     async getSearch(query, options) {
       return fetchSearch(query, options);
@@ -518,6 +729,10 @@ export function createFastApiDriver(): AppAdapter {
       return fetchProfile(username);
     },
 
+    async setAccountStance(username, stance) {
+      return postAccountStance(username, stance);
+    },
+
     async followUser(username) {
       return fetchFollowUser(username);
     },
@@ -576,6 +791,6 @@ export function createFastApiDriver(): AppAdapter {
 
     hydrateClientState() {
       return Promise.resolve(true);
-    }
+    },
   } as AppAdapter;
 }
