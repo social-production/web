@@ -17,6 +17,7 @@
 
   let composerMode: 'direct' | 'group' = 'direct';
   let recipientDraft = '';
+  let selectedDirectRecipient = '';
   let groupTitleDraft = '';
   let groupMemberDraft = '';
   let selectedGroupMembers: string[] = [];
@@ -62,7 +63,8 @@
 
     if (open && prefillUsername) {
       composerMode = 'direct';
-      recipientDraft = prefillUsername;
+      selectedDirectRecipient = prefillUsername;
+      recipientDraft = '';
     }
   }
 
@@ -73,6 +75,7 @@
   function resetComposer() {
     composerMode = 'direct';
     recipientDraft = '';
+    selectedDirectRecipient = '';
     groupTitleDraft = '';
     groupMemberDraft = '';
     selectedGroupMembers = [];
@@ -121,8 +124,13 @@
   }
 
   function chooseDirectRecipient(username: string) {
-    recipientDraft = username;
+    selectedDirectRecipient = username;
+    recipientDraft = '';
     composerError = '';
+  }
+
+  function clearDirectRecipient() {
+    selectedDirectRecipient = '';
   }
 
   function chooseGroupComposerMember(username: string) {
@@ -168,9 +176,10 @@
 
     if (composerMode === 'direct') {
       const participantUsername =
-        normalizedRecipientQuery && directSuggestions.length === 1
+        selectedDirectRecipient ||
+        (normalizedRecipientQuery && directSuggestions.length === 1
           ? directSuggestions[0].username
-          : recipientDraft.trim();
+          : recipientDraft.trim());
 
       if (!participantUsername || !body) {
         composerError = 'Choose a username and write a message.';
@@ -251,21 +260,31 @@
 
     {#if composerMode === 'direct'}
       <div class="composer-field">
-        <label>
-          <span class="sr-only">To</span>
-          <input
-            bind:value={recipientDraft}
-            on:keydown={handleRecipientKeydown}
-            placeholder="Username"
-            type="text"
+        {#if selectedDirectRecipient}
+          <div class="selected-row" aria-label="Selected person">
+            <button class="selected-chip" type="button" on:click={clearDirectRecipient}>
+              <AvatarBadge size="sm" username={selectedDirectRecipient} />
+              <span>{selectedDirectRecipient}</span>
+              <span class="chip-remove" aria-hidden="true">×</span>
+            </button>
+          </div>
+        {:else}
+          <label>
+            <span class="sr-only">To</span>
+            <input
+              bind:value={recipientDraft}
+              on:keydown={handleRecipientKeydown}
+              placeholder="Username"
+              type="text"
+            />
+          </label>
+          <SuggestionList
+            items={directSuggestionItems}
+            query={recipientDraft}
+            showAvatars
+            on:select={(event) => chooseDirectRecipient(event.detail.key)}
           />
-        </label>
-        <SuggestionList
-          items={directSuggestionItems}
-          query={recipientDraft}
-          showAvatars
-          on:select={(event) => chooseDirectRecipient(event.detail.key)}
-        />
+        {/if}
       </div>
     {:else}
       <label class="composer-field">

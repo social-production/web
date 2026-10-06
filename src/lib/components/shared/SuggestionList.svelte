@@ -45,7 +45,9 @@
   .suggestion-list {
     display: grid;
     gap: 0;
-    overflow: hidden;
+    max-height: 240px;
+    overflow-x: hidden;
+    overflow-y: auto;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);

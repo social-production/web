@@ -54,9 +54,10 @@
     <button aria-label="Close create menu" class="fab-backdrop" type="button" on:click={handleBackdropClick}></button>
   {/if}
 
-  <div class="create-fab-shell">
+  <div class="create-fab-shell" class:menu-open={open}>
     {#if open}
       <div class="create-menu" role="menu" aria-label="Create">
+        <div class="create-menu-body">
         <p class="menu-kicker">Content</p>
         {#each createContentLinks as link}
           <a class="create-menu-item" href={link.href} role="menuitem" on:click={handleNavigate}>
@@ -78,6 +79,8 @@
             </span>
           </a>
         {/each}
+        </div>
+        <button class="menu-close sheet-close" type="button" on:click={closeMenu}>Close</button>
       </div>
     {/if}
 
@@ -164,12 +167,41 @@
     width: min(86vw, 320px);
     overflow: hidden;
     display: grid;
-    gap: 2px;
-    padding: 10px;
+    grid-template-rows: minmax(0, 1fr) auto;
+    padding: 0;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
     box-shadow: 0 12px 32px color-mix(in srgb, var(--page-bg) 65%, transparent);
+  }
+
+  .create-menu-body {
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: 2px;
+    align-content: start;
+    padding: 10px;
+  }
+
+  .menu-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    margin: 0;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 0;
+    background: var(--danger);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .sheet-close {
+    display: none;
   }
 
   .menu-kicker {
@@ -225,36 +257,50 @@
     overflow: hidden;
   }
 
-  @media (max-width: 1080px) {
+  @media (max-width: 760px) {
     .fab-backdrop {
-      background: color-mix(in srgb, var(--page-bg) 55%, transparent);
+      background: var(--shell-scrim);
     }
 
-    .create-fab-shell {
-      right: 0;
-      left: 0;
-      bottom: 0;
-      justify-items: stretch;
-      padding: 0;
+    .create-fab-shell.menu-open {
+      inset: 0;
+      z-index: var(--z-sheet);
+      width: 100%;
+      height: 100%;
+      display: block;
     }
 
     .create-menu {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
       width: 100%;
-      max-height: none;
-      overflow: hidden;
-      padding: 12px 12px calc(var(--shell-bottom-nav-offset, 0px) + 72px);
-      border-radius: 16px 16px 0 0;
-      border-bottom: none;
+      height: 100dvh;
+      max-height: 100dvh;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+    }
+
+    .create-menu-body {
+      padding: calc(16px + var(--shell-safe-top, 0px)) 16px 12px;
     }
 
     .create-menu-item {
-      padding: 9px 8px;
+      min-height: 56px;
+      padding: 10px 8px;
     }
 
-    .fab-button {
-      position: absolute;
-      right: 12px;
-      bottom: calc(var(--shell-bottom-nav-offset, 0px) + var(--detail-action-dock-height, 0px) + 12px);
+    .sheet-close {
+      display: flex;
+      width: 100%;
+      min-height: calc(56px + var(--shell-safe-bottom, 0px));
+      padding-bottom: var(--shell-safe-bottom, 0px);
+      font-size: 16px;
+    }
+
+    .fab-button-open {
+      display: none;
     }
   }
 

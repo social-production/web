@@ -936,7 +936,7 @@
               {/if}
             </div>
           {/if}
-        {:else}
+        {:else if !isCompact}
           <a class="utility-link" href="/onboarding">{m.shell_nav_login()}</a>
         {/if}
       </nav>
@@ -1613,9 +1613,20 @@
     }
 
     .topbar-compact:not(.search-expanded) {
-      height: auto;
-      min-height: calc(var(--shell-touch-min) + 12px + var(--shell-safe-top));
-      max-height: none;
+      height: calc(52px + var(--shell-safe-top));
+      min-height: calc(52px + var(--shell-safe-top));
+      max-height: calc(52px + var(--shell-safe-top));
+      padding-top: var(--shell-safe-top);
+      padding-bottom: 0;
+      overflow: hidden;
+    }
+
+    .topbar-compact .panel-controls {
+      flex-wrap: nowrap;
+    }
+
+    .topbar-compact .utility-nav {
+      display: none;
     }
 
     .brand > span:not(.brand-mark) {

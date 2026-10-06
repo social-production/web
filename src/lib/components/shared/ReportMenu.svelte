@@ -68,6 +68,19 @@
       return;
     }
 
+    // A new report has nothing else in the menu, so open the form directly.
+    if (!report && !extraActionLabel) {
+      if (blockedMessage.trim()) {
+        menuOpen = true;
+        showingBlockedMessage = true;
+        void focusDialog();
+        return;
+      }
+
+      dispatch('compose');
+      return;
+    }
+
     menuOpen = true;
     showingBlockedMessage = false;
     void focusDialog();
@@ -180,9 +193,16 @@
       role="dialog"
       tabindex="-1"
     >
-      <h2 class="menu-title" id="report-menu-title">{triggerLabel}</h2>
+      <header class="menu-header">
+        <h2 class="menu-title" id="report-menu-title">{triggerLabel}</h2>
+        <button class="menu-close header-close" type="button" on:click={closeMenu}>Close</button>
+      </header>
+      <div class="menu-body">
       {#if extraActionLabel}
-        <button class="menu-item" type="button" on:click={runExtraAction}>{extraActionLabel}</button>
+        <button class="menu-item" type="button" on:click={runExtraAction}>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+          <span>{extraActionLabel}</span>
+        </button>
       {/if}
       {#if report}
         <p class="menu-label">{resolutionLabel(report.resolution)} - {reasonLabel(report.reason)}</p>
@@ -205,7 +225,8 @@
               type="button"
               on:click={() => vote('yes')}
             >
-              Yes
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              <span>Yes</span>
             </button>
             <button
               class:active-vote={report.voteSummary.activeVote === 'no'}
@@ -214,20 +235,21 @@
               type="button"
               on:click={() => vote('no')}
             >
-              No
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+              <span>No</span>
             </button>
           </div>
         {/if}
       {:else if showingBlockedMessage}
         <p class="menu-label">You can't report yourself</p>
-        <div class="menu-actions">
-          <button class="menu-dismiss" type="button" on:click={closeMenu}>Close</button>
-        </div>
       {:else}
         <button class="menu-item" role="menuitem" type="button" on:click={openComposer}>
-          Report {itemLabel}
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5h10l4 4v10H5V5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" /><path d="M9 13h6M9 16h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+          <span>Report {itemLabel}</span>
         </button>
       {/if}
+      </div>
+      <button class="menu-close sheet-close" type="button" on:click={closeMenu}>Close</button>
     </div>
   </div>
 {/if}
@@ -319,9 +341,7 @@
   }
 
   .report-menu {
-    padding: 12px;
     display: grid;
-    gap: 8px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-soft);
@@ -424,19 +444,75 @@
     position: relative;
     z-index: 1;
     display: grid;
-    gap: 8px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0;
     width: min(340px, calc(100vw - 40px));
-    padding: 14px;
+    max-height: min(640px, calc(100dvh - 48px));
+    padding: 0;
+    overflow: hidden;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-md);
     background: var(--panel);
   }
 
+  .menu-header {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    padding: 0 0 0 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
+  }
+
   .menu-title {
     margin: 0;
+    padding: 14px 0;
     color: var(--text-main);
     font-size: 14px;
     font-weight: 800;
+    align-self: center;
+  }
+
+  .menu-body {
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    padding: 14px;
+  }
+
+  .menu-item,
+  .vote-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .menu-item svg,
+  .vote-chip svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+  }
+
+  .menu-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    margin: 0;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 0;
+    background: var(--danger);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .sheet-close {
+    display: none;
   }
 
   .menu-item,
@@ -447,15 +523,42 @@
 
   @media (max-width: 760px) {
     .report-menu-backdrop {
-      place-items: end stretch;
+      place-items: stretch;
       padding: 0;
     }
 
     .report-menu {
       width: 100%;
-      margin-bottom: var(--shell-bottom-nav-offset, 0px);
-      padding: 16px 16px calc(16px + var(--shell-safe-bottom, 0px));
-      border-radius: 16px 16px 0 0;
+      height: 100dvh;
+      max-height: 100dvh;
+      margin: 0;
+      border: none;
+      border-radius: 0;
+    }
+
+    .header-close {
+      display: none;
+    }
+
+    .menu-title {
+      padding-top: calc(28px + var(--shell-safe-top, 0px));
+      padding-bottom: 18px;
+      font-size: clamp(28px, 8vw, 36px);
+      line-height: 1.08;
+    }
+
+    .menu-item,
+    .vote-chip {
+      min-height: 52px;
+      font-size: 16px;
+    }
+
+    .sheet-close {
+      display: flex;
+      width: 100%;
+      min-height: calc(56px + var(--shell-safe-bottom, 0px));
+      padding-bottom: var(--shell-safe-bottom, 0px);
+      font-size: 16px;
     }
   }
 </style>

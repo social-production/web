@@ -12,7 +12,6 @@
   import AddUpdateSheet from '$lib/components/shared/AddUpdateSheet.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import VoteDockControl from '$lib/components/shared/VoteDockControl.svelte';
-  import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
   import DetailActionDock from '$lib/features/detail/DetailActionDock.svelte';
   import { isPersonalServiceProject, supportsProjectDemandSignals } from '$lib/features/projects/projectMode';
   import {
@@ -262,7 +261,6 @@
         {#if liveFact}
           <p class="live-fact">{liveFact}</p>
         {/if}
-        <GuestBrowseLine kind="project" />
         <p class="overview-copy">{data.description}</p>
         {#if latestUpdate}
           <p class="overview-update">Update: {latestUpdate.body}</p>
@@ -299,6 +297,9 @@
     {/if}
 
     <div class="control-actions">
+      {#if !$page.data.bootstrap?.viewer}
+        <a class="guest-signin" href="/onboarding">Sign in</a>
+      {/if}
       {#if showMembershipButton || data.viewerCanToggleMembership}
         <MembershipSplitButton
           joined={data.viewerIsMember}
@@ -508,6 +509,7 @@
     width: 100%;
   }
 
+  .control-actions > .guest-signin,
   .control-actions > :global(.quiet-control),
   .control-actions > :global(.membership-split),
   .control-actions > :global(.share-shell),
@@ -578,6 +580,15 @@
     display: flex;
     overflow: hidden;
     border-radius: 0;
+  }
+
+  .control-actions > .guest-signin {
+    align-items: center;
+    background: var(--brand);
+    color: var(--page-bg);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
   }
 
   .control-actions :global(.membership-join) {

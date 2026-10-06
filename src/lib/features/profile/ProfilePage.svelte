@@ -357,15 +357,9 @@
         <div class="hero-identity">
           <AvatarBadge size="md" username={data.username} imageUrl={data.profileImageUrl ?? null} />
           <div class="hero-copy">
-            <h1>{data.username}</h1>
-            {#if displayBio}
-              <p class="profile-bio">{displayBio}</p>
-            {/if}
-          </div>
-        </div>
-
-        <div class="profile-side">
-          <div class="stats-row">
+            <div class="name-row">
+              <h1>{data.username}</h1>
+              <div class="stats-row">
             {#if data.isOwnProfile}
               <MembershipSplitButton
                 count={data.followersCount}
@@ -411,11 +405,15 @@
                 <FeedToolbarIcon name="message" />
               </button>
             {/if}
-          </div>
-        </div>
-      </div>
-      {#if data.trust}
-        <div class="trust-corner">
+              </div>
+            </div>
+            {#if displayBio || data.trust}
+              <div class="bio-row">
+                {#if displayBio}
+                  <p class="profile-bio">{displayBio}</p>
+                {/if}
+                {#if data.trust}
+                  <div class="trust-corner">
           <div
             class="trust-split"
             class:rating-only={data.isOwnProfile}
@@ -485,7 +483,12 @@
             {/if}
           </div>
         </div>
-      {/if}
+                {/if}
+              </div>
+            {/if}
+          </div>
+        </div>
+      </div>
     </div>
 
     {#if followMessage}
@@ -740,6 +743,8 @@
   .hero-copy {
     display: grid;
     gap: 8px;
+    flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
   }
 
@@ -758,16 +763,34 @@
     white-space: nowrap;
   }
 
-  .profile-side {
+  .name-row {
     display: flex;
-    align-items: flex-start;
-    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .name-row h1 {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .bio-row {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: nowrap;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
   }
 
   .trust-corner {
     display: flex;
     justify-content: flex-end;
-    margin-top: 10px;
+    align-self: flex-end;
+    flex: 0 0 auto;
+    margin-left: auto;
   }
 
   .trust-split {
@@ -857,6 +880,8 @@
   }
 
   .profile-bio {
+    flex: 1 1 auto;
+    min-width: 0;
     margin: 0;
     padding-left: 10px;
     border-left: 2px solid var(--brand);
