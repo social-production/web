@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_BACKEND?: string;
   readonly VITE_API_URL?: string;
+  readonly VITE_API_SAME_ORIGIN?: string;
   readonly VITE_USE_DEV_PROXY?: string;
   readonly VITE_API_BEARER_TOKEN?: string;
   readonly VITE_SUPABASE_URL?: string;

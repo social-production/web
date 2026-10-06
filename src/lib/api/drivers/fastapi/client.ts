@@ -16,6 +16,12 @@ let refreshInFlight: Promise<boolean> | null = null;
 let lastSessionRefreshAt = 0;
 
 function getBaseUrl(): string {
+  // The page and the API must share an origin so the browser will store the
+  // login cookies. The website forwards /api/* to the real API.
+  if (import.meta.env.VITE_API_SAME_ORIGIN === 'true' && typeof window !== 'undefined') {
+    return `${window.location.origin}/api`;
+  }
+
   const configured = import.meta.env.VITE_API_URL?.trim();
   if (configured) {
     return configured;

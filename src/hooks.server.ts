@@ -1,6 +1,57 @@
 import type { Handle } from '@sveltejs/kit';
+import { rewriteProxiedSetCookie } from '$lib/server/rewriteSetCookie';
+
+const API_PREFIX = '/api';
+
+function apiProxyTarget(): string | null {
+  const raw = process.env.API_PROXY_TARGET?.trim() || process.env.VITE_API_URL?.trim();
+  if (!raw) return null;
+  return raw.replace(/\/$/, '');
+}
+
+async function proxyApi(event: Parameters<Handle>[0]['event']): Promise<Response> {
+  const target = apiProxyTarget();
+  if (!target) {
+    return new Response('API proxy is not configured', { status: 502 });
+  }
+
+  const upstreamPath = event.url.pathname.slice(API_PREFIX.length) || '/';
+  const upstreamUrl = `${target}${upstreamPath}${event.url.search}`;
+  const headers = new Headers(event.request.headers);
+  headers.delete('host');
+  headers.delete('content-length');
+
+  const init: RequestInit & { duplex?: 'half' } = {
+    method: event.request.method,
+    headers,
+    redirect: 'manual'
+  };
+  if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
+    init.body = event.request.body;
+    init.duplex = 'half';
+  }
+
+  const upstream = await fetch(upstreamUrl, init);
+  const responseHeaders = new Headers();
+  upstream.headers.forEach((value, key) => {
+    if (key === 'set-cookie' || key === 'content-encoding' || key === 'content-length') return;
+    responseHeaders.append(key, value);
+  });
+  for (const cookie of upstream.headers.getSetCookie()) {
+    responseHeaders.append('set-cookie', rewriteProxiedSetCookie(cookie));
+  }
+
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers: responseHeaders
+  });
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
+  if (event.url.pathname === API_PREFIX || event.url.pathname.startsWith(`${API_PREFIX}/`)) {
+    return proxyApi(event);
+  }
+
   const response = await resolve(event);
 
   response.headers.set('X-Content-Type-Options', 'nosniff');
