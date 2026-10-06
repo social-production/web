@@ -298,7 +298,7 @@ export interface AppAdapter {
     kind?: 'channel' | 'community',
     limit?: number
   ): Promise<{ channels: ScopeDirectoryItem[]; communities: ScopeDirectoryItem[] }>;
-  getDiscoverScopes(kind: 'channel' | 'community'): Promise<DiscoverScopeItem[]>;
+  getDiscoverScopes(kind: 'channel' | 'community', query?: string): Promise<DiscoverScopeItem[]>;
   getPost(id: string): Promise<PostPageData | null>;
   getHelpRequest(id: string): Promise<HelpRequestPageData | null>;
   commitHelpRequestRole(

@@ -35,9 +35,20 @@
 
 <style>
   .page {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 0;
     min-width: 0;
+    min-height: calc(100dvh - var(--topbar-height, 0px) - var(--shell-bottom-nav-offset, 0px));
+  }
+
+  .page :global(.surface.has-accent) {
+    flex: 1 0 auto;
+    border-left: 0;
+    padding-left: 22px;
+    background:
+      linear-gradient(var(--row-accent), var(--row-accent)) left center / 10px 100% no-repeat,
+      var(--panel);
   }
 
   .comments-divider {

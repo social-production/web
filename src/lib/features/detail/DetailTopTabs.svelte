@@ -20,7 +20,7 @@
   ];
 </script>
 
-<div class="top-tab-row" role="tablist" aria-label={ariaLabel}>
+<div class="top-tab-row" class:chat-immersive={activeTab === 'chat'} role="tablist" aria-label={ariaLabel}>
   {#each tabs as tab}
     <button
       class:active-tab={activeTab === tab.id}
@@ -97,6 +97,10 @@
       border-radius: 0;
       background: var(--toolbar-background, var(--panel));
       box-shadow: 0 8px 16px color-mix(in srgb, var(--page-bg) 55%, transparent);
+    }
+
+    .top-tab-row.chat-immersive {
+      padding-top: calc(8px + var(--shell-safe-top, 0px));
     }
 
     .top-tab {

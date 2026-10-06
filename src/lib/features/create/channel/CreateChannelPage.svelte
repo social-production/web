@@ -45,17 +45,19 @@
     }
   }
 
-  function handleDraft() {
-    statusMessage = 'Draft saving is not wired yet, but the channel flow is now in place.';
-  }
 </script>
 
-<CreateFlowLayout>
+<CreateFlowLayout
+  title="Create channel"
+  description="A channel is a topic surface. It gathers related threads and project activity without defining who belongs together."
+  submitLabel="Create channel"
+  submittingLabel="Creating..."
+  {canSubmit}
+  {isSubmitting}
+  on:submit={handleCreate}
+>
   <svelte:fragment slot="primary">
-    <CreatePanel
-      title="Create channel"
-      description="A channel is a topic surface. It gathers related threads and project activity without defining who belongs together."
-    >
+    <CreatePanel bare>
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
         <label>
           <span class="field-label">Channel handle</span>
@@ -73,13 +75,6 @@
           <span class="field-label">Description</span>
           <textarea bind:value={description} rows="4"></textarea>
         </label>
-
-        <div class="button-row">
-          <button class="button-primary" disabled={!canSubmit || isSubmitting} type="submit">
-            {isSubmitting ? 'Creating...' : 'Create Channel'}
-          </button>
-          <button class="button-ghost" type="button" on:click={handleDraft}>Save Draft</button>
-        </div>
 
         {#if statusMessage}
           <p class="status-note">{statusMessage}</p>

@@ -1,14 +1,14 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { goto, invalidate } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
+  import { syncChatImmersive } from '$lib/stores/chatChrome';
   import { get } from 'svelte/store';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import ComposeMessageSheet from '$lib/components/shared/ComposeMessageSheet.svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
-  import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import { unreadCounts } from '$lib/stores/unreadCounts';
   import { addComment } from '$lib/services/commands/shared';
   import { registerEntityType, registerCommentIds } from '$lib/services/governanceEntityRegistry';
@@ -54,7 +54,7 @@
 
   let activeConversationId: string | null = null;
   let activeLinkedChatId: string | null = null;
-  let activeListTab: 'messages' | 'linked-chats' | 'help-request-chats' = 'messages';
+  let activeListTab: 'personal' | 'public' = 'personal';
   let linkedChats: MessageLinkedChat[] = data.linkedChats ?? [];
   let linkedChatsLoading = false;
   let linkedChatsHydrated = false;
@@ -113,23 +113,20 @@
   }
   $: activeConversation =
     conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
+  let chatHold = 0;
+  $: chatHold = syncChatImmersive(Boolean(activeConversation || activeLinkedChat), chatHold);
+  onDestroy(() => {
+    chatHold = syncChatImmersive(false, chatHold);
+  });
   $: activeLinkedChat = linkedChats.find((chat) => chat.id === activeLinkedChatId) ?? null;
-  $: projectEventLinkedChats = linkedChats.filter(
-    (chat) => chat.kind === 'project' || chat.kind === 'event'
+  $: publicChats = [...linkedChats].sort(
+    (left, right) => Date.parse(right.lastMessageAt) - Date.parse(left.lastMessageAt)
   );
-  $: helpRequestLinkedChats = linkedChats.filter((chat) => chat.kind === 'help_request');
-  $: directGroupUnreadTotal = conversations.reduce(
+  $: personalUnreadTotal = conversations.reduce(
     (sum, conversation) => sum + conversation.unreadCount,
     0
   );
-  $: projectEventUnreadTotal = projectEventLinkedChats.reduce(
-    (sum, chat) => sum + chat.unreadCount,
-    0
-  );
-  $: helpRequestUnreadTotal = helpRequestLinkedChats.reduce(
-    (sum, chat) => sum + chat.unreadCount,
-    0
-  );
+  $: publicUnreadTotal = linkedChats.reduce((sum, chat) => sum + chat.unreadCount, 0);
   $: activeConversationMessagesLoading = activeConversationId
     ? (messagesLoadingById[activeConversationId] ?? false)
     : false;
@@ -804,7 +801,7 @@
     !activeLinkedChat
   ) {
     handledComposeToUsername = composeToUsername;
-    activeListTab = 'messages';
+    activeListTab = 'personal';
     showComposer = true;
     composerError = '';
   }
@@ -1040,19 +1037,27 @@
     }
   }
 
-  function selectListTab(tab: 'messages' | 'linked-chats' | 'help-request-chats') {
+  function publicChatKind(chat: MessageLinkedChat) {
+    if (chat.kind === 'help_request') {
+      return 'Help request';
+    }
+
+    return chat.kind === 'project' ? 'Project' : 'Event';
+  }
+
+  function selectListTab(tab: 'personal' | 'public') {
     activeListTab = tab;
     closeActiveChat();
 
-    if (tab !== 'messages') {
+    if (tab === 'public') {
       showComposer = false;
       void hydrateLinkedChats();
     }
   }
 
   function handleComposeTrigger() {
-    if (activeListTab !== 'messages') {
-      activeListTab = 'messages';
+    if (activeListTab !== 'personal') {
+      activeListTab = 'personal';
       showComposer = true;
       return;
     }
@@ -1439,52 +1444,32 @@
       <div class="surface-tabs" role="tablist" aria-label="Messages tabs">
         <div class="surface-tab-list">
           <button
-            aria-label={tabAriaLabel('Direct and Group', directGroupUnreadTotal)}
-            class:active={activeListTab === 'messages'}
+            aria-label={tabAriaLabel('Personal', personalUnreadTotal)}
+            class:active={activeListTab === 'personal'}
             class="surface-tab"
             role="tab"
             type="button"
-            on:click={() => selectListTab('messages')}
+            on:click={() => selectListTab('personal')}
           >
-            <span class="surface-tab-label">Direct & Group</span>
-            {#if directGroupUnreadTotal > 0}
-              <CountBadge count={directGroupUnreadTotal} />
+            <span class="surface-tab-label">Personal</span>
+            {#if personalUnreadTotal > 0}
+              <CountBadge count={personalUnreadTotal} />
             {/if}
           </button>
           <button
-            aria-label={tabAriaLabel('Project and Event Chats', projectEventUnreadTotal)}
-            class:active={activeListTab === 'linked-chats'}
+            aria-label={tabAriaLabel('Public', publicUnreadTotal)}
+            class:active={activeListTab === 'public'}
             class="surface-tab"
             role="tab"
             type="button"
-            on:click={() => selectListTab('linked-chats')}
+            on:click={() => selectListTab('public')}
           >
-            <span class="surface-tab-label">Project & Event Chats</span>
-            {#if projectEventUnreadTotal > 0}
-              <CountBadge count={projectEventUnreadTotal} />
-            {/if}
-          </button>
-          <button
-            aria-label={tabAriaLabel('Help Request Chats', helpRequestUnreadTotal)}
-            class:active={activeListTab === 'help-request-chats'}
-            class="surface-tab"
-            role="tab"
-            type="button"
-            on:click={() => selectListTab('help-request-chats')}
-          >
-            <span class="surface-tab-label">Help Request Chats</span>
-            {#if helpRequestUnreadTotal > 0}
-              <CountBadge count={helpRequestUnreadTotal} />
+            <span class="surface-tab-label">Public</span>
+            {#if publicUnreadTotal > 0}
+              <CountBadge count={publicUnreadTotal} />
             {/if}
           </button>
         </div>
-
-        <RoundPlusButton
-          active={activeListTab === 'messages' && showComposer}
-          label="New message"
-          ariaLabel="Start a new message"
-          action={handleComposeTrigger}
-        />
       </div>
 
       <ComposeMessageSheet
@@ -1495,9 +1480,9 @@
       />
 
       <div class="conversation-list">
-        {#if activeListTab === 'messages'}
+        {#if activeListTab === 'personal'}
           {#if conversations.length === 0}
-            <div class="empty-state">No messages yet. Start with the + button.</div>
+            <div class="empty-state">No personal messages yet.</div>
           {:else}
             {#each conversations as conversation}
               <button
@@ -1526,35 +1511,10 @@
               </button>
             {/each}
           {/if}
-        {:else if activeListTab === 'linked-chats'}
-          {#if projectEventLinkedChats.length === 0}
-            <div class="empty-state">No project or event chats yet.</div>
-          {:else}
-            {#each projectEventLinkedChats as chat}
-              <button
-                class:unread={chat.unreadCount > 0}
-                class="conversation-row"
-                type="button"
-                on:click={() => openLinkedChat(chat.id)}
-              >
-                <AvatarBadge size="sm" username={chat.title} />
-                <div class="conversation-copy">
-                  <div class="conversation-topline">
-                    <strong>{chat.title}</strong>
-                    <span class="conversation-time">{formatRelativeTime(chat.lastMessageAt)}</span>
-                  </div>
-                  <p class="conversation-preview">{chat.preview}</p>
-                </div>
-                {#if chat.unreadCount > 0}
-                  <span class="unread-pill">{chat.unreadCount}</span>
-                {/if}
-              </button>
-            {/each}
-          {/if}
-        {:else if helpRequestLinkedChats.length === 0}
-          <div class="empty-state">No help request chats yet.</div>
+        {:else if publicChats.length === 0}
+          <div class="empty-state">No public chats yet.</div>
         {:else}
-          {#each helpRequestLinkedChats as chat}
+          {#each publicChats as chat}
             <button
               class:unread={chat.unreadCount > 0}
               class="conversation-row"
@@ -1565,6 +1525,7 @@
               <div class="conversation-copy">
                 <div class="conversation-topline">
                   <strong>{chat.title}</strong>
+                  <span class="chat-kind">{publicChatKind(chat)}</span>
                   <span class="conversation-time">{formatRelativeTime(chat.lastMessageAt)}</span>
                 </div>
                 <p class="conversation-preview">{chat.preview}</p>
@@ -1576,6 +1537,12 @@
           {/each}
         {/if}
       </div>
+
+      <button class="message-fab" type="button" aria-label="New message" on:click={handleComposeTrigger}>
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+        </svg>
+      </button>
     {/if}
   </section>
 </section>
@@ -1714,9 +1681,11 @@
   }
 
   .surface-tab-list {
-    display: inline-flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 6px;
-    flex-wrap: wrap;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .surface-tab {
@@ -1725,21 +1694,49 @@
     justify-content: center;
     gap: 6px;
     min-width: 0;
-    max-width: 100%;
-    padding: 8px 10px;
+    min-height: 44px;
+    padding: 8px 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
     color: var(--text-soft);
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 15px;
+    font-weight: 800;
   }
 
   .surface-tab-label {
-    min-width: 0;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  }
+
+  .message-fab {
+    position: fixed;
+    right: calc(var(--right-width, 0px) + 16px);
+    bottom: calc(var(--shell-bottom-nav-offset, 0px) + 16px);
+    z-index: 56;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: var(--brand);
+    color: #fff;
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--brand) 35%, transparent);
+    cursor: pointer;
+  }
+
+  .message-fab svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .chat-kind {
+    flex: 0 0 auto;
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
   }
 
   .surface-tab.active {
@@ -1873,7 +1870,7 @@
     grid-auto-rows: min-content;
     align-content: start;
     gap: 0;
-    padding: 0;
+    padding: 0 0 76px;
     min-height: 0;
   }
 
@@ -1929,9 +1926,12 @@
 
   .conversation-topline {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     align-items: baseline;
-    justify-content: space-between;
+  }
+
+  .conversation-time {
+    margin-left: auto;
   }
 
   .conversation-topline strong,
@@ -2083,6 +2083,10 @@
       border-right: none;
     }
 
+    .page.conversation-page .chat-header {
+      padding-top: calc(10px + var(--shell-safe-top, 0px));
+    }
+
     .page.conversation-page .messages-shell.conversation-view {
       position: fixed;
       left: 0;
@@ -2126,27 +2130,11 @@
     }
 
     .surface-tabs {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
       padding: 10px;
     }
 
-    .surface-tab-list {
-      display: flex;
-      flex-wrap: nowrap;
-      gap: 6px;
-      min-width: 0;
-      overflow-x: auto;
-    }
-
-    .surface-tabs :global(.round-plus-button.with-label) {
-      width: 40px;
-      min-width: 40px;
-      padding: 0;
-    }
-
-    .surface-tabs :global(.plus-label) {
-      display: none;
+    .conversation-list {
+      padding-bottom: 76px;
     }
 
     .conversation-row.unread {

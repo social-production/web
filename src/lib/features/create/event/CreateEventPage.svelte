@@ -529,12 +529,13 @@
   }
 </script>
 
-<CreateFlowLayout>
+<CreateFlowLayout
+  title="Create event"
+  description="An event gathers people for a planned occasion. Public events start as proposals. Private events can open straight into activity when an organizer sets the plan."
+  wizard
+>
   <svelte:fragment slot="primary">
-    <CreatePanel
-      title="Create event"
-      description="An event gathers people for a planned occasion. Public events start as proposals. Private events can open straight into activity when an organizer sets the plan."
-    >
+    <CreatePanel bare>
       <CreateWizard
         steps={wizardSteps}
         bind:stepIndex

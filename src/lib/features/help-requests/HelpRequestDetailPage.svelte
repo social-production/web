@@ -2,9 +2,10 @@
   import { browser } from '$app/environment';
   import { goto, invalidate } from '$app/navigation';
   import { page } from '$app/stores';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import { syncChatImmersive } from '$lib/stores/chatChrome';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import HelpRequestOverviewHeader from '$lib/features/help-requests/detail/HelpRequestOverviewHeader.svelte';
   import HelpRequestRolesSection from '$lib/features/help-requests/detail/HelpRequestRolesSection.svelte';
@@ -27,6 +28,11 @@
   let highlightedCommentId: string | null = null;
   let lastRouteSignature = '';
   let activeTab: 'overview' | 'chat' = 'overview';
+  let chatHold = 0;
+  $: chatHold = syncChatImmersive(activeTab === 'chat', chatHold);
+  onDestroy(() => {
+    chatHold = syncChatImmersive(false, chatHold);
+  });
   let isCompact = false;
   let serverDiscussion: DetailComment[] = data.discussion ?? [];
   let optimisticComments: DetailComment[] = [];
@@ -148,7 +154,7 @@
 
 <section class="page" class:page-chat={activeTab === 'chat' && isCompact}>
   <section class="hero-card" class:chat-tab-active={activeTab === 'chat' && isCompact}>
-    <div class="top-tab-row" role="tablist" aria-label="Help request detail tabs">
+    <div class="top-tab-row" class:chat-immersive={activeTab === 'chat'} role="tablist" aria-label="Help request detail tabs">
       <button
         aria-label="Details"
         aria-selected={activeTab === 'overview'}
@@ -367,6 +373,10 @@
       margin: 0 8px 8px;
       background: var(--panel);
       flex-shrink: 0;
+    }
+
+    .top-tab-row.chat-immersive {
+      padding-top: calc(8px + var(--shell-safe-top, 0px));
     }
 
     .chat-tab-active > :global(.chat-shell) {

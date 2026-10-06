@@ -341,14 +341,15 @@
   }
 </script>
 
-<CreateFlowLayout>
+<CreateFlowLayout
+  title="Create project"
+  description={`${selectedTypeOption.summary} ${selectedTypeOption.lifecycleNote}${
+    isPersonalServiceProject(selectedType) ? ` ${selectedServiceModeOption.summary}` : ''
+  }`}
+  wizard
+>
   <svelte:fragment slot="primary">
-    <CreatePanel
-      title="Create project"
-      description={`${selectedTypeOption.summary} ${selectedTypeOption.lifecycleNote}${
-        isPersonalServiceProject(selectedType) ? ` ${selectedServiceModeOption.summary}` : ''
-      }`}
-    >
+    <CreatePanel bare>
       <CreateWizard
         steps={wizardSteps}
         bind:stepIndex

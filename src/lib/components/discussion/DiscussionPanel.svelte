@@ -141,7 +141,7 @@
       right: 0;
       bottom: var(--shell-bottom-nav-offset, 0px);
       z-index: 40;
-      padding: 8px 72px 8px 12px;
+      padding: 8px 12px;
       border-top: 1px solid var(--panel-border);
       background: var(--panel);
     }

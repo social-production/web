@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, tick } from 'svelte';
   import type { SearchableSelectOption } from '$lib/types/searchableSelect';
+  import { portal } from '$lib/utils/portal';
 
   export let options: SearchableSelectOption[] = [];
   export let value = '';
@@ -19,6 +20,8 @@
   let activeIndex = -1;
   let inputElement: HTMLInputElement | null = null;
   let listElement: HTMLUListElement | null = null;
+  let controlElement: HTMLDivElement | null = null;
+  let listStyle = '';
 
   $: selected = options.find((option) => option.value === value) ?? null;
   $: displayValue = open ? query : selected?.label ?? '';
@@ -28,9 +31,41 @@
     return option.label.toLowerCase().includes(needle) || option.value.toLowerCase().includes(needle);
   });
 
+  function placeList() {
+    if (!controlElement) {
+      return;
+    }
+
+    const rect = controlElement.getBoundingClientRect();
+    const gap = 4;
+    const spaceBelow = window.innerHeight - rect.bottom - gap;
+    const spaceAbove = rect.top - gap;
+    const openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(120, Math.min(280, (openUp ? spaceAbove : spaceBelow) - 8));
+    const top = openUp ? Math.max(8, rect.top - gap - maxHeight) : rect.bottom + gap;
+    const width = Math.max(rect.width, 220);
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    listStyle = `top:${top}px;left:${left}px;width:${width}px;max-height:${maxHeight}px;`;
+  }
+
   onMount(() => {
     query = selected?.label ?? '';
+    const sync = () => {
+      if (open) {
+        placeList();
+      }
+    };
+    window.addEventListener('resize', sync);
+    window.addEventListener('scroll', sync, true);
+    return () => {
+      window.removeEventListener('resize', sync);
+      window.removeEventListener('scroll', sync, true);
+    };
   });
+
+  $: if (open) {
+    placeList();
+  }
 
   $: if (!open && selected && query !== selected.label) {
     query = selected.label;
@@ -51,6 +86,7 @@
     query = '';
     activeIndex = filtered.length > 0 ? 0 : -1;
     await tick();
+    placeList();
     inputElement?.focus();
   }
 
@@ -95,7 +131,7 @@
 </script>
 
 <div class="searchable-select">
-  <div class="control" class:open>
+  <div bind:this={controlElement} class="control" class:open>
     <input
       bind:this={inputElement}
       aria-autocomplete="list"
@@ -129,7 +165,14 @@
   </div>
 
   {#if open}
-    <ul bind:this={listElement} class="list" id="searchable-select-list" role="listbox">
+    <ul
+      bind:this={listElement}
+      class="list"
+      id="searchable-select-list"
+      role="listbox"
+      style={listStyle}
+      use:portal
+    >
       {#if allowEmpty}
         <li>
           <button
@@ -201,20 +244,16 @@
   }
 
   .list {
-    position: absolute;
-    z-index: 30;
-    left: 0;
-    right: 0;
-    top: calc(100% + 4px);
+    position: fixed;
+    z-index: var(--z-menu);
     margin: 0;
     padding: 4px;
     list-style: none;
     border: 1px solid var(--panel-border);
     border-radius: 8px;
     background: var(--panel-strong, var(--panel));
-    max-height: 260px;
     overflow: auto;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
   }
 
   .option {

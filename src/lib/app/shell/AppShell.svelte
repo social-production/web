@@ -37,6 +37,7 @@
     isCreateEntrySurface,
     isFeedDiscoveryPath,
   } from '$lib/stores/createReturnState';
+  import { chatImmersive } from '$lib/stores/chatChrome';
   import { feedReturnHref, rememberFeedReturnState } from '$lib/stores/feedReturnState';
 
   export let bootstrap: BootstrapPayload;
@@ -93,6 +94,7 @@
     $page.url.pathname === '/login' ||
     $page.url.pathname === '/signup';
   $: isMessagesRoute = $page.url.pathname.startsWith('/messages');
+  $: immersiveChat = isCompact && $chatImmersive;
   $: mapSurfaceActive = mapPanelOpen || dedicatedMapPage;
   $: if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded) {
     feedChromeHidden = false;
@@ -103,13 +105,19 @@
     isCompact &&
     !isAuthSurface &&
     !keyboardOpen &&
+    !immersiveChat &&
     !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
       ? 'var(--shell-bottom-nav-height)'
       : '0px';
-  $: shellTopbarHeight =
-    mapSurfaceActive || !(feedChromeActive && feedChromeHidden) ? topbarHeight : 0;
+  $: shellTopbarHeight = immersiveChat
+    ? 0
+    : mapSurfaceActive || !(feedChromeActive && feedChromeHidden)
+      ? topbarHeight
+      : 0;
   $: topbarCollapsed =
-    (feedChromeActive && feedChromeHidden && !mapSurfaceActive) || (isCompact && keyboardOpen);
+    immersiveChat ||
+    (feedChromeActive && feedChromeHidden && !mapSurfaceActive) ||
+    (isCompact && keyboardOpen);
 
   $: if (typeof document !== 'undefined') {
     document.documentElement.style.overflow = mapSurfaceActive ? 'hidden' : '';
@@ -1012,7 +1020,7 @@
     </aside>
   </div>
 
-  {#if isCompact && !isAuthSurface}
+  {#if isCompact && !isAuthSurface && !immersiveChat}
     <MobileBottomNav
       viewerLoggedIn={Boolean(bootstrap.viewer)}
       notificationCount={displayUnreadCounts.notifications}
@@ -1070,6 +1078,7 @@
     transform: translateY(-100%);
     margin-top: calc(-1 * var(--topbar-natural-height, var(--topbar-height, 53px)));
     pointer-events: none;
+    visibility: hidden;
   }
 
   .nav-progress {

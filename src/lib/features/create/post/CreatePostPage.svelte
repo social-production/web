@@ -2,7 +2,6 @@
   import { page } from '$app/stores';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import CreateFlowLayout from '$lib/features/create/shared/CreateFlowLayout.svelte';
-  import CreatePanel from '$lib/features/create/shared/CreatePanel.svelte';
   import { createPost } from '$lib/services/commands/create';
   import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
 
@@ -45,38 +44,31 @@
   }
 </script>
 
-<CreateFlowLayout>
+<CreateFlowLayout
+  title="New post"
+  description="A post is a short public note on your personal feed."
+  submitLabel="Post"
+  submittingLabel="Posting..."
+  {canSubmit}
+  {isSubmitting}
+  on:submit={handleCreate}
+>
   <svelte:fragment slot="primary">
-    <CreatePanel
-      title="New post"
-      description="A post is a short public note on your personal feed."
-    >
-      <div class="composer">
-        <p class="audience-cue">Public</p>
-        <label>
-          <RequiredFieldLabel>What's on your mind?</RequiredFieldLabel>
-          <textarea
-            bind:value={body}
-            rows="8"
-            placeholder="Share a direct post to your personal timeline..."
-            aria-required="true"
-          ></textarea>
-        </label>
-        {#if statusMessage}
-          <p class="status-note">{statusMessage}</p>
-        {/if}
-        <div class="actions">
-          <button
-            class="button-primary"
-            type="button"
-            disabled={!canSubmit || isSubmitting}
-            on:click={handleCreate}
-          >
-            {isSubmitting ? 'Posting...' : 'Post'}
-          </button>
-        </div>
-      </div>
-    </CreatePanel>
+    <div class="composer">
+      <p class="audience-cue">Public</p>
+      <label>
+        <RequiredFieldLabel>What's on your mind?</RequiredFieldLabel>
+        <textarea
+          bind:value={body}
+          rows="8"
+          placeholder="Share a direct post to your personal timeline..."
+          aria-required="true"
+        ></textarea>
+      </label>
+      {#if statusMessage}
+        <p class="status-note">{statusMessage}</p>
+      {/if}
+    </div>
   </svelte:fragment>
 </CreateFlowLayout>
 
@@ -90,11 +82,6 @@
     margin: 0;
     color: var(--text-soft);
     font-size: 13px;
-  }
-
-  .actions {
-    display: flex;
-    justify-content: flex-end;
   }
 
   .status-note {

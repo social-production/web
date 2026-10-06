@@ -1,13 +1,18 @@
 <script lang="ts">
-  export let title: string;
+  export let title = '';
   export let description = '';
   export let surface: 'panel' | 'transparent' = 'panel';
+  export let bare = false;
 </script>
 
-<section class:transparent={surface === 'transparent'} class="panel">
-  <h2>{title}</h2>
-  {#if description}
-    <p class="description">{description}</p>
+<section class:bare class:transparent={surface === 'transparent'} class="panel">
+  {#if !bare}
+    {#if title}
+      <h2>{title}</h2>
+    {/if}
+    {#if description}
+      <p class="description">{description}</p>
+    {/if}
   {/if}
   <div class="body">
     <slot />
@@ -22,7 +27,8 @@
     background: var(--panel);
   }
 
-  .transparent {
+  .transparent,
+  .bare {
     padding: 0;
     border: none;
     background: transparent;
@@ -48,7 +54,8 @@
     margin-top: 12px;
   }
 
-  .transparent .body {
+  .transparent .body,
+  .bare .body {
     margin-top: 0;
   }
 </style>

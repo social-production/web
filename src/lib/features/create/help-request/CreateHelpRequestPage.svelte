@@ -451,12 +451,13 @@
   }
 </script>
 
-<CreateFlowLayout>
+<CreateFlowLayout
+  title="Ask for help"
+  description="A help request asks people to take a role for a specific need, with a time and a place."
+  wizard
+>
   <svelte:fragment slot="primary">
-    <CreatePanel
-      title="Ask for help"
-      description="A help request asks people to take a role for a specific need, with a time and a place."
-    >
+    <CreatePanel bare>
       <CreateWizard
         steps={wizardSteps}
         bind:stepIndex

@@ -1195,5 +1195,23 @@
       flex-direction: column;
       align-items: stretch;
     }
+
+    .actions {
+      flex-wrap: nowrap;
+      gap: 8px;
+    }
+
+    .actions .button-primary,
+    .actions .button-secondary,
+    .actions .button-danger {
+      flex: 1 1 0;
+      min-width: 0;
+      margin-left: 0;
+      padding: 10px 4px;
+      font-size: 13px;
+      line-height: 1.2;
+      text-align: center;
+      white-space: nowrap;
+    }
   }
 </style>

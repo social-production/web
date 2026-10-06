@@ -2,13 +2,14 @@
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import ProjectLifecyclePanel from '$lib/features/projects/detail/ProjectLifecyclePanel.svelte';
   import ProjectMembersPanel from '$lib/features/projects/detail/ProjectMembersPanel.svelte';
   import ProjectOverviewHeader from '$lib/features/projects/detail/ProjectOverviewHeader.svelte';
   import DetailTopTabs from '$lib/features/detail/DetailTopTabs.svelte';
   import DetailActionDock from '$lib/features/detail/DetailActionDock.svelte';
   import { detailTabFromParam, type DetailTabId } from '$lib/features/detail/detailTabs';
+  import { syncChatImmersive } from '$lib/stores/chatChrome';
   import VoteDockControl from '$lib/components/shared/VoteDockControl.svelte';
   import { isPersonalServiceProject } from '$lib/features/projects/projectMode';
   import MembershipSplitButton from '$lib/components/shared/MembershipSplitButton.svelte';
@@ -70,6 +71,11 @@
   let lastRouteSignature = '';
   let showMembersPanel = false;
   let activeTab: DetailTabId = 'context';
+  let chatHold = 0;
+  $: chatHold = syncChatImmersive(activeTab === 'chat', chatHold);
+  onDestroy(() => {
+    chatHold = syncChatImmersive(false, chatHold);
+  });
   let highlightedLinkRequestId: string | null = null;
   let autoExpandVoteCards = false;
   let ChatTab: typeof import('$lib/features/projects/detail/ProjectChatTab.svelte').default | null =

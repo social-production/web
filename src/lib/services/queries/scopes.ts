@@ -12,8 +12,8 @@ export function getPlatform() {
   return currentAdapter.getPlatform();
 }
 
-export function getDiscoverScopes(kind: 'channel' | 'community') {
-  return currentAdapter.getDiscoverScopes(kind);
+export function getDiscoverScopes(kind: 'channel' | 'community', query = '') {
+  return currentAdapter.getDiscoverScopes(kind, query);
 }
 
 /** @deprecated Import mutations from `$lib/services/commands/scopes`. */

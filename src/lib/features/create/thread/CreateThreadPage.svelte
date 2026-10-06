@@ -307,12 +307,13 @@
   }
 </script>
 
-<CreateFlowLayout>
+<CreateFlowLayout
+  title="Create thread"
+  description="A thread is a discussion people can follow and reply to. Tag it to a channel or community so it shows up where that topic already lives."
+  wizard
+>
   <svelte:fragment slot="primary">
-    <CreatePanel
-      title="Create thread"
-      description="A thread is a discussion people can follow and reply to. Tag it to a channel or community so it shows up where that topic already lives."
-    >
+    <CreatePanel bare>
       <CreateWizard
         steps={wizardSteps}
         bind:stepIndex

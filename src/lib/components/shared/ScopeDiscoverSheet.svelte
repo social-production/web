@@ -28,29 +28,44 @@
   let loading = false;
   let loadError = '';
   let requestId = 0;
-  let loaded = false;
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   $: if (!open) {
     query = '';
     activeFilter = 'all';
-    loaded = false;
+    if (searchTimer) {
+      clearTimeout(searchTimer);
+      searchTimer = null;
+    }
   }
 
-  $: if (open && !loaded) {
-    loaded = true;
-    void load();
+  $: if (open) {
+    scheduleLoad(query.trim());
   }
 
-  async function load() {
+  function scheduleLoad(needle: string) {
+    if (searchTimer) {
+      clearTimeout(searchTimer);
+    }
+    searchTimer = setTimeout(() => {
+      if (!open) {
+        return;
+      }
+      void load(needle);
+    }, needle ? 180 : 0);
+  }
+
+  async function load(needle = '') {
     const current = ++requestId;
-    loading = true;
+    const showSpinner = channels.length === 0 && communities.length === 0;
+    if (showSpinner) {
+      loading = true;
+    }
     loadError = '';
-    channels = [];
-    communities = [];
     try {
       const [channelItems, communityItems] = await Promise.all([
-        getDiscoverScopes('channel'),
-        getDiscoverScopes('community')
+        getDiscoverScopes('channel', needle),
+        getDiscoverScopes('community', needle)
       ]);
       if (current !== requestId) {
         return;

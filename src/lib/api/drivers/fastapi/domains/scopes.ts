@@ -133,10 +133,16 @@ interface BackendDiscoverScopeItem {
 }
 
 export async function fetchDiscoverScopes(
-  kind: 'channel' | 'community'
+  kind: 'channel' | 'community',
+  query = ''
 ): Promise<DiscoverScopeItem[]> {
+  const params = new URLSearchParams({ kind, limit: '200' });
+  const cleaned = query.trim();
+  if (cleaned) {
+    params.set('q', cleaned);
+  }
   const res = await apiClient.get<{ kind: string; items: BackendDiscoverScopeItem[] }>(
-    `/scopes/discover?kind=${kind}&limit=200`
+    `/scopes/discover?${params.toString()}`
   );
   return res.items.map((item) => ({
     slug: item.slug,

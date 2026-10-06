@@ -352,8 +352,8 @@ export function createFastApiDriver(): AppAdapter {
     async getTaggableScopes(query, kind, limit) {
       return fetchTaggableScopes(query, kind, limit);
     },
-    async getDiscoverScopes(kind) {
-      return fetchDiscoverScopes(kind);
+    async getDiscoverScopes(kind, query) {
+      return fetchDiscoverScopes(kind, query);
     },
 
     async getEvent(slug) {

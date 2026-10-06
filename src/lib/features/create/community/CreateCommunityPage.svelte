@@ -48,17 +48,19 @@
     }
   }
 
-  function handleDraft() {
-    statusMessage = 'Draft saving is not wired yet, but the community flow is now in place.';
-  }
 </script>
 
-<CreateFlowLayout>
+<CreateFlowLayout
+  title="Create community"
+  description="A community is a social space that connects people to projects and discussion, without forcing every topic into one channel."
+  submitLabel="Create community"
+  submittingLabel="Creating..."
+  {canSubmit}
+  {isSubmitting}
+  on:submit={handleCreate}
+>
   <svelte:fragment slot="primary">
-    <CreatePanel
-      title="Create community"
-      description="A community is a social space that connects people to projects and discussion, without forcing every topic into one channel."
-    >
+    <CreatePanel bare>
       <form class="form-stack" on:submit|preventDefault={handleCreate}>
         <label>
           <RequiredFieldLabel>Community handle</RequiredFieldLabel>
@@ -84,13 +86,6 @@
           <RequiredFieldLabel>Description</RequiredFieldLabel>
           <textarea bind:value={description} rows="4" aria-required="true"></textarea>
         </label>
-
-        <div class="button-row">
-          <button class="button-primary" disabled={!canSubmit || isSubmitting} type="submit">
-            {isSubmitting ? 'Creating...' : 'Create Community'}
-          </button>
-          <button class="button-ghost" type="button" on:click={handleDraft}>Save Draft</button>
-        </div>
 
         {#if statusMessage}
           <p class="status-note">{statusMessage}</p>
