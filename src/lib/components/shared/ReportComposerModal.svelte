@@ -115,11 +115,11 @@
   .field-stack,
   .report-body {
     display: grid;
-    gap: 12px;
   }
 
   .report-modal {
     display: grid;
+    gap: 0;
     grid-template-rows: auto minmax(0, 1fr) auto;
     width: min(420px, calc(100vw - 40px));
     max-height: min(720px, calc(100dvh - 48px));
@@ -146,9 +146,16 @@
   }
 
   .report-body {
+    align-content: start;
+    gap: 16px;
     min-height: 0;
     overflow-y: auto;
     padding: 16px;
+  }
+
+  .field-stack {
+    align-content: start;
+    gap: 6px;
   }
 
   @media (max-width: 760px) {
@@ -187,7 +194,9 @@
 
   textarea,
   select {
+    align-self: start;
     width: 100%;
+    box-sizing: border-box;
     padding: 10px 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
@@ -195,8 +204,13 @@
     color: var(--text-main);
   }
 
+  select {
+    height: 44px;
+  }
+
   textarea {
-    min-height: 100px;
+    min-height: 120px;
+    height: 120px;
     resize: vertical;
   }
 

@@ -256,7 +256,9 @@ export async function fetchPlatform(): Promise<ScopePageData | null> {
       kind: 'platform',
       slug: channelSlug,
       title: res.channel?.name ?? 'Platform',
-      description: res.channel?.description ?? '',
+      description:
+        res.channel?.description?.trim() ||
+        'The channel for the whole network. Follow it to see platform-wide projects, events, and governance.',
       badges: [],
       emptyFeedText: 'No platform activity yet.',
       membership: {

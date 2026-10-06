@@ -2,6 +2,7 @@
   "name": "Social Production",
   "short_name": "Social Production",
   "description": "Collective coordination of activity and production without exchange.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,22 +10,34 @@
   "theme_color": "#181a1b",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/icon-192.v4.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icon-512.v4.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-maskable-512.png",
+      "src": "/icon-maskable-192.v4.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.v4.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "/icon-monochrome-512.v4.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "monochrome"
     }
   ]
 }

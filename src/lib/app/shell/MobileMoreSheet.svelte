@@ -36,10 +36,6 @@
   <button aria-label="Close menu" class="sheet-backdrop" type="button" on:click={close}></button>
 
   <div class="more-sheet" role="dialog" aria-modal="true" aria-label="More menu">
-    <header class="sheet-header">
-      <h2>More</h2>
-    </header>
-
     <div class="sheet-links">
       {#if bootstrap.viewer}
         <a
@@ -64,7 +60,7 @@
         href="/settings"
         on:click={handleNavigate}
       >
-        <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8" /><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" /></svg>
         <span>Settings</span>
       </a>
 
@@ -96,52 +92,40 @@
   .more-sheet {
     position: fixed;
     inset: 0;
-    z-index: 80;
+    z-index: var(--z-sheet);
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto;
+    padding-top: var(--shell-safe-top, 0px);
     background: var(--panel);
-  }
-
-  .sheet-header {
-    padding: calc(28px + var(--shell-safe-top, 0px)) 20px 18px;
-    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
-  }
-
-  .sheet-header h2 {
-    margin: 0;
-    font-size: clamp(28px, 8vw, 36px);
-    font-weight: 800;
-    line-height: 1.08;
-    letter-spacing: -0.02em;
   }
 
   .sheet-links {
     min-height: 0;
-    overflow-y: auto;
     display: grid;
-    align-content: start;
-    gap: 4px;
-    padding: 12px 12px 16px;
+    grid-template-rows: repeat(3, minmax(96px, 1fr));
+    gap: 0;
   }
 
   .sheet-link {
     display: flex;
     align-items: center;
-    gap: 12px;
-    min-height: 56px;
-    padding: 0 12px;
-    border-radius: var(--radius-sm);
-    color: var(--text-main);
-    font-size: 17px;
-    font-weight: 700;
-    text-align: left;
-    background: transparent;
+    justify-content: center;
+    gap: 18px;
+    min-height: 96px;
+    padding: 0 24px;
     border: none;
+    border-bottom: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--text-main);
+    font-size: 20px;
+    font-weight: 800;
+    text-align: center;
   }
 
   .sheet-link svg {
-    width: 22px;
-    height: 22px;
+    width: 48px;
+    height: 48px;
     flex: 0 0 auto;
   }
 

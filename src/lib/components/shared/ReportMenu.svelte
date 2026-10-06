@@ -194,8 +194,9 @@
       tabindex="-1"
     >
       <header class="menu-header">
-        <h2 class="menu-title" id="report-menu-title">{triggerLabel}</h2>
-        <button class="menu-close header-close" type="button" on:click={closeMenu}>Close</button>
+        <h2 class="menu-title" id="report-menu-title">
+          {report ? resolutionLabel(report.resolution) : `Report ${itemLabel}`}
+        </h2>
       </header>
       <div class="menu-body">
       {#if extraActionLabel}
@@ -205,39 +206,24 @@
         </button>
       {/if}
       {#if report}
-        <p class="menu-label">{resolutionLabel(report.resolution)} - {reasonLabel(report.reason)}</p>
-        <p class="menu-copy report-message">
-          {report.description?.trim() ? report.description : 'No additional message was provided.'}
-        </p>
-        {#each thresholdLines as line}
-          <p class="menu-copy threshold-copy">{line}</p>
-        {/each}
-        {#if voteCountCopy}
-          <p class="menu-copy vote-summary">{voteCountCopy}</p>
-        {/if}
-
-        {#if canVote}
-          <div class="menu-actions">
-            <button
-              class:active-vote={report.voteSummary.activeVote === 'yes'}
-              class="vote-chip"
-              disabled={pending}
-              type="button"
-              on:click={() => vote('yes')}
-            >
-              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
-              <span>Yes</span>
-            </button>
-            <button
-              class:active-vote={report.voteSummary.activeVote === 'no'}
-              class="vote-chip"
-              disabled={pending}
-              type="button"
-              on:click={() => vote('no')}
-            >
-              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
-              <span>No</span>
-            </button>
+        <div class="review-field">
+          <span class="field-label">Reason</span>
+          <p class="review-value">{reasonLabel(report.reason)}</p>
+        </div>
+        <div class="review-field">
+          <span class="field-label">Description</span>
+          <p class="report-message">
+            {report.description?.trim() ? report.description : 'No additional message was provided.'}
+          </p>
+        </div>
+        {#if thresholdLines.length > 0 || voteCountCopy}
+          <div class="review-meta">
+            {#each thresholdLines as line}
+              <p>{line}</p>
+            {/each}
+            {#if voteCountCopy}
+              <p>{voteCountCopy}</p>
+            {/if}
           </div>
         {/if}
       {:else if showingBlockedMessage}
@@ -249,7 +235,29 @@
         </button>
       {/if}
       </div>
-      <button class="menu-close sheet-close" type="button" on:click={closeMenu}>Close</button>
+      <footer class="menu-actions" class:votes={canVote}>
+        <button class="menu-dismiss" type="button" on:click={closeMenu}>Close</button>
+        {#if canVote && report}
+          <button
+            class:active-vote={report.voteSummary.activeVote === 'no'}
+            class="vote-chip"
+            disabled={pending}
+            type="button"
+            on:click={() => vote('no')}
+          >
+            No
+          </button>
+          <button
+            class:active-vote={report.voteSummary.activeVote === 'yes'}
+            class="vote-chip yes"
+            disabled={pending}
+            type="button"
+            on:click={() => vote('yes')}
+          >
+            Yes
+          </button>
+        {/if}
+      </footer>
     </div>
   </div>
 {/if}
@@ -349,64 +357,128 @@
   }
 
   .menu-label,
-  .menu-copy {
+  .review-value,
+  .review-meta p,
+  .report-message {
     margin: 0;
   }
 
   .menu-label {
     color: var(--text-main);
-    font-size: 12px;
-    font-weight: 800;
+    font-size: 14px;
+    font-weight: 700;
   }
 
-  .menu-copy {
+  .review-field {
+    display: grid;
+    gap: 6px;
+    align-content: start;
+  }
+
+  .field-label {
     color: var(--text-soft);
-    line-height: 1.4;
-  }
-
-  .report-message {
-    padding: 8px 10px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-main);
-    font-size: 13px;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-
-  .threshold-copy,
-  .vote-summary {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-main);
-  }
-
-  .menu-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .vote-chip,
-  .menu-item,
-  .menu-dismiss {
-    padding: 6px 10px;
-    border-radius: var(--radius-sm);
     font-size: 12px;
     font-weight: 700;
   }
 
-  .vote-chip {
+  .review-value {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
     border: 1px solid var(--panel-border);
-    background: var(--panel);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--text-main);
+    font-size: 16px;
+  }
+
+  .report-message {
+    min-height: 96px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--panel-border);
+    background: var(--panel-soft);
+    color: var(--text-main);
+    font-size: 16px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .review-meta {
+    display: grid;
+    gap: 4px;
+  }
+
+  .review-meta p {
     color: var(--text-soft);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .menu-actions {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+  }
+
+  .menu-actions > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 0;
+    min-height: 44px;
+    margin: 0;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 0;
+    border-right: 1px solid var(--panel-border);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .menu-actions > button:last-child {
+    border-right: 0;
+  }
+
+  .menu-dismiss {
+    background: var(--danger);
+    color: #fff;
+  }
+
+  .menu-actions.votes .menu-dismiss {
+    background: var(--panel-strong);
+    color: var(--text-main);
+  }
+
+  .vote-chip {
+    background: var(--panel);
+    color: var(--text-main);
+  }
+
+  .vote-chip.yes {
+    background: var(--brand);
+    color: var(--page-bg);
   }
 
   .vote-chip.active-vote {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
+    background: color-mix(in srgb, var(--danger) 18%, var(--panel));
+    color: var(--danger);
+  }
+
+  .vote-chip.yes.active-vote {
+    background: var(--brand);
+    color: var(--page-bg);
+    box-shadow: inset 0 0 0 2px var(--text-main);
+  }
+
+  .vote-chip:disabled {
+    opacity: 0.55;
+    cursor: default;
   }
 
   .menu-item {
@@ -422,12 +494,6 @@
   .menu-item:hover,
   .menu-item:focus-visible {
     color: var(--brand-strong);
-  }
-
-  .menu-dismiss {
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-soft);
   }
 
   .report-menu-backdrop {
@@ -446,8 +512,8 @@
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 0;
-    width: min(340px, calc(100vw - 40px));
-    max-height: min(640px, calc(100dvh - 48px));
+    width: min(420px, calc(100vw - 40px));
+    max-height: min(720px, calc(100dvh - 48px));
     padding: 0;
     overflow: hidden;
     border: 1px solid var(--panel-border);
@@ -457,28 +523,26 @@
 
   .menu-header {
     display: flex;
-    align-items: stretch;
-    justify-content: space-between;
-    padding: 0 0 0 14px;
-    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
+    align-items: center;
+    min-height: 52px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--panel-border);
   }
 
   .menu-title {
     margin: 0;
-    padding: 14px 0;
     color: var(--text-main);
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 800;
-    align-self: center;
   }
 
   .menu-body {
     min-height: 0;
     overflow-y: auto;
     display: grid;
-    gap: 8px;
+    gap: 16px;
     align-content: start;
-    padding: 14px;
+    padding: 16px;
   }
 
   .menu-item,
@@ -495,30 +559,8 @@
     flex: 0 0 auto;
   }
 
-  .menu-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 88px;
-    margin: 0;
-    padding: 0 16px;
-    border: 0;
-    border-radius: 0;
-    background: var(--danger);
-    color: #fff;
-    font-size: 14px;
-    font-weight: 800;
-    cursor: pointer;
-  }
-
-  .sheet-close {
-    display: none;
-  }
-
-  .menu-item,
-  .menu-dismiss,
-  .vote-chip {
-    min-height: var(--shell-touch-min, 44px);
+  .menu-item {
+    min-height: 44px;
   }
 
   @media (max-width: 760px) {
@@ -536,26 +578,12 @@
       border-radius: 0;
     }
 
-    .header-close {
-      display: none;
+    .menu-header {
+      min-height: calc(52px + var(--shell-safe-top, 0px));
+      padding-top: var(--shell-safe-top, 0px);
     }
 
-    .menu-title {
-      padding-top: calc(28px + var(--shell-safe-top, 0px));
-      padding-bottom: 18px;
-      font-size: clamp(28px, 8vw, 36px);
-      line-height: 1.08;
-    }
-
-    .menu-item,
-    .vote-chip {
-      min-height: 52px;
-      font-size: 16px;
-    }
-
-    .sheet-close {
-      display: flex;
-      width: 100%;
+    .menu-actions > button {
       min-height: calc(56px + var(--shell-safe-bottom, 0px));
       padding-bottom: var(--shell-safe-bottom, 0px);
       font-size: 16px;
