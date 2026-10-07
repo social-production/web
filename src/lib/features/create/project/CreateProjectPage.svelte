@@ -343,9 +343,7 @@
 
 <CreateFlowLayout
   title="Create project"
-  description={`${selectedTypeOption.summary} ${selectedTypeOption.lifecycleNote}${
-    isPersonalServiceProject(selectedType) ? ` ${selectedServiceModeOption.summary}` : ''
-  }`}
+  description="A project is shared work people can find, join, and take part in."
   wizard
 >
   <svelte:fragment slot="primary">

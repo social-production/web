@@ -97,10 +97,17 @@
       border-radius: 0;
       background: var(--toolbar-background, var(--panel));
       box-shadow: 0 8px 16px color-mix(in srgb, var(--page-bg) 55%, transparent);
+      transition: top 0.22s ease;
     }
 
     .top-tab-row.chat-immersive {
       padding-top: calc(8px + var(--shell-safe-top, 0px));
+    }
+
+    :global(.feed-chrome-collapsed) .top-tab-row:not(.chat-immersive) {
+      top: 0;
+      padding-top: calc(8px + var(--shell-safe-top, 0px));
+      margin-bottom: calc(12px - var(--shell-safe-top, 0px));
     }
 
     .top-tab {

@@ -590,7 +590,24 @@
       sourceLabel: 'Distribution plan'
     }
   ]);
-  $: canSubmitRequests = data.lifecycle.requestSystem?.viewerCanSubmitRequests ?? false;
+  $: canSubmitRequests =
+    Boolean(data.lifecycle.requestSystem?.enabled) &&
+    Boolean(data.lifecycle.requestSystem?.viewerCanSubmitRequests);
+  $: canRequestSettings = Boolean(data.lifecycle.requestSystem?.viewerCanRequestSettingsChanges);
+  $: canReplaceRepository = Boolean(
+    data.lifecycle.phaseFive.softwareGovernance?.viewerCanRequestRepositoryReplacement
+  );
+  let showServiceSettingsMenu = false;
+
+  function chooseRequestSettings() {
+    showServiceSettingsMenu = false;
+    openDockedRequestSettings();
+  }
+
+  function chooseReplaceRepository() {
+    showServiceSettingsMenu = false;
+    softwareGovernancePanel?.openSoftwareWizard('repository-replacement');
+  }
   $: calendarSelectedDayIso =
     previewDayIso || (showRequestComposer ? serviceRequestForm.scheduledAt : activityForm.scheduledAt);
   $: calendarSelectedActivityId =
@@ -828,7 +845,7 @@
         action={() => openDockedServiceRequest()}
       />
     {/if}
-    {#if data.lifecycle.requestSystem && (data.lifecycle.requestSystem.viewerCanReviewRequests || sortedRequests.length > 0)}
+    {#if data.lifecycle.requestSystem && (sortedRequests.length > 0 || (data.lifecycle.requestSystem.enabled && data.lifecycle.requestSystem.viewerCanReviewRequests))}
       <RoundPlusButton
         label="Requests"
         ariaLabel="Show service requests"
@@ -836,12 +853,12 @@
         action={() => (showRequestsSheet = true)}
       />
     {/if}
-    {#if data.lifecycle.requestSystem?.viewerCanRequestSettingsChanges}
+    {#if canRequestSettings || canReplaceRepository}
       <RoundPlusButton
-        label="Request settings"
-        ariaLabel="Request service settings changes"
-        participationAction="request-settings"
-        action={() => openDockedRequestSettings()}
+        label="Settings"
+        ariaLabel="Service settings"
+        participationAction="service-settings"
+        action={() => (showServiceSettingsMenu = true)}
       />
     {/if}
     <svelte:fragment slot="governance">
@@ -851,14 +868,6 @@
           ariaLabel="New pull request"
           participationAction="make-pull-request"
           action={() => softwareGovernancePanel?.openCreatePullRequest()}
-        />
-      {/if}
-      {#if data.lifecycle.phaseFive.softwareGovernance?.viewerCanRequestRepositoryReplacement}
-        <RoundPlusButton
-          label="Replace repository"
-          ariaLabel="Replace repository"
-          participationAction="replace-repository"
-          action={() => softwareGovernancePanel?.openSoftwareWizard('repository-replacement')}
         />
       {/if}
       {#if data.lifecycle.phaseFive.softwareGovernance?.viewerCanRequestMergeCapabilityChanges}
@@ -871,6 +880,29 @@
       {/if}
     </svelte:fragment>
   </PhaseWorkToolbar>
+
+  {#if canRequestSettings || canReplaceRepository}
+    <OverlaySheet
+      bind:open={showServiceSettingsMenu}
+      title="Settings"
+      labelledById="service-settings-menu"
+    >
+      <div class="settings-menu">
+        {#if canRequestSettings}
+          <button class="settings-option" type="button" on:click={chooseRequestSettings}>
+            <strong>Request settings</strong>
+            <span>Turn requests on or off, and change how people ask for this service.</span>
+          </button>
+        {/if}
+        {#if canReplaceRepository}
+          <button class="settings-option" type="button" on:click={chooseReplaceRepository}>
+            <strong>Replace repository</strong>
+            <span>Propose a different repository for this project.</span>
+          </button>
+        {/if}
+      </div>
+    </OverlaySheet>
+  {/if}
 
     {#if data.lifecycle.requestSystem}
       <OverlaySheet bind:open={showRequestsSheet} title={requestFormCopy.sectionTitle} labelledById="collective-requests-sheet">
@@ -1299,6 +1331,41 @@
   .slot-choice strong {
     color: var(--text-main);
     font-size: 15px;
+  }
+
+  .settings-menu {
+    display: grid;
+    gap: 10px;
+    padding: 4px 20px 20px;
+  }
+
+  .settings-option {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .settings-option strong {
+    color: var(--text-main);
+    font-size: 15px;
+  }
+
+  .settings-option span {
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .settings-option:hover,
+  .settings-option:focus-visible {
+    border-color: var(--brand);
+    background: var(--brand-soft);
   }
 
   .unified-history-copy {

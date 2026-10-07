@@ -192,17 +192,9 @@
   <OverlaySheet activity bind:open={sheetOpen} elevated title={activity.title}>
     {#if sheetOpen}
       <div class="activity-body">
-        <div class="activity-facts">
-          {#if placeLabel()}
-            <p class="live-fact">{placeLabel()}</p>
-          {/if}
-          {#if clockLabel()}
-            <p class="live-fact">{clockLabel()}</p>
-          {/if}
-          {#if datePartLabel()}
-            <p class="live-fact">{datePartLabel()}</p>
-          {/if}
-        </div>
+        {#if factLine()}
+          <p class="live-fact">{factLine()}</p>
+        {/if}
         {#if historyMode}
           <section class="history-activity-record">
             <h4 class="history-activity-record-heading">Activity record</h4>
@@ -273,28 +265,27 @@
           {#if activity.note}
             <p class="activity-note">{activity.note}</p>
           {/if}
-          <div class="activity-footer low-key">
-            <span>Minimum {activity.minimumParticipants} needed</span>
+          <p class="activity-meta">
+            Minimum {activity.minimumParticipants} needed
             {#if activity.maximumParticipants && activity.maximumParticipants > activity.minimumParticipants}
-              <span>Up to {activity.maximumParticipants} total</span>
+              · Up to {activity.maximumParticipants}
             {/if}
             {#if activity.linkedPlanPhaseLabel}
-              <span>Stage: {activity.linkedPlanPhaseLabel}</span>
+              · {activity.linkedPlanPhaseLabel}
             {/if}
-          </div>
+          </p>
           <div class="role-list">
             {#each activity.roles as role}
-              <div class="role-row">
-                <div class="role-row-head">
+              <div class="role-bar">
+                <div class="role-copy">
                   <strong>{role.label}</strong>
-                  <span>{role.filledCount} joined</span>
-                </div>
-                <p class="role-limits">
-                  Minimum {role.requiredCount}
-                  {#if role.maximumCount != null}
-                    · Maximum {role.maximumCount}
-                  {/if}
-                </p>
+                  <span>
+                    {role.filledCount} joined
+                    · Minimum {role.requiredCount}
+                    {#if role.maximumCount != null}
+                      · Maximum {role.maximumCount}
+                    {/if}
+                  </span>
                 {#if roleAssignees(role).length > 0}
                   <div class="assignee-list">
                     {#each roleAssignees(role) as assignee (assignee.username)}
@@ -344,12 +335,13 @@
                     {/each}
                   {/if}
                 {/if}
+                </div>
                 {#if !readOnly && activity.rolesLocked}
-                  <span class="roles-locked-copy">Roles locked — activity ended</span>
+                  <span class="roles-locked-copy">Locked</span>
                 {:else if !readOnly}
                   <button
                     class:selected={activity.viewerAssignedRoleLabel === role.label}
-                    class="vote-chip"
+                    class="signup"
                     data-participation-action={!role.isViewerAssigned && roleHasOpenCapacity(role) ? 'take-role' : undefined}
                     disabled={!role.isViewerAssigned && !roleHasOpenCapacity(role)}
                     type="button"
@@ -442,11 +434,6 @@
     min-width: 0;
   }
 
-  .activity-facts {
-    display: grid;
-    gap: 2px;
-  }
-
   .live-fact {
     margin: 0;
     color: var(--text-soft);
@@ -510,7 +497,6 @@
   }
 
   .history-mode .activity-body > p,
-  .history-mode .activity-body .low-key,
   .history-mode .role-row strong,
   .history-mode .role-row span {
     color: var(--text-soft);
@@ -565,6 +551,89 @@
     gap: 8px;
   }
 
+  .role-list:has(.role-bar) {
+    gap: 0;
+    margin: 0 -20px;
+    border-top: 1px solid var(--panel-border);
+  }
+
+  .activity-meta {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .role-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 12px 10px 20px;
+    border-bottom: 1px solid var(--panel-border);
+    background: var(--panel);
+  }
+
+  .role-copy {
+    display: grid;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .role-copy strong {
+    color: var(--text-main);
+    font-size: 15px;
+  }
+
+  .role-copy > span {
+    color: var(--text-soft);
+    font-size: 13px;
+  }
+
+  .signup {
+    display: grid;
+    place-items: center;
+    flex: 0 0 56px;
+    width: 56px;
+    height: 56px;
+    padding: 4px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--brand);
+    color: var(--page-bg);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.05;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .signup.selected {
+    background: var(--panel-strong);
+    color: var(--text-main);
+    box-shadow: inset 0 0 0 1px var(--panel-border);
+  }
+
+  .signup:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--brand) 78%, white);
+    color: var(--page-bg);
+    filter: none;
+    transform: none;
+  }
+
+  .signup.selected:hover:not(:disabled) {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    filter: none;
+    transform: none;
+  }
+
+  .signup:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
   .role-row {
     display: grid;
     gap: 8px;
@@ -599,20 +668,6 @@
     gap: 6px;
   }
 
-  .activity-footer {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .activity-footer span {
-    padding: 4px 8px;
-    border-radius: 999px;
-    background: var(--panel-strong);
-    border: 1px solid var(--panel-border);
-  }
-
   .expanded-footer {
     display: flex;
     align-items: center;
@@ -641,51 +696,6 @@
     color: var(--brand-strong);
   }
 
-  .vote-chip {
-    padding: 7px 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .activity-body .vote-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-height: 48px;
-    margin-top: 4px;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: var(--brand);
-    color: var(--page-bg);
-    font-size: 15px;
-    font-weight: 700;
-  }
-
-  .activity-body .vote-chip.selected {
-    background: var(--panel);
-    color: var(--danger, #c0392b);
-    box-shadow: inset 0 0 0 1px var(--panel-border);
-  }
-
-  .activity-body .vote-chip:disabled {
-    background: var(--panel);
-    color: var(--text-soft);
-    box-shadow: inset 0 0 0 1px var(--panel-border);
-    cursor: not-allowed;
-  }
-
-  .activity-body .vote-chip:hover:not(:disabled):not(.selected) {
-    border-color: transparent;
-    background: var(--brand);
-    color: var(--page-bg);
-    filter: brightness(0.96);
-  }
-
   .suggested-chip {
     display: inline-flex;
     padding: 4px 8px;
@@ -706,18 +716,6 @@
     font-weight: 700;
     text-align: left;
     cursor: pointer;
-  }
-
-  .vote-chip.selected {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .vote-chip:hover {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-    color: var(--brand-strong);
   }
 
   .phase-badge {
@@ -762,10 +760,5 @@
     color: var(--text-soft);
     font-size: 11px;
     font-weight: 600;
-  }
-
-  .low-key {
-    color: var(--text-soft);
-    font-size: 12px;
   }
 </style>

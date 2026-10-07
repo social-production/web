@@ -44,7 +44,15 @@
       return;
     }
     const cells: HTMLElement[] = [];
-    collectCells(node, cells);
+    for (const root of [
+      node.querySelector(':scope > .adds'),
+      node.querySelector(':scope > .governance-row'),
+      node.querySelector(':scope > #phase-nav-vote')
+    ]) {
+      if (root) {
+        collectCells(root, cells);
+      }
+    }
     node.querySelectorAll<HTMLElement>('.phase-pack-cell').forEach((cell) => {
       if (!cells.includes(cell)) {
         cell.classList.remove('phase-pack-cell', 'row-start', 'wrapped');
@@ -95,9 +103,11 @@
   <div class="governance-row">
     <slot name="governance" />
   </div>
-  <div id="phase-nav-start" class="phase-action-slot"></div>
-  <div id="phase-nav-end" class="phase-action-slot"></div>
   <div id="phase-nav-vote" class="phase-action-slot"></div>
+  <div class="phase-nav-bar">
+    <div id="phase-nav-start" class="phase-action-slot"></div>
+    <div id="phase-nav-end" class="phase-action-slot"></div>
+  </div>
 </div>
 
 <style>
@@ -115,16 +125,47 @@
 
   .adds,
   .governance-row,
-  .phase-action-slot,
+  #phase-nav-vote,
   :global(.phase-nav-side) {
     display: contents;
   }
 
   .adds:not(:has(:global(button))),
   .governance-row:not(:has(:global(button))),
-  .phase-action-slot:empty,
+  #phase-nav-vote:empty,
   :global(.phase-nav-side:empty) {
     display: none;
+  }
+
+  .phase-nav-bar {
+    display: flex;
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    border-top: 1px solid var(--panel-border);
+  }
+
+  .phase-nav-bar:not(:has(:global(button))) {
+    display: none;
+  }
+
+  .phase-nav-bar .phase-action-slot {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .phase-nav-bar :global(.phase-shift-button) {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    justify-content: center;
+    border-radius: 0;
+  }
+
+  .phase-nav-bar:has(#phase-nav-start :global(button)) #phase-nav-end :global(.phase-shift-button) {
+    border-left: 1px solid var(--panel-border);
   }
 
   :global(.phase-pack-cell) {

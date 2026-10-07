@@ -396,7 +396,9 @@
   $: personalRequestMode = data.lifecycle.personalService?.requestMode ?? 'calendar';
   $: allowOffScheduleRequests = data.lifecycle.requestSystem?.settings.allowOffScheduleRequests ?? false;
   $: availabilityRules = data.lifecycle.personalService?.availabilityRules ?? [];
-  $: showServiceRequestAction = data.lifecycle.requestSystem?.viewerCanSubmitRequests ?? false;
+  $: showServiceRequestAction =
+    Boolean(data.lifecycle.requestSystem?.enabled) &&
+    Boolean(data.lifecycle.requestSystem?.viewerCanSubmitRequests);
   $: requestScheduleRequired = data.lifecycle.requestSystem?.requiresSchedule ?? false;
   $: showRequestScheduleFields =
     requestScheduleRequired || !!serviceRequestForm.scheduledAt || !!selectedActivityId;

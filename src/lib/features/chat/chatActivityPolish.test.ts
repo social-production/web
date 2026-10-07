@@ -77,7 +77,9 @@ describe('activity and chat presentation', () => {
     expect(collective).toContain('<PhaseWorkToolbar>');
     expect(collective).toContain('label="Create activity"');
     expect(collective).toContain('participationAction="request-service"');
-    expect(collective).toContain('participationAction="request-settings"');
+    expect(collective).toContain('label="Settings"');
+    expect(collective).toContain('>Request settings<');
+    expect(collective).toContain('>Replace repository<');
   });
 
   it('fits region filters on one toolbar row', () => {

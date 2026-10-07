@@ -3,10 +3,51 @@ import { tick } from 'svelte';
 const DEFAULT_TOP_OFFSET = 84;
 const BOTTOM_CUSHION = 16;
 
-function readCssPx(name: string, fallback: number): number {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(name);
-  const value = Number.parseFloat(raw);
-  return Number.isFinite(value) ? value : fallback;
+function readCssPx(name: string, fallback: number, scope?: HTMLElement): number {
+  const node = scope ?? document.documentElement;
+  const raw = getComputedStyle(node).getPropertyValue(name).trim();
+  if (!raw) {
+    return fallback;
+  }
+  if (/^-?[\d.]+px$/.test(raw)) {
+    const value = Number.parseFloat(raw);
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  const probe = document.createElement('div');
+  probe.style.position = 'absolute';
+  probe.style.visibility = 'hidden';
+  probe.style.pointerEvents = 'none';
+  probe.style.height = '0';
+  probe.style.width = raw;
+  node.appendChild(probe);
+  const width = probe.getBoundingClientRect().width;
+  probe.remove();
+  return Number.isFinite(width) ? width : fallback;
+}
+
+function overlayCover(): number {
+  let cover = 0;
+  for (const node of document.querySelectorAll(
+    '.discussion-shell > .composer-card, .mobile-bottom-nav, .detail-action-dock'
+  )) {
+    if (!(node instanceof HTMLElement)) {
+      continue;
+    }
+    const style = getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden') {
+      continue;
+    }
+    if (style.position !== 'fixed' && style.position !== 'sticky') {
+      continue;
+    }
+    const rect = node.getBoundingClientRect();
+    const visible = window.innerHeight - rect.top;
+    if (rect.height > 1 && visible > 0) {
+      cover = Math.max(cover, visible);
+    }
+  }
+  return cover;
 }
 
 function scrollingParent(element: HTMLElement): HTMLElement | null {
@@ -25,11 +66,19 @@ function scrollingParent(element: HTMLElement): HTMLElement | null {
 }
 
 function visibleFrame(element: HTMLElement, topOffset?: number) {
-  const windowTop = (topOffset ?? readCssPx('--topbar-height', DEFAULT_TOP_OFFSET)) + 8;
+  const headerHidden = Boolean(document.querySelector('.topbar.chrome-collapsed'));
+  const windowTop =
+    (topOffset ??
+      (headerHidden
+        ? readCssPx('--shell-safe-top', 0, element)
+        : readCssPx('--topbar-height', DEFAULT_TOP_OFFSET, element))) + 8;
+  const measuredCover = overlayCover();
   const coveredBottom =
-    readCssPx('--shell-bottom-nav-offset', 0) +
-    readCssPx('--detail-action-dock-height', 0) +
-    readCssPx('--shell-dock-safe-bottom', 0);
+    measuredCover > 0
+      ? measuredCover
+      : readCssPx('--shell-bottom-nav-offset', 0, element) +
+        readCssPx('--detail-action-dock-height', 0, element) +
+        readCssPx('--shell-dock-safe-bottom', 0, element);
   const windowBottom = window.innerHeight - coveredBottom - BOTTOM_CUSHION;
   const parent = scrollingParent(element);
   if (!parent) {
