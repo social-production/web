@@ -180,8 +180,46 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  /*
+    Percentage min-height collapses on iOS when the page is shorter than the
+    screen (empty feed, short settings, a project locked to one viewport).
+    The webview canvas below that short document is white, including under the
+    nav. A scrollable page already covers it, which is why the band shrinks
+    once the feed is full. 100dvh paints the page color without stretching the
+    content column into a second footer.
+  */
+  min-height: 100dvh;
   background: var(--page-background);
   color: var(--text-main);
+}
+
+/*
+  Home-indicator strip in the installed app. Sits behind the nav when the nav
+  already reaches the screen edge, and drops into the white canvas when iOS
+  lays bottom: 0 above that strip. Height follows the inset but the nav itself
+  stays 56px, so Firefox's resting inset is not reserved as layout space.
+*/
+@media (display-mode: standalone) {
+  /*
+    A page that is exactly one viewport (project detail, empty feed after the
+    100dvh fill) still is not "scrollable", and iOS leaves the home-indicator
+    canvas white until the document can scroll. One extra pixel is enough.
+  */
+  html {
+    min-height: calc(100dvh + 1px);
+  }
+
+  html::before {
+    content: '';
+    position: fixed;
+    z-index: calc(var(--z-shell-nav) - 1);
+    left: 0;
+    right: 0;
+    bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+    height: env(safe-area-inset-bottom, 0px);
+    background: var(--toolbar-background);
+    pointer-events: none;
+  }
 }
 
 html {

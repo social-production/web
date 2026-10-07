@@ -119,7 +119,7 @@
   $: topbarCollapsed =
     immersiveChat ||
     (feedChromeActive && feedChromeHidden && !mapSurfaceActive) ||
-    (isCompact && keyboardOpen);
+    (isCompact && keyboardOpen && !searchExpanded);
 
   $: if (typeof document !== 'undefined') {
     document.documentElement.style.overflow = mapSurfaceActive ? 'hidden' : '';
@@ -402,7 +402,9 @@
       document.documentElement.classList.toggle('keyboard-open', next);
       if (next && next !== keyboardOpen) {
         const active = document.activeElement;
-        if (active instanceof HTMLElement) {
+        // The compact search field lives in the top bar. Scrolling it
+        // "into view" moves that bar and iOS dismisses the keyboard.
+        if (active instanceof HTMLElement && !active.closest('.topbar')) {
           requestAnimationFrame(() => active.scrollIntoView({ block: 'center', inline: 'nearest' }));
         }
       }
@@ -587,8 +589,9 @@
 
   function openSearch() {
     searchExpanded = true;
-    requestAnimationFrame(() => {
-      searchInputElement?.focus();
+    void tick().then(() => {
+      // preventScroll keeps the sticky top bar from jumping, which iOS treats as a blur.
+      searchInputElement?.focus({ preventScroll: true });
       updateLayoutMetrics();
     });
   }
@@ -1376,6 +1379,11 @@
     border-radius: var(--radius-sm);
     background: var(--panel-soft);
     padding: 4px 8px 4px 4px;
+  }
+
+  /* 16px stops iOS from zooming the field on focus and aborting the keyboard. */
+  .toolbar-search-expanded .toolbar-search-input {
+    font-size: 16px;
   }
 
   .search-open-button,

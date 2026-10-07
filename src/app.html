@@ -17,6 +17,10 @@
           if (theme === 'dark' || theme === 'light') {
             document.documentElement.dataset.theme = theme;
             document.body && (document.body.dataset.theme = theme);
+            var themeMeta = document.querySelector('meta[name="theme-color"]');
+            if (themeMeta) {
+              themeMeta.setAttribute('content', theme === 'light' ? '#ffffff' : '#181a1b');
+            }
           }
         } catch (e) {}
       })();

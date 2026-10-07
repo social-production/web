@@ -31,6 +31,10 @@
     document.body.dataset.theme = theme;
     document.body.dataset.shellMode = detectShellMode();
     document.documentElement.lang = data.locale;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute(
+      'content',
+      theme === 'light' ? '#ffffff' : '#181a1b'
+    );
 
     try {
       localStorage.setItem('sp_theme', theme);
