@@ -255,7 +255,9 @@
     gap: 10px;
     min-width: 0;
     scroll-margin-top: calc(var(--topbar-height, 84px) + 8px);
-    scroll-margin-bottom: calc(var(--shell-bottom-nav-offset, 0px) + 16px);
+    scroll-margin-bottom: calc(
+      var(--shell-bottom-nav-offset, 0px) + var(--detail-action-dock-height, 0px) + 16px
+    );
     transition: background 140ms ease, box-shadow 140ms ease;
   }
 

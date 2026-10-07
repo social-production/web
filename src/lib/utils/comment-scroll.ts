@@ -26,7 +26,11 @@ function scrollingParent(element: HTMLElement): HTMLElement | null {
 
 function visibleFrame(element: HTMLElement, topOffset?: number) {
   const windowTop = (topOffset ?? readCssPx('--topbar-height', DEFAULT_TOP_OFFSET)) + 8;
-  const windowBottom = window.innerHeight - readCssPx('--shell-bottom-nav-offset', 0) - BOTTOM_CUSHION;
+  const coveredBottom =
+    readCssPx('--shell-bottom-nav-offset', 0) +
+    readCssPx('--detail-action-dock-height', 0) +
+    readCssPx('--shell-dock-safe-bottom', 0);
+  const windowBottom = window.innerHeight - coveredBottom - BOTTOM_CUSHION;
   const parent = scrollingParent(element);
   if (!parent) {
     return { scroller: null as HTMLElement | null, top: windowTop, bottom: windowBottom };

@@ -891,14 +891,19 @@
     }
 
     .page-chat {
-      grid-template-rows: minmax(0, 1fr);
+      position: fixed;
+      z-index: 2;
+      top: var(--topbar-height, 0px);
+      right: 0;
+      bottom: var(--shell-bottom-nav-offset, 0px);
+      left: 0;
+      display: flex;
+      flex-direction: column;
       gap: 0;
-      height: calc(
-        var(--shell-visual-viewport-height, 100dvh) - var(--topbar-height) -
-          var(--shell-bottom-nav-offset)
-      );
+      height: auto;
       min-height: 0;
       overflow: hidden;
+      background: var(--page-background);
     }
 
     .hero-card {
@@ -911,17 +916,16 @@
 
     .hero-card:has(> .context-tab:not(.tab-panel-hidden)),
     .hero-card:has(> .participation-tab:not(.tab-panel-hidden)) {
-      min-height: calc(
-        100dvh - var(--topbar-height, 56px) - var(--shell-bottom-nav-offset, 0px)
-      );
+      min-height: calc(100dvh - var(--topbar-height, 56px) - var(--shell-scroll-pad, 0px));
       margin-bottom: -4px;
     }
 
     .hero-card.chat-tab-active {
       overflow: hidden;
       display: flex;
+      flex: 1 1 auto;
       flex-direction: column;
-      height: 100%;
+      height: auto;
       min-height: 0;
       margin-top: 0;
       padding: 8px 0 0;
@@ -951,6 +955,13 @@
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
+    }
+
+    .chat-tab-active :global(.chat-panel) {
+      flex: 1 1 auto;
+      height: 100%;
+      min-height: 0;
+      max-height: 100%;
     }
   }
 </style>

@@ -132,7 +132,7 @@
 
   @media (max-width: 760px) {
     :global(html:has(.discussion-shell)) {
-      --detail-action-dock-height: 64px;
+      --detail-action-dock-height: 72px;
     }
 
     :global(html:has(.discussion-shell:has(.comment-card.reply-open))) {
@@ -153,7 +153,7 @@
       right: 0;
       bottom: var(--shell-bottom-nav-offset, 0px);
       z-index: 40;
-      padding: 8px 12px;
+      padding: 8px 12px calc(8px + var(--shell-dock-safe-bottom, 0px));
       border-top: 1px solid var(--panel-border);
       background: var(--panel);
     }

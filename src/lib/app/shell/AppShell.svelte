@@ -101,9 +101,18 @@
   $: if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded) {
     feedChromeHidden = false;
   }
-  // Keep these sizes steady while the bars slide away. Zeroing them mid-scroll
-  // changes the page height and the next scroll event yanks the bars back.
+  // The visible inset follows the footer so fixed composers sit on the real
+  // bottom edge. The scroll pad stays put, so hiding the footer does not
+  // change the page height and yank the scroll position.
   $: shellBottomNavOffset =
+    isCompact &&
+    !isAuthSurface &&
+    !keyboardOpen &&
+    !immersiveChat &&
+    !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
+      ? 'var(--shell-bottom-nav-height)'
+      : '0px';
+  $: shellScrollPad =
     isCompact && !isAuthSurface && !keyboardOpen && !immersiveChat
       ? 'var(--shell-bottom-nav-height)'
       : '0px';
@@ -683,7 +692,7 @@
   class:shell-map-page={dedicatedMapPage}
   class:feed-chrome-collapsed={topbarCollapsed}
   class:shell-auth={isAuthSurface}
-  style={`--left-width: ${leftRailOpen && !isCompact && !isAuthSurface ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact && !isAuthSurface ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --shell-dock-safe-bottom: ${shellDockSafeBottom}; --main-frame-max-width: none;`}
+  style={`--left-width: ${leftRailOpen && !isCompact && !isAuthSurface ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact && !isAuthSurface ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --shell-scroll-pad: ${shellScrollPad}; --shell-dock-safe-bottom: ${shellDockSafeBottom}; --main-frame-max-width: none;`}
 >
   {#if mapSurfaceActive}
     <div class="topbar-flow-spacer" style={`height: ${topbarHeight}px`} aria-hidden="true"></div>
@@ -1630,7 +1639,7 @@
   }
 
   .main-content-compact {
-    padding: 0 0 calc(var(--shell-bottom-nav-offset));
+    padding: 0 0 var(--shell-scroll-pad, 0px);
   }
 
   .main-frame {
@@ -1772,7 +1781,7 @@
     }
 
     .main-content-compact {
-      padding: 0 0 calc(var(--shell-bottom-nav-offset));
+      padding: 0 0 var(--shell-scroll-pad, 0px);
       min-width: 0;
       overflow-x: clip;
       overflow-y: clip;
@@ -1783,6 +1792,11 @@
       overflow-x: clip;
       overflow-y: clip;
       padding-bottom: 4px;
+    }
+
+    :global(html:has(.page-chat)),
+    :global(html:has(.page-chat) body) {
+      overflow: hidden;
     }
   }
 </style>

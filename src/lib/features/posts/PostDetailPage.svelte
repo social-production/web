@@ -143,7 +143,7 @@
     flex-direction: column;
     gap: 0;
     min-width: 0;
-    min-height: calc(100dvh - var(--topbar-height, 0px) - var(--shell-bottom-nav-offset, 0px));
+    min-height: calc(100dvh - var(--topbar-height, 0px) - var(--shell-scroll-pad, 0px));
   }
 
   .page :global(.surface.has-accent) {
