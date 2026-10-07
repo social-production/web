@@ -7,7 +7,6 @@
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
-  import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import { page } from '$app/stores';
   import { shareThreadWithUser } from '$lib/services/commands/create';
@@ -92,7 +91,6 @@
 
   <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
     <h1>{data.title}</h1>
-    <GuestBrowseLine kind="thread" />
     <p class="overview-copy">{data.body}</p>
   </ModerationRestrictionNotice>
 

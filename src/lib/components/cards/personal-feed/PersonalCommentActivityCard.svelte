@@ -1,5 +1,4 @@
 <script lang="ts">
-  import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
@@ -34,16 +33,6 @@
 </script>
 
 <FeedSurface href={item.href} tone="personal" accent={surfaceTypeAccent(item.subjectKind)}>
-  <div class="card-header">
-    <div class="header-row">
-      <div class="identity-row">
-        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
-        <a class="name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-      </div>
-    </div>
-  </div>
-
-  <a class="subject-title" data-sveltekit-noscroll data-sveltekit-preload-data="hover" href={item.href}>{item.subjectTitle}</a>
   <p class="comment-excerpt">{item.commentExcerpt}</p>
 
   <div class="footer">
@@ -60,14 +49,6 @@
 </FeedSurface>
 
 <style>
-  .card-header {
-    display: grid;
-    gap: 6px;
-    min-width: 0;
-  }
-
-  .header-row,
-  .identity-row,
   .footer,
   .engagement-row {
     display: flex;
@@ -75,50 +56,19 @@
     min-width: 0;
   }
 
-  .header-row,
   .footer {
     gap: 8px;
     justify-content: space-between;
-  }
-
-  .header-row {
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-
-  .footer {
     flex-wrap: nowrap;
-  }
-
-  .identity-row {
-    gap: 0.6rem;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .name {
-    color: var(--text-main);
-    font-weight: 800;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  .comment-excerpt {
-    color: var(--text-soft);
-    font-size: 12px;
-    line-height: 1.45;
-  }
-
-  .subject-title {
-    color: var(--text-main);
-    font-size: 15px;
-    font-weight: 800;
-    line-height: 1.35;
   }
 
   .comment-excerpt {
     margin: 0;
-    font-size: 13px;
+    color: var(--text-main);
+    font-size: 15px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .footer {
@@ -147,16 +97,8 @@
   }
 
   @media (max-width: 760px) {
-    .name {
-      font-size: 14px;
-    }
-
-    .subject-title {
-      font-size: 16px;
-    }
-
     .comment-excerpt {
-      font-size: 14px;
+      font-size: 16px;
     }
   }
 </style>

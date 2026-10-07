@@ -246,7 +246,8 @@
     border-radius: 0;
     background: var(--panel);
     min-width: 0;
-    scroll-margin-top: 84px;
+    scroll-margin-top: calc(var(--topbar-height, 84px) + 8px);
+    scroll-margin-bottom: calc(var(--shell-bottom-nav-offset, 0px) + 16px);
     transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
   }
 

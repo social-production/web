@@ -3,7 +3,6 @@
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
-  import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
   import { page } from '$app/stores';
   import type { HelpRequestPageData } from '$lib/types/detail';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
@@ -46,7 +45,6 @@
       {#if locationLabel}
         <p class="live-fact">{locationLabel}</p>
       {/if}
-      <GuestBrowseLine kind="help request" />
       <p class="overview-copy">{data.body}</p>
     </div>
   </div>

@@ -542,12 +542,12 @@
   .vote-strip.corner,
   .vote-strip.corner:hover {
     display: grid;
-    grid-template-columns: 52px 40px 52px;
+    grid-template-columns: 32px 36px 32px;
     align-items: stretch;
     gap: 0;
-    width: 144px;
-    height: 40px;
-    min-height: 40px;
+    width: 100px;
+    height: 36px;
+    min-height: 36px;
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -557,8 +557,8 @@
 
   .vote-strip.corner .vote-button,
   .vote-strip.corner .vote-button:hover:not(:disabled) {
-    width: 52px;
-    height: 40px;
+    width: 32px;
+    height: 36px;
     margin: 0;
     padding: 0;
     border: 0;
@@ -613,9 +613,9 @@
   .vote-strip.corner .signal-percent {
     display: grid;
     place-items: center;
-    width: 40px;
-    min-width: 40px;
-    height: 40px;
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
     overflow: hidden;
     font-size: 12px;
     font-weight: 700;

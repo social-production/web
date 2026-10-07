@@ -277,6 +277,18 @@
   }
 
   function handleBrandClick(event: MouseEvent) {
+    if (mapPanelOpen) {
+      event.preventDefault();
+      closeMapPanel();
+      if (!isCreateEntrySurface($page.url.pathname)) {
+        const target = feedReturnHref('/');
+        if (`${$page.url.pathname}${$page.url.search}` !== target) {
+          void goto(target);
+        }
+      }
+      return;
+    }
+
     if (isCreateEntrySurface($page.url.pathname)) {
       return;
     }
@@ -1275,18 +1287,31 @@
     font-size: 10px;
   }
 
-  .panel-toggle:hover {
-    border-color: var(--brand);
-    color: var(--brand-strong);
-    background: var(--brand-soft);
+  /*
+    Phones keep :hover after a tap, and the global button hover is the same green
+    as the open state. Only a real pointer should show that hover.
+  */
+  button.panel-toggle:hover:not(:disabled) {
+    border-color: var(--panel-border);
+    background: transparent;
+    color: var(--text-soft);
     filter: none;
     transform: none;
   }
 
-  .panel-toggle[data-active='true'] {
+  button.panel-toggle[data-active='true'],
+  button.panel-toggle[data-active='true']:hover {
     border-color: var(--brand);
     background: color-mix(in srgb, var(--brand-soft) 65%, var(--panel-strong));
     color: var(--brand-strong);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    button.panel-toggle:hover:not(:disabled) {
+      border-color: var(--brand);
+      color: var(--brand-strong);
+      background: var(--brand-soft);
+    }
   }
 
   .map-overlay {

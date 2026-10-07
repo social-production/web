@@ -1,3 +1,13 @@
+export type SearchEntityType =
+  | 'project'
+  | 'event'
+  | 'thread'
+  | 'channel'
+  | 'community'
+  | 'user'
+  | 'help_request'
+  | 'post';
+
 export type SearchResultKind =
   | 'project'
   | 'thread'
@@ -21,4 +31,5 @@ export interface SearchPageData {
   query: string;
   suggestedQueries: string[];
   results: SearchResultItem[];
+  entityType?: SearchEntityType | 'all';
 }

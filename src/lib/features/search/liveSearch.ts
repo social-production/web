@@ -1,5 +1,5 @@
 import { getSearch } from '$lib/services/queries/search';
-import type { SearchResultItem } from '$lib/types/search';
+import type { SearchEntityType, SearchResultItem } from '$lib/types/search';
 
 export function createLiveSearchScheduler() {
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -12,7 +12,11 @@ export function createLiveSearchScheduler() {
     }
   }
 
-  function schedule(query: string, onResults: (results: SearchResultItem[], loading: boolean) => void) {
+  function schedule(
+    query: string,
+    onResults: (results: SearchResultItem[], loading: boolean) => void,
+    entityTypes?: SearchEntityType[]
+  ) {
     cancel();
     const trimmed = query.trim();
 
@@ -26,7 +30,10 @@ export function createLiveSearchScheduler() {
 
     debounceTimer = setTimeout(async () => {
       try {
-        const response = await getSearch(trimmed);
+        const response = await getSearch(
+          trimmed,
+          entityTypes?.length ? { entityTypes } : undefined
+        );
         if (currentRequest === requestId) {
           onResults(response.results, false);
         }

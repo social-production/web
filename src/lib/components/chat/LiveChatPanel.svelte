@@ -13,6 +13,7 @@
   import { moderatedPlaceholder, shouldHideModeratedBody } from '$lib/utils/moderation';
   import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
   import { scrollCenteredInContainer } from '$lib/utils/comment-scroll';
+  import { requireViewer } from '$lib/utils/requireViewer';
   import PhotoViewer from '$lib/components/shared/PhotoViewer.svelte';
   import type { MessageAttachment } from '$lib/types/inbox';
   import { compressChatPhoto, rejectOutgoingAttachment } from '$lib/features/messages/attachmentLimits';
@@ -479,6 +480,7 @@
       ? messages.slice().sort((left, right) => +new Date(left.createdAt) - +new Date(right.createdAt))
       : flattenedComments;
   $: viewerUsername = $page.data.bootstrap?.viewer?.username ?? null;
+  $: viewerSignedIn = Boolean($page.data.bootstrap?.viewer);
 
   $: scrollSubjectKey = `${subjectId || title}`;
   $: autoScrollKey = highlightedCommentId
@@ -518,7 +520,15 @@
     });
   }
 
+  function promptChatSignIn() {
+    requireViewer($page.data.bootstrap?.viewer, 'Sign in to send a message.');
+  }
+
   async function submitMessage() {
+    if (!viewerSignedIn) {
+      promptChatSignIn();
+      return;
+    }
     const body = draftMessage.trim();
     const files = pendingAttachments.map((item) => item.file);
 
@@ -819,7 +829,7 @@
   />
 
   <div class="composer-card">
-    {#if allowAttachments}
+    {#if allowAttachments && viewerSignedIn}
       <div class="attach-row">
         <button aria-label="Add a photo" class="attach-button" type="button" on:click={() => photoInput?.click()}>
           <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14">
@@ -882,9 +892,13 @@
         placeholder={placeholder}
         rows="3"
       ></textarea>
-      <button class="primary-button" disabled={submitPending} type="button" on:click={submitMessage}
-        >{submitLabel}</button
-      >
+      {#if viewerSignedIn}
+        <button class="primary-button" disabled={submitPending} type="button" on:click={submitMessage}
+          >{submitLabel}</button
+        >
+      {:else}
+        <button class="primary-button" type="button" on:click={promptChatSignIn}>Sign in</button>
+      {/if}
     </div>
   </div>
 </section>
@@ -965,7 +979,8 @@
     padding: 0;
     border: none;
     border-radius: 0;
-    scroll-margin-top: 84px;
+    scroll-margin-top: 12px;
+    scroll-margin-bottom: 16px;
     transition: background 140ms ease, box-shadow 140ms ease;
   }
 

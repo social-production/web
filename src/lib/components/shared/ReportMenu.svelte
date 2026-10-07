@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { page } from '$app/stores';
   import { createEventDispatcher, tick } from 'svelte';
+  import { requireViewer } from '$lib/utils/requireViewer';
   import type { ContentReportSummary, ContentReportVote, ModerationState } from '$lib/types/detail';
   import { formatReportThresholdLines, moderationStatusLabel } from '$lib/utils/moderation';
   import { portal } from '$lib/utils/portal';
@@ -89,10 +91,17 @@
   function handleTriggerClick(event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
+    if (!requireViewer($page.data.bootstrap?.viewer, `Sign in to report this ${itemLabel}.`)) {
+      return;
+    }
     toggleMenu();
   }
 
   function openComposer() {
+    if (!requireViewer($page.data.bootstrap?.viewer, `Sign in to report this ${itemLabel}.`)) {
+      closeMenu();
+      return;
+    }
     if (blockedMessage.trim()) {
       showingBlockedMessage = true;
       return;
@@ -103,6 +112,10 @@
   }
 
   function vote(voteValue: ContentReportVote) {
+    if (!requireViewer($page.data.bootstrap?.viewer, `Sign in to vote on this ${itemLabel} report.`)) {
+      closeMenu();
+      return;
+    }
     closeMenu();
     dispatch('vote', { vote: voteValue });
   }

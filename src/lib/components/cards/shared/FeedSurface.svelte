@@ -320,14 +320,14 @@
 
   .content :global(.feed-corner-actions) {
     display: flex;
-    flex: 0 0 196px;
+    flex: 0 0 136px;
     align-items: stretch;
     gap: 0;
-    width: 196px;
-    min-width: 196px;
-    max-width: 196px;
-    height: 40px;
-    min-height: 40px;
+    width: 136px;
+    min-width: 136px;
+    max-width: 136px;
+    height: 36px;
+    min-height: 36px;
     overflow: hidden;
     border-top: 1px solid var(--panel-border);
     border-right: 1px solid var(--panel-border);
@@ -335,18 +335,18 @@
   }
 
   .content :global(.feed-corner-actions .vote-strip) {
-    flex: 0 0 144px;
+    flex: 0 0 100px;
   }
 
   .content :global(.feed-corner-actions .comment-link),
   .content :global(.feed-corner-actions .comment-link:hover),
   .content :global(.feed-corner-actions .comment-link:focus-visible) {
     display: flex;
-    flex: 0 0 52px;
+    flex: 0 0 36px;
     align-items: stretch;
-    width: 52px;
-    min-width: 52px;
-    max-width: 52px;
+    width: 36px;
+    min-width: 36px;
+    max-width: 36px;
     overflow: hidden;
     border-left: 1px solid var(--panel-border);
     border-radius: 0;
@@ -360,11 +360,11 @@
 
   .content :global(.feed-corner-actions .pill),
   .content :global(.feed-corner-actions .pill:hover) {
-    width: 52px;
-    min-width: 52px;
-    max-width: 52px;
-    height: 40px;
-    min-height: 40px;
+    width: 36px;
+    min-width: 36px;
+    max-width: 36px;
+    height: 36px;
+    min-height: 36px;
     padding: 0 4px;
     gap: 2px;
     border: 0;
@@ -386,12 +386,12 @@
 
   .content :global(.feed-corner-actions .detail-tool) {
     display: flex;
-    flex: 0 0 40px;
+    flex: 0 0 32px;
     align-items: stretch;
-    width: 40px;
-    min-width: 40px;
-    max-width: 40px;
-    height: 40px;
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
+    height: 36px;
     overflow: hidden;
     border-left: 1px solid var(--panel-border);
   }
@@ -403,11 +403,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    min-width: 40px;
-    max-width: 40px;
-    height: 40px;
-    min-height: 40px;
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
+    height: 36px;
+    min-height: 36px;
     padding: 0;
     border: 0;
     border-radius: 0;

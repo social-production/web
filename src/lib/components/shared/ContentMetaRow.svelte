@@ -1,6 +1,7 @@
 <script lang="ts">
   import GroupsIcon from '$lib/components/shared/GroupsIcon.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import { displayUsername } from '$lib/utils/displayUsername';
   import {
     activityStampInstant,
     describeUpdateTime,
@@ -24,9 +25,9 @@
 
 <span class="content-meta-row" class:time-only={timeOnly}>
   {#if !timeOnly && authorUsername && resolvedAuthorHref}
-    <a class="inline-link" href={resolvedAuthorHref} title={authorUsername}>{authorUsername}</a>
+    <a class="inline-link" href={resolvedAuthorHref} title={authorUsername}>{displayUsername(authorUsername)}</a>
   {:else if !timeOnly && authorUsername}
-    <span class="inline-link" title={authorUsername}>{authorUsername}</span>
+    <span class="inline-link" title={authorUsername}>{displayUsername(authorUsername)}</span>
   {/if}
 
   {#if memberCount != null}

@@ -1,9 +1,12 @@
 <script lang="ts">
+  import { page } from '$app/stores';
   import { createEventDispatcher, onMount, tick } from 'svelte';
+  import { requireViewer } from '$lib/utils/requireViewer';
 
   export let value = '';
   export let placeholder = 'Write a comment...';
   export let submitLabel = 'Post comment';
+  export let signInMessage = 'Sign in to comment.';
 
   const dispatch = createEventDispatcher<{ submit: void }>();
 
@@ -13,6 +16,11 @@
   let isScrollable = false;
 
   $: canSubmit = value.trim().length > 0;
+  $: signedIn = Boolean($page.data.bootstrap?.viewer);
+
+  function promptSignIn() {
+    requireViewer($page.data.bootstrap?.viewer, signInMessage);
+  }
 
   async function resizeComposer() {
     if (!composerElement) {
@@ -37,6 +45,10 @@
   }
 
   async function submit() {
+    if (!signedIn) {
+      promptSignIn();
+      return;
+    }
     if (!value.trim()) {
       return;
     }
@@ -57,6 +69,7 @@
 </script>
 
 <div class="composer-field">
+  {#if signedIn}
   <textarea
     bind:this={composerElement}
     bind:value
@@ -67,7 +80,12 @@
     on:input={handleInput}
     on:keydown={handleKeydown}
   ></textarea>
-  {#if canSubmit}
+  {:else}
+    <button class="composer-input composer-signin" type="button" on:click={promptSignIn}>
+      {placeholder}
+    </button>
+  {/if}
+  {#if signedIn && canSubmit}
     <button aria-label={submitLabel} class="composer-send" type="button" on:click={submit}>
       <svg aria-hidden="true" viewBox="0 0 24 24">
         <path
@@ -111,6 +129,12 @@
   .composer-input.scrollable {
     overflow-y: auto;
     scrollbar-gutter: stable;
+  }
+
+  button.composer-signin {
+    color: var(--text-soft);
+    text-align: left;
+    cursor: pointer;
   }
 
   .composer-send {

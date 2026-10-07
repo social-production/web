@@ -73,9 +73,9 @@
   --radius-sm: 4px;
   --shell-safe-top: env(safe-area-inset-top, 0px);
   /*
-    Firefox and iPhone report a bottom inset at rest and drop it after a small
-    scroll. Chrome and the Android PWA report 0. Keep 0 so the footer matches
-    that scrolled size instead of reserving a strip that only some browsers paint.
+    Firefox reports a bottom inset at rest and drops it after a small scroll.
+    Android has its own system bar, so 56px is enough there. Only iOS gets the
+    home-indicator inset, which makes the tab bar taller without a white gap.
   */
   --shell-safe-bottom: 0px;
   --shell-safe-left: env(safe-area-inset-left, 0px);
@@ -98,6 +98,13 @@
   --z-sheet-elevated: 130;
   --chat-bubble-own-bg: color-mix(in srgb, var(--brand) 26%, var(--panel-strong));
   --chat-bubble-own-border: color-mix(in srgb, var(--brand) 52%, var(--panel-border));
+}
+
+/* -webkit-touch-callout is iOS only, so Firefox and Android stay at 0. */
+@supports (-webkit-touch-callout: none) {
+  :root {
+    --shell-safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
 
 html[data-theme='dark'],

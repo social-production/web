@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import type { SearchPageData, SearchResultKind } from '$lib/types/search';
+import type { SearchEntityType, SearchPageData, SearchResultKind } from '$lib/types/search';
 
 interface BackendSearchItem {
   id: string;
@@ -50,7 +50,7 @@ function mapSearchItem(item: BackendSearchItem) {
 
 export async function fetchSearch(
   query: string,
-  options?: { entityTypes?: Array<'project' | 'event' | 'thread' | 'channel' | 'community' | 'user'>; limit?: number }
+  options?: { entityTypes?: SearchEntityType[]; limit?: number }
 ): Promise<SearchPageData> {
   const trimmed = query.trim();
 
@@ -74,6 +74,7 @@ export async function fetchSearch(
   return {
     query: trimmed,
     suggestedQueries: [],
-    results: res.items.map(mapSearchItem)
+    results: res.items.map(mapSearchItem),
+    entityType: options?.entityTypes?.length === 1 ? options.entityTypes[0] : 'all'
   };
 }

@@ -1,6 +1,6 @@
 import { apiClient } from '../client';
 import type { AppAdapter } from '$lib/services/adapters/types';
-import type { SearchPageData, SearchResultKind } from '$lib/types/search';
+import type { SearchEntityType, SearchPageData, SearchResultKind } from '$lib/types/search';
 
 const DEFAULT_SUGGESTED_QUERIES = ['platform', 'community', 'project', 'event'];
 
@@ -18,7 +18,7 @@ const KIND_MAP: Record<string, SearchResultKind> = {
 
 export async function fetchSearch(
   query: string,
-  options?: { entityTypes?: Array<'project' | 'event' | 'thread' | 'channel' | 'community' | 'user'>; limit?: number }
+  options?: { entityTypes?: SearchEntityType[]; limit?: number }
 ): Promise<SearchPageData> {
   const trimmed = query.trim();
   if (!trimmed) {

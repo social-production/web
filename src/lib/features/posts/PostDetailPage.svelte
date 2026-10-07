@@ -11,12 +11,12 @@
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
-  import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import { sharePostWithUser } from '$lib/services/commands/create';
   import { getMessageContacts } from '$lib/services/queries/inbox';
   import { setVote } from '$lib/services/commands/shared';
   import type { DetailMember } from '$lib/types/detail';
+  import { displayUsername } from '$lib/utils/displayUsername';
   import { buildShareUrl } from '$lib/utils/sharePrefill';
   import type { PostPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
@@ -86,7 +86,7 @@
       <div class="header-row">
         <div class="identity-row">
           <AvatarBadge size="sm" username={data.authorUsername} imageUrl={data.authorProfileImageUrl ?? null} />
-          <a class="name header-name" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>
+          <a class="name header-name" href={`/profile/${data.authorUsername}`} title={data.authorUsername}>{displayUsername(data.authorUsername)}</a>
         </div>
         <ReportControl
           hasActiveReport={Boolean(data.report)}
@@ -101,8 +101,6 @@
         />
       </div>
     </div>
-
-    <GuestBrowseLine kind="post" />
 
     <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
       <LinkedPostBody body={data.body} links={data.linkedSubjects ?? []} variant="detail" />

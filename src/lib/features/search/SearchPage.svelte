@@ -1,13 +1,27 @@
 <script lang="ts">
   import { afterNavigate, goto } from '$app/navigation';
+  import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import { createLiveSearchScheduler } from '$lib/features/search/liveSearch';
   import { formatSearchMeta } from '$lib/features/search/formatSearchMeta';
   import { searchKindLabels } from '$lib/features/search/searchKinds';
   import SearchSuggestionsList from '$lib/features/search/SearchSuggestionsList.svelte';
-  import type { SearchPageData } from '$lib/types/search';
-  import type { SearchResultItem } from '$lib/types/search';
+  import type { SearchEntityType, SearchPageData, SearchResultItem } from '$lib/types/search';
+  import type { SurfaceIconId } from '$lib/utils/surfaceType';
 
   export let data: SearchPageData;
+
+  const typeOptions: Array<{ value: string; label: string; icon?: SurfaceIconId }> = [
+    { value: 'all', label: 'All' },
+    { value: 'project', label: 'Projects', icon: 'project' },
+    { value: 'thread', label: 'Threads', icon: 'thread' },
+    { value: 'event', label: 'Events', icon: 'event' },
+    { value: 'help_request', label: 'Help requests', icon: 'help-request' },
+    { value: 'post', label: 'Posts', icon: 'post' },
+    { value: 'channel', label: 'Channels', icon: 'channel' },
+    { value: 'community', label: 'Communities', icon: 'community' },
+    { value: 'user', label: 'Users', icon: 'user' }
+  ];
 
   const liveSearch = createLiveSearchScheduler();
 
@@ -16,8 +30,26 @@
   let liveLoading = false;
   let showSuggestions = false;
   let loadedQuery = data.query;
+  let activeType: SearchEntityType | 'all' = data.entityType ?? 'all';
+
+  function selectedTypes(): SearchEntityType[] | undefined {
+    return activeType === 'all' ? undefined : [activeType];
+  }
+
+  function searchHref(query: string, type: SearchEntityType | 'all') {
+    const params = new URLSearchParams();
+    if (query) {
+      params.set('q', query);
+    }
+    if (type !== 'all') {
+      params.set('type', type);
+    }
+    const search = params.toString();
+    return search ? `/search?${search}` : '/search';
+  }
 
   afterNavigate(() => {
+    activeType = data.entityType ?? 'all';
     if (data.query !== loadedQuery) {
       loadedQuery = data.query;
       draftQuery = data.query;
@@ -30,19 +62,27 @@
   function handleInput(event: Event) {
     draftQuery = (event.currentTarget as HTMLInputElement).value;
     showSuggestions = true;
-    liveSearch.schedule(draftQuery, (results, loading) => {
-      liveResults = results;
-      liveLoading = loading;
-    });
+    liveSearch.schedule(
+      draftQuery,
+      (results, loading) => {
+        liveResults = results;
+        liveLoading = loading;
+      },
+      selectedTypes()
+    );
   }
 
   function handleFocus() {
     if (draftQuery.trim()) {
       showSuggestions = true;
-      liveSearch.schedule(draftQuery, (results, loading) => {
-        liveResults = results;
-        liveLoading = loading;
-      });
+      liveSearch.schedule(
+        draftQuery,
+        (results, loading) => {
+          liveResults = results;
+          liveLoading = loading;
+        },
+        selectedTypes()
+      );
     }
   }
 
@@ -56,7 +96,14 @@
     event.preventDefault();
     showSuggestions = false;
     const query = draftQuery.trim();
-    await goto(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+    await goto(searchHref(query, activeType));
+  }
+
+  async function handleTypeChange(event: CustomEvent<{ value: string }>) {
+    const next = event.detail.value as SearchEntityType | 'all';
+    activeType = next;
+    showSuggestions = false;
+    await goto(searchHref(draftQuery.trim() || data.query.trim(), next));
   }
 
   async function openSuggestion(href: string) {
@@ -93,10 +140,24 @@
       <button class="primary-button" type="submit">Search</button>
     </form>
 
+    <div class="filter-row">
+      <IconMenuButton
+        value={activeType}
+        ariaLabel="Filter search"
+        defaultValue="all"
+        options={typeOptions}
+        showOptionIcons
+        showTriggerLabel
+        on:change={handleTypeChange}
+      >
+        <FeedToolbarIcon name="filter" />
+      </IconMenuButton>
+    </div>
+
     {#if !data.query.trim()}
       <div class="chip-row">
         {#each data.suggestedQueries as query}
-          <a class="query-chip" href={`/search?q=${encodeURIComponent(query)}`}>{query}</a>
+          <a class="query-chip" href={searchHref(query, activeType)}>{query}</a>
         {/each}
       </div>
     {/if}
@@ -175,6 +236,12 @@
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
     margin-top: 12px;
+  }
+
+  .filter-row {
+    display: flex;
+    align-items: center;
+    margin-top: 8px;
   }
 
   .search-input-wrap {

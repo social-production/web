@@ -55,6 +55,15 @@
         stroke-width="1.8"
         stroke-linecap="round"
       />
+    {:else if icon === 'user'}
+      <circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8" />
+      <path
+        d="M6.2 18.5c1.2-2.4 3.2-3.5 5.8-3.5s4.6 1.1 5.8 3.5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
     {:else if icon === 'shield'}
       <path
         d="M12 4.5 6.5 7v5.2c0 3.1 2.3 5.9 5.5 7.3 3.2-1.4 5.5-4.2 5.5-7.3V7L12 4.5Z"

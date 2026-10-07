@@ -74,7 +74,7 @@ import type {
   VoteTargetRef,
 } from '$lib/types/governance';
 import type { FeedPageResult } from '$lib/types/pagination';
-import type { SearchPageData } from '$lib/types/search';
+import type { SearchEntityType, SearchPageData } from '$lib/types/search';
 import type { ScopeKind, ScopePageData } from '$lib/types/scope';
 import type { LocationPrecision, LocationRecord } from '$lib/types/location';
 import type {
@@ -284,7 +284,7 @@ export interface AppAdapter {
   getSearch(
     query: string,
     options?: {
-      entityTypes?: Array<'project' | 'event' | 'thread' | 'channel' | 'community' | 'user'>;
+      entityTypes?: SearchEntityType[];
       limit?: number;
     }
   ): Promise<SearchPageData>;

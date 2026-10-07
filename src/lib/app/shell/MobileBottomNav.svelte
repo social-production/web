@@ -103,7 +103,7 @@
     min-height: var(--shell-bottom-nav-height);
     max-height: var(--shell-bottom-nav-height);
     margin: 0;
-    padding: 0 var(--shell-safe-right) 0 var(--shell-safe-left);
+    padding: 0 var(--shell-safe-right) var(--shell-safe-bottom) var(--shell-safe-left);
     border: none;
     border-top: 1px solid var(--panel-border);
     background: var(--toolbar-background);
@@ -122,8 +122,8 @@
     display: grid;
     place-items: center;
     min-height: 0;
-    height: var(--shell-bottom-nav-height);
-    padding: 0 0 calc(var(--shell-safe-bottom) / 2);
+    height: var(--shell-bottom-nav-base);
+    padding: 0;
     border: none;
     border-radius: 0;
     background: transparent;
