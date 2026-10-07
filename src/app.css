@@ -73,7 +73,7 @@
   --radius-sm: 4px;
   --shell-safe-top: env(safe-area-inset-top, 0px);
   /* Cap bottom inset so a mis-reported env() value cannot invent a second footer row. */
-  --shell-safe-bottom: min(env(safe-area-inset-bottom, 0px), 34px);
+  --shell-safe-bottom: min(env(safe-area-inset-bottom, 0px), 20px);
   --shell-safe-left: env(safe-area-inset-left, 0px);
   --shell-safe-right: env(safe-area-inset-right, 0px);
   --shell-touch-min: 44px;

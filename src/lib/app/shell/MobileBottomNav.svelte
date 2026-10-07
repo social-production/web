@@ -83,8 +83,8 @@
 
 <style>
   /*
-    The bar reaches the screen edge so the home-indicator strip is the same
-    toolbar color. Icons stay in the top 56px, above that inset.
+    Tabs run to the screen edge so the home-indicator inset is part of each
+    tab, not an empty strip under them.
   */
   .mobile-bottom-nav {
     position: fixed;
@@ -103,7 +103,7 @@
     min-height: var(--shell-bottom-nav-height);
     max-height: var(--shell-bottom-nav-height);
     margin: 0;
-    padding: 0 var(--shell-safe-right) var(--shell-safe-bottom) var(--shell-safe-left);
+    padding: 0 var(--shell-safe-right) 0 var(--shell-safe-left);
     border: none;
     border-top: 1px solid var(--panel-border);
     background: var(--toolbar-background);
@@ -122,10 +122,10 @@
     display: grid;
     place-items: center;
     min-height: 0;
-    height: var(--shell-bottom-nav-base);
-    padding: 0;
+    height: var(--shell-bottom-nav-height);
+    padding: 0 0 calc(var(--shell-safe-bottom) / 2);
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: 0;
     background: transparent;
     color: var(--text-soft);
     transition: color 0.16s ease, background-color 0.16s ease;

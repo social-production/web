@@ -485,8 +485,19 @@
       padding: 0;
     }
 
-    .overlay-footer.has-actions:not(:has(.sheet-close)) {
+    .overlay-footer.has-actions:not(:has(.sheet-actions, .choice-bar, .vote-footer)) {
       padding-bottom: var(--shell-safe-bottom, 0px);
+    }
+
+    .overlay-footer.has-actions:has(.sheet-actions, .choice-bar, .vote-footer) {
+      padding-bottom: 0 !important;
+    }
+
+    .overlay-footer.has-actions :global(.sheet-actions > button),
+    .overlay-footer.has-actions :global(.choice-bar > .choice),
+    .overlay-footer.has-actions :global(.vote-footer > .vote-next:last-child) {
+      min-height: calc(56px + var(--shell-safe-bottom, 0px));
+      padding-bottom: calc(8px + var(--shell-safe-bottom, 0px));
     }
 
     .overlay-footer.has-actions :global(.sheet-actions) {

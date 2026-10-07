@@ -67,6 +67,9 @@
       {/if}
     {/each}
     {#if maxVisible != null && hiddenCount > 0}
+      {#if plain && visibleTags.length > 0}
+        <span class="tag-sep" aria-hidden="true">,</span>
+      {/if}
       <button
         type="button"
         class="tag-overflow-btn"
@@ -150,6 +153,26 @@
     font-weight: 700;
     line-height: 1;
     cursor: pointer;
+  }
+
+  .tag-list.plain .tag-overflow-btn,
+  .tag-list.plain .tag-overflow-btn:hover {
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    filter: none;
+    transform: none;
+  }
+
+  .tag-list.plain .tag-overflow-btn:hover {
+    color: var(--brand-strong);
   }
 
   .tag-list :global(.scope-chip) {

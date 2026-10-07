@@ -290,7 +290,6 @@
     align-items: stretch;
     gap: 0;
     padding: 0;
-    padding-bottom: env(safe-area-inset-bottom);
     border-top: 1px solid var(--panel-border);
     background: var(--panel);
   }
@@ -298,9 +297,9 @@
   .secondary-button,
   .primary-button {
     flex: 1 1 0;
-    min-height: 56px;
+    min-height: calc(56px + var(--shell-safe-bottom, 0px));
     margin: 0;
-    padding: 8px 12px;
+    padding: 8px 12px calc(8px + var(--shell-safe-bottom, 0px));
     border: 0;
     border-radius: 0;
     font-size: 16px;

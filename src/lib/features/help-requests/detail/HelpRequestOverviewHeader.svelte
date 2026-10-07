@@ -1,6 +1,5 @@
 <script lang="ts">
-  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
-  import TagList from '$lib/components/cards/shared/TagList.svelte';
+  import FeedCardTop from '$lib/components/cards/shared/FeedCardTop.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
@@ -22,26 +21,19 @@
 </script>
 
 <div class="context-panel">
-  <div class="header-row">
-    <div class="chips">
-      <SurfaceTypeLabel kind="help-request" />
-      <ReportControl
-        hasActiveReport={Boolean(data.report)}
-        isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
-        itemLabel="help request"
-        moderationState={data.moderationState}
-        report={data.report}
-        ownerUsername={data.authorUsername}
-        subjectId={data.id}
-        targetId={data.id}
-        targetType="help_request"
-      />
-    </div>
-
-    <div class="header-actions">
-      <TagList tags={combinedTags} maxVisible={1} />
-    </div>
-  </div>
+  <FeedCardTop tags={combinedTags}>
+    <ReportControl
+      hasActiveReport={Boolean(data.report)}
+      isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
+      itemLabel="help request"
+      moderationState={data.moderationState}
+      report={data.report}
+      ownerUsername={data.authorUsername}
+      subjectId={data.id}
+      targetId={data.id}
+      targetType="help_request"
+    />
+  </FeedCardTop>
 
   <div class="heading overview-heading">
     <div class="identity-copy">
@@ -76,38 +68,6 @@
     min-width: 0;
   }
 
-  .header-row,
-  .chips,
-  .header-actions {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-    min-width: 0;
-  }
-
-  .header-row {
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: nowrap;
-  }
-
-  .chips {
-    min-width: 0;
-    flex: 0 1 auto;
-    flex-wrap: nowrap;
-  }
-
-  .header-actions {
-    flex: 0 1 auto;
-    margin-left: auto;
-    justify-content: flex-end;
-  }
-
-  .header-actions :global(.tag-list) {
-    justify-content: flex-end;
-  }
-
   :global(.report-control) {
     flex: 0 0 auto;
   }
@@ -118,7 +78,7 @@
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
-    margin-top: 16px;
+    margin-top: 4px;
     padding-bottom: 12px;
   }
 

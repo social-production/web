@@ -133,7 +133,7 @@
 <style>
   .overview-shell {
     display: grid;
-    gap: 16px;
+    gap: 4px;
     min-width: 0;
   }
 

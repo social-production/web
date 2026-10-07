@@ -5,8 +5,7 @@
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
   import SignalEngagementButtons from '$lib/components/shared/SignalEngagementButtons.svelte';
-  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
-  import TagList from '$lib/components/cards/shared/TagList.svelte';
+  import FeedCardTop from '$lib/components/cards/shared/FeedCardTop.svelte';
   import MembershipSplitButton from '$lib/components/shared/MembershipSplitButton.svelte';
   import ProposeEditSheet from '$lib/components/shared/ProposeEditSheet.svelte';
   import AddUpdateSheet from '$lib/components/shared/AddUpdateSheet.svelte';
@@ -100,14 +99,17 @@
   const locationLabel = $derived(
     isImplementedScheduleLabel(data.locationLabel) ? data.locationLabel.trim() : ''
   );
-  const controlLabel = $derived(
-    data.isPrivate
-      ? isOrganizerControlled
-        ? 'Organizer-controlled'
-        : 'Collaborative'
-      : null
-  );
   const memberButtonLabel = $derived(data.isPrivate ? 'Members / Editors' : 'Members');
+  const stageLabel = $derived(
+    (
+      {
+        proposal: 'Proposal',
+        'event-plan': 'Event Plan',
+        activity: 'Activity',
+        closed: 'Closed'
+      } as const
+    )[data.lifecycle.currentPhaseId] ?? ''
+  );
   const initialViewerSignal = $derived(
     data.lifecycle.phaseOne.viewerHasDemandSignal
       ? 'demand'
@@ -221,31 +223,19 @@
 </script>
 
 <div class="context-panel">
-  <div class="type-row overview-type-row">
-    <div class="header-row">
-      <div class="chips">
-        <SurfaceTypeLabel kind="event" />
-        <span class="meta-note">· {data.isPrivate ? 'Private' : 'Public'}</span>
-        {#if controlLabel}
-          <span class="meta-note">· {controlLabel}</span>
-        {/if}
-        <ReportControl
-          hasActiveReport={Boolean(data.report)}
-          isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
-          itemLabel="event"
-          moderationState={data.moderationState}
-          report={data.report}
-          ownerUsername={data.createdByUsername}
-          subjectId={data.id}
-          targetId={data.id}
-          targetType="event"
-        />
-      </div>
-      <div class="header-tags">
-        <TagList tags={combinedTags} maxVisible={1} />
-      </div>
-    </div>
-  </div>
+  <FeedCardTop stage={stageLabel} tags={combinedTags}>
+    <ReportControl
+      hasActiveReport={Boolean(data.report)}
+      isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
+      itemLabel="event"
+      moderationState={data.moderationState}
+      report={data.report}
+      ownerUsername={data.createdByUsername}
+      subjectId={data.id}
+      targetId={data.id}
+      targetType="event"
+    />
+  </FeedCardTop>
 
   <div class="heading overview-heading">
     <div class="identity-row">
@@ -390,27 +380,14 @@
     min-width: 0;
   }
 
-  .type-row,
-  .heading,
-  .header-row,
-  .chips {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-    min-width: 0;
-  }
-
-  .type-row,
   .heading {
+    display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
-  }
-
-  .heading {
-    flex: 1 1 auto;
-    margin-top: 16px;
+    min-width: 0;
+    margin-top: 4px;
     padding-bottom: 12px;
   }
 
@@ -423,53 +400,6 @@
     display: grid;
     gap: 8px;
     min-width: 0;
-  }
-
-  .header-row {
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: 8px;
-  }
-
-  .chips {
-    min-width: 0;
-    flex: 0 1 auto;
-    flex-wrap: nowrap;
-    align-items: center;
-  }
-
-  .header-tags {
-    margin-left: auto;
-    min-width: 0;
-    flex: 1 1 0;
-    overflow: hidden;
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .header-tags :global(.tag-list) {
-    min-width: 0;
-    max-width: 100%;
-    flex-wrap: nowrap;
-    overflow: hidden;
-  }
-
-  .header-tags :global(.scope-chip) {
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-  }
-
-  .header-tags :global(.tag-overflow-btn) {
-    flex: 0 0 auto;
-  }
-
-  .meta-note {
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 600;
-    overflow-wrap: anywhere;
   }
 
   :global(.report-control) {
@@ -830,10 +760,4 @@
     scroll-margin-top: 120px;
   }
 
-  @media (max-width: 760px) {
-    .header-row {
-      align-items: center;
-      flex-wrap: nowrap;
-    }
-  }
 </style>
