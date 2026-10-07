@@ -110,6 +110,7 @@
     !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
       ? 'var(--shell-bottom-nav-height)'
       : '0px';
+  $: shellDockSafeBottom = shellBottomNavOffset === '0px' ? 'var(--shell-safe-bottom)' : '0px';
   $: shellTopbarHeight = immersiveChat
     ? 0
     : mapSurfaceActive || !(feedChromeActive && feedChromeHidden)
@@ -381,19 +382,23 @@
     };
 
     const viewport = window.visualViewport;
+    let keyboardBaseline = 0;
     const syncKeyboardState = () => {
-      document.documentElement.style.setProperty(
-        '--shell-visual-viewport-height',
-        `${Math.round(viewport?.height ?? window.innerHeight)}px`
-      );
+      const viewportHeight = Math.round(viewport?.height ?? window.innerHeight);
+      document.documentElement.style.setProperty('--shell-visual-viewport-height', `${viewportHeight}px`);
       document.documentElement.style.setProperty(
         '--vv-offset',
         `${Math.round(viewport?.offsetTop ?? 0)}px`
       );
-      // Firefox fires visualViewport resize for URL-bar show/hide. Only treat a
-      // shrink as keyboard when a text field is focused.
-      const viewportShrunk = Boolean(viewport && window.innerHeight - viewport.height > 120);
-      const next = textFieldFocused && viewportShrunk;
+      // interactive-widget=resizes-content shrinks innerHeight with the keyboard,
+      // so innerHeight and visualViewport stay close. Compare with the height
+      // from before the field was focused. URL-bar show/hide is smaller than this.
+      if (!textFieldFocused) {
+        keyboardBaseline = viewportHeight;
+      }
+      const shrunkFromInner = Boolean(viewport && window.innerHeight - viewportHeight > 120);
+      const shrunkFromBaseline = keyboardBaseline - viewportHeight > 120;
+      const next = textFieldFocused && (shrunkFromInner || shrunkFromBaseline);
       document.documentElement.classList.toggle('keyboard-open', next);
       if (next && next !== keyboardOpen) {
         const active = document.activeElement;
@@ -667,7 +672,7 @@
   class:shell-map-page={dedicatedMapPage}
   class:feed-chrome-collapsed={topbarCollapsed}
   class:shell-auth={isAuthSurface}
-  style={`--left-width: ${leftRailOpen && !isCompact && !isAuthSurface ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact && !isAuthSurface ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --main-frame-max-width: none;`}
+  style={`--left-width: ${leftRailOpen && !isCompact && !isAuthSurface ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact && !isAuthSurface ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --shell-dock-safe-bottom: ${shellDockSafeBottom}; --main-frame-max-width: none;`}
 >
   {#if mapSurfaceActive}
     <div class="topbar-flow-spacer" style={`height: ${topbarHeight}px`} aria-hidden="true"></div>

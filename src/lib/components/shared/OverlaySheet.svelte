@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onDestroy } from 'svelte';
+  import { afterUpdate, createEventDispatcher, onDestroy } from 'svelte';
   import { portal } from '$lib/utils/portal';
   import { fitText } from '$lib/utils/fitText';
 
@@ -12,6 +12,54 @@
   export let hideClose = false;
 
   const dispatch = createEventDispatcher<{ close: void }>();
+  let footerEl: HTMLElement | null = null;
+  let inlineClose = false;
+  let showClose = !hideClose;
+  let footerObserver: MutationObserver | null = null;
+
+  function isCancelLabel(element: HTMLButtonElement) {
+    return (element.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase() === 'cancel';
+  }
+
+  function syncClosePlacement() {
+    if (!footerEl) {
+      inlineClose = false;
+      showClose = !hideClose;
+      return;
+    }
+
+    const controls = [...footerEl.querySelectorAll('button:not(.sheet-close), a')];
+    const hasCancel = controls.some((element) => element instanceof HTMLButtonElement && isCancelLabel(element));
+    showClose = !hideClose || hasCancel;
+
+    for (const element of controls) {
+      if (element instanceof HTMLButtonElement) {
+        element.classList.toggle('sheet-dismiss-duplicate', showClose && isCancelLabel(element));
+      }
+    }
+
+    const count = controls.filter((element) => !element.classList.contains('sheet-dismiss-duplicate')).length;
+    inlineClose = showClose && count > 0 && count < 3;
+  }
+
+  function watchFooter(node: HTMLElement) {
+    footerEl = node;
+    footerObserver?.disconnect();
+    footerObserver = new MutationObserver(syncClosePlacement);
+    footerObserver.observe(node, { childList: true, subtree: true });
+    syncClosePlacement();
+    return {
+      destroy() {
+        footerObserver?.disconnect();
+        footerObserver = null;
+        if (footerEl === node) {
+          footerEl = null;
+        }
+      }
+    };
+  }
+
+  afterUpdate(syncClosePlacement);
 
   function close() {
     open = false;
@@ -75,8 +123,8 @@
         </div>
         <div class="overlay-header-actions">
           <slot name="header-actions" />
-          {#if !hideClose}
-            <button class="overlay-close header-close" type="button" on:click={close}>Close</button>
+          {#if showClose && !inlineClose}
+            <button aria-label="Close" class="overlay-close header-close" type="button" on:click={close}>×</button>
           {/if}
         </div>
       </header>
@@ -88,11 +136,16 @@
       <div class="overlay-body">
         <slot />
       </div>
-      <footer class="overlay-footer" class:has-actions={Boolean($$slots.footer)}>
-        <slot name="footer" />
-        {#if !hideClose}
-          <button class="overlay-close sheet-close" type="button" on:click={close}>Close</button>
+      <footer
+        class="overlay-footer"
+        class:has-actions={Boolean($$slots.footer)}
+        class:inline-close={inlineClose}
+        use:watchFooter
+      >
+        {#if showClose}
+          <button aria-label="Close" class="overlay-close sheet-close" type="button" on:click={close}>×</button>
         {/if}
+        <slot name="footer" />
       </footer>
     </div>
   </div>
@@ -175,27 +228,45 @@
 
   .overlay-header-actions {
     display: flex;
-    align-items: stretch;
+    align-items: center;
     align-self: stretch;
     gap: 0;
     flex-shrink: 0;
+    padding-right: 8px;
   }
 
   .overlay-close {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 88px;
-    height: 100%;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
     margin: 0;
-    padding: 0 16px;
+    padding: 0;
     border: 0;
     border-radius: 0;
-    background: var(--danger);
-    color: #fff;
-    font-size: 14px;
-    font-weight: 800;
+    background: var(--panel-strong);
+    color: var(--text-main);
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1;
     cursor: pointer;
+  }
+
+  .overlay-close:hover {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    filter: none;
+    transform: none;
+  }
+
+  :global(.overlay-footer .sheet-dismiss-duplicate) {
+    display: none !important;
+  }
+
+  .header-close {
+    align-self: center;
   }
 
   .overlay-body {
@@ -233,6 +304,31 @@
   :global(.overlay-footer .sheet-actions) {
     display: flex;
     width: 100%;
+  }
+
+  :global(.overlay-footer.inline-close > .sheet-actions),
+  :global(.overlay-footer.inline-close > .vote-footer) {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  .overlay-footer.inline-close {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .overlay-footer.inline-close .sheet-close {
+    display: flex;
+    flex: 0 0 56px;
+    align-self: stretch;
+    width: 56px;
+    min-width: 56px;
+    height: auto;
+    min-height: 56px;
+    border-right: 1px solid var(--panel-border);
+    background: var(--panel-strong);
+    color: var(--text-main);
   }
 
   :global(.overlay-footer .sheet-actions > .sheet-cancel),
@@ -337,35 +433,25 @@
       padding: 0;
     }
 
-    .header-close {
-      display: none;
-    }
-
     :global(.overlay-footer:has(.sheet-actions)),
-    :global(.overlay-footer:has(.vote-dock)) {
+    :global(.overlay-footer:has(.vote-dock)),
+    :global(.overlay-footer:has(.vote-footer)) {
       padding-bottom: 0;
     }
 
-    .overlay-footer,
-    .overlay-footer:not(.has-actions) {
-      display: flex;
+    .overlay-footer:not(.has-actions),
+    .overlay-footer:not(.inline-close):not(:has(:not(.sheet-close))) {
+      display: none;
     }
 
-    .sheet-close {
-      display: flex;
-      flex: 0 0 auto;
-      width: 100%;
-      height: auto;
+    .overlay-footer.inline-close,
+    .overlay-footer.inline-close.has-actions {
+      flex-direction: row;
+    }
+
+    .overlay-footer.inline-close .sheet-close {
       min-height: calc(56px + var(--shell-safe-bottom, 0px));
-      align-items: center;
-      justify-content: center;
       padding-bottom: var(--shell-safe-bottom, 0px);
-      border: 0;
-      border-radius: 0;
-      background: var(--danger);
-      color: #fff;
-      font-size: 16px;
-      font-weight: 800;
     }
 
     .overlay-sheet,

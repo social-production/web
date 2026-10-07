@@ -609,11 +609,17 @@
     font-size: 13px;
   }
 
-  .control-actions :global(.membership-join:not(.joined)),
-  .control-actions :global(.membership-join:not(.joined):hover:not(:disabled)),
-  .control-actions :global(.membership-join:not(.joined):focus-visible) {
+  .control-actions :global(.membership-join:not(.joined)) {
     background: var(--brand);
     color: var(--page-bg);
+  }
+
+  .control-actions :global(.membership-join:not(.joined):hover:not(:disabled)),
+  .control-actions :global(.membership-join:not(.joined):focus-visible) {
+    background: color-mix(in srgb, var(--brand) 78%, white);
+    color: var(--page-bg);
+    filter: none;
+    transform: none;
   }
 
   .control-actions :global(.share-button) {
@@ -739,6 +745,41 @@
   .signal-row :global(.signal-strip.labeled .vote-button.active-oppose:focus .signal-label),
   .signal-row :global(.signal-strip.labeled .vote-button.active-oppose:focus .signal-count) {
     color: #ef4444;
+  }
+
+  .signal-row :global(.signal-strip.labeled:not(:has(.active-support)):not(:has(.active-oppose)) .vote-button:first-child:hover:not(:disabled)) {
+    background: color-mix(in srgb, var(--brand) 78%, white);
+    color: var(--page-bg);
+    filter: none;
+    transform: none;
+  }
+
+  .signal-row :global(.signal-strip.labeled:not(:has(.active-support)):not(:has(.active-oppose)) .vote-button:last-child:hover:not(:disabled)) {
+    background: color-mix(in srgb, var(--danger) 78%, white);
+    color: white;
+    filter: none;
+    transform: none;
+  }
+
+  .signal-row :global(.signal-strip.labeled:is(:has(.active-support), :has(.active-oppose)) .vote-button:not(.active-support):not(.active-oppose):hover:not(:disabled)) {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    filter: none;
+    transform: none;
+  }
+
+  .signal-row :global(.signal-strip.labeled .vote-button.active-support:hover:not(:disabled)) {
+    background: color-mix(in srgb, #22c55e 18%, var(--panel-strong));
+    color: #22c55e;
+    filter: none;
+    transform: none;
+  }
+
+  .signal-row :global(.signal-strip.labeled .vote-button.active-oppose:hover:not(:disabled)) {
+    background: color-mix(in srgb, #ef4444 18%, var(--panel-strong));
+    color: #ef4444;
+    filter: none;
+    transform: none;
   }
 
   .signal-row :global(.signal-strip.labeled .signal-percent) {

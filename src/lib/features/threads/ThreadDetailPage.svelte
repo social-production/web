@@ -27,8 +27,6 @@
   <FeedSurface tone="public" accent={surfaceTypeAccent('thread')} isLast clampExcerpts={false}>
     <ThreadOverviewPanel {data} bind:sortMode />
 
-    <div class="comments-divider" aria-hidden="true"></div>
-
     <DiscussionPanel {data} subjectType="thread" {highlightedCommentId} bind:sortMode embedded />
   </FeedSurface>
 </section>
@@ -43,6 +41,7 @@
   }
 
   .page :global(.surface.has-accent) {
+    --surface-pad-x: 12px;
     flex: 1 0 auto;
     border-left: 0;
     padding-left: 16px;
@@ -51,8 +50,4 @@
       var(--panel);
   }
 
-  .comments-divider {
-    margin: 16px 0 4px;
-    border-top: 1px solid var(--panel-border);
-  }
 </style>

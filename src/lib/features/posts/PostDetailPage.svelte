@@ -5,7 +5,6 @@
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import LinkedPostBody from '$lib/components/shared/LinkedPostBody.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
-  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
@@ -83,26 +82,23 @@
 
 <section class="page">
   <FeedSurface tone={feedTone} accent={surfaceTypeAccent('post')} isLast clampExcerpts={false}>
-    <div class="identity-row">
-      <div class="identity-main">
-        <AvatarBadge size="md" username={data.authorUsername} imageUrl={data.authorProfileImageUrl ?? null} />
-        <div class="identity-copy">
-          <div class="name-line">
-            <a class="inline-link" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>
-            <SurfaceTypeLabel kind="post" />
-            <ReportControl
-              hasActiveReport={Boolean(data.report)}
-              isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
-              itemLabel="post"
-              moderationState={data.moderationState}
-              report={data.report}
-              ownerUsername={data.authorUsername}
-              subjectId={data.id}
-              targetId={data.id}
-              targetType="post"
-            />
-          </div>
+    <div class="card-header">
+      <div class="header-row">
+        <div class="identity-row">
+          <AvatarBadge size="sm" username={data.authorUsername} imageUrl={data.authorProfileImageUrl ?? null} />
+          <a class="name header-name" href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>
         </div>
+        <ReportControl
+          hasActiveReport={Boolean(data.report)}
+          isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
+          itemLabel="post"
+          moderationState={data.moderationState}
+          report={data.report}
+          ownerUsername={data.authorUsername}
+          subjectId={data.id}
+          targetId={data.id}
+          targetType="post"
+        />
       </div>
     </div>
 
@@ -112,26 +108,32 @@
       <LinkedPostBody body={data.body} links={data.linkedSubjects ?? []} variant="detail" />
     </ModerationRestrictionNotice>
 
-    <div class="engagement-row">
-      <div class="engagement-actions">
-        <VoteStrip activeVote={localActiveVote} count={localVoteCount} syncKey={data.id} onvote={handleVote} />
-        <CountPill label={`${data.commentCount} comments`} />
-        <IconMenuButton bind:value={sortMode} ariaLabel="Sort comments" defaultValue="oldest" options={sortOptions}>
-          <FeedToolbarIcon name="sort" />
-        </IconMenuButton>
+    <div class="footer detail-footer">
+      <div class="engagement-row feed-corner-actions">
+        <VoteStrip corner activeVote={localActiveVote} count={localVoteCount} syncKey={data.id} onvote={handleVote} />
+        <span class="comment-link">
+          <CountPill label={`${data.commentCount} comments`} />
+        </span>
+        <span class="detail-tool">
+          <IconMenuButton bind:value={sortMode} ariaLabel="Sort comments" defaultValue="oldest" options={sortOptions}>
+            <FeedToolbarIcon name="sort" />
+          </IconMenuButton>
+        </span>
         {#if $page.data.bootstrap?.viewer}
-          <ShareUserMenu
-            copyLinkUrl={buildShareUrl(`/posts/${data.id}`)}
-            menuTitle="Share post"
-            searchContacts={searchShareContacts}
-            submitShare={handlePostShare}
-          />
+          <span class="detail-tool">
+            <ShareUserMenu
+              copyLinkUrl={buildShareUrl(`/posts/${data.id}`)}
+              menuTitle="Share post"
+              searchContacts={searchShareContacts}
+              submitShare={handlePostShare}
+            />
+          </span>
         {/if}
       </div>
-      <ContentMetaRow timeOnly createdAt={data.createdAt} />
+      <div class="footer-meta">
+        <ContentMetaRow timeOnly createdAt={data.createdAt} />
+      </div>
     </div>
-
-    <div class="comments-divider" aria-hidden="true"></div>
 
     <DiscussionPanel {data} subjectType="post" {highlightedCommentId} bind:sortMode embedded />
   </FeedSurface>
@@ -147,6 +149,7 @@
   }
 
   .page :global(.surface.has-accent) {
+    --surface-pad-x: 12px;
     flex: 1 0 auto;
     border-left: 0;
     padding-left: 16px;
@@ -155,69 +158,56 @@
       var(--panel);
   }
 
-  .comments-divider {
-    margin: 16px 0 4px;
-    border-top: 1px solid var(--panel-border);
+  .card-header {
+    display: grid;
+    min-width: 0;
   }
 
+  .header-row,
   .identity-row,
-  .engagement-row,
-  .engagement-actions {
+  .footer,
+  .engagement-row {
     display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
     align-items: center;
     min-width: 0;
   }
 
-  .engagement-row {
+  .header-row,
+  .footer {
+    gap: 8px;
     justify-content: space-between;
-    margin-top: 4px;
-    width: 100%;
+    flex-wrap: nowrap;
   }
 
   .identity-row {
-    justify-content: space-between;
-    width: 100%;
-  }
-
-  .identity-main {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-    min-width: 0;
+    gap: 0.6rem;
     flex: 1 1 auto;
-  }
-
-  .identity-copy {
-    display: grid;
-    gap: 6px;
     min-width: 0;
   }
 
-  .name-line {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
+  .header-name {
+    overflow: hidden;
+    color: var(--text-main);
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .inline-link {
-    color: var(--text-main);
-    font-size: 16px;
-    font-weight: 800;
+  .footer {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
+  }
+
+  .engagement-row {
+    gap: 0;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
   }
 
   @media (max-width: 760px) {
-    .engagement-row {
-      flex-wrap: nowrap;
-      gap: 8px;
-    }
-
-    .engagement-actions {
-      flex-wrap: nowrap;
-      min-width: 0;
+    .header-name {
+      font-size: 15px;
     }
   }
 </style>

@@ -36,6 +36,7 @@
   <button aria-label="Close menu" class="sheet-backdrop" type="button" on:click={close}></button>
 
   <div class="more-sheet" role="dialog" aria-modal="true" aria-label="More menu">
+    <button aria-label="Close" class="sheet-x" type="button" on:click={close}>×</button>
     <div class="sheet-links">
       {#if bootstrap.viewer}
         <a
@@ -74,8 +75,6 @@
         <span>{m.shell_nav_about()}</span>
       </a>
     </div>
-
-    <button class="sheet-close" type="button" on:click={close}>Close</button>
   </div>
 {/if}
 
@@ -94,9 +93,28 @@
     inset: 0;
     z-index: var(--z-sheet);
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr);
     padding-top: var(--shell-safe-top, 0px);
     background: var(--panel);
+  }
+
+  .sheet-x {
+    position: absolute;
+    top: calc(8px + var(--shell-safe-top, 0px));
+    right: 8px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
   }
 
   .sheet-links {
@@ -135,20 +153,4 @@
     color: var(--brand-strong);
   }
 
-  .sheet-close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-height: calc(56px + var(--shell-safe-bottom, 0px));
-    margin: 0;
-    padding: 0 16px var(--shell-safe-bottom, 0px);
-    border: 0;
-    border-radius: 0;
-    background: var(--danger);
-    color: #fff;
-    font-size: 16px;
-    font-weight: 800;
-    cursor: pointer;
-  }
 </style>

@@ -236,7 +236,7 @@
       {/if}
       </div>
       <footer class="menu-actions" class:votes={canVote}>
-        <button class="menu-dismiss" type="button" on:click={closeMenu}>Close</button>
+        <button aria-label="Close" class="menu-dismiss" type="button" on:click={closeMenu}>×</button>
         {#if canVote && report}
           <button
             class:active-vote={report.voteSummary.activeVote === 'no'}
@@ -447,13 +447,19 @@
     border-right: 0;
   }
 
-  .menu-dismiss {
-    background: var(--danger);
-    color: #fff;
+  .menu-actions > .menu-dismiss {
+    flex: 0 0 44px;
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 22px;
+    font-weight: 500;
   }
 
   .menu-actions.votes .menu-dismiss {
-    background: var(--panel-strong);
+    background: transparent;
     color: var(--text-main);
   }
 

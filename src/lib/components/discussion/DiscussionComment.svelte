@@ -2,7 +2,6 @@
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
-  import PlatformMark from '$lib/components/shared/PlatformMark.svelte';
   import CommentComposer from '$lib/components/shared/CommentComposer.svelte';
   import ReportComposerModal from '$lib/components/shared/ReportComposerModal.svelte';
   import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
@@ -127,6 +126,7 @@
   bind:this={cardElement}
   class:embedded={embedded}
   class:highlighted={isHighlighted}
+  class:reply-open={replyOpen}
   class="comment-card"
 >
   <div class="topline">
@@ -159,9 +159,25 @@
       on:click={() => (replyOpen = !replyOpen)}
     >
       {#if replyOpen}
-        Cancel reply
+        <span aria-hidden="true">×</span>
       {:else}
-        <PlatformMark size={16} />
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path
+            d="M9 10 4 15l5 5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M20 4v7a4 4 0 0 1-4 4H4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
       {/if}
     </button>
     <ReportMenu
@@ -293,16 +309,28 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 36px;
-    min-height: 36px;
-    padding: 6px 8px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
     border: 0;
     border-radius: var(--radius-sm);
     background: transparent;
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
+    color: var(--text-soft);
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1;
     cursor: pointer;
+  }
+
+  .reply-button svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .reply-button:hover {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    filter: none;
   }
 
   .hidden-toggle {

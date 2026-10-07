@@ -388,49 +388,80 @@
     height: 100%;
     min-height: 56px;
     border-radius: 0;
-    font-size: 22px;
-    font-weight: 800;
+    font-size: 14px;
+    font-weight: 700;
   }
 
   .vote-strip.docked .vote-count {
     display: grid;
     place-items: center;
-    min-width: 56px;
-    padding: 0 8px;
-    font-size: 22px;
+    min-width: 88px;
+    padding: 0 12px;
+    font-size: 20px;
     font-weight: 800;
+    font-variant-numeric: tabular-nums;
   }
 
-  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:first-of-type,
-  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:first-of-type:hover {
-    background: var(--brand);
+  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:first-of-type {
+    background: color-mix(in srgb, var(--brand) 85%, var(--panel));
     color: var(--page-bg);
   }
 
-  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:last-of-type,
-  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:last-of-type:hover {
-    background: var(--danger);
+  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:first-of-type:hover {
+    background: color-mix(in srgb, var(--brand) 70%, white);
+    color: var(--page-bg);
+    filter: none;
+    transform: none;
+  }
+
+  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:last-of-type {
+    background: color-mix(in srgb, var(--danger) 85%, var(--panel));
     color: white;
   }
 
+  .vote-strip.docked:not(:has(.active-up)):not(:has(.active-down)) .vote-button:last-of-type:hover {
+    background: color-mix(in srgb, var(--danger) 70%, white);
+    color: white;
+    filter: none;
+    transform: none;
+  }
+
   .vote-strip.docked:has(.active-up) .vote-button,
-  .vote-strip.docked:has(.active-down) .vote-button,
-  .vote-strip.docked:has(.active-up) .vote-button:hover,
-  .vote-strip.docked:has(.active-down) .vote-button:hover {
+  .vote-strip.docked:has(.active-down) .vote-button {
     background: var(--panel-strong);
     color: var(--text-main);
   }
 
-  .vote-strip.docked .vote-button.active-up,
-  .vote-strip.docked .vote-button.active-up:hover {
+  .vote-strip.docked:has(.active-up) .vote-button:hover,
+  .vote-strip.docked:has(.active-down) .vote-button:hover {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    filter: none;
+    transform: none;
+  }
+
+  .vote-strip.docked .vote-button.active-up {
     background: var(--panel-strong);
     color: #22c55e;
   }
 
-  .vote-strip.docked .vote-button.active-down,
-  .vote-strip.docked .vote-button.active-down:hover {
+  .vote-strip.docked .vote-button.active-up:hover {
+    background: color-mix(in srgb, #22c55e 18%, var(--panel-strong));
+    color: #22c55e;
+    filter: none;
+    transform: none;
+  }
+
+  .vote-strip.docked .vote-button.active-down {
     background: var(--panel-strong);
     color: #ef4444;
+  }
+
+  .vote-strip.docked .vote-button.active-down:hover {
+    background: color-mix(in srgb, #ef4444 18%, var(--panel-strong));
+    color: #ef4444;
+    filter: none;
+    transform: none;
   }
 
   .signal-strip {
@@ -607,8 +638,8 @@
       font-size: 10px;
     }
 
-    .vote-strip:not(.corner) .vote-count,
-    .vote-strip:not(.corner) .signal-percent {
+    .vote-strip:not(.corner):not(.docked) .vote-count,
+    .vote-strip:not(.corner):not(.docked) .signal-percent {
       min-width: 22px;
       font-size: 10px;
     }

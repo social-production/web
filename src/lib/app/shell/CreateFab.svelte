@@ -80,7 +80,7 @@
           </a>
         {/each}
         </div>
-        <button class="menu-close sheet-close" type="button" on:click={closeMenu}>Close</button>
+        <button aria-label="Close" class="menu-close sheet-close" type="button" on:click={closeMenu}>×</button>
       </div>
     {/if}
 
@@ -291,12 +291,25 @@
       padding: 10px 8px;
     }
 
+    .create-menu {
+      grid-template-rows: minmax(0, 1fr);
+    }
+
     .sheet-close {
-      display: flex;
-      width: 100%;
-      min-height: calc(56px + var(--shell-safe-bottom, 0px));
-      padding-bottom: var(--shell-safe-bottom, 0px);
-      font-size: 16px;
+      position: absolute;
+      top: calc(8px + var(--shell-safe-top, 0px));
+      right: 8px;
+      z-index: 2;
+      display: inline-flex;
+      width: 40px;
+      min-width: 40px;
+      height: 40px;
+      min-height: 40px;
+      padding: 0;
+      background: transparent;
+      color: var(--text-main);
+      font-size: 24px;
+      font-weight: 500;
     }
 
     .fab-button-open {

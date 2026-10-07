@@ -126,13 +126,25 @@
     min-width: 0;
   }
 
+  .discussion-shell:has(:global(.comment-card.reply-open)) > .composer-card {
+    display: none;
+  }
+
   @media (max-width: 760px) {
     :global(html:has(.discussion-shell)) {
       --detail-action-dock-height: 64px;
     }
 
+    :global(html:has(.discussion-shell:has(.comment-card.reply-open))) {
+      --detail-action-dock-height: 0px;
+    }
+
     .discussion-shell {
       padding-bottom: 72px;
+    }
+
+    .discussion-shell:has(:global(.comment-card.reply-open)) {
+      padding-bottom: 0;
     }
 
     .composer-card {

@@ -80,6 +80,8 @@
   --shell-bottom-nav-base: 56px;
   --shell-bottom-nav-height: calc(var(--shell-bottom-nav-base) + var(--shell-safe-bottom));
   --shell-bottom-nav-offset: 0px;
+  /* 0 while the bottom nav is on screen (it already includes the inset). The real inset when the nav is hidden. */
+  --shell-dock-safe-bottom: 0px;
   --shell-scrim: color-mix(in srgb, var(--text-main) 42%, transparent);
   --z-dock: 34;
   --z-detail-tabs: 40;

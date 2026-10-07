@@ -95,7 +95,7 @@
     flex-direction: column;
     gap: 8px;
     box-sizing: border-box;
-    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 16px calc(10px + var(--shell-dock-safe-bottom, 0px));
     border-top: 1px solid var(--panel-border);
     background: color-mix(in srgb, var(--panel) 94%, transparent);
     backdrop-filter: blur(12px);
@@ -110,7 +110,7 @@
   .detail-action-dock:has(:global(.context-dock)) {
     gap: 0;
     padding: 0;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: var(--shell-dock-safe-bottom, 0px);
   }
 
   .detail-action-dock :global(.participation-membership) {
@@ -142,11 +142,24 @@
     font-size: 13px;
   }
 
-  .detail-action-dock :global(.participation-membership .membership-join:not(.joined)),
-  .detail-action-dock :global(.participation-membership .membership-join:not(.joined):hover:not(:disabled)),
-  .detail-action-dock :global(.participation-membership .membership-join:not(.joined):focus-visible) {
+  .detail-action-dock :global(.participation-membership .membership-join:not(.joined)) {
     background: var(--brand);
     color: var(--page-bg);
+  }
+
+  .detail-action-dock :global(.participation-membership .membership-join:not(.joined):hover:not(:disabled)),
+  .detail-action-dock :global(.participation-membership .membership-join:not(.joined):focus-visible) {
+    background: color-mix(in srgb, var(--brand) 78%, white);
+    color: var(--page-bg);
+    filter: none;
+    transform: none;
+  }
+
+  .detail-action-dock :global(.participation-membership .membership-count:hover:not(.static)) {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    filter: none;
+    transform: none;
   }
 
   .detail-action-dock:has(:global(.participation-membership)) {

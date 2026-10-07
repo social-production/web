@@ -889,7 +889,6 @@
 
   :global(.overlay-footer:has(.sheet-actions)) {
     gap: 0;
-    padding: 0 0 env(safe-area-inset-bottom);
   }
 
   .sheet-actions {

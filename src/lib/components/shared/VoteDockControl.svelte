@@ -165,7 +165,6 @@
   :global(.overlay-footer:has(.vote-footer)) {
     flex-direction: column;
     gap: 0;
-    padding: 0 0 env(safe-area-inset-bottom);
   }
 
   .vote-footer {

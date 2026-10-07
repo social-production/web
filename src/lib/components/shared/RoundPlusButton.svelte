@@ -72,12 +72,19 @@
     color: var(--page-bg);
   }
 
-  .round-plus-button.standout:hover,
-  .round-plus-button.standout:focus-visible,
   .round-plus-button.standout.active {
     border-color: var(--brand);
     background: var(--brand);
     color: var(--page-bg);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 18%, transparent);
+  }
+
+  .round-plus-button.standout:hover:not(:disabled),
+  .round-plus-button.standout:focus-visible {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 78%, white);
+    color: var(--page-bg);
+    box-shadow: none;
+    filter: none;
+    transform: none;
   }
 </style>

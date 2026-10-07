@@ -52,7 +52,7 @@
     position: fixed;
     z-index: 40;
     right: 16px;
-    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--shell-bottom-nav-offset, 0px) + 12px);
     display: grid;
     gap: 10px;
     width: min(320px, calc(100vw - 32px));

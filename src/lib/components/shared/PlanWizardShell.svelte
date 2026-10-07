@@ -78,7 +78,7 @@
           <span class="wizard-title" use:fitText={{ min: 11, text: title }}>{title}</span>
         </div>
         {#if !compact}
-          <button class="cancel-button" type="button" on:click={() => dispatch('close')}>Cancel</button>
+          <button aria-label="Close" class="cancel-button" type="button" on:click={() => dispatch('close')}>×</button>
         {/if}
         <div class="progress-track" aria-hidden="true">
           <span class="progress-fill" style={`width: ${progressPercent}%`}></span>
@@ -92,7 +92,7 @@
       {#if showFooter || compact}
         <footer class="wizard-footer">
           {#if compact}
-            <button class="secondary-button" type="button" on:click={() => dispatch('close')}>Cancel</button>
+            <button aria-label="Close" class="secondary-button wizard-close" type="button" on:click={() => dispatch('close')}>×</button>
           {/if}
           {#if showFooter && canGoBack}
             <button class="secondary-button" type="button" on:click={() => dispatch('back')}>Back</button>
@@ -184,16 +184,36 @@
 
   .cancel-button {
     grid-area: cancel;
-    align-self: start;
-    min-height: 32px;
-    padding: 4px 8px;
+    align-self: center;
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
     border: none;
     border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-soft);
-    font-size: 13px;
-    font-weight: 700;
+    background: var(--panel-strong);
+    color: var(--text-main);
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1;
     cursor: pointer;
+  }
+
+  .cancel-button:hover {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    filter: none;
+    transform: none;
+  }
+
+  .wizard-close {
+    flex: 0 0 56px;
+    width: 56px;
+    min-width: 56px;
+    max-width: 56px;
+    font-size: 22px;
+    font-weight: 500;
   }
 
   .wizard-header.compact .cancel-button {

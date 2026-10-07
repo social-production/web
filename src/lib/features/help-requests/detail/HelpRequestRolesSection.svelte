@@ -189,7 +189,7 @@
     height: 56px;
     padding: 4px;
     border: 0;
-    border-radius: 0;
+    border-radius: 12px;
     background: var(--brand);
     color: var(--page-bg);
     font-size: 11px;
@@ -207,15 +207,17 @@
   }
 
   .signup:hover:not(:disabled) {
-    background: var(--brand);
+    background: color-mix(in srgb, var(--brand) 78%, white);
     color: var(--page-bg);
     filter: none;
+    transform: none;
   }
 
   .signup.selected:hover:not(:disabled) {
-    background: var(--panel-strong);
-    color: var(--text-main);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
     filter: none;
+    transform: none;
   }
 
   .signup:disabled {

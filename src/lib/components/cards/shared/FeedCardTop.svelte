@@ -1,16 +1,29 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import type { TagRef } from '$lib/types/feed';
 
   export let tags: TagRef[] = [];
   export let stage = '';
+
+  let compact = false;
+
+  onMount(() => {
+    const media = window.matchMedia('(max-width: 760px)');
+    const sync = () => {
+      compact = media.matches;
+    };
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  });
 </script>
 
 {#if tags.length > 0 || stage || $$slots.default}
   <div class="feed-card-top">
     {#if tags.length > 0}
       <div class="feed-card-tags">
-        <TagList {tags} maxVisible={3} plain />
+        <TagList {tags} maxVisible={compact ? 1 : 3} plain />
       </div>
     {/if}
     <div class="feed-card-end">

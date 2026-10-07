@@ -63,12 +63,19 @@
     color: var(--page-bg);
   }
 
-  .phase-shift-button.standout:hover,
-  .phase-shift-button.standout:focus-visible,
   .phase-shift-button.standout.active {
     border-color: var(--brand);
     background: var(--brand);
     color: var(--page-bg);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 18%, transparent);
+  }
+
+  .phase-shift-button.standout:hover:not(:disabled),
+  .phase-shift-button.standout:focus-visible {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 78%, white);
+    color: var(--page-bg);
+    box-shadow: none;
+    filter: none;
+    transform: none;
   }
 </style>

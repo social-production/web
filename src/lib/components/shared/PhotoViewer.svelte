@@ -78,10 +78,10 @@
     >
       <img {alt} src={url} style={`transform: scale(${scale})`} />
       <div class="zoom-row">
+        <button aria-label="Close photo" class="close" type="button" on:click={close}>×</button>
         <button type="button" on:click={() => zoomBy(-0.25)} disabled={scale <= 1}>Smaller</button>
         <button type="button" on:click={() => zoomBy(0.25)} disabled={scale >= 4}>Larger</button>
       </div>
-      <button class="close" type="button" on:click={close}>Close</button>
     </div>
   </div>
 {/if}
@@ -105,7 +105,7 @@
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-rows: minmax(0, 1fr) auto;
     min-height: 0;
     height: 100%;
     touch-action: none;
@@ -148,11 +148,12 @@
     cursor: not-allowed;
   }
 
-  .close {
-    width: 100%;
-    min-height: calc(56px + var(--shell-safe-bottom, 0px));
-    padding-bottom: var(--shell-safe-bottom, 0px);
-    background: var(--danger);
-    color: #fff;
+  .zoom-row .close {
+    flex: 0 0 56px;
+    width: 56px;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 22px;
+    font-weight: 500;
   }
 </style>

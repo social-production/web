@@ -403,30 +403,26 @@
   <div id="participation-phase-change" class="phase-change-stack">
     {#if showReturnActions || showNextActions}
       {#if embedInToolbar}
-        {#if showReturnActions}
+        {#if personalDirectPhaseChange ? canDirectReturn : canProposeReturn}
           <div class="phase-nav-side" use:portal={startHost ?? false}>
-            {#if personalDirectPhaseChange ? canDirectReturn : canProposeReturn}
-              <PhaseShiftButton
-                active={showRevertComposer}
-                glyph="‹"
-                label={revertActionLabel()}
-                participationAction="propose-return"
-                onPress={toggleRevertComposer}
-              />
-            {/if}
+            <PhaseShiftButton
+              active={showRevertComposer}
+              glyph="‹"
+              label={revertActionLabel()}
+              participationAction="propose-return"
+              onPress={toggleRevertComposer}
+            />
           </div>
         {/if}
-        {#if showNextActions}
+        {#if (personalDirectPhaseChange ? data.lifecycle.viewerCanAdvancePhase : canProposeAdvance) && data.lifecycle.nextPhaseId}
           <div class="phase-nav-side end" use:portal={endHost ?? false}>
-            {#if (personalDirectPhaseChange ? data.lifecycle.viewerCanAdvancePhase : canProposeAdvance) && data.lifecycle.nextPhaseId}
-              <PhaseShiftButton
-                active={showNextPhaseComposer}
-                glyph={isClosingTransition() ? '×' : '›'}
-                label={nextPhaseActionLabel() ?? 'Advance'}
-                participationAction="propose-advance"
-                onPress={toggleNextPhaseComposer}
-              />
-            {/if}
+            <PhaseShiftButton
+              active={showNextPhaseComposer}
+              glyph={isClosingTransition() ? '×' : '›'}
+              label={nextPhaseActionLabel() ?? 'Advance'}
+              participationAction="propose-advance"
+              onPress={toggleNextPhaseComposer}
+            />
           </div>
         {/if}
       {:else}

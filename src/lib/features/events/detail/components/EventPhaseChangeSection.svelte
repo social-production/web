@@ -298,30 +298,26 @@
   <div id="participation-phase-change" class="phase-change-stack">
     {#if showReturnActions || showNextActions}
       {#if embedInToolbar}
-        {#if showReturnActions}
+        {#if canProposeReturn}
           <div class="phase-nav-side" use:portal={startHost ?? false}>
-            {#if canProposeReturn}
-              <PhaseShiftButton
-                active={showRevertComposer}
-                glyph="‹"
-                label={revertActionLabel()}
-                participationAction="propose-return"
-                onPress={toggleRevertComposer}
-              />
-            {/if}
+            <PhaseShiftButton
+              active={showRevertComposer}
+              glyph="‹"
+              label={revertActionLabel()}
+              participationAction="propose-return"
+              onPress={toggleRevertComposer}
+            />
           </div>
         {/if}
-        {#if showNextActions}
+        {#if canProposeAdvance && data.lifecycle.nextPhaseId}
           <div class="phase-nav-side end" use:portal={endHost ?? false}>
-            {#if canProposeAdvance && data.lifecycle.nextPhaseId}
-              <PhaseShiftButton
-                active={showNextPhaseComposer}
-                glyph={data.lifecycle.nextPhaseId === 'closed' ? '×' : '›'}
-                label={nextPhaseActionLabel() ?? 'Advance'}
-                participationAction="propose-advance"
-                onPress={toggleNextPhaseComposer}
-              />
-            {/if}
+            <PhaseShiftButton
+              active={showNextPhaseComposer}
+              glyph={data.lifecycle.nextPhaseId === 'closed' ? '×' : '›'}
+              label={nextPhaseActionLabel() ?? 'Advance'}
+              participationAction="propose-advance"
+              onPress={toggleNextPhaseComposer}
+            />
           </div>
         {/if}
       {:else}

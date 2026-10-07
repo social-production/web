@@ -40,32 +40,62 @@
     cursor: pointer;
   }
 
-  .choice-bar:not(.chosen) .yes,
-  .choice-bar:not(.chosen) .yes:hover {
+  .choice-bar:not(.chosen) .yes {
     background: var(--brand);
     color: var(--page-bg);
   }
 
-  .choice-bar:not(.chosen) .no,
-  .choice-bar:not(.chosen) .no:hover {
+  .choice-bar:not(.chosen) .yes:hover {
+    background: color-mix(in srgb, var(--brand) 78%, white);
+    color: var(--page-bg);
+    filter: none;
+    transform: none;
+  }
+
+  .choice-bar:not(.chosen) .no {
     background: var(--danger);
     color: white;
   }
 
-  .choice-bar.chosen .choice,
-  .choice-bar.chosen .choice:hover {
+  .choice-bar:not(.chosen) .no:hover {
+    background: color-mix(in srgb, var(--danger) 78%, white);
+    color: white;
+    filter: none;
+    transform: none;
+  }
+
+  .choice-bar.chosen .choice {
     background: var(--panel-strong);
     color: var(--text-main);
   }
 
-  .choice-bar.chosen .yes.selected,
-  .choice-bar.chosen .yes.selected:hover {
+  .choice-bar.chosen .choice:hover {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    filter: none;
+    transform: none;
+  }
+
+  .choice-bar.chosen .yes.selected {
     color: #22c55e;
   }
 
-  .choice-bar.chosen .no.selected,
-  .choice-bar.chosen .no.selected:hover {
+  .choice-bar.chosen .yes.selected:hover {
+    background: color-mix(in srgb, #22c55e 18%, var(--panel-strong));
+    color: #22c55e;
+    filter: none;
+    transform: none;
+  }
+
+  .choice-bar.chosen .no.selected {
     color: #ef4444;
+  }
+
+  .choice-bar.chosen .no.selected:hover {
+    background: color-mix(in srgb, #ef4444 18%, var(--panel-strong));
+    color: #ef4444;
+    filter: none;
+    transform: none;
   }
 
   .no {
@@ -73,7 +103,6 @@
   }
 
   :global(.overlay-footer:has(.choice-bar)) {
-    padding: 0 0 env(safe-area-inset-bottom, 0px);
     gap: 0;
   }
 </style>

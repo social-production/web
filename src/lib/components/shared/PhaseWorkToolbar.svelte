@@ -12,6 +12,13 @@
     }
   }
 
+  function hasVisibleControl(element: HTMLElement) {
+    const controls = element.matches('button, a')
+      ? [element]
+      : [...element.querySelectorAll<HTMLElement>('button, a')];
+    return controls.some((control) => getComputedStyle(control).display !== 'none');
+  }
+
   function collectCells(root: Element, cells: HTMLElement[]) {
     for (const child of Array.from(root.children)) {
       if (!(child instanceof HTMLElement)) {
@@ -23,6 +30,9 @@
       }
       if (display === 'contents') {
         collectCells(child, cells);
+        continue;
+      }
+      if (!hasVisibleControl(child)) {
         continue;
       }
       cells.push(child);

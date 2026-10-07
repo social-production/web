@@ -1,11 +1,10 @@
 <script lang="ts">
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
+  import FeedCardTop from '$lib/components/cards/shared/FeedCardTop.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
-  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
-  import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
@@ -77,26 +76,19 @@
 </script>
 
 <section class="overview-shell">
-  <div class="header-row">
-    <div class="chips">
-      <SurfaceTypeLabel kind="thread" />
-      <ReportControl
-        hasActiveReport={Boolean(data.report)}
-        isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
-        itemLabel="thread"
-        moderationState={data.moderationState}
-        report={data.report}
-        ownerUsername={data.authorUsername}
-        subjectId={data.id}
-        targetId={data.id}
-        targetType="thread"
-      />
-    </div>
-
-    <div class="header-actions">
-      <TagList tags={combinedTags} maxVisible={null} />
-    </div>
-  </div>
+  <FeedCardTop tags={combinedTags}>
+    <ReportControl
+      hasActiveReport={Boolean(data.report)}
+      isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
+      itemLabel="thread"
+      moderationState={data.moderationState}
+      report={data.report}
+      ownerUsername={data.authorUsername}
+      subjectId={data.id}
+      targetId={data.id}
+      targetType="thread"
+    />
+  </FeedCardTop>
 
   <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
     <h1>{data.title}</h1>
@@ -104,29 +96,37 @@
     <p class="overview-copy">{data.body}</p>
   </ModerationRestrictionNotice>
 
-  <div class="overview-footer-row">
-    <VoteStrip activeVote={localActiveVote} count={localVoteCount} syncKey={data.id} onvote={handleVote} />
-    <CountPill label={`${data.commentCount} comments`} />
-    <IconMenuButton
-      bind:value={sortMode}
-      ariaLabel="Sort comments"
-      defaultValue="oldest"
-      options={sortOptions}
-      on:change={handleSortChange}
-    >
-      <FeedToolbarIcon name="sort" />
-    </IconMenuButton>
-    {#if $page.data.bootstrap?.viewer}
-      <ShareUserMenu
-        copyLinkUrl={buildShareUrl(`/threads/${data.slug}`)}
-        menuTitle="Share thread"
-        searchContacts={searchShareContacts}
-        submitShare={handleThreadShare}
-      />
-    {/if}
-    <span class="footer-author-row">
+  <div class="footer detail-footer">
+    <div class="engagement-row feed-corner-actions">
+      <VoteStrip corner activeVote={localActiveVote} count={localVoteCount} syncKey={data.id} onvote={handleVote} />
+      <span class="comment-link">
+        <CountPill label={`${data.commentCount} comments`} />
+      </span>
+      <span class="detail-tool">
+        <IconMenuButton
+          bind:value={sortMode}
+          ariaLabel="Sort comments"
+          defaultValue="oldest"
+          options={sortOptions}
+          on:change={handleSortChange}
+        >
+          <FeedToolbarIcon name="sort" />
+        </IconMenuButton>
+      </span>
+      {#if $page.data.bootstrap?.viewer}
+        <span class="detail-tool">
+          <ShareUserMenu
+            copyLinkUrl={buildShareUrl(`/threads/${data.slug}`)}
+            menuTitle="Share thread"
+            searchContacts={searchShareContacts}
+            submitShare={handleThreadShare}
+          />
+        </span>
+      {/if}
+    </div>
+    <div class="footer-meta">
       <ContentMetaRow authorUsername={data.authorUsername} createdAt={data.lastActivityAt} />
-    </span>
+    </div>
   </div>
 </section>
 
@@ -137,38 +137,25 @@
     min-width: 0;
   }
 
-  .header-row,
-  .chips,
-  .header-actions,
-  .overview-footer-row {
+  .footer,
+  .engagement-row {
     display: flex;
-    gap: 12px;
     align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .header-row {
-    justify-content: space-between;
-    align-items: flex-start;
-  }
-
-  .chips {
     min-width: 0;
-    flex: 1 1 auto;
   }
 
-  .header-actions {
-    flex: 0 1 auto;
-    margin-left: auto;
-    justify-content: flex-end;
+  .footer {
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 8px;
+    color: var(--text-soft);
+    font-size: 13px;
   }
 
-  .header-actions :global(.tag-list) {
-    justify-content: flex-end;
-  }
-
-  :global(.report-control) {
+  .engagement-row {
     flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 0;
   }
 
   h1 {
@@ -192,40 +179,9 @@
     white-space: pre-wrap;
   }
 
-  .overview-footer-row {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .footer-author-row {
-    margin-left: auto;
-    max-width: 100%;
-    display: flex;
-    justify-content: flex-end;
-    overflow: visible;
-    color: var(--text-soft);
-  }
-
-  .footer-author-row :global(.content-meta-row),
-  .footer-author-row :global(.inline-link) {
-    max-width: none;
-    overflow: visible;
-    text-overflow: clip;
-  }
-
   @media (max-width: 760px) {
-    .overview-footer-row {
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .footer-author-row :global(.content-meta-row) {
-      overflow: visible;
-    }
-
-    .footer-author-row :global(.inline-link) {
-      flex: 0 0 auto;
+    h1 {
+      font-size: 20px;
     }
   }
 </style>
