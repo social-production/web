@@ -42,8 +42,8 @@
     justify-content: space-between;
     gap: 8px;
     min-width: 0;
-    margin-top: 4px;
-    padding-bottom: 14px;
+    margin-top: 0;
+    padding-bottom: 6px;
   }
 
   .feed-card-tags {

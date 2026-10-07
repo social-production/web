@@ -69,7 +69,7 @@
     position: relative;
     min-width: 0;
     max-width: 100%;
-    padding: 20px 16px;
+    padding: 12px 16px 20px;
     border-radius: 0;
     border: none;
     border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);

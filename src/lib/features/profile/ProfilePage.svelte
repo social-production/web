@@ -374,7 +374,9 @@
             {#if displayBio}
               <p class="profile-bio">{displayBio}</p>
             {/if}
-            <div class="profile-actions">
+          </div>
+        </div>
+        <div class="profile-actions">
               <div class="stats-row">
             {#if data.isOwnProfile}
               <MembershipSplitButton
@@ -494,8 +496,6 @@
           </div>
                 </div>
               {/if}
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -748,10 +748,11 @@
 
   .hero-main {
     display: flex;
+    flex-direction: column;
     flex-wrap: nowrap;
-    gap: 16px;
-    align-items: flex-start;
-    justify-content: space-between;
+    gap: 10px;
+    align-items: stretch;
+    justify-content: flex-start;
     width: 100%;
   }
 
@@ -795,11 +796,25 @@
   .profile-actions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 4px;
+    flex-wrap: nowrap;
     width: 100%;
     min-width: 0;
+  }
+
+  .profile-actions :global(.membership-split) {
+    min-height: 30px;
+  }
+
+  .profile-actions :global(.membership-join) {
+    width: 30px;
+  }
+
+  .profile-actions :global(.membership-count) {
+    min-width: 22px;
+    padding: 0 6px;
+    font-size: 11px;
   }
 
   .trust-corner {
@@ -812,7 +827,7 @@
   .trust-split {
     display: inline-flex;
     align-items: stretch;
-    min-height: 36px;
+    min-height: 30px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-border);
@@ -851,15 +866,17 @@
 
   .trust-vouch,
   .trust-bot {
-    width: 64px;
-    padding: 0;
-    flex: 0 0 64px;
+    width: auto;
+    padding: 0 7px;
+    flex: 0 0 auto;
+    font-size: 11px;
   }
 
   .trust-rating {
-    min-width: 44px;
-    padding: 0 8px;
+    min-width: 0;
+    padding: 0 6px;
     color: var(--text-main);
+    font-size: 11px;
   }
 
   .trust-split.vouched .trust-vouch,
@@ -890,10 +907,10 @@
 
   .stats-row {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     align-items: center;
-    flex: 0 1 auto;
-    flex-wrap: wrap;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
     justify-content: flex-start;
     min-width: 0;
   }
@@ -915,9 +932,9 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    min-height: 36px;
+    min-height: 30px;
     min-width: 0;
-    padding: 0 10px;
+    padding: 0 6px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel);
@@ -966,8 +983,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
     padding: 0;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
