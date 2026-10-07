@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
+  import { fitText } from '$lib/utils/fitText';
 
   export let open = false;
   export let title = 'Plan wizard';
@@ -74,7 +75,7 @@
       <header class="wizard-header" class:compact>
         <div class="wizard-header-main">
           <span class="wizard-step-number">{stepIndex + 1}/{stepCount}</span>
-          <span class="wizard-title">{title}</span>
+          <span class="wizard-title" use:fitText={{ min: 11, text: title }}>{title}</span>
         </div>
         {#if !compact}
           <button class="cancel-button" type="button" on:click={() => dispatch('close')}>Cancel</button>
@@ -218,13 +219,12 @@
     font-size: 14px;
     font-weight: 700;
     color: var(--text-main);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
   }
 
   .wizard-header.compact .wizard-title {
-    font-size: 13px;
+    font-size: clamp(12px, 3.4vw, 14px);
   }
 
   @container (max-width: 180px) {

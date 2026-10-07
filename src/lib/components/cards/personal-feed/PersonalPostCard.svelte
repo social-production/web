@@ -3,7 +3,6 @@
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import LinkedPostBody from '$lib/components/shared/LinkedPostBody.svelte';
-  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
@@ -41,8 +40,11 @@
   accent={surfaceTypeAccent('post')}
 >
   <div class="card-header">
-    <div class="context-row">
-      <SurfaceTypeLabel kind="post" />
+    <div class="header-row">
+      <div class="identity-row">
+        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
+        <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
+      </div>
       <ReportControl
         hasActiveReport={item.hasActiveReport}
         isUnderReview={item.isUnderReview}
@@ -55,19 +57,13 @@
         targetType="post"
       />
     </div>
-    <div class="header-row">
-      <div class="identity-row">
-        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
-        <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-      </div>
-    </div>
   </div>
 
   <LinkedPostBody body={item.body} links={item.linkedSubjects ?? []} variant="feed" />
 
   <div class="footer">
-    <div class="engagement-row">
-      <VoteStrip activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
+    <div class="engagement-row feed-corner-actions">
+      <VoteStrip corner activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
       <a class="comment-link" href={commentHref}>
         <CountPill label={`${item.commentCount} comments`} />
       </a>
@@ -85,7 +81,6 @@
     min-width: 0;
   }
 
-  .context-row,
   .header-row,
   .identity-row,
   .footer,
@@ -95,11 +90,6 @@
     min-width: 0;
   }
 
-  .context-row {
-    gap: 6px;
-    color: var(--text-soft);
-  }
-
   .header-row,
   .footer {
     gap: 8px;
@@ -107,8 +97,8 @@
   }
 
   .header-row {
-    flex-wrap: wrap;
-    align-items: flex-start;
+    flex-wrap: nowrap;
+    align-items: center;
   }
 
   .footer {
@@ -119,11 +109,13 @@
     gap: 0.6rem;
     flex: 1 1 auto;
     min-width: 0;
+    align-items: center;
   }
 
   .header-name {
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .name,
@@ -136,7 +128,6 @@
   }
 
   .footer {
-    margin-top: 12px;
     color: var(--text-soft);
     font-size: 13px;
   }

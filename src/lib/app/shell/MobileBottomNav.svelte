@@ -3,6 +3,7 @@
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import * as m from '$lib/paraglide/messages';
 
+  export let combineFeeds = false;
   export let viewerLoggedIn = false;
   export let notificationCount = 0;
   export let messageCount = 0;
@@ -12,13 +13,19 @@
   export let onMore: () => void = () => {};
 
   $: tabs = [
-    { id: 'public', href: '/', label: m.shell_nav_public(), icon: 'globe' as const },
-    {
-      id: 'personal',
-      href: viewerLoggedIn ? '/personal' : '/onboarding',
-      label: m.shell_nav_personal(),
-      icon: 'user' as const
-    },
+    combineFeeds
+      ? { id: 'home', href: '/', label: 'Home', icon: 'home' as const }
+      : { id: 'public', href: '/', label: m.shell_nav_public(), icon: 'globe' as const },
+    ...(combineFeeds
+      ? []
+      : [
+          {
+            id: 'personal',
+            href: viewerLoggedIn ? '/personal' : '/onboarding',
+            label: m.shell_nav_personal(),
+            icon: 'home' as const
+          }
+        ]),
     {
       id: 'notifications',
       href: viewerLoggedIn ? '/notifications' : '/onboarding',
@@ -41,6 +48,7 @@
   class="mobile-bottom-nav"
   class:chrome-collapsed={collapsed}
   aria-hidden={collapsed}
+  style={`--bottom-nav-slots: ${tabs.length + 1}`}
 >
   {#each tabs as tab}
     <a
@@ -75,29 +83,27 @@
 
 <style>
   /*
-    Lift the icon row above the safe-area instead of painting a second
-    toolbar-tall band inside the nav. Content still clears the full
-    --shell-bottom-nav-height (56px + safe-area) via AppShell offset.
-    This is the stable Firefox/Chrome model: one visible chrome strip.
+    The bar reaches the screen edge so the home-indicator strip is the same
+    toolbar color. Icons stay in the top 56px, above that inset.
   */
   .mobile-bottom-nav {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: var(--shell-safe-bottom);
+    bottom: 0;
     z-index: var(--z-shell-nav);
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--bottom-nav-slots, 5), minmax(0, 1fr));
     align-content: start;
     gap: 2px;
-    height: var(--shell-bottom-nav-base);
-    min-height: var(--shell-bottom-nav-base);
-    max-height: var(--shell-bottom-nav-base);
+    height: var(--shell-bottom-nav-height);
+    min-height: var(--shell-bottom-nav-height);
+    max-height: var(--shell-bottom-nav-height);
     margin: 0;
-    padding: 0 var(--shell-safe-right) 0 var(--shell-safe-left);
+    padding: 0 var(--shell-safe-right) var(--shell-safe-bottom) var(--shell-safe-left);
     border: none;
     border-top: 1px solid var(--panel-border);
     background: var(--toolbar-background);
@@ -106,7 +112,7 @@
   }
 
   .mobile-bottom-nav.chrome-collapsed {
-    transform: translateY(calc(100% + var(--shell-safe-bottom)));
+    transform: translateY(100%);
     pointer-events: none;
     visibility: hidden;
   }
@@ -137,9 +143,12 @@
     height: 22px;
   }
 
+  .bottom-nav-item:hover,
   .bottom-nav-item.active-link {
     color: var(--brand-strong);
     background: var(--brand-soft);
+    filter: none;
+    transform: none;
   }
 
   .bottom-nav-item :global(.count-badge) {

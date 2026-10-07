@@ -9,6 +9,7 @@ export interface FeedQueryOptions {
   scope?: string;
   limit?: number;
   offset?: number;
+  tz?: string | null;
 }
 
 export interface FeedPreferenceSnapshot {
@@ -190,6 +191,7 @@ export function buildFeedQueryString(options: FeedQueryOptions = {}): string {
   if (options.scope) params.set('scope', options.scope);
   if (typeof options.limit === 'number') params.set('limit', String(options.limit));
   if (typeof options.offset === 'number') params.set('offset', String(options.offset));
+  if (options.tz) params.set('tz', options.tz);
   const suffix = params.toString();
   return suffix ? `?${suffix}` : '';
 }

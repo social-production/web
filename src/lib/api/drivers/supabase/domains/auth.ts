@@ -46,8 +46,21 @@ export async function fetchSignOut(): Promise<void> {
   }
 }
 
+export async function fetchChangePassword(
+  _currentPassword: string,
+  _newPassword: string
+): Promise<void> {
+  throw new Error('Password changes are available on the FastAPI backend.');
+}
+
+export async function fetchDeactivateAccount(_password: string): Promise<void> {
+  throw new Error('Account deactivation is available on the FastAPI backend.');
+}
+
 export const authDomain: Partial<AppAdapter> = {
   signIn: fetchSignIn,
   signUp: fetchSignUp,
-  signOut: fetchSignOut
+  signOut: fetchSignOut,
+  changePassword: fetchChangePassword,
+  deactivateAccount: fetchDeactivateAccount
 };

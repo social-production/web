@@ -5,7 +5,13 @@ import type { BootstrapPayload } from '$lib/types/bootstrap';
 import { clearAuthenticatedSession } from './auth';
 import { clearBootstrapCache } from '$lib/services/bootstrapCache';
 import { fetchBootstrap, fetchBootstrapSummary, fetchOnboarding } from './domains/bootstrap';
-import { fetchSignIn, fetchSignOut, fetchSignUp } from './domains/auth';
+import {
+  fetchChangePassword,
+  fetchDeactivateAccount,
+  fetchSignIn,
+  fetchSignOut,
+  fetchSignUp
+} from './domains/auth';
 import {
   fetchAcceptFollowRequest,
   fetchFollowRequests,
@@ -48,6 +54,9 @@ import {
   fetchAddComment,
   fetchSubmitReport,
   fetchSetReportVote,
+  fetchSharePostWithUser,
+  fetchShareThreadWithUser,
+  fetchShareHelpRequestWithUser,
 } from './domains/content';
 import {
   fetchChannel,
@@ -272,6 +281,18 @@ export function createFastApiDriver(): AppAdapter {
 
     async createPost(input) {
       return fetchCreatePost(input);
+    },
+
+    async sharePostWithUser(postId, username) {
+      return fetchSharePostWithUser(postId, username);
+    },
+
+    async shareThreadWithUser(slug, username) {
+      return fetchShareThreadWithUser(slug, username);
+    },
+
+    async shareHelpRequestWithUser(helpRequestId, username) {
+      return fetchShareHelpRequestWithUser(helpRequestId, username);
     },
 
     async createFeedback(input) {
@@ -783,6 +804,14 @@ export function createFastApiDriver(): AppAdapter {
 
     async signOut() {
       return fetchSignOut();
+    },
+
+    async changePassword(currentPassword, newPassword) {
+      return fetchChangePassword(currentPassword, newPassword);
+    },
+
+    async deactivateAccount(password) {
+      return fetchDeactivateAccount(password);
     },
 
     async signUp(input) {

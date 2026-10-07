@@ -9,6 +9,14 @@ export function signOut() {
   return currentAdapter.signOut();
 }
 
+export function changePassword(currentPassword: string, newPassword: string) {
+  return currentAdapter.changePassword(currentPassword, newPassword);
+}
+
+export function deactivateAccount(password: string) {
+  return currentAdapter.deactivateAccount(password);
+}
+
 export function signUp(input: SignUpInput) {
   return currentAdapter.signUp(input);
 }

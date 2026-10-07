@@ -95,6 +95,7 @@
     $page.url.pathname === '/signup';
   $: isMessagesRoute = $page.url.pathname.startsWith('/messages');
   $: immersiveChat = isCompact && $chatImmersive;
+  $: combineFeeds = Boolean($page.data.settings?.combineFeeds);
   $: mapSurfaceActive = mapPanelOpen || dedicatedMapPage;
   $: if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded) {
     feedChromeHidden = false;
@@ -385,10 +386,21 @@
         '--shell-visual-viewport-height',
         `${Math.round(viewport?.height ?? window.innerHeight)}px`
       );
+      document.documentElement.style.setProperty(
+        '--vv-offset',
+        `${Math.round(viewport?.offsetTop ?? 0)}px`
+      );
       // Firefox fires visualViewport resize for URL-bar show/hide. Only treat a
       // shrink as keyboard when a text field is focused.
       const viewportShrunk = Boolean(viewport && window.innerHeight - viewport.height > 120);
       const next = textFieldFocused && viewportShrunk;
+      document.documentElement.classList.toggle('keyboard-open', next);
+      if (next && next !== keyboardOpen) {
+        const active = document.activeElement;
+        if (active instanceof HTMLElement) {
+          requestAnimationFrame(() => active.scrollIntoView({ block: 'center', inline: 'nearest' }));
+        }
+      }
       if (next !== keyboardOpen) {
         keyboardOpen = next;
         requestAnimationFrame(updateLayoutMetrics);
@@ -462,7 +474,9 @@
       window.removeEventListener('scroll', handleFeedChromeScroll);
       viewport?.removeEventListener('resize', syncKeyboardState);
       viewport?.removeEventListener('scroll', syncKeyboardState);
+      document.documentElement.classList.remove('keyboard-open');
       document.documentElement.style.removeProperty('--shell-visual-viewport-height');
+      document.documentElement.style.removeProperty('--vv-offset');
       window.clearInterval(badgePoll);
       resizeObserver.disconnect();
       media.removeEventListener('change', syncLayout);
@@ -860,21 +874,23 @@
         {#if !isCompact}
           <nav class="primary-nav" aria-label="Primary">
             <a
-              aria-label={m.shell_nav_public()}
+              aria-label={combineFeeds ? 'Home' : m.shell_nav_public()}
               class:active-link={isActive('/')}
               class="nav-link nav-link-icon"
               href="/"
             >
-              <FeedToolbarIcon name="globe" />
+              <FeedToolbarIcon name={combineFeeds ? 'home' : 'globe'} />
             </a>
-            <a
-              aria-label={m.shell_nav_personal()}
-              class:active-link={isActive('/personal')}
-              class="nav-link nav-link-icon"
-              href={bootstrap.viewer ? '/personal' : '/onboarding'}
-            >
-              <FeedToolbarIcon name="user" />
-            </a>
+            {#if !combineFeeds}
+              <a
+                aria-label={m.shell_nav_personal()}
+                class:active-link={isActive('/personal')}
+                class="nav-link nav-link-icon"
+                href={bootstrap.viewer ? '/personal' : '/onboarding'}
+              >
+                <FeedToolbarIcon name="home" />
+              </a>
+            {/if}
             <a
               aria-label={m.shell_nav_notifications()}
               class:active-link={isActive('/notifications')}
@@ -1022,6 +1038,7 @@
 
   {#if isCompact && !isAuthSurface && !immersiveChat}
     <MobileBottomNav
+      {combineFeeds}
       viewerLoggedIn={Boolean(bootstrap.viewer)}
       notificationCount={displayUnreadCounts.notifications}
       messageCount={displayUnreadCounts.messages}
@@ -1254,6 +1271,8 @@
     border-color: var(--brand);
     color: var(--brand-strong);
     background: var(--brand-soft);
+    filter: none;
+    transform: none;
   }
 
   .panel-toggle[data-active='true'] {
@@ -1429,6 +1448,8 @@
   .utility-link:hover {
     background: var(--brand-soft);
     color: var(--brand-strong);
+    filter: none;
+    transform: none;
   }
 
   .utility-nav {
@@ -1463,6 +1484,8 @@
     border-color: var(--brand);
     background: var(--brand-soft);
     color: var(--brand-strong);
+    filter: none;
+    transform: none;
   }
 
   .settings-wrap {

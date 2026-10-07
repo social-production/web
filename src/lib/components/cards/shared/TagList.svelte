@@ -4,6 +4,7 @@
 
 <script lang="ts">
   import ScopeChip from '$lib/components/cards/shared/ScopeChip.svelte';
+  import SurfaceIcon from '$lib/components/cards/shared/SurfaceIcon.svelte';
   import ScopeSheet from '$lib/components/shared/ScopeSheet.svelte';
   import type { SurfaceIconId } from '$lib/utils/surfaceType';
   import type { TagRef } from '$lib/types/feed';
@@ -12,6 +13,8 @@
   export let columns: number | null = null;
   /** Collapsed chip count. `null` shows every tag (detail headers). */
   export let maxVisible: number | null = 1;
+  /** Icon and name, separated by commas. The overflow count stays a pill. */
+  export let plain = false;
 
   const sheetId = `scope-sheet-${++scopeSheetSeq}`;
 
@@ -46,11 +49,22 @@
 {#if tags.length > 0}
   <div
     class:grid-layout={!!columns}
+    class:plain
     class="tag-list"
     style:--tag-columns={columns ? `${columns}` : undefined}
   >
-    {#each visibleTags as tag}
-      <ScopeChip href={hrefFor(tag)} icon={iconFor(tag)} label={tag.label} />
+    {#each visibleTags as tag, index}
+      {#if plain}
+        {#if index > 0}
+          <span class="tag-sep" aria-hidden="true">,</span>
+        {/if}
+        <a class="tag-plain" data-sveltekit-preload-data="hover" href={hrefFor(tag)}>
+          <SurfaceIcon icon={iconFor(tag)} size="sm" />
+          <span>{tag.label}</span>
+        </a>
+      {:else}
+        <ScopeChip href={hrefFor(tag)} icon={iconFor(tag)} label={tag.label} />
+      {/if}
     {/each}
     {#if maxVisible != null && hiddenCount > 0}
       <button
@@ -84,6 +98,43 @@
     grid-template-columns: repeat(var(--tag-columns), max-content);
     justify-content: end;
     flex-wrap: wrap;
+  }
+
+  .tag-list.plain {
+    flex-wrap: wrap;
+    gap: 2px 4px;
+  }
+
+  .tag-plain {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
+  }
+
+  .tag-plain span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 9rem;
+  }
+
+  .tag-list.plain :global(svg.surface-icon),
+  .tag-list.plain :global(.groups-icon.surface-icon) {
+    width: 13px;
+    height: 13px;
+  }
+
+  .tag-sep {
+    color: var(--text-soft);
+    font-size: 11px;
+    line-height: 1;
   }
 
   .tag-overflow-btn {

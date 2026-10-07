@@ -71,6 +71,9 @@
   $: authorValueCommentaryEntries = Object.entries(valueNotes)
     .filter(([, note]) => note?.trim())
     .map(([valueId, note]) => ({ valueId, note: note.trim() }));
+  $: displayedValueNotes = authorValueCommentaryEntries.filter(
+    (entry, index, all) => all.findIndex((item) => item.note === entry.note) === index
+  );
   $: allCriteriaComplete = allCriteriaRated(criteria);
   $: ratedCount = criteria.filter((entry) => entry.activeRating != null).length;
   $: assessedCriteria = criteria.filter((entry) => entry.ratingCount > 0);
@@ -307,7 +310,7 @@
             <p>{plan.demandConsiderationNote}</p>
           </article>
         {/if}
-        {#each authorValueCommentaryEntries as entry (entry.valueId)}
+        {#each displayedValueNotes as entry (entry.note)}
           <article class="note-card">
             <span class="note-label">Values</span>
             <p>{entry.note}</p>
@@ -570,6 +573,7 @@
     font-size: 15px;
     font-weight: 500;
     line-height: 1.6;
+    white-space: pre-line;
   }
 
   .plan-facts {
@@ -625,6 +629,7 @@
   .rating-progress,
   .assess-helper {
     margin: 0;
+    white-space: pre-line;
   }
 
   .stage-list {

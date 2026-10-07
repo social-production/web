@@ -9,6 +9,7 @@ type PublicFeedOptions = {
   limit?: number;
   offset?: number;
   before?: string | null;
+  tz?: string | null;
 };
 
 type RegionFeedOptions = PublicFeedOptions & {
@@ -27,6 +28,7 @@ type PersonalFeedOptions = {
   limit?: number;
   offset?: number;
   before?: string | null;
+  tz?: string | null;
 };
 
 function shouldCachePage(offset?: number) {

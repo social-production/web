@@ -36,6 +36,17 @@ export async function fetchSignUp(input: SignUpInput): Promise<AuthResult> {
   }
 }
 
+export async function fetchChangePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await apiClient.post('/auth/password', {
+    current_password: currentPassword,
+    new_password: newPassword
+  });
+}
+
+export async function fetchDeactivateAccount(password: string): Promise<void> {
+  await apiClient.post('/auth/deactivate', { password });
+}
+
 export async function fetchSignOut(): Promise<void> {
   try {
     await apiClient.post('/auth/logout');

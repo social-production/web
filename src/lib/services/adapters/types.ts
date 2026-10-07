@@ -104,6 +104,7 @@ export interface AppAdapter {
     filter?: string;
     limit?: number;
     offset?: number;
+    tz?: string | null;
   }): Promise<PublicFeedItem[]>;
   getPublicFeedPage(options?: {
     sort?: 'trending' | 'recent' | 'popular';
@@ -112,6 +113,7 @@ export interface AppAdapter {
     limit?: number;
     offset?: number;
     before?: string | null;
+    tz?: string | null;
   }): Promise<FeedPageResult<PublicFeedItem>>;
   getHomeFeed(options?: {
     sort?: 'trending' | 'recent' | 'popular';
@@ -119,6 +121,7 @@ export interface AppAdapter {
     filter?: string;
     limit?: number;
     offset?: number;
+    tz?: string | null;
   }): Promise<PublicFeedItem[]>;
   getHomeFeedPage(options?: {
     sort?: 'trending' | 'recent' | 'popular';
@@ -127,6 +130,7 @@ export interface AppAdapter {
     limit?: number;
     offset?: number;
     before?: string | null;
+    tz?: string | null;
   }): Promise<FeedPageResult<PublicFeedItem>>;
   getRegionFeed(options: {
     lat: number;
@@ -205,6 +209,7 @@ export interface AppAdapter {
     limit?: number;
     offset?: number;
     before?: string | null;
+    tz?: string | null;
   }): Promise<FeedPageResult<PersonalFeedItem>>;
   getScopeFeedPage(options: {
     kind: 'channel' | 'community';
@@ -238,6 +243,8 @@ export interface AppAdapter {
   signIn(input: SignInInput): Promise<AuthResult>;
   signOut(): Promise<void>;
   signUp(input: SignUpInput): Promise<AuthResult>;
+  changePassword(currentPassword: string, newPassword: string): Promise<void>;
+  deactivateAccount(password: string): Promise<void>;
   getSettings(): Promise<SettingsPageData | null>;
   updateSettings(input: SettingsUpdateInput): Promise<void>;
   getProfile(username: string): Promise<ProfilePageData | null>;
@@ -630,6 +637,9 @@ export interface AppAdapter {
   revokeEventEditAccess(eventSlug: string, userId: string): Promise<void>;
   shareProjectWithUser(projectSlug: string, username: string): Promise<ShareTargetResult>;
   shareEventWithUser(eventSlug: string, username: string): Promise<ShareTargetResult>;
+  sharePostWithUser(postId: string, username: string): Promise<ShareTargetResult>;
+  shareThreadWithUser(threadSlug: string, username: string): Promise<ShareTargetResult>;
+  shareHelpRequestWithUser(helpRequestId: string, username: string): Promise<ShareTargetResult>;
   markNotificationRead(notificationId: string): Promise<void>;
   markAllNotificationsRead(): Promise<void>;
   markConversationRead(conversationId: string): Promise<void>;

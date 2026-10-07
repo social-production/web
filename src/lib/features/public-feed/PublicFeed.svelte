@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import PersonalFeedCard from '$lib/components/cards/personal-feed/PersonalFeedCard.svelte';
   import PublicFeedCard from '$lib/components/cards/public-feed/PublicFeedCard.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
@@ -13,6 +14,7 @@
   } from '$lib/location/radius';
   import {
     getHomeFeedPage,
+    getPersonalFeedPage,
     getPublicFeedPage,
     getRegionFeedPage,
   } from '$lib/services/queries/feeds';
@@ -37,8 +39,10 @@
     PublicFeedPreferences,
     PublicFeedScopePreference,
   } from '$lib/types/account';
-  import type { PublicFeedItem } from '$lib/types/feed';
+  import type { PersonalFeedItem, PublicFeedItem } from '$lib/types/feed';
+  import { mergeHomeFeed } from '$lib/utils/homeFeed';
   import {
+    canMergeLoaderEngagement,
     normalizeFeedFilter,
     normalizeFeedWindow,
     resolveFeedCorePreferences,
@@ -111,6 +115,10 @@
   let lastHydratedViewerId = '';
   let lastPersistedPreferences = preferenceSignature(defaultPreferences);
   let visibleItems: PublicFeedItem[] = items;
+  let personalItems: PersonalFeedItem[] = [];
+  let personalOffset = 0;
+  let personalHasMore = false;
+  let publicHasMore = initialHasMore ?? items.length >= DEFAULT_FEED_PAGE_SIZE;
   let feedLoading = false;
   let feedLoadingMore = false;
   let feedHasMore = initialHasMore ?? items.length >= DEFAULT_FEED_PAGE_SIZE;
@@ -196,6 +204,10 @@
 
   async function hydratePreferences() {
     const settings = $page.data.settings ?? (await getSettings());
+    const personalScope = settings?.personalFeedPreferences?.scope;
+    if (personalScope === 'following' || personalScope === 'popular') {
+      homeAudience = personalScope;
+    }
     if (!settings?.publicFeedPreferences) {
       return;
     }
@@ -210,8 +222,17 @@
     applyPreferences(settings.publicFeedPreferences);
   }
 
+  $: combineFeeds = Boolean($page.data.settings?.combineFeeds);
+
+  const homeAudienceOptions = [
+    { value: 'following', label: 'Following only' },
+    { value: 'popular', label: 'Following + popular' },
+  ];
+
+  let homeAudience = 'popular';
+
   function feedQuerySignature() {
-    return `${activeScope}:${preferenceSignature(currentPreferences())}:${activeRadius}:${includeOnline}:${centerLat}:${centerLon}`;
+    return `${combineFeeds ? 'home' : 'split'}:${homeAudience}:${activeScope}:${preferenceSignature(currentPreferences())}:${activeRadius}:${includeOnline}:${centerLat}:${centerLon}:${$displayTimezone}`;
   }
 
   async function fetchPublicPage(offset: number) {
@@ -223,6 +244,7 @@
       limit: DEFAULT_FEED_PAGE_SIZE,
       offset: useCursor ? 0 : offset,
       before: useCursor ? feedCursor : null,
+      tz: $displayTimezone || null,
     };
 
     if (activeScope === 'home') {
@@ -252,6 +274,20 @@
     return getPublicFeedPage(query);
   }
 
+  async function fetchPersonalPage(offset: number) {
+    const apiFilter =
+      activeFilter === 'events' || activeFilter === 'help_requests' ? activeFilter : 'all';
+    return getPersonalFeedPage({
+      scope: homeAudience === 'following' ? 'following' : 'popular',
+      sort: activeSort,
+      window: activeWindow,
+      filter: apiFilter,
+      limit: DEFAULT_FEED_PAGE_SIZE,
+      offset,
+      tz: $displayTimezone || null,
+    });
+  }
+
   async function loadFeedItems() {
     if (!preferencesReady) return;
     if (activeScope === 'home' && !$page.data.bootstrap?.viewer) {
@@ -273,11 +309,17 @@
     feedOffset = 0;
     try {
       const pageResult = await fetchPublicPage(0);
+      const personalPage =
+        combineFeeds && $page.data.bootstrap?.viewer ? await fetchPersonalPage(0) : null;
       if (requestId === feedRequestId) {
         visibleItems = pageResult.items;
+        personalItems = personalPage?.items ?? [];
+        personalOffset = personalItems.length;
+        personalHasMore = personalPage?.hasMore ?? false;
         feedOffset = pageResult.items.length;
         feedCursor = pageResult.nextCursor ?? null;
-        feedHasMore = pageResult.hasMore;
+        publicHasMore = pageResult.hasMore;
+        feedHasMore = publicHasMore || personalHasMore;
         lastLoadedQuery = signature;
       }
     } finally {
@@ -301,14 +343,26 @@
     const requestId = ++feedRequestId;
     feedLoadingMore = true;
     try {
-      const pageResult = await fetchPublicPage(feedOffset);
+      const pageResult = publicHasMore ? await fetchPublicPage(feedOffset) : null;
+      const personalPage =
+        combineFeeds && personalHasMore && $page.data.bootstrap?.viewer
+          ? await fetchPersonalPage(personalOffset)
+          : null;
       if (requestId !== feedRequestId) {
         return;
       }
-      visibleItems = appendUniqueById(visibleItems, pageResult.items);
-      feedOffset += pageResult.items.length;
-      feedCursor = pageResult.nextCursor ?? feedCursor;
-      feedHasMore = pageResult.hasMore;
+      if (pageResult) {
+        visibleItems = appendUniqueById(visibleItems, pageResult.items);
+        feedOffset += pageResult.items.length;
+        feedCursor = pageResult.nextCursor ?? feedCursor;
+        publicHasMore = pageResult.hasMore;
+      }
+      if (personalPage) {
+        personalItems = appendUniqueById(personalItems, personalPage.items);
+        personalOffset += personalPage.items.length;
+        personalHasMore = personalPage.hasMore;
+      }
+      feedHasMore = publicHasMore || personalHasMore;
     } finally {
       if (requestId === feedRequestId) {
         feedLoadingMore = false;
@@ -427,6 +481,27 @@
     lastPersistedPreferences = signature;
   }
 
+  async function handleHomeAudienceChange() {
+    const current = $page.data.settings?.personalFeedPreferences;
+    const next = {
+      scope: homeAudience === 'following' ? 'following' as const : 'popular' as const,
+      filter: current?.filter ?? 'all',
+      sort: current?.sort ?? 'trending',
+      window: current?.window ?? 'all',
+    };
+    const cached = readCachedSettings() ?? $page.data.settings ?? null;
+    if (cached) {
+      patchBootstrapCacheSettings({
+        ...cached,
+        personalFeedPreferences: next,
+      });
+    }
+    await updateSettings({ personalFeedPreferences: next });
+    lastLoadedQuery = '';
+    visibleItems = [];
+    void loadFeedItems();
+  }
+
   function handlePreferencesChange() {
     void persistPreferences();
     syncFeedQueryToUrl();
@@ -465,6 +540,34 @@
       preferencesReady = true;
     }
   }
+  $: feedRows = combineFeeds
+    ? mergeHomeFeed(
+        visibleItems,
+        personalItems,
+        activeFilter,
+        activeSort === 'recent' ? 'recent' : 'trending'
+      )
+    : visibleItems.map((item) => ({
+        key: `public:${item.kind}:${item.id}`,
+        source: 'public' as const,
+        item
+      }));
+
+  let trackedCombine = false;
+  let combineWatchReady = false;
+  $: if (preferencesReady) {
+    if (!combineWatchReady) {
+      combineWatchReady = true;
+      trackedCombine = combineFeeds;
+    } else if (trackedCombine !== combineFeeds) {
+      trackedCombine = combineFeeds;
+      lastLoadedQuery = '';
+      visibleItems = [];
+      personalItems = [];
+      void loadFeedItems();
+    }
+  }
+
   $: if (!$page.data.bootstrap?.viewer && activeScope === 'home') {
     activeScope = 'global';
   }
@@ -613,6 +716,10 @@
 
     void (async () => {
       const viewerId = $page.data.bootstrap?.viewer?.id ?? null;
+      const personalScope = $page.data.settings?.personalFeedPreferences?.scope;
+      if (personalScope === 'following' || personalScope === 'popular') {
+        homeAudience = personalScope;
+      }
       applyPreferences($page.data.settings?.publicFeedPreferences);
       hydrateRegionCenter(viewerId);
       lastHydratedUrl = $page.url.search;
@@ -620,7 +727,14 @@
       preferencesReady = true;
       await syncFeedQueryToUrl();
       const signature = feedQuerySignature();
-      if (items.length > 0) {
+      const loaderMatches = canMergeLoaderEngagement({
+        surface: 'public',
+        activeScope,
+        activeSort,
+        activeFilter,
+        activeWindow,
+      });
+      if (items.length > 0 && loaderMatches && !combineFeeds) {
         visibleItems = items;
         feedOffset = items.length;
         feedCursor =
@@ -629,7 +743,10 @@
             ?.lastActivityAt ??
           (items.at(-1) as { createdAt?: string } | undefined)?.createdAt ??
           null;
-        feedHasMore = initialHasMore ?? items.length >= DEFAULT_FEED_PAGE_SIZE;
+        publicHasMore = initialHasMore ?? items.length >= DEFAULT_FEED_PAGE_SIZE;
+        feedHasMore = publicHasMore;
+        personalItems = [];
+        personalHasMore = false;
         lastLoadedQuery = signature;
         return;
       }
@@ -658,6 +775,18 @@
           name={activeScope === 'home' ? 'home' : activeScope === 'region' ? 'map-pin' : 'globe'}
         />
       </IconMenuButton>
+
+      {#if combineFeeds && $page.data.bootstrap?.viewer}
+        <IconMenuButton
+          bind:value={homeAudience}
+          ariaLabel="Choose personal audience"
+          options={homeAudienceOptions}
+          showTriggerLabel={activeScope !== 'region' && showTriggerLabels}
+          on:change={handleHomeAudienceChange}
+        >
+          <FeedToolbarIcon name={homeAudience === 'following' ? 'people' : 'trending'} />
+        </IconMenuButton>
+      {/if}
 
       <IconMenuButton
         bind:value={activeFilter}
@@ -758,7 +887,7 @@
   </section>
 
   <div class="stack">
-    {#if feedLoading && visibleItems.length === 0}
+    {#if feedLoading && feedRows.length === 0}
       <section class="empty-card">
         <p>Loading feed...</p>
       </section>
@@ -766,26 +895,32 @@
       <section class="empty-card">
         <p>Choose a place or enable device location to load the region feed.</p>
       </section>
-    {:else if visibleItems.length === 0}
+    {:else if feedRows.length === 0}
       <section class="empty-card">
         <p>
-          {activeScope === 'home'
-            ? 'No items from your followed channels, communities, or platform membership match this filter yet.'
-            : activeScope === 'region'
-              ? 'No regional items match this radius and filter yet.'
-              : 'No public items match this filter yet.'}
+          {combineFeeds
+            ? 'No Home items match this filter yet.'
+            : activeScope === 'home'
+              ? 'No items from your followed channels, communities, or platform membership match this filter yet.'
+              : activeScope === 'region'
+                ? 'No regional items match this radius and filter yet.'
+                : 'No public items match this filter yet.'}
         </p>
       </section>
     {:else}
-      {#each visibleItems as item (item.id)}
-        <PublicFeedCard {item} />
+      {#each feedRows as row (row.key)}
+        {#if row.source === 'personal'}
+          <PersonalFeedCard item={row.item} />
+        {:else}
+          <PublicFeedCard item={row.item} />
+        {/if}
       {/each}
       <InfiniteFeedSentinel
         disabled={!feedHasMore || feedLoading}
         loading={feedLoadingMore}
         on:loadMore={loadMoreFeedItems}
       />
-      {#if !feedHasMore && visibleItems.length > 0}
+      {#if !feedHasMore && feedRows.length > 0}
         <p class="end-copy">You're caught up.</p>
       {/if}
     {/if}
@@ -847,6 +982,7 @@
     gap: 4px;
     width: 100%;
     min-width: 0;
+    min-height: 32px;
     overflow: visible;
     padding-bottom: 2px;
   }

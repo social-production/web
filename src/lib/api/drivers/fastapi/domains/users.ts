@@ -41,6 +41,8 @@ interface BackendSettings {
   require_follow_approval: boolean;
   preferred_language: string;
   display_timezone?: string | null;
+  combine_feeds?: boolean;
+  text_size?: string;
   default_location_id?: string | null;
   notification_categories?: string[] | null;
 }
@@ -57,8 +59,8 @@ interface BackendAccountTrust {
   bot_weight: number;
   bootstrap_floor: boolean;
   bootstrap_floor_value?: number | null;
-  vouchers: string[];
-  bot_markers: string[];
+  vouchers: Array<string | { username: string; profile_image_url?: string | null }>;
+  bot_markers: Array<string | { username: string; profile_image_url?: string | null }>;
   viewer_stance: 'vouch' | 'bot' | null;
   viewer_can_vouch: boolean;
   viewer_can_mark_bot: boolean;
@@ -86,6 +88,23 @@ interface BackendFollowRequestList {
   items: BackendFollowItem[];
 }
 
+function mapTrustPeople(
+  people: BackendAccountTrust['vouchers'] | undefined
+): AccountTrust['vouchers'] {
+  return (people ?? []).flatMap((person) => {
+    if (typeof person === 'string') {
+      return [{ username: person, profileImageUrl: null }];
+    }
+    if (!person?.username) return [];
+    return [
+      {
+        username: person.username,
+        profileImageUrl: person.profile_image_url ?? null
+      }
+    ];
+  });
+}
+
 function mapTrust(trust: BackendAccountTrust): AccountTrust {
   return {
     realR: trust.real_r,
@@ -96,8 +115,8 @@ function mapTrust(trust: BackendAccountTrust): AccountTrust {
       trust.bootstrap_floor && trust.bootstrap_floor_value != null
         ? trust.bootstrap_floor_value
         : null,
-    vouchers: trust.vouchers ?? [],
-    botMarkers: trust.bot_markers ?? [],
+    vouchers: mapTrustPeople(trust.vouchers),
+    botMarkers: mapTrustPeople(trust.bot_markers),
     viewerStance: trust.viewer_stance ?? null,
     viewerCanVouch: trust.viewer_can_vouch,
     viewerCanMarkBot: trust.viewer_can_mark_bot,
@@ -152,6 +171,8 @@ function mapSettings(user: BackendUser, s: BackendSettings): SettingsPageData {
       ? 'nl'
       : 'en') as SettingsPageData['preferredLanguage'],
     displayTimezone: s.display_timezone ?? null,
+    combineFeeds: Boolean(s.combine_feeds),
+    textSize: s.text_size === 'small' || s.text_size === 'large' ? s.text_size : 'medium',
     defaultLocationId: s.default_location_id ?? null,
     notificationCategories: normalizeNotificationCategories(s.notification_categories),
   };
@@ -200,6 +221,8 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
     body.require_follow_approval = input.requireFollowApproval;
   if (input.preferredLanguage !== undefined) body.preferred_language = input.preferredLanguage;
   if (input.displayTimezone !== undefined) body.display_timezone = input.displayTimezone;
+  if (input.combineFeeds !== undefined) body.combine_feeds = input.combineFeeds;
+  if (input.textSize !== undefined) body.text_size = input.textSize;
   if (input.defaultLocationId !== undefined) body.default_location_id = input.defaultLocationId;
   if (input.notificationCategories !== undefined)
     body.notification_categories = input.notificationCategories;

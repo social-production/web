@@ -10,7 +10,13 @@ import type { BootstrapPayload } from '$lib/types/bootstrap';
 import { clearBootstrapCache } from '$lib/services/bootstrapCache';
 import { domainNotImplemented } from '../scaffold';
 import { clearAuthenticatedSession } from './authSession';
-import { fetchSignIn, fetchSignOut, fetchSignUp } from './domains/auth';
+import {
+  fetchChangePassword,
+  fetchDeactivateAccount,
+  fetchSignIn,
+  fetchSignOut,
+  fetchSignUp
+} from './domains/auth';
 import { fetchBootstrap, fetchBootstrapSummary, fetchOnboarding } from './domains/bootstrap';
 import {
   fetchAddComment,
@@ -22,6 +28,9 @@ import {
   fetchSetVote,
   fetchSubmitReport,
   fetchThread,
+  fetchShareHelpRequestWithUser,
+  fetchSharePostWithUser,
+  fetchShareThreadWithUser,
 } from './domains/content';
 import {
   fetchAddEventActivity,
@@ -266,6 +275,15 @@ export function createSupabaseDriver(): AppAdapter {
     },
     async createPost(input) {
       return fetchCreatePost(input);
+    },
+    async sharePostWithUser(postId, username) {
+      return fetchSharePostWithUser(postId, username);
+    },
+    async shareThreadWithUser(slug, username) {
+      return fetchShareThreadWithUser(slug, username);
+    },
+    async shareHelpRequestWithUser(helpRequestId, username) {
+      return fetchShareHelpRequestWithUser(helpRequestId, username);
     },
     async createFeedback() {
       return domainNotImplemented('supabase', 'feedback', 'createFeedback');
@@ -720,6 +738,12 @@ export function createSupabaseDriver(): AppAdapter {
     },
     async signOut() {
       return fetchSignOut();
+    },
+    async changePassword(currentPassword, newPassword) {
+      return fetchChangePassword(currentPassword, newPassword);
+    },
+    async deactivateAccount(password) {
+      return fetchDeactivateAccount(password);
     },
     async signUp(input) {
       return fetchSignUp(input);

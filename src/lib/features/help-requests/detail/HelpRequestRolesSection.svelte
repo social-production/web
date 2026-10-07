@@ -1,9 +1,14 @@
 <script lang="ts">
   import { invalidate } from '$app/navigation';
+  import { page } from '$app/stores';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import DetailActionDock from '$lib/features/detail/DetailActionDock.svelte';
+  import { shareHelpRequestWithUser } from '$lib/services/commands/create';
+  import { getMessageContacts } from '$lib/services/queries/inbox';
   import { commitHelpRequestRole, setVote, uncommitHelpRequestRole } from '$lib/services/commands/shared';
-  import type { HelpRequestPageData, HelpRequestRoleData } from '$lib/types/detail';
+  import type { DetailMember, HelpRequestPageData, HelpRequestRoleData } from '$lib/types/detail';
+  import { buildShareUrl } from '$lib/utils/sharePrefill';
   import type { VoteDirection } from '$lib/types/feed';
 
   export let data: HelpRequestPageData;
@@ -26,6 +31,24 @@
     }
 
     return roleHasOpenCapacity(role) ? 'Sign up' : 'Full';
+  }
+
+  async function searchShareContacts(query: string): Promise<DetailMember[]> {
+    try {
+      const results = await getMessageContacts(query, 8);
+      return results.map((contact) => ({
+        id: contact.id,
+        username: contact.username,
+        bio: contact.bio ?? '',
+        profileImageUrl: contact.profileImageUrl ?? null
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  function handleHelpShare(username: string) {
+    return shareHelpRequestWithUser(data.id, username);
   }
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
@@ -92,6 +115,14 @@
     {/if}
 
     <div class="signal-row">
+      {#if $page.data.bootstrap?.viewer}
+        <ShareUserMenu
+          copyLinkUrl={buildShareUrl(`/help-requests/${data.id}`)}
+          menuTitle="Share help request"
+          searchContacts={searchShareContacts}
+          submitShare={handleHelpShare}
+        />
+      {/if}
       <VoteStrip
         activeVote={data.activeVote}
         count={data.voteCount}
@@ -122,10 +153,11 @@
   }
 
   .role-bar {
-    display: grid;
-    gap: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
     width: 100%;
-    padding: 12px 16px;
+    padding: 10px 12px 10px 16px;
     border-bottom: 1px solid var(--panel-border);
     background: var(--panel);
   }
@@ -133,6 +165,7 @@
   .role-copy {
     display: grid;
     gap: 2px;
+    flex: 1 1 auto;
     min-width: 0;
   }
 
@@ -149,14 +182,21 @@
   }
 
   .signup {
-    width: 100%;
-    min-height: 48px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 56px;
+    width: 56px;
+    height: 56px;
+    padding: 4px;
     border: 0;
     border-radius: 0;
     background: var(--brand);
     color: var(--page-bg);
-    font-size: 16px;
+    font-size: 11px;
     font-weight: 800;
+    line-height: 1.05;
+    text-align: center;
+    white-space: normal;
     cursor: pointer;
   }
 
@@ -164,6 +204,18 @@
     background: var(--panel-strong);
     color: var(--text-main);
     box-shadow: inset 0 0 0 1px var(--panel-border);
+  }
+
+  .signup:hover:not(:disabled) {
+    background: var(--brand);
+    color: var(--page-bg);
+    filter: none;
+  }
+
+  .signup.selected:hover:not(:disabled) {
+    background: var(--panel-strong);
+    color: var(--text-main);
+    filter: none;
   }
 
   .signup:disabled {
@@ -177,8 +229,14 @@
     min-width: 0;
   }
 
+  .signal-row :global(.share-shell) {
+    flex: 0 0 56px;
+    border-right: 1px solid var(--panel-border);
+  }
+
   .signal-row :global(.vote-strip.docked) {
-    width: 100%;
+    flex: 1 1 auto;
+    width: auto;
   }
 
   .role-message {

@@ -18,6 +18,13 @@ export const contentDomain: Partial<AppAdapter> = {
   getComments: stubMethod(provider, domain, 'getComments') as AppAdapter['getComments'],
   addComment: stubMethod(provider, domain, 'addComment') as AppAdapter['addComment'],
   submitReport: stubMethod(provider, domain, 'submitReport') as AppAdapter['submitReport'],
+  sharePostWithUser: stubMethod(provider, domain, 'sharePostWithUser') as AppAdapter['sharePostWithUser'],
+  shareThreadWithUser: stubMethod(provider, domain, 'shareThreadWithUser') as AppAdapter['shareThreadWithUser'],
+  shareHelpRequestWithUser: stubMethod(
+    provider,
+    domain,
+    'shareHelpRequestWithUser'
+  ) as AppAdapter['shareHelpRequestWithUser'],
   setReportVote: stubMethod(provider, domain, 'setReportVote') as AppAdapter['setReportVote'],
 };
 

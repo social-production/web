@@ -13,5 +13,7 @@ export const authDomain: Partial<AppAdapter> = {
   signIn: stubMethod(provider, domain, 'signIn') as AppAdapter['signIn'],
   signOut: stubMethod(provider, domain, 'signOut') as AppAdapter['signOut'],
   signUp: stubMethod(provider, domain, 'signUp') as AppAdapter['signUp'],
+  changePassword: stubMethod(provider, domain, 'changePassword') as AppAdapter['changePassword'],
+  deactivateAccount: stubMethod(provider, domain, 'deactivateAccount') as AppAdapter['deactivateAccount'],
 };
 

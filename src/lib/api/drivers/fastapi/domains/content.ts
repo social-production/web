@@ -1,6 +1,7 @@
 import { apiAssetUrl, apiClient, extractErrorMessage } from '../client';
 import { registerEntityType, registerCommentIds } from '../typeRegistry';
 import type { ContentReportSummary, ContentReportVote, PostPageData, ThreadPageData } from '$lib/types/detail';
+import type { ShareTargetResult } from '$lib/types/detail';
 import type { CreatePostInput, CreateResult, CreateThreadInput } from '$lib/types/feed';
 import type { VoteDirection } from '$lib/types/feed';
 import type { DetailComment } from '$lib/types/detail';
@@ -257,6 +258,27 @@ export async function fetchSubmitReport(
     description: details
   });
   return mapContentReport(payload?.report ?? payload);
+}
+
+async function shareWithUser(path: string, username: string): Promise<ShareTargetResult> {
+  try {
+    const result = await apiClient.post<ShareTargetResult>(path, { username });
+    return result?.ok === false ? result : { ok: true };
+  } catch (err) {
+    return { ok: false, error: extractErrorMessage(err, 'Could not share') };
+  }
+}
+
+export function fetchSharePostWithUser(postId: string, username: string) {
+  return shareWithUser(`/content/posts/${postId}/share`, username);
+}
+
+export function fetchShareThreadWithUser(slug: string, username: string) {
+  return shareWithUser(`/content/threads/${encodeURIComponent(slug)}/share`, username);
+}
+
+export function fetchShareHelpRequestWithUser(helpRequestId: string, username: string) {
+  return shareWithUser(`/content/help-requests/${helpRequestId}/share`, username);
 }
 
 export async function fetchSetReportVote(

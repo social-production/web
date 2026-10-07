@@ -1,3 +1,7 @@
+<script lang="ts" context="module">
+  let closeActiveMenu: (() => void) | null = null;
+</script>
+
 <script lang="ts">
   import { createEventDispatcher, onMount, tick } from 'svelte';
   import SurfaceIcon from '$lib/components/cards/shared/SurfaceIcon.svelte';
@@ -55,16 +59,23 @@
     menuStyle = `top: ${top}px; left: ${left}px;`;
   }
 
-  async function toggle() {
-    open = !open;
-
-    if (open) {
-      await positionMenu();
+  function close() {
+    open = false;
+    if (closeActiveMenu === close) {
+      closeActiveMenu = null;
     }
   }
 
-  function close() {
-    open = false;
+  async function toggle() {
+    if (open) {
+      close();
+      return;
+    }
+
+    closeActiveMenu?.();
+    closeActiveMenu = close;
+    open = true;
+    await positionMenu();
   }
 
   function selectOption(nextValue: string) {
@@ -205,8 +216,10 @@
 
   .icon-menu-trigger:hover,
   .icon-menu-trigger.menu-open {
-    background: color-mix(in srgb, var(--panel-border) 42%, transparent);
-    color: var(--text-main);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    filter: none;
+    transform: none;
   }
 
   .icon-menu-trigger.menu-active {
@@ -244,7 +257,10 @@
 
   .icon-menu-item:hover,
   .icon-menu-item.selected {
-    background: color-mix(in srgb, var(--panel-border) 38%, transparent);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    filter: none;
+    transform: none;
   }
 
   .item-label {

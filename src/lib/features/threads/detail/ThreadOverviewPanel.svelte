@@ -9,7 +9,13 @@
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
+  import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
+  import { page } from '$app/stores';
+  import { shareThreadWithUser } from '$lib/services/commands/create';
+  import { getMessageContacts } from '$lib/services/queries/inbox';
   import { setVote } from '$lib/services/commands/shared';
+  import type { DetailMember } from '$lib/types/detail';
+  import { buildShareUrl } from '$lib/utils/sharePrefill';
   import type { ThreadPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
   import { applyVoteTarget } from '$lib/utils/feedSignals';
@@ -37,6 +43,24 @@
     lastVoteSyncKey = data.id;
     localActiveVote = data.activeVote;
     localVoteCount = data.voteCount;
+  }
+
+  async function searchShareContacts(query: string): Promise<DetailMember[]> {
+    try {
+      const results = await getMessageContacts(query, 8);
+      return results.map((contact) => ({
+        id: contact.id,
+        username: contact.username,
+        bio: contact.bio ?? '',
+        profileImageUrl: contact.profileImageUrl ?? null
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  function handleThreadShare(username: string) {
+    return shareThreadWithUser(data.slug, username);
   }
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
@@ -92,6 +116,14 @@
     >
       <FeedToolbarIcon name="sort" />
     </IconMenuButton>
+    {#if $page.data.bootstrap?.viewer}
+      <ShareUserMenu
+        copyLinkUrl={buildShareUrl(`/threads/${data.slug}`)}
+        menuTitle="Share thread"
+        searchContacts={searchShareContacts}
+        submitShare={handleThreadShare}
+      />
+    {/if}
     <span class="footer-author-row">
       <ContentMetaRow authorUsername={data.authorUsername} createdAt={data.lastActivityAt} />
     </span>

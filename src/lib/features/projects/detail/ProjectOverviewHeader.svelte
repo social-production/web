@@ -483,7 +483,13 @@
     font-weight: 800;
     letter-spacing: -0.03em;
     line-height: 1.15;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+  }
+
+  @media (max-width: 760px) {
+    h1 {
+      font-size: clamp(18px, 5.4vw, 24px);
+    }
   }
 
   .live-fact {
@@ -764,6 +770,7 @@
     font-weight: 500;
     line-height: 1.55;
     overflow-wrap: anywhere;
+    white-space: pre-line;
   }
 
   .overview-update {
@@ -774,6 +781,7 @@
     font-weight: 500;
     line-height: 1.5;
     overflow-wrap: anywhere;
+    white-space: pre-line;
   }
 
   :global(#participation-join),

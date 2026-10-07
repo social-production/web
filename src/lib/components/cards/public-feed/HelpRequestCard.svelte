@@ -1,8 +1,7 @@
 <script lang="ts">
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
+  import FeedCardTop from '$lib/components/cards/shared/FeedCardTop.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
-  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
-  import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
@@ -40,26 +39,19 @@
   tone="public"
   accent={surfaceTypeAccent('help-request')}
 >
-  <div class="header-row">
-    <div class="chips">
-      <SurfaceTypeLabel kind="help-request" />
-      <ReportControl
-        hasActiveReport={item.hasActiveReport}
-        isUnderReview={item.isUnderReview}
-        itemLabel="help request"
-        moderationState={item.moderationState}
-        ownerUsername={item.authorUsername}
-        report={item.report ?? null}
-        subjectId={item.id}
-        targetId={item.id}
-        targetType="help_request"
-      />
-    </div>
-
-    <div class="tag-stack">
-      <TagList tags={orderedTags} />
-    </div>
-  </div>
+  <FeedCardTop tags={orderedTags}>
+    <ReportControl
+      hasActiveReport={item.hasActiveReport}
+      isUnderReview={item.isUnderReview}
+      itemLabel="help request"
+      moderationState={item.moderationState}
+      ownerUsername={item.authorUsername}
+      report={item.report ?? null}
+      subjectId={item.id}
+      targetId={item.id}
+      targetType="help_request"
+    />
+  </FeedCardTop>
 
   <a class="title" data-sveltekit-preload-data="hover" href={item.href}>{item.title}</a>
   <p class="body">{item.body}</p>
@@ -71,8 +63,8 @@
   {/if}
 
   <div class="footer">
-    <div class="engagement-row">
-      <VoteStrip activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
+    <div class="engagement-row feed-corner-actions">
+      <VoteStrip corner activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
       <a class="comment-link" href={`${item.href}?tab=chat`}>
         <CountPill label={`${item.commentCount} comments`} />
       </a>
@@ -88,36 +80,10 @@
 </FeedSurface>
 
 <style>
-  .header-row,
   .footer {
     display: flex;
     gap: 0.75rem;
     align-items: center;
-  }
-
-  .header-row {
-    flex-wrap: nowrap;
-    justify-content: space-between;
-    min-width: 0;
-  }
-
-  .chips {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: nowrap;
-    align-items: center;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .tag-stack {
-    margin-left: auto;
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: 48%;
-  }
-
-  .footer {
     flex-wrap: nowrap;
     justify-content: space-between;
     margin-top: 12px;

@@ -1,4 +1,5 @@
-import { apiClient } from '../client';
+import { apiClient, extractErrorMessage } from '../client';
+import type { ShareTargetResult } from '$lib/types/detail';
 import type { AppAdapter } from '$lib/services/adapters/types';
 import type {
   ContentReportSummary,
@@ -89,6 +90,27 @@ export async function fetchSetReportVote(
   return res.report ?? null;
 }
 
+async function shareWithUser(path: string, username: string): Promise<ShareTargetResult> {
+  try {
+    const result = await apiClient.post<ShareTargetResult>(path, { username });
+    return result?.ok === false ? result : { ok: true };
+  } catch (err) {
+    return { ok: false, error: extractErrorMessage(err, 'Could not share') };
+  }
+}
+
+export function fetchSharePostWithUser(postId: string, username: string) {
+  return shareWithUser(`/content/posts/${postId}/share`, username);
+}
+
+export function fetchShareThreadWithUser(slug: string, username: string) {
+  return shareWithUser(`/content/threads/${encodeURIComponent(slug)}/share`, username);
+}
+
+export function fetchShareHelpRequestWithUser(helpRequestId: string, username: string) {
+  return shareWithUser(`/content/help-requests/${helpRequestId}/share`, username);
+}
+
 export const contentDomain: Partial<AppAdapter> = {
   getThread: fetchThread,
   getPost: fetchPost,
@@ -98,5 +120,8 @@ export const contentDomain: Partial<AppAdapter> = {
   getComments: fetchComments,
   addComment: fetchAddComment,
   submitReport: fetchSubmitReport,
-  setReportVote: fetchSetReportVote
+  setReportVote: fetchSetReportVote,
+  sharePostWithUser: fetchSharePostWithUser,
+  shareThreadWithUser: fetchShareThreadWithUser,
+  shareHelpRequestWithUser: fetchShareHelpRequestWithUser
 };

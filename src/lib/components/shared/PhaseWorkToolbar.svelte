@@ -2,6 +2,8 @@
   import { afterUpdate, onDestroy, onMount } from 'svelte';
 
   let node: HTMLDivElement;
+  let observer: MutationObserver | null = null;
+  let packFrame = 0;
 
   function place() {
     const target = document.getElementById('detail-participation-actions');
@@ -10,30 +12,89 @@
     }
   }
 
-  onMount(place);
-  afterUpdate(place);
-  onDestroy(() => node?.remove());
+  function collectCells(root: Element, cells: HTMLElement[]) {
+    for (const child of Array.from(root.children)) {
+      if (!(child instanceof HTMLElement)) {
+        continue;
+      }
+      const display = getComputedStyle(child).display;
+      if (display === 'none') {
+        continue;
+      }
+      if (display === 'contents') {
+        collectCells(child, cells);
+        continue;
+      }
+      cells.push(child);
+    }
+  }
+
+  function pack() {
+    if (!node) {
+      return;
+    }
+    const cells: HTMLElement[] = [];
+    collectCells(node, cells);
+    node.querySelectorAll<HTMLElement>('.phase-pack-cell').forEach((cell) => {
+      if (!cells.includes(cell)) {
+        cell.classList.remove('phase-pack-cell', 'row-start', 'wrapped');
+        cell.style.flex = '';
+        cell.style.maxWidth = '';
+      }
+    });
+    cells.forEach((cell, index) => {
+      const rowStart = Math.floor(index / 3) * 3;
+      const rowCount = Math.min(3, cells.length - rowStart);
+      const alone = rowCount === 1;
+      cell.classList.add('phase-pack-cell');
+      cell.classList.toggle('row-start', index % 3 === 0);
+      cell.classList.toggle('wrapped', index >= 3);
+      cell.style.flex = alone ? '1 1 100%' : `1 1 ${100 / rowCount}%`;
+      cell.style.maxWidth = alone ? '100%' : `${100 / rowCount}%`;
+    });
+  }
+
+  function schedulePack() {
+    cancelAnimationFrame(packFrame);
+    packFrame = requestAnimationFrame(pack);
+  }
+
+  onMount(() => {
+    place();
+    observer = new MutationObserver(schedulePack);
+    observer.observe(node, { childList: true, subtree: true });
+    schedulePack();
+  });
+
+  afterUpdate(() => {
+    place();
+    schedulePack();
+  });
+
+  onDestroy(() => {
+    cancelAnimationFrame(packFrame);
+    observer?.disconnect();
+    node?.remove();
+  });
 </script>
 
 <div class="phase-action-group" bind:this={node}>
-  <div class="phase-action-slot adds">
+  <div class="adds">
     <slot />
   </div>
   <div class="governance-row">
     <slot name="governance" />
   </div>
-  <div class="phase-shifts">
-    <div id="phase-nav-start" class="phase-action-slot"></div>
-    <div id="phase-nav-vote" class="phase-action-slot"></div>
-    <div id="phase-nav-end" class="phase-action-slot"></div>
-  </div>
+  <div id="phase-nav-start" class="phase-action-slot"></div>
+  <div id="phase-nav-end" class="phase-action-slot"></div>
+  <div id="phase-nav-vote" class="phase-action-slot"></div>
 </div>
 
 <style>
   .phase-action-group {
     display: flex;
-    flex-direction: column;
-    gap: 0;
+    flex-wrap: wrap;
+    align-items: stretch;
     width: 100%;
     min-width: 0;
   }
@@ -43,89 +104,50 @@
   }
 
   .adds,
-  .phase-shifts {
-    display: flex;
-    align-items: stretch;
-    gap: 0;
-    width: 100%;
-    min-width: 0;
+  .governance-row,
+  .phase-action-slot,
+  :global(.phase-nav-side) {
+    display: contents;
   }
 
   .adds:not(:has(:global(button))),
-  .phase-shifts:not(:has(:global(button))) {
+  .governance-row:not(:has(:global(button))),
+  .phase-action-slot:empty,
+  :global(.phase-nav-side:empty) {
     display: none;
   }
 
-  .phase-action-slot {
-    display: flex;
-    flex: 1 1 0;
-    align-items: stretch;
+  :global(.phase-pack-cell) {
+    box-sizing: border-box;
     min-width: 0;
+    min-height: 44px;
+    margin: 0;
   }
 
-  .phase-action-slot:empty {
-    display: none;
-  }
-
-  .phase-action-slot :global(.phase-nav-side) {
-    display: flex;
-    flex: 1 1 auto;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .phase-action-slot + .phase-action-slot:not(:empty) {
+  :global(.phase-pack-cell:not(.row-start)) {
     border-left: 1px solid var(--panel-border);
   }
 
-  .phase-shifts:not(:empty) {
+  :global(.phase-pack-cell.wrapped.row-start) {
     border-top: 1px solid var(--panel-border);
   }
 
-  .phase-action-group:not(:has(.adds :global(button))):not(:has(.governance-row :global(button))) .phase-shifts {
-    border-top: 0;
-  }
-
-  .governance-row {
-    display: flex;
-    align-items: stretch;
+  :global(.phase-pack-cell.round-plus-button),
+  :global(.phase-pack-cell.phase-shift-button) {
     width: 100%;
-    min-width: 0;
-    border-top: 1px solid var(--panel-border);
-  }
-
-  .governance-row:not(:has(:global(button))) {
-    display: none;
-  }
-
-  .phase-action-group:not(:has(.adds :global(button))) .governance-row {
-    border-top: 0;
-  }
-
-  .governance-row :global(.round-plus-button) {
-    flex: 1 1 0;
-    width: auto;
-    min-width: 0;
-    min-height: 52px;
-    margin: 0;
+    height: auto;
+    min-height: 44px;
     justify-content: center;
     border-radius: 0;
-    padding: 6px 8px;
   }
 
-  .governance-row :global(.round-plus-button) + :global(.round-plus-button) {
-    border-left: 1px solid var(--panel-border);
+  :global(.phase-pack-cell.vote-dock) {
+    display: flex;
+    align-items: stretch;
   }
 
-  .governance-row :global(.plus-label) {
-    white-space: normal;
-    line-height: 1.15;
-    text-align: center;
-  }
-
-  .adds :global(.round-plus-button),
-  .phase-action-slot :global(.round-plus-button),
-  .phase-action-slot :global(.phase-shift-button) {
+  :global(.phase-pack-cell.vote-dock .round-plus-button),
+  :global(.phase-pack-cell.phase-nav-side .phase-shift-button) {
     flex: 1 1 auto;
     width: 100%;
     min-height: 44px;
@@ -134,10 +156,10 @@
     border-radius: 0;
   }
 
-  .phase-action-slot :global(.phase-shift-button) {
-    border-color: var(--panel-border);
-    background: var(--panel-strong);
-    color: var(--text-main);
-    box-shadow: none;
+  :global(.phase-pack-cell .plus-label),
+  :global(.phase-pack-cell .label) {
+    white-space: normal;
+    line-height: 1.15;
+    text-align: center;
   }
 </style>

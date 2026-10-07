@@ -152,6 +152,7 @@
     font-weight: 500;
     line-height: 1.55;
     overflow-wrap: anywhere;
+    white-space: pre-line;
   }
 
   .context-meta {

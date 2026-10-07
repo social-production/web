@@ -36,7 +36,7 @@
   }
 </script>
 
-<OverlaySheet bind:open hideClose title="Add feedback" labelledById="feedback-compose-sheet" wide>
+<OverlaySheet bind:open title="Add feedback" labelledById="feedback-compose-sheet" wide>
   <form id="feedback-compose-form" class="feedback-form" on:submit|preventDefault={handleSubmit}>
     {#if message}
       <div class="warning-card" role="alert">{message}</div>

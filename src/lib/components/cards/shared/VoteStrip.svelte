@@ -30,6 +30,7 @@
     disabled = false,
     labeled = false,
     docked = false,
+    corner = false,
     canSupport = true,
     canOppose = true,
     onvote,
@@ -46,6 +47,7 @@
     disabled?: boolean;
     labeled?: boolean;
     docked?: boolean;
+    corner?: boolean;
     canSupport?: boolean;
     canOppose?: boolean;
     onvote?: VoteHandler;
@@ -232,6 +234,7 @@
     class="vote-strip signal-strip"
     class:disabled
     class:labeled
+    class:corner
     data-participation-action="signal"
     title={signalTooltip}
   >
@@ -262,7 +265,7 @@
     </button>
   </div>
 {:else}
-  <div class="vote-strip" class:docked>
+  <div class="vote-strip" class:docked class:corner>
     <button
       aria-label="Vote up"
       class:active-up={localActiveVote === 1}
@@ -306,8 +309,10 @@
   }
 
   .vote-strip:hover {
-    border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand-soft) 78%, var(--panel-strong));
+    border-color: var(--panel-border);
+    background: var(--panel-strong);
+    filter: none;
+    transform: none;
   }
 
   .vote-button {
@@ -325,8 +330,19 @@
   }
 
   .vote-button:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--brand-soft) 88%, transparent);
+    background: var(--brand-soft);
     color: var(--brand-strong);
+    filter: none;
+    transform: none;
+  }
+
+  .vote-button:last-of-type:hover:not(:disabled),
+  .vote-button.active-down:hover:not(:disabled),
+  .vote-button.active-oppose:hover:not(:disabled) {
+    background: color-mix(in srgb, #ef4444 20%, var(--panel));
+    color: #ef4444;
+    filter: none;
+    transform: none;
   }
 
   .vote-button:disabled {
@@ -465,6 +481,13 @@
     color: var(--text-main);
   }
 
+  .signal-strip.labeled .vote-button:last-of-type:hover:not(:disabled),
+  .signal-strip.labeled .vote-button.active-oppose:hover:not(:disabled) {
+    border-color: #ef4444;
+    background: color-mix(in srgb, #ef4444 18%, var(--panel-strong));
+    color: #ef4444;
+  }
+
   .signal-label,
   .signal-count {
     font-size: 12px;
@@ -485,22 +508,107 @@
     color: #ef4444;
   }
 
+  .vote-strip.corner,
+  .vote-strip.corner:hover {
+    display: grid;
+    grid-template-columns: 52px 40px 52px;
+    align-items: stretch;
+    gap: 0;
+    width: 144px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    transition: none;
+  }
+
+  .vote-strip.corner .vote-button,
+  .vote-strip.corner .vote-button:hover:not(:disabled) {
+    width: 52px;
+    height: 40px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1;
+    filter: none;
+    transform: none;
+    box-shadow: none;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .vote-strip.corner .vote-button {
+    background: transparent;
+    color: var(--text-soft);
+  }
+
+  .vote-strip.corner .vote-button:hover:not(:disabled) {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .vote-strip.corner .vote-button:last-of-type:hover:not(:disabled) {
+    background: color-mix(in srgb, #ef4444 20%, var(--panel));
+    color: #ef4444;
+  }
+
+  .vote-strip.corner .vote-button.active-up,
+  .vote-strip.corner .vote-button.active-support {
+    color: #22c55e;
+  }
+
+  .vote-strip.corner .vote-button.active-up:hover:not(:disabled),
+  .vote-strip.corner .vote-button.active-support:hover:not(:disabled) {
+    background: var(--brand-soft);
+    color: #22c55e;
+  }
+
+  .vote-strip.corner .vote-button.active-down,
+  .vote-strip.corner .vote-button.active-oppose {
+    color: #ef4444;
+  }
+
+  .vote-strip.corner .vote-button.active-down:hover:not(:disabled),
+  .vote-strip.corner .vote-button.active-oppose:hover:not(:disabled) {
+    background: color-mix(in srgb, #ef4444 20%, var(--panel));
+    color: #ef4444;
+  }
+
+  .vote-strip.corner .vote-count,
+  .vote-strip.corner .signal-percent {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
   @media (max-width: 760px) {
-    .vote-strip:not(.labeled):not(.docked) {
+    .vote-strip:not(.labeled):not(.docked):not(.corner) {
       gap: 4px;
       min-height: 24px;
       padding: 2px 4px;
       border-color: color-mix(in srgb, var(--panel-border) 88%, transparent);
     }
 
-    .vote-strip:not(.labeled):not(.docked) .vote-button {
+    .vote-strip:not(.labeled):not(.docked):not(.corner) .vote-button {
       width: 20px;
       height: 20px;
       font-size: 10px;
     }
 
-    .vote-count,
-    .signal-percent {
+    .vote-strip:not(.corner) .vote-count,
+    .vote-strip:not(.corner) .signal-percent {
       min-width: 22px;
       font-size: 10px;
     }

@@ -1,9 +1,8 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
+  import FeedCardTop from '$lib/components/cards/shared/FeedCardTop.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
-  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
-  import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
@@ -44,30 +43,19 @@
   tone="public"
   accent={surfaceTypeAccent('event')}
 >
-  <div class="header-row">
-    <div class="chips">
-      <SurfaceTypeLabel kind="event" />
-      <span class="meta-note">· {item.isPrivate ? 'Private' : 'Public'}</span>
-      {#if item.stage}
-        <span class="meta-note">· {item.stage}</span>
-      {/if}
-      <ReportControl
-        hasActiveReport={item.hasActiveReport}
-        isUnderReview={item.isUnderReview}
-        itemLabel="event"
-        moderationState={item.moderationState}
-        ownerUsername={item.createdByUsername}
-        report={item.report ?? null}
-        subjectId={item.id}
-        targetId={item.id}
-        targetType="event"
-      />
-    </div>
-
-    <div class="tag-stack">
-      <TagList tags={orderedTags} />
-    </div>
-  </div>
+  <FeedCardTop stage={item.stage ?? ''} tags={orderedTags}>
+    <ReportControl
+      hasActiveReport={item.hasActiveReport}
+      isUnderReview={item.isUnderReview}
+      itemLabel="event"
+      moderationState={item.moderationState}
+      ownerUsername={item.createdByUsername}
+      report={item.report ?? null}
+      subjectId={item.id}
+      targetId={item.id}
+      targetType="event"
+    />
+  </FeedCardTop>
 
   <a class="title" data-sveltekit-preload-data="hover" href={item.href}>{item.title}</a>
   <p class="body">{item.description}</p>
@@ -79,8 +67,8 @@
   {/if}
 
   <div class="footer">
-    <div class="engagement-row">
-      <VoteStrip
+    <div class="engagement-row feed-corner-actions">
+      <VoteStrip corner
         mode="signals"
         syncKey={item.id}
         supportCount={item.supportCount}
@@ -106,37 +94,12 @@
 </FeedSurface>
 
 <style>
-  .header-row,
   .footer {
     display: flex;
     gap: 0.75rem;
     align-items: center;
-  }
-
-  .header-row {
     flex-wrap: nowrap;
     justify-content: space-between;
-    min-width: 0;
-  }
-
-  .footer {
-    flex-wrap: nowrap;
-    justify-content: space-between;
-  }
-
-  .chips {
-    display: flex;
-    gap: 0.45rem;
-    flex-wrap: nowrap;
-    align-items: center;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .meta-note {
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 600;
   }
 
   .title {
@@ -175,13 +138,6 @@
     -webkit-line-clamp: 2;
     color: var(--text-main);
     opacity: 0.84;
-  }
-
-  .tag-stack {
-    margin-left: auto;
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: 48%;
   }
 
   .footer {

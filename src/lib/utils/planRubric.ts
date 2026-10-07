@@ -425,8 +425,17 @@ export function getCriterionContext(
     blocks.push({ label: 'Plan title', value: plan.title });
     blocks.push({ label: 'Plan description', value: plan.description });
     const note = valueNoteForPlan(plan, valueId);
-    if (note) {
-      blocks.push({ label: 'Author note on this value', value: note });
+    const firstIdWithNote = Object.entries(plan.valueConsiderationNotes ?? {}).find(
+      ([, value]) => (value ?? '').trim() === note
+    )?.[0];
+    if (note && firstIdWithNote === valueId) {
+      const shared =
+        Object.values(plan.valueConsiderationNotes ?? {}).filter((value) => (value ?? '').trim() === note)
+          .length > 1;
+      blocks.push({
+        label: shared ? 'Shared values note' : 'Author note on this value',
+        value: note
+      });
     }
     return { headline, blocks };
   }

@@ -19,20 +19,12 @@ export const load = (async ({ depends, parent, url }) => {
   depends(PUBLIC_FEED_DEPENDS);
 
   try {
-    const urlHasPrefs =
-      url.searchParams.has('sort') ||
-      url.searchParams.has('filter') ||
-      url.searchParams.has('scope') ||
-      url.searchParams.has('window');
     const cachedSettings = browser ? readCachedSettings() : null;
-    const saved = cachedSettings?.publicFeedPreferences;
-    const parentData =
-      urlHasPrefs || saved
-        ? null
-        : await parent();
+    const parentData = cachedSettings?.publicFeedPreferences ? null : await parent();
+    const saved = cachedSettings?.publicFeedPreferences ?? parentData?.settings?.publicFeedPreferences;
     const resolved = resolveFeedCorePreferences({
       params: url.searchParams,
-      saved: saved ?? parentData?.settings?.publicFeedPreferences,
+      saved,
       defaults: { scope: 'global', filter: 'all', sort: 'trending', window: 'all' },
       normalizeScope: normalizePublicScope,
       normalizeFilter: normalizeFeedFilter
@@ -42,7 +34,8 @@ export const load = (async ({ depends, parent, url }) => {
       window: resolved.window,
       filter: resolved.filter,
       limit: DEFAULT_FEED_PAGE_SIZE,
-      offset: 0
+      offset: 0,
+      tz: cachedSettings?.displayTimezone ?? parentData?.settings?.displayTimezone ?? null
     } as const;
     const lat = Number(url.searchParams.get('lat'));
     const lon = Number(url.searchParams.get('lon'));

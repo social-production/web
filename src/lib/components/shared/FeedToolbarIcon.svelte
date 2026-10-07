@@ -20,6 +20,7 @@
     | 'compress'
     | 'clock-slash'
     | 'user'
+    | 'layers'
     | 'bell'
     | 'message'
     | 'send'
@@ -167,6 +168,30 @@
     <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8" />
     <path d="M12 7.5V12l3 2.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" />
     <path d="M5 5l14 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" />
+  {:else if name === 'layers'}
+    <path
+      d="M12 3.5 3.5 8 12 12.5 20.5 8 12 3.5Z"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M3.5 12 12 16.5 20.5 12"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M3.5 16 12 20.5 20.5 16"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
   {:else if name === 'user'}
     <circle cx="12" cy="9" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8" />
     <path

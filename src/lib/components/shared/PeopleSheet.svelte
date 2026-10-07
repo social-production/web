@@ -306,9 +306,8 @@
   }
 
   .person-copy strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    white-space: normal;
     font-size: 14px;
   }
 

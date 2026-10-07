@@ -1,5 +1,6 @@
 <script lang="ts">
   import { participationPhaseLabel } from '$lib/features/projects/detail/activityHistoryPresentation';
+  import { fitText } from '$lib/utils/fitText';
 
   type DetailPhaseStep = {
     id: string;
@@ -30,7 +31,7 @@
       title={`${step.title} · ${step.progressLabel}`}
       on:click={() => onSelect(step.id)}
     >
-      <span class="label">{participationPhaseLabel(step.title)}</span>
+      <span class="label" use:fitText={{ min: 9, text: step.title }}>{participationPhaseLabel(step.title)}</span>
     </button>
   {/each}
 </nav>
@@ -74,9 +75,17 @@
 
   .label {
     min-width: 0;
+    max-width: 100%;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-align: center;
+    line-height: 1.15;
+    font-size: 12px;
+  }
+
+  @media (max-width: 760px) {
+    .label {
+      font-size: 11px;
+    }
   }
 
   .segment.complete {

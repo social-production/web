@@ -1,6 +1,7 @@
 <script lang="ts">
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
+  import PlatformMark from '$lib/components/shared/PlatformMark.svelte';
   import type { DetailMember, ShareTargetResult } from '$lib/types/detail';
 
   export let buttonLabel = 'Share +';
@@ -130,12 +131,13 @@
 <div class="share-shell">
   <button
     aria-expanded={open}
+    aria-label={menuTitle || buttonLabel}
     class:active-toggle={open}
     class="share-button"
     type="button"
     on:click={() => (open ? handleClose() : (open = true))}
   >
-    {buttonLabel}
+    <PlatformMark size={32} />
   </button>
 
   <OverlaySheet {open} labelledById="share-sheet-title" title={menuTitle} on:close={handleClose}>
@@ -191,61 +193,51 @@
       <p class="feedback">{feedback}</p>
     {/if}
 
-    <div class="share-actions">
-      <button class="primary-button" disabled={selected.length === 0 || pending} type="button" on:click={handleSubmit}>
-        {pending ? 'Sending...' : selected.length > 1 ? `Share with ${selected.length}` : submitLabel}
-      </button>
-      {#if createPost}
-        <button class="text-action" type="button" on:click={() => void createPost?.()}>
-          {createPostLabel}
+    <svelte:fragment slot="footer">
+      <div class="sheet-actions">
+        {#if copyLinkUrl}
+          <button class="sheet-cancel" type="button" on:click={() => void handleCopyLink()}>
+            {copyLabel}
+          </button>
+        {/if}
+        {#if createPost}
+          <button class="sheet-cancel" type="button" on:click={() => void createPost?.()}>
+            {createPostLabel}
+          </button>
+        {/if}
+        <button class="sheet-submit" disabled={selected.length === 0 || pending} type="button" on:click={handleSubmit}>
+          {pending ? 'Sending...' : selected.length > 1 ? `Share with ${selected.length}` : submitLabel}
         </button>
-      {/if}
-      {#if copyLinkUrl}
-        <button class="text-action" type="button" on:click={() => void handleCopyLink()}>
-          {copyLabel}
-        </button>
-      {/if}
-    </div>
+      </div>
+    </svelte:fragment>
   </OverlaySheet>
 </div>
 
 <style>
   .share-shell {
-    display: inline-flex;
-  }
-
-  .share-button,
-  .primary-button {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-    font: inherit;
-    cursor: pointer;
+    display: flex;
+    min-width: 0;
   }
 
   .share-button {
-    border: 1px solid var(--panel-border);
-    background: var(--panel-strong);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     color: var(--text-main);
+    cursor: pointer;
   }
 
   .share-button:hover,
   .share-button.active-toggle {
-    border-color: var(--brand);
     background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .primary-button {
-    border: 1px solid transparent;
-    background: var(--brand);
-    color: var(--on-brand);
-  }
-
-  .primary-button:disabled {
-    opacity: 0.6;
-    cursor: default;
+    color: var(--text-main);
   }
 
   .share-search {
@@ -338,26 +330,6 @@
     padding: 16px;
     color: var(--text-soft);
     font-size: 13px;
-  }
-
-  .share-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px 16px;
-    align-items: center;
-    padding: 12px 16px 4px;
-  }
-
-  .text-action {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    cursor: pointer;
   }
 
   .sr-only {

@@ -95,6 +95,7 @@ export interface PersonalFeedQuery {
   filter?: 'all' | 'projects' | 'threads' | 'events' | 'help_requests' | string;
   limit?: number;
   offset?: number;
+  tz?: string | null;
 }
 
 export interface PublicFeedQuery {
@@ -103,6 +104,7 @@ export interface PublicFeedQuery {
   filter?: 'all' | 'projects' | 'threads' | 'events' | 'help_requests' | string;
   limit?: number;
   offset?: number;
+  tz?: string | null;
 }
 
 export interface RegionFeedQuery extends PublicFeedQuery {
@@ -659,7 +661,8 @@ export async function fetchPersonalFeedPage(
       filter: paged.filter,
       scope: paged.scope,
       limit: paged.limit,
-      offset: paged.offset
+      offset: paged.offset,
+      tz: paged.tz
     })}`
   );
   return mapFeedPage(res, mapPersonalItem) as FeedPageResult<PersonalFeedItem>;

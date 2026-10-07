@@ -30,6 +30,18 @@ export function createPost(input: CreatePostInput) {
   return currentAdapter.createPost(input);
 }
 
+export function sharePostWithUser(postId: string, username: string) {
+  return currentAdapter.sharePostWithUser(postId, username);
+}
+
+export function shareThreadWithUser(threadSlug: string, username: string) {
+  return currentAdapter.shareThreadWithUser(threadSlug, username);
+}
+
+export function shareHelpRequestWithUser(helpRequestId: string, username: string) {
+  return currentAdapter.shareHelpRequestWithUser(helpRequestId, username);
+}
+
 export function createChannel(input: CreateChannelInput) {
   return currentAdapter.createChannel(input);
 }

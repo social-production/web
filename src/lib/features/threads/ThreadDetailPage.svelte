@@ -45,9 +45,9 @@
   .page :global(.surface.has-accent) {
     flex: 1 0 auto;
     border-left: 0;
-    padding-left: 22px;
+    padding-left: 16px;
     background:
-      linear-gradient(var(--row-accent), var(--row-accent)) left center / 10px 100% no-repeat,
+      linear-gradient(var(--row-accent), var(--row-accent)) left center / 4px 100% no-repeat,
       var(--panel);
   }
 

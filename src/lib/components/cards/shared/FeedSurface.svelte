@@ -65,6 +65,7 @@
 
 <style>
   .surface {
+    --surface-pad-x: 16px;
     position: relative;
     min-width: 0;
     max-width: 100%;
@@ -82,6 +83,7 @@
   }
 
   .surface.has-accent {
+    --surface-pad-x: 10px;
     border-left: 6px solid var(--row-accent, var(--type-accent-neutral));
     padding-left: 10px;
   }
@@ -163,6 +165,16 @@
     color: var(--text-main);
   }
 
+  @media (max-width: 760px) {
+    .content :global(.title),
+    .content :global(a.title),
+    .content :global(.subject-title) {
+      font-size: clamp(14px, 4.2vw, 16px);
+      overflow-wrap: break-word;
+      word-break: normal;
+    }
+  }
+
   .content :global(.surface-type-label) {
     font-size: 11px;
     font-weight: 700;
@@ -182,6 +194,7 @@
     color: color-mix(in srgb, var(--text-main) 78%, var(--text-soft));
     font-size: 13px;
     font-weight: 500;
+    white-space: pre-line;
     line-height: 1.45;
   }
 
@@ -242,6 +255,129 @@
     max-width: 100%;
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  .content :global(.footer-meta) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+  }
+
+  .content :global(.footer:has(.feed-corner-actions)) {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 8px;
+    margin-left: calc(-1 * var(--surface-pad-x));
+    margin-bottom: -20px;
+    padding-right: 0;
+    min-width: 0;
+  }
+
+  .content :global(.footer:has(.feed-corner-actions) .footer-meta) {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 0 0 8px;
+    overflow: hidden;
+  }
+
+  .content :global(.footer:has(.feed-corner-actions) .content-meta-row) {
+    flex-wrap: nowrap;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .content :global(.footer:has(.feed-corner-actions) .content-meta-row .inline-link) {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .content :global(.footer:has(.feed-corner-actions) .content-meta-row .meta-chip) {
+    flex: 0 0 auto;
+  }
+
+  .content :global(.feed-corner-actions) {
+    display: flex;
+    flex: 0 0 196px;
+    align-items: stretch;
+    gap: 0;
+    width: 196px;
+    min-width: 196px;
+    max-width: 196px;
+    height: 40px;
+    min-height: 40px;
+    overflow: hidden;
+    border-top: 1px solid var(--panel-border);
+    border-right: 1px solid var(--panel-border);
+    background: var(--panel-strong);
+  }
+
+  .content :global(.feed-corner-actions .vote-strip) {
+    flex: 0 0 144px;
+  }
+
+  .content :global(.feed-corner-actions .comment-link),
+  .content :global(.feed-corner-actions .comment-link:hover),
+  .content :global(.feed-corner-actions .comment-link:focus-visible) {
+    display: flex;
+    flex: 0 0 52px;
+    align-items: stretch;
+    width: 52px;
+    min-width: 52px;
+    max-width: 52px;
+    overflow: hidden;
+    border-left: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    text-decoration: none;
+    filter: none;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .content :global(.feed-corner-actions .pill),
+  .content :global(.feed-corner-actions .pill:hover) {
+    width: 52px;
+    min-width: 52px;
+    max-width: 52px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0 4px;
+    gap: 2px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-soft);
+    filter: none;
+    transform: none;
+    box-shadow: none;
+    transition: background-color 0.16s ease, color 0.16s ease;
+  }
+
+  .content :global(.feed-corner-actions .comment-link:hover .pill),
+  .content :global(.feed-corner-actions .comment-link:focus-visible .pill),
+  .content :global(.feed-corner-actions .pill:hover) {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .content :global(.feed-corner-actions .pill-count) {
+    min-width: 0;
+    max-width: 28px;
+    overflow: hidden;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
   }
 
   .content :global(a),

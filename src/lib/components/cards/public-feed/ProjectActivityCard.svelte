@@ -1,6 +1,5 @@
 <script lang="ts">
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
-  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import type { PublicProjectActivityItem } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { formatMarkerScheduleRange } from '$lib/utils/time';
@@ -14,9 +13,6 @@
 </script>
 
 <FeedSurface href={item.href} tone="public" {accent}>
-  <div class="header-row">
-    <SurfaceTypeLabel kind="project" projectMode={item.projectMode} />
-  </div>
   {#if item.parentTitle}
     <p class="parent-title">{item.parentTitle}</p>
   {/if}
@@ -33,10 +29,6 @@
 </FeedSurface>
 
 <style>
-  .header-row {
-    margin-bottom: 6px;
-  }
-
   .parent-title {
     margin: 0 0 4px;
     color: var(--text-soft);

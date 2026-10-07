@@ -9,6 +9,7 @@
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
   import PeopleSheet from '$lib/components/shared/PeopleSheet.svelte';
+  import PhotoViewer from '$lib/components/shared/PhotoViewer.svelte';
   import ComposeMessageSheet from '$lib/components/shared/ComposeMessageSheet.svelte';
   import { DEFAULT_FEED_PAGE_SIZE, appendUniqueById } from '$lib/types/pagination';
   import { getFollowRequests } from '$lib/services/queries/account';
@@ -348,6 +349,7 @@
   }
 
   $: displayBio = data.bio ? data.bio.trim() : '';
+  let profilePhotoOpen = false;
 </script>
 
 <section class="page">
@@ -355,10 +357,24 @@
     <div class="hero-topline">
       <div class="hero-main">
         <div class="hero-identity">
-          <AvatarBadge size="md" username={data.username} imageUrl={data.profileImageUrl ?? null} />
+          {#if data.profileImageUrl}
+            <button
+              class="avatar-open"
+              type="button"
+              aria-label={`View ${data.username} profile photo`}
+              on:click={() => (profilePhotoOpen = true)}
+            >
+              <AvatarBadge size="md" username={data.username} imageUrl={data.profileImageUrl} />
+            </button>
+          {:else}
+            <AvatarBadge size="md" username={data.username} imageUrl={null} />
+          {/if}
           <div class="hero-copy">
-            <div class="name-row">
-              <h1>{data.username}</h1>
+            <h1>{data.username}</h1>
+            {#if displayBio}
+              <p class="profile-bio">{displayBio}</p>
+            {/if}
+            <div class="profile-actions">
               <div class="stats-row">
             {#if data.isOwnProfile}
               <MembershipSplitButton
@@ -406,14 +422,8 @@
               </button>
             {/if}
               </div>
-            </div>
-            {#if displayBio || data.trust}
-              <div class="bio-row">
-                {#if displayBio}
-                  <p class="profile-bio">{displayBio}</p>
-                {/if}
-                {#if data.trust}
-                  <div class="trust-corner">
+              {#if data.trust}
+                <div class="trust-corner">
           <div
             class="trust-split"
             class:rating-only={data.isOwnProfile}
@@ -482,10 +492,9 @@
               </button>
             {/if}
           </div>
-        </div>
-                {/if}
-              </div>
-            {/if}
+                </div>
+              {/if}
+            </div>
           </div>
         </div>
       </div>
@@ -557,18 +566,32 @@
         {
           title: 'Vouchers',
           emptyCopy: 'No vouches yet.',
-          members: data.trust.vouchers.map((username) => ({ id: username, username })),
+          members: data.trust.vouchers.map((person) => ({
+            id: person.username,
+            username: person.username,
+            profileImageUrl: person.profileImageUrl,
+          })),
         },
         {
           title: 'Bot marks',
           emptyCopy: 'No bot marks yet.',
-          members: data.trust.botMarkers.map((username) => ({ id: username, username })),
+          members: data.trust.botMarkers.map((person) => ({
+            id: person.username,
+            username: person.username,
+            profileImageUrl: person.profileImageUrl,
+          })),
         },
       ]}
       title="Trust"
       on:close={() => (trustOpen = false)}
     />
   {/if}
+
+  <PhotoViewer
+    url={profilePhotoOpen ? data.profileImageUrl ?? null : null}
+    alt={`${data.username} profile photo`}
+    on:close={() => (profilePhotoOpen = false)}
+  />
 
   <ComposeMessageSheet
     bind:open={composeOpen}
@@ -740,6 +763,13 @@
     flex: 1 1 0;
   }
 
+  .avatar-open {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
+  }
+
   .hero-copy {
     display: grid;
     gap: 8px;
@@ -757,30 +787,17 @@
     font-size: 22px;
     font-weight: 800;
     letter-spacing: -0.02em;
-    line-height: 36px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
-  .name-row {
+  .profile-actions {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    min-width: 0;
-  }
-
-  .name-row h1 {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .bio-row {
-    display: flex;
-    align-items: flex-end;
-    flex-wrap: nowrap;
-    gap: 12px;
+    gap: 8px;
+    flex-wrap: wrap;
     width: 100%;
     min-width: 0;
   }
@@ -788,7 +805,6 @@
   .trust-corner {
     display: flex;
     justify-content: flex-end;
-    align-self: flex-end;
     flex: 0 0 auto;
     margin-left: auto;
   }
@@ -876,11 +892,13 @@
     display: flex;
     gap: 6px;
     align-items: center;
-    flex-wrap: nowrap;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    min-width: 0;
   }
 
   .profile-bio {
-    flex: 1 1 auto;
     min-width: 0;
     margin: 0;
     padding-left: 10px;

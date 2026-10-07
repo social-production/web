@@ -71,7 +71,10 @@ export const APP_ADAPTER_CONTRACT_METHODS = [
   'getComments',
   'addComment',
   'submitReport',
-  'setReportVote'
+  'setReportVote',
+  'sharePostWithUser',
+  'shareThreadWithUser',
+  'shareHelpRequestWithUser'
 ] as const satisfies ReadonlyArray<keyof AppAdapter>;
 
 export const SESSION_TRANSPORT_METHODS = [

@@ -41,9 +41,11 @@
   }
 
   .pill:hover {
-    border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand-soft) 78%, var(--panel-strong));
+    border-color: transparent;
+    background: var(--brand-soft);
     color: var(--brand-strong);
+    filter: none;
+    transform: none;
   }
 
   .pill-text {

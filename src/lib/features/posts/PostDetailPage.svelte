@@ -13,7 +13,12 @@
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import GuestBrowseLine from '$lib/components/shared/GuestBrowseLine.svelte';
+  import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
+  import { sharePostWithUser } from '$lib/services/commands/create';
+  import { getMessageContacts } from '$lib/services/queries/inbox';
   import { setVote } from '$lib/services/commands/shared';
+  import type { DetailMember } from '$lib/types/detail';
+  import { buildShareUrl } from '$lib/utils/sharePrefill';
   import type { PostPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
   import { applyVoteTarget } from '$lib/utils/feedSignals';
@@ -48,6 +53,24 @@
     lastVoteSyncKey = data.id;
     localActiveVote = data.activeVote;
     localVoteCount = data.voteCount;
+  }
+
+  async function searchShareContacts(query: string): Promise<DetailMember[]> {
+    try {
+      const results = await getMessageContacts(query, 8);
+      return results.map((contact) => ({
+        id: contact.id,
+        username: contact.username,
+        bio: contact.bio ?? '',
+        profileImageUrl: contact.profileImageUrl ?? null
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  function handlePostShare(username: string) {
+    return sharePostWithUser(data.id, username);
   }
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
@@ -96,6 +119,14 @@
         <IconMenuButton bind:value={sortMode} ariaLabel="Sort comments" defaultValue="oldest" options={sortOptions}>
           <FeedToolbarIcon name="sort" />
         </IconMenuButton>
+        {#if $page.data.bootstrap?.viewer}
+          <ShareUserMenu
+            copyLinkUrl={buildShareUrl(`/posts/${data.id}`)}
+            menuTitle="Share post"
+            searchContacts={searchShareContacts}
+            submitShare={handlePostShare}
+          />
+        {/if}
       </div>
       <ContentMetaRow timeOnly createdAt={data.createdAt} />
     </div>
@@ -118,9 +149,9 @@
   .page :global(.surface.has-accent) {
     flex: 1 0 auto;
     border-left: 0;
-    padding-left: 22px;
+    padding-left: 16px;
     background:
-      linear-gradient(var(--row-accent), var(--row-accent)) left center / 10px 100% no-repeat,
+      linear-gradient(var(--row-accent), var(--row-accent)) left center / 4px 100% no-repeat,
       var(--panel);
   }
 

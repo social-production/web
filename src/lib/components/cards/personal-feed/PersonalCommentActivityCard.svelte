@@ -2,7 +2,6 @@
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
-  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import { castFeedVote } from '$lib/services/commands/shared';
   import type { PersonalCommentActivityItem, VoteDirection } from '$lib/types/feed';
@@ -36,10 +35,6 @@
 
 <FeedSurface href={item.href} tone="personal" accent={surfaceTypeAccent(item.subjectKind)}>
   <div class="card-header">
-    <div class="context-row">
-      <span class="action">commented on</span>
-      <SurfaceTypeLabel kind={item.subjectKind} />
-    </div>
     <div class="header-row">
       <div class="identity-row">
         <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
@@ -52,8 +47,8 @@
   <p class="comment-excerpt">{item.commentExcerpt}</p>
 
   <div class="footer">
-    <div class="engagement-row">
-      <VoteStrip activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
+    <div class="engagement-row feed-corner-actions">
+      <VoteStrip corner activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
       <a class="comment-link" href={commentHref}>
         <CountPill label={replyLabel} />
       </a>
@@ -71,7 +66,6 @@
     min-width: 0;
   }
 
-  .context-row,
   .header-row,
   .identity-row,
   .footer,
@@ -79,11 +73,6 @@
     display: flex;
     align-items: center;
     min-width: 0;
-  }
-
-  .context-row {
-    gap: 6px;
-    color: var(--text-soft);
   }
 
   .header-row,
@@ -114,7 +103,6 @@
     word-break: break-word;
   }
 
-  .action,
   .comment-excerpt {
     color: var(--text-soft);
     font-size: 12px;

@@ -8,6 +8,8 @@
   import {
     acceptFollowRequest,
     rejectFollowRequest,
+    changePassword,
+    deactivateAccount,
     signOut,
     updateSettings
   } from '$lib/services/commands/account';
@@ -17,7 +19,8 @@
     NotificationCategory,
     PreferredLanguage,
     SettingsPageData,
-    SettingsUpdateInput
+    SettingsUpdateInput,
+    TextSize
   } from '$lib/types/account';
   import {
     DEFAULT_NOTIFICATION_CATEGORIES,
@@ -476,6 +479,54 @@
     }
   }
 
+  let currentPassword = '';
+  let newPassword = '';
+  let confirmPassword = '';
+  let passwordMessage = '';
+  let passwordError = '';
+  let deactivatePassword = '';
+  let deactivateError = '';
+
+  async function handlePasswordChange() {
+    passwordMessage = '';
+    passwordError = '';
+    if (newPassword !== confirmPassword) {
+      passwordError = 'New password and confirmation do not match.';
+      return;
+    }
+    pendingKey = 'password';
+    try {
+      await changePassword(currentPassword, newPassword);
+      currentPassword = '';
+      newPassword = '';
+      confirmPassword = '';
+      passwordMessage = 'Password updated.';
+    } catch (err) {
+      passwordError = extractErrorMessage(err, 'Could not change password.');
+    } finally {
+      pendingKey = '';
+    }
+  }
+
+  async function handleDeactivate() {
+    deactivateError = '';
+    pendingKey = 'deactivate';
+    try {
+      await deactivateAccount(deactivatePassword);
+      await signOut();
+      await invalidateAll();
+      await goto('/onboarding');
+    } catch (err) {
+      deactivateError = extractErrorMessage(err, 'Could not deactivate this account.');
+      pendingKey = '';
+    }
+  }
+
+  function handleTextSizeChange(event: Event) {
+    const value = (event.currentTarget as HTMLSelectElement).value as TextSize;
+    void applySettings('text-size', { textSize: value });
+  }
+
   async function handleSignOut() {
     pendingKey = 'sign-out';
 
@@ -500,6 +551,7 @@
       <a class="nav-item" href="#settings-follow-requests">Follow requests</a>
     {/if}
     <a class="nav-item" href="#settings-privacy">Privacy</a>
+    <a class="nav-item" href="#settings-account">Account</a>
   </nav>
 
 <section class="settings-page">
@@ -512,16 +564,29 @@
     <h2>{m.settings_profile_heading()}</h2>
     <div class="card">
       <div class="profile-row">
-        <button
-          class="avatar-picker"
-          type="button"
-          aria-label="Change profile photo"
-          disabled={pendingKey === 'profile-image'}
-          on:click={() => photoInput?.click()}
-        >
-          <AvatarBadge size="md" username={data.profileUsername} imageUrl={displayedProfileImageUrl || null} />
-          <span class="avatar-hint">Change</span>
-        </button>
+        <div class="avatar-wrap">
+          <button
+            class="avatar-picker"
+            type="button"
+            aria-label="Change profile photo"
+            disabled={pendingKey === 'profile-image'}
+            on:click={() => photoInput?.click()}
+          >
+            <AvatarBadge size="md" username={data.profileUsername} imageUrl={displayedProfileImageUrl || null} />
+            <span class="avatar-hint">Change</span>
+          </button>
+          {#if displayedProfileImageUrl}
+            <button
+              class="avatar-remove"
+              type="button"
+              aria-label="Remove photo"
+              disabled={pendingKey === 'profile-image'}
+              on:click={clearProfileImage}
+            >
+              ×
+            </button>
+          {/if}
+        </div>
         <input
           bind:this={photoInput}
           accept="image/jpeg,image/png,image/webp"
@@ -551,9 +616,6 @@
       {/if}
 
       <div class="actions">
-        <button class="button-secondary" disabled={pendingKey === 'profile-image'} type="button" on:click={clearProfileImage}>
-          {m.settings_remove_photo()}
-        </button>
         <button class="button-primary" disabled={pendingKey === 'bio'} type="button" on:click={() => void saveBio()}>{m.settings_save_bio()}</button>
         <button class="button-danger" disabled={pendingKey === 'sign-out'} type="button" on:click={handleSignOut}>
           {pendingKey === 'sign-out' ? m.settings_signing_out() : m.settings_sign_out()}
@@ -585,6 +647,43 @@
             {/each}
           </select>
         </label>
+      </div>
+      <div class="setting-item">
+        <div>
+          <strong>Type size</strong>
+          <p>Medium is the usual size. Small and Large change body text across the app.</p>
+        </div>
+        <label class="language-field">
+          <span class="sr-only">Type size</span>
+          <select
+            class="language-select"
+            disabled={pendingKey === 'text-size'}
+            value={data.textSize}
+            on:change={handleTextSizeChange}
+          >
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </label>
+      </div>
+      <div class="setting-item">
+        <div>
+          <strong>One Home feed</strong>
+          <p>Mix public and personal items on Home, and show one Home tab instead of Public and Personal.</p>
+        </div>
+        <button
+          aria-checked={data.combineFeeds}
+          class="switch"
+          class:on={data.combineFeeds}
+          disabled={pendingKey === 'combine-feeds'}
+          role="switch"
+          type="button"
+          on:click={() => applySettings('combine-feeds', { combineFeeds: !data.combineFeeds })}
+        >
+          <span class="switch-thumb"></span>
+          <span class="sr-only">{data.combineFeeds ? 'On' : 'Off'}</span>
+        </button>
       </div>
       <div class="setting-item">
         <div>
@@ -805,6 +904,55 @@
       </div>
     </div>
   </section>
+
+  <section class="settings-section" id="settings-account">
+    <h2>Account</h2>
+    <div class="card stack flush">
+      <form class="setting-item account-form" on:submit|preventDefault={handlePasswordChange}>
+        <div>
+          <strong>Change password</strong>
+          <p>Use your current password, then choose a new one.</p>
+        </div>
+        <label>
+          Current password
+          <input type="password" autocomplete="current-password" bind:value={currentPassword} />
+        </label>
+        <label>
+          New password
+          <input type="password" autocomplete="new-password" minlength="8" bind:value={newPassword} />
+        </label>
+        <label>
+          Confirm new password
+          <input type="password" autocomplete="new-password" minlength="8" bind:value={confirmPassword} />
+        </label>
+        {#if passwordError}
+          <p class="profile-image-error">{passwordError}</p>
+        {:else if passwordMessage}
+          <p class="bio-saved">{passwordMessage}</p>
+        {/if}
+        <button class="button-primary" disabled={pendingKey === 'password'} type="submit">
+          {pendingKey === 'password' ? 'Saving…' : 'Update password'}
+        </button>
+      </form>
+
+      <form class="setting-item account-form" on:submit|preventDefault={handleDeactivate}>
+        <div>
+          <strong>Deactivate account</strong>
+          <p>You will be signed out and cannot sign in again. Posts, threads, and vouches stay under this username.</p>
+        </div>
+        <label>
+          Password
+          <input type="password" autocomplete="current-password" bind:value={deactivatePassword} />
+        </label>
+        {#if deactivateError}
+          <p class="profile-image-error">{deactivateError}</p>
+        {/if}
+        <button class="button-danger" disabled={pendingKey === 'deactivate' || !deactivatePassword} type="submit">
+          {pendingKey === 'deactivate' ? 'Deactivating…' : 'Deactivate account'}
+        </button>
+      </form>
+    </div>
+  </section>
 </section>
 </section>
 
@@ -927,6 +1075,13 @@
     margin-bottom: 14px;
   }
 
+  .avatar-wrap {
+    position: relative;
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+  }
+
   .avatar-picker {
     position: relative;
     display: inline-flex;
@@ -935,6 +1090,31 @@
     background: transparent;
     cursor: pointer;
     border-radius: 999px;
+  }
+
+  .avatar-remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: var(--danger, #c0392b);
+    color: white;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .avatar-remove:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .avatar-picker:hover,
@@ -1039,6 +1219,33 @@
     justify-content: space-between;
     align-items: center;
     gap: 16px;
+  }
+
+  .account-form {
+    display: grid;
+    justify-content: stretch;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .account-form label {
+    display: grid;
+    gap: 6px;
+    color: var(--text-soft);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .account-form input {
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--text-main);
+    font: inherit;
   }
 
   .setting-item p {
@@ -1202,7 +1409,6 @@
     }
 
     .actions .button-primary,
-    .actions .button-secondary,
     .actions .button-danger {
       flex: 1 1 0;
       min-width: 0;

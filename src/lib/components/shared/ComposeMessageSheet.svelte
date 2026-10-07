@@ -227,7 +227,7 @@
   }
 </script>
 
-<OverlaySheet bind:open hideClose {labelledById} title="New message" on:close={handleClose}>
+<OverlaySheet bind:open {labelledById} title="New message" on:close={handleClose}>
   <div class="compose-form">
     <div class="composer-mode-row" role="tablist" aria-label="Message type">
       <button

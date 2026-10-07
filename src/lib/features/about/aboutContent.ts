@@ -304,6 +304,7 @@ export const aboutJoin = {
     'Votes and moderation both use derived quorums from weekly actives, not unanimous turnout.'
   ],
   links: [
+    { label: 'GitHub', href: 'https://github.com/social-production' },
     { label: 'Discord', href: 'https://discord.gg/VvbJ3hhEPb' },
     { label: 'Reddit', href: 'https://www.reddit.com/r/SocialProduction/' }
   ]

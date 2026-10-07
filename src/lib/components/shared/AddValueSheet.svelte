@@ -11,7 +11,7 @@
   }
 </script>
 
-<OverlaySheet bind:open hideClose title="Add value" labelledById="add-value-sheet">
+<OverlaySheet bind:open title="Add value" labelledById="add-value-sheet">
   <form id="add-value-form" class="add-value-form" on:submit|preventDefault={handleSubmit}>
     <label class="field">
       <span class="field-label">What should this achieve?</span>

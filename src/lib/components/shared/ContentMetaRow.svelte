@@ -51,10 +51,11 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     min-width: 0;
+    max-width: 100%;
     color: var(--text-soft);
-    white-space: nowrap;
+    white-space: normal;
   }
 
   .content-meta-row.time-only {
@@ -63,8 +64,8 @@
 
   .inline-link {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
+    white-space: normal;
     color: var(--text-main);
     font-weight: 700;
   }
@@ -101,7 +102,7 @@
       max-width: 100%;
       min-width: 0;
       gap: 4px;
-      overflow: hidden;
+      overflow: visible;
       font-size: clamp(8px, 2.6vw, 11px);
     }
 

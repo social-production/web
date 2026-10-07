@@ -287,9 +287,11 @@
 
   .report-trigger:not(.read-only):hover,
   .report-trigger:not(.read-only):focus-visible {
-    background: color-mix(in srgb, var(--panel-border) 42%, transparent);
-    color: var(--text-main);
-    border-color: color-mix(in srgb, var(--panel-border) 70%, transparent);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    border-color: transparent;
+    filter: none;
+    transform: none;
   }
 
   .report-trigger.active-report {

@@ -25,7 +25,9 @@
 
   $: if (browser) {
     const theme = data.settings?.appearanceThemeMode ?? 'light';
+    const textSize = data.settings?.textSize ?? 'medium';
     document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.textSize = textSize;
     document.body.dataset.theme = theme;
     document.body.dataset.shellMode = detectShellMode();
     document.documentElement.lang = data.locale;

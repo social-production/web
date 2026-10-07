@@ -186,11 +186,23 @@ html {
   text-size-adjust: 100%;
 }
 
+html {
+  --body-font-size: 13px;
+}
+
+html[data-text-size='small'] {
+  --body-font-size: 12px;
+}
+
+html[data-text-size='large'] {
+  --body-font-size: 16px;
+}
+
 body {
   overflow-x: clip;
   overflow-y: clip;
   font-family: 'Inter', 'Segoe UI', sans-serif;
-  font-size: 14px;
+  font-size: var(--body-font-size);
   line-height: 1.45;
   -webkit-tap-highlight-color: color-mix(in srgb, var(--brand) 24%, transparent);
 }
@@ -198,6 +210,31 @@ body {
 .shell-compact {
   /* Fallback only — AppShell overrides this to 0 while the nav is collapsed or the keyboard is open. */
   --shell-bottom-nav-offset: var(--shell-bottom-nav-height);
+}
+
+@media (max-width: 1080px) {
+  html.keyboard-open .overlay-root,
+  html.keyboard-open .wizard-backdrop.compact {
+    top: var(--vv-offset, 0px);
+    right: 0;
+    bottom: auto;
+    left: 0;
+    height: var(--shell-visual-viewport-height, 100dvh);
+  }
+
+  html.keyboard-open .overlay-sheet,
+  html.keyboard-open .wizard-shell.compact {
+    position: relative;
+    inset: auto;
+    height: 100%;
+    max-height: 100%;
+  }
+
+  html.keyboard-open .overlay-footer,
+  html.keyboard-open .wizard-footer,
+  html.keyboard-open .detail-action-dock {
+    display: none !important;
+  }
 }
 
 /* Fixed full-height panes and short tab surfaces reserve the nav themselves —
@@ -288,7 +325,9 @@ select {
 }
 
 button:hover:not(:disabled) {
-  filter: brightness(1.05);
+  filter: none;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
 }
 
 a[href]:hover {
@@ -348,6 +387,12 @@ p {
   color: white;
 }
 
+.button-primary:hover:not(:disabled) {
+  background: var(--brand);
+  color: white;
+  filter: none;
+}
+
 .button-primary:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -357,6 +402,13 @@ p {
 .toggle-chip {
   background: var(--panel-strong);
   color: var(--text-main);
+}
+
+.button-secondary:hover:not(:disabled),
+.toggle-chip:hover:not(:disabled) {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  filter: none;
 }
 
 .button-ghost {

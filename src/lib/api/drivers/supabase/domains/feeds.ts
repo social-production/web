@@ -16,6 +16,7 @@ type PublicFeedQuery = {
   limit?: number;
   offset?: number;
   before?: string | null;
+  tz?: string | null;
 };
 
 type RegionFeedQuery = PublicFeedQuery & {

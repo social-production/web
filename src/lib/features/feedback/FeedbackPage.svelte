@@ -303,6 +303,7 @@
       <h1>Feedback</h1>
       <p class="hero-body">
         Track bugs, share suggestions, and vote on what the platform should fix or improve next.
+        The code is on <a href="https://github.com/social-production" rel="noreferrer" target="_blank">GitHub</a>.
       </p>
     </div>
 
@@ -413,6 +414,11 @@
     color: var(--text-soft);
     font-size: 14px;
     line-height: 1.55;
+  }
+
+  .hero-body a {
+    color: var(--brand-strong);
+    font-weight: 700;
   }
 
   .create-button {

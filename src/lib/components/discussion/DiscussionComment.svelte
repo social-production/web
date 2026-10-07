@@ -2,6 +2,7 @@
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import PlatformMark from '$lib/components/shared/PlatformMark.svelte';
   import CommentComposer from '$lib/components/shared/CommentComposer.svelte';
   import ReportComposerModal from '$lib/components/shared/ReportComposerModal.svelte';
   import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
@@ -151,8 +152,17 @@
 
   <div class="actions-row">
     <VoteStrip activeVote={comment.activeVote} count={comment.voteCount} syncKey={comment.id} onvote={handleVote} />
-    <button class="reply-button" type="button" on:click={() => (replyOpen = !replyOpen)}>
-      {replyOpen ? 'Cancel reply' : 'Reply'}
+    <button
+      class="reply-button"
+      type="button"
+      aria-label={replyOpen ? 'Cancel reply' : 'Reply'}
+      on:click={() => (replyOpen = !replyOpen)}
+    >
+      {#if replyOpen}
+        Cancel reply
+      {:else}
+        <PlatformMark size={16} />
+      {/if}
     </button>
     <ReportMenu
       blockedMessage={viewerUsername === comment.authorUsername ? "You can't report yourself" : ''}
@@ -280,13 +290,19 @@
   }
 
   .reply-button {
-    padding: 8px 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px 8px;
+    border: 0;
     border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-main);
     font-size: 12px;
     font-weight: 700;
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-soft);
+    cursor: pointer;
   }
 
   .hidden-toggle {

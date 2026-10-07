@@ -28,6 +28,7 @@
     align-items: center;
     gap: 6px;
     min-width: 0;
+    max-width: 100%;
     color: color-mix(in srgb, var(--text-soft) 78%, transparent);
     font-size: 11px;
     font-weight: 700;
@@ -38,6 +39,14 @@
 
   .label-copy {
     color: inherit;
-    white-space: nowrap;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  @media (max-width: 760px) {
+    .surface-type-label {
+      font-size: 10px;
+      letter-spacing: 0.02em;
+    }
   }
 </style>

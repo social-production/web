@@ -34,14 +34,19 @@ export interface SignUpInput {
 
 export type FollowStatus = 'pending' | 'accepted' | null;
 
+export interface TrustPerson {
+  username: string;
+  profileImageUrl: string | null;
+}
+
 export interface AccountTrust {
   realR: number;
   vouchWeight: number;
   botWeight: number;
   bootstrapFloor: boolean;
   bootstrapFloorValue: number | null;
-  vouchers: string[];
-  botMarkers: string[];
+  vouchers: TrustPerson[];
+  botMarkers: TrustPerson[];
   viewerStance: 'vouch' | 'bot' | null;
   viewerCanVouch: boolean;
   viewerCanMarkBot: boolean;
@@ -67,6 +72,7 @@ export interface ProfilePageData {
 }
 
 export type AppearanceThemeMode = 'dark' | 'light';
+export type TextSize = 'small' | 'medium' | 'large';
 export type PreferredLanguage = 'en' | 'nl';
 export type DefaultFeedMode = 'public' | 'personal';
 export type FeedSortPreference = 'trending' | 'recent';
@@ -145,6 +151,8 @@ export interface SettingsPageData {
   requireFollowApproval: boolean;
   preferredLanguage: PreferredLanguage;
   displayTimezone: string | null;
+  combineFeeds: boolean;
+  textSize: TextSize;
   defaultLocationId: string | null;
   notificationCategories: NotificationCategory[];
 }
@@ -162,6 +170,8 @@ export interface SettingsUpdateInput {
   requireFollowApproval?: boolean;
   preferredLanguage?: PreferredLanguage;
   displayTimezone?: string | null;
+  combineFeeds?: boolean;
+  textSize?: TextSize;
   defaultLocationId?: string | null;
   notificationCategories?: NotificationCategory[];
 }

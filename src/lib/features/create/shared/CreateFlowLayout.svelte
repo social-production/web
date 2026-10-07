@@ -37,21 +37,14 @@
   setContext(CREATE_SHEET_CLOSE, handleClose);
 </script>
 
-<OverlaySheet
-  bind:open
-  {title}
-  hideClose
-  labelledById="create-sheet-title"
-  wide
-  on:close={handleClose}
->
+<OverlaySheet bind:open {title} labelledById="create-sheet-title" wide on:close={handleClose}>
   <svelte:fragment slot="subtitle">
     {#if description}
       <p class="sheet-description">{description}</p>
     {/if}
   </svelte:fragment>
 
-  <div class="sheet-form">
+  <svelte:fragment slot="toolbar">
     {#if $chrome && $chrome.steps.length > 1}
       <nav class="step-rail" aria-label="Create steps">
         {#each $chrome.steps as step, index}
@@ -67,6 +60,9 @@
         {/each}
       </nav>
     {/if}
+  </svelte:fragment>
+
+  <div class="sheet-form">
     <div class="sheet-fields">
       <slot name="primary" />
     </div>
@@ -106,13 +102,9 @@
   }
 
   .step-rail {
-    position: sticky;
-    top: 0;
-    z-index: 1;
     display: flex;
     gap: 0;
     overflow-x: auto;
-    margin: -8px -16px 0;
     padding: 0 8px;
     border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
     background: var(--panel);

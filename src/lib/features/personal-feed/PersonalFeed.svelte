@@ -7,6 +7,7 @@
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
   import { getPersonalFeedPage } from '$lib/services/queries/feeds';
+  import { displayTimezone } from '$lib/stores/timezoneStore';
   import { getSettings } from '$lib/services/queries/account';
   import { updateSettings } from '$lib/services/commands/account';
   import { patchBootstrapCacheSettings, readCachedSettings } from '$lib/services/bootstrapCache';
@@ -21,6 +22,7 @@
   import type { PersonalFeedItem } from '$lib/types/feed';
   import { mergeFeedEngagement } from '$lib/utils/feedSignals';
   import {
+    canMergeLoaderEngagement,
     normalizeFeedWindow,
     resolveFeedCorePreferences,
     resolveLoaderFeedSync,
@@ -157,7 +159,7 @@
   function feedQuerySignature() {
     const apiFilter =
       activeFilter === 'events' || activeFilter === 'help_requests' ? activeFilter : 'all';
-    return `${activeScope}:${activeSort}:${activeWindow}:${apiFilter}:${activeFilter}`;
+    return `${activeScope}:${activeSort}:${activeWindow}:${apiFilter}:${activeFilter}:${$displayTimezone}`;
   }
 
   async function persistPreferences() {
@@ -245,6 +247,7 @@
         filter: apiFilter,
         limit: DEFAULT_FEED_PAGE_SIZE,
         offset: 0,
+        tz: $displayTimezone || null,
       });
       if (requestId === feedItemsRequestId) {
         feedItems = pageResult.items;
@@ -279,6 +282,7 @@
         limit: DEFAULT_FEED_PAGE_SIZE,
         offset: feedCursor ? 0 : feedOffset,
         before: feedCursor,
+        tz: $displayTimezone || null,
       });
       if (requestId !== feedItemsRequestId) {
         return;
@@ -461,7 +465,14 @@
       preferencesReady = true;
       syncFeedQueryToUrl();
       const signature = feedQuerySignature();
-      if (items.length > 0) {
+      const loaderMatches = canMergeLoaderEngagement({
+        surface: 'personal',
+        activeScope,
+        activeSort,
+        activeFilter,
+        activeWindow,
+      });
+      if (items.length > 0 && loaderMatches) {
         feedItems = items;
         feedOffset = items.length;
         feedCursor =
@@ -602,10 +613,11 @@
   .controls-row {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
+    gap: 4px;
     width: 100%;
-    overflow-x: auto;
+    min-width: 0;
+    min-height: 32px;
+    overflow: visible;
     padding-bottom: 2px;
   }
 

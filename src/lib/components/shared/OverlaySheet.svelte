@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { portal } from '$lib/utils/portal';
+  import { fitText } from '$lib/utils/fitText';
 
   export let open = false;
   export let title = '';
@@ -67,7 +68,7 @@
     >
       <header class="overlay-header">
         <div class="overlay-header-copy">
-          <h2 id={labelledById}>
+          <h2 id={labelledById} use:fitText={{ min: 13, text: title }}>
             <slot name="title">{title}</slot>
           </h2>
           <slot name="subtitle" />
@@ -79,7 +80,11 @@
           {/if}
         </div>
       </header>
-      <slot name="toolbar" />
+      {#if $$slots.toolbar}
+        <div class="overlay-toolbar">
+          <slot name="toolbar" />
+        </div>
+      {/if}
       <div class="overlay-body">
         <slot />
       </div>
@@ -251,14 +256,32 @@
     box-shadow: inset -1px 0 0 var(--panel-border);
   }
 
+  :global(.overlay-footer .sheet-actions > .sheet-cancel:hover:not(:disabled)) {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    filter: none;
+  }
+
   :global(.overlay-footer .sheet-actions > .sheet-submit) {
     background: var(--brand);
     color: var(--page-bg);
   }
 
+  :global(.overlay-footer .sheet-actions > .sheet-submit:hover:not(:disabled)) {
+    background: var(--brand);
+    color: var(--page-bg);
+    filter: none;
+  }
+
   :global(.overlay-footer .sheet-actions > .sheet-submit:disabled) {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+
+  .overlay-toolbar:empty {
+    display: block;
+    height: 0;
+    overflow: hidden;
   }
 
   .overlay-sheet.has-toolbar {
@@ -318,19 +341,21 @@
       display: none;
     }
 
+    :global(.overlay-footer:has(.sheet-actions)),
+    :global(.overlay-footer:has(.vote-dock)) {
+      padding-bottom: 0;
+    }
+
     .overlay-footer,
     .overlay-footer:not(.has-actions) {
       display: flex;
     }
 
-    .overlay-footer.has-actions .sheet-close {
-      display: none;
-    }
-
     .sheet-close {
       display: flex;
+      flex: 0 0 auto;
       width: 100%;
-      height: 100%;
+      height: auto;
       min-height: calc(56px + var(--shell-safe-bottom, 0px));
       align-items: center;
       justify-content: center;
@@ -340,6 +365,7 @@
       background: var(--danger);
       color: #fff;
       font-size: 16px;
+      font-weight: 800;
     }
 
     .overlay-sheet,
@@ -363,18 +389,26 @@
     }
 
     .overlay-header h2 {
-      font-size: clamp(28px, 8vw, 36px);
-      line-height: 1.08;
+      font-size: clamp(16px, 4.8vw, 20px);
+      line-height: 1.2;
     }
 
     .overlay-footer.has-actions {
-      flex-direction: row;
+      flex-direction: column;
       gap: 0;
       padding: 0;
+    }
+
+    .overlay-footer.has-actions:not(:has(.sheet-close)) {
       padding-bottom: var(--shell-safe-bottom, 0px);
     }
 
-    .overlay-footer.has-actions :global(button) {
+    .overlay-footer.has-actions :global(.sheet-actions) {
+      display: flex;
+      width: 100%;
+    }
+
+    .overlay-footer.has-actions :global(.sheet-actions > button) {
       flex: 1 1 0;
       min-height: 56px;
       border: 0;
@@ -384,7 +418,7 @@
       font-weight: 800;
     }
 
-    .overlay-footer.has-actions :global(button:last-child) {
+    .overlay-footer.has-actions :global(.sheet-actions > button:last-child) {
       border-right: 0;
     }
   }

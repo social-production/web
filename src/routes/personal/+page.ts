@@ -15,17 +15,12 @@ export const load = (async ({ depends, parent, url }) => {
   depends(PERSONAL_FEED_DEPENDS);
 
   try {
-    const urlHasPrefs =
-      url.searchParams.has('sort') ||
-      url.searchParams.has('filter') ||
-      url.searchParams.has('scope') ||
-      url.searchParams.has('window');
     const cachedSettings = browser ? readCachedSettings() : null;
-    const saved = cachedSettings?.personalFeedPreferences;
-    const parentData = urlHasPrefs || saved ? null : await parent();
+    const parentData = cachedSettings?.personalFeedPreferences ? null : await parent();
+    const saved = cachedSettings?.personalFeedPreferences ?? parentData?.settings?.personalFeedPreferences;
     const resolved = resolveFeedCorePreferences({
       params: url.searchParams,
-      saved: saved ?? parentData?.settings?.personalFeedPreferences,
+      saved,
       defaults: { scope: 'popular', filter: 'all', sort: 'trending', window: 'all' },
       normalizeScope: normalizePersonalScope,
       normalizeFilter: (value) => {
@@ -47,7 +42,8 @@ export const load = (async ({ depends, parent, url }) => {
       window: resolved.window,
       filter: resolved.filter as 'all' | 'activity' | 'posts' | 'events' | 'help_requests',
       limit: DEFAULT_FEED_PAGE_SIZE,
-      offset: 0
+      offset: 0,
+      tz: cachedSettings?.displayTimezone ?? parentData?.settings?.displayTimezone ?? null
     });
     return {
       items: page.items,

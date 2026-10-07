@@ -140,14 +140,13 @@
 
   :global(.overlay-footer:has(.vote-dock)) {
     padding: 0;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .vote-dock {
     display: flex;
     width: 100%;
-    height: 100%;
-    min-height: 44px;
+    height: auto;
+    min-height: 56px;
   }
 
   .vote-dock :global(.signal-strip.docked) {

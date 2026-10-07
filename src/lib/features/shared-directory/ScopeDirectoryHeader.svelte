@@ -282,16 +282,16 @@
     line-height: 1.6;
     overflow-wrap: anywhere;
     word-break: break-word;
+    white-space: pre-line;
   }
 
   @media (max-width: 760px) {
     h1 {
+      font-size: clamp(15px, 4.2vw, 18px);
       white-space: normal;
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-      line-clamp: 2;
-      overflow: hidden;
+      overflow: visible;
+      text-overflow: unset;
+      overflow-wrap: break-word;
     }
 
     .action-row {

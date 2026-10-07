@@ -1,9 +1,8 @@
 <script lang="ts">
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
+  import FeedCardTop from '$lib/components/cards/shared/FeedCardTop.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
-  import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
-  import TagList from '$lib/components/cards/shared/TagList.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import { castFeedVote } from '$lib/services/commands/shared';
@@ -33,6 +32,13 @@
   }
 
   const orderedTags = $derived([...(item.channelTags ?? []), ...(item.communityTags ?? [])]);
+  const stage = $derived.by(() => {
+    if (item.subjectKind !== 'project' && item.subjectKind !== 'event') {
+      return '';
+    }
+    const value = item.meta.trim();
+    return value && !/\d{1,2}:\d{2}/.test(value) ? value : '';
+  });
   const commentHref = $derived(buildCommentHref(item.href, item.subjectKind));
   const usesSignals = $derived(item.subjectKind === 'project' || item.subjectKind === 'event');
   const subjectSlug = $derived(
@@ -70,24 +76,19 @@
   accent={surfaceTypeAccent(item.subjectKind, item.subjectProjectMode ?? 'productive')}
 >
   <div class="card-header">
-    <div class="context-row">
-      <div class="chips">
-        <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.subjectProjectMode ?? 'productive'} />
-        <ReportControl
-          hasActiveReport={item.hasActiveReport}
-          interactive={false}
-          isUnderReview={item.isUnderReview}
-          itemLabel={item.subjectKind}
-          moderationState={item.moderationState}
-          report={item.report ?? null}
-        />
-      </div>
-      {#if orderedTags.length > 0}
-        <div class="tag-stack">
-          <TagList tags={orderedTags} />
-        </div>
-      {/if}
-    </div>
+    <FeedCardTop {stage} tags={orderedTags}>
+      <ReportControl
+        hasActiveReport={item.hasActiveReport}
+        isUnderReview={item.isUnderReview}
+        itemLabel={item.subjectKind}
+        moderationState={item.moderationState}
+        ownerUsername={item.author.username}
+        report={item.report ?? null}
+        subjectId={item.subjectId}
+        targetId={item.subjectId}
+        targetType={toVoteTargetType(item.subjectKind)}
+      />
+    </FeedCardTop>
     <div class="header-row">
       <div class="identity-row">
         <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
@@ -113,9 +114,9 @@
   {/if}
 
   <div class="footer">
-    <div class="engagement-row">
+    <div class="engagement-row feed-corner-actions">
       {#if usesSignals}
-        <VoteStrip
+        <VoteStrip corner
           mode="signals"
           syncKey={item.id}
           supportCount={item.supportCount}
@@ -126,7 +127,7 @@
           onsignal={handleSignal}
         />
       {:else}
-        <VoteStrip activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
+        <VoteStrip corner activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
       {/if}
       <a class="comment-link" href={commentHref}>
         <CountPill label={`${item.commentCount} comments`} />
@@ -145,31 +146,11 @@
     min-width: 0;
   }
 
-  .context-row,
   .header-row,
   .identity-row,
   .engagement-row {
     display: flex;
     align-items: center;
-    min-width: 0;
-  }
-
-  .context-row {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-    flex-wrap: nowrap;
-    justify-content: space-between;
-    min-width: 0;
-    color: var(--text-soft);
-  }
-
-  .chips {
-    display: flex;
-    gap: 0.45rem;
-    flex-wrap: nowrap;
-    align-items: center;
-    flex: 1 1 auto;
     min-width: 0;
   }
 
@@ -197,13 +178,6 @@
     min-width: 0;
   }
 
-  .tag-stack {
-    margin-left: auto;
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: 48%;
-  }
-
   .name,
   .body {
     margin: 0;
@@ -224,8 +198,6 @@
 
   .title {
     display: inline-block;
-    margin-top: 10px;
-    font-size: 16px;
     font-weight: 800;
   }
 

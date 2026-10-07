@@ -40,7 +40,13 @@
     font-weight: 800;
     letter-spacing: -0.03em;
     line-height: 1.2;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+  }
+
+  @media (max-width: 760px) {
+    h2 {
+      font-size: clamp(16px, 4.6vw, 20px);
+    }
   }
 
   .summary {

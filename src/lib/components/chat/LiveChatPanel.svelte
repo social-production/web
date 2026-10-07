@@ -13,7 +13,7 @@
   import { moderatedPlaceholder, shouldHideModeratedBody } from '$lib/utils/moderation';
   import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
   import { scrollCenteredInContainer } from '$lib/utils/comment-scroll';
-  import { portal } from '$lib/utils/portal';
+  import PhotoViewer from '$lib/components/shared/PhotoViewer.svelte';
   import type { MessageAttachment } from '$lib/types/inbox';
   import { compressChatPhoto, rejectOutgoingAttachment } from '$lib/features/messages/attachmentLimits';
   import { onMount, tick } from 'svelte';
@@ -320,20 +320,12 @@
   function openPhotoViewer(url: string, filename: string, event: MouseEvent) {
     viewerReturnFocus = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     viewerPhoto = { url, filename };
-    tick().then(() => document.getElementById('photo-viewer-close')?.focus());
   }
 
   function closePhotoViewer() {
     viewerPhoto = null;
     viewerReturnFocus?.focus();
     viewerReturnFocus = null;
-  }
-
-  function handleViewerKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape' && viewerPhoto) {
-      event.preventDefault();
-      closePhotoViewer();
-    }
   }
 
   function centerMessageInChatLog(messageId: string) {
@@ -621,7 +613,7 @@
   });
 </script>
 
-<svelte:window on:keydown={handleViewerKeydown} on:resize={syncPanelHeight} />
+<svelte:window on:resize={syncPanelHeight} />
 
 <section
   bind:this={panelElement}
@@ -810,22 +802,11 @@
     </div>
   </div>
 
-  {#if viewerPhoto}
-    <div class="photo-viewer" role="presentation" use:portal={'body'}>
-      <button class="photo-viewer-scrim" type="button" aria-label="Close photo" on:click={closePhotoViewer}></button>
-      <div
-        aria-label={viewerPhoto.filename}
-        aria-modal="true"
-        class="photo-viewer-frame"
-        role="dialog"
-      >
-        <img alt={viewerPhoto.filename} src={viewerPhoto.url} />
-        <button id="photo-viewer-close" class="photo-viewer-close" type="button" on:click={closePhotoViewer}>
-          Close
-        </button>
-      </div>
-    </div>
-  {/if}
+  <PhotoViewer
+    url={viewerPhoto?.url ?? null}
+    alt={viewerPhoto?.filename ?? 'Photo'}
+    on:close={closePhotoViewer}
+  />
 
   <ReportComposerModal
     bind:description={reportDetails}
@@ -1147,79 +1128,6 @@
     margin-top: 4px;
     border-top: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
     border-radius: 12px;
-  }
-
-  .photo-viewer {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-sheet-elevated);
-    display: grid;
-    place-items: center;
-    width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-  }
-
-  .photo-viewer-scrim {
-    position: absolute;
-    inset: 0;
-    border: 0;
-    background: color-mix(in srgb, #000 78%, transparent);
-    cursor: zoom-out;
-  }
-
-  .photo-viewer-frame {
-    position: relative;
-    z-index: 1;
-    box-sizing: border-box;
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
-    justify-items: center;
-    align-items: center;
-    width: 100%;
-    height: 100%;
-    max-height: 100%;
-    min-height: 0;
-    overflow: hidden;
-    padding: 28px 24px calc(20px + var(--shell-bottom-nav-offset, 0px) + var(--shell-safe-bottom, 0px));
-    pointer-events: none;
-  }
-
-  .photo-viewer-frame img {
-    width: auto;
-    height: auto;
-    min-width: 0;
-    min-height: 0;
-    max-width: calc(100vw - 48px);
-    max-height: calc(100dvh - 128px - var(--shell-bottom-nav-offset, 0px) - var(--shell-safe-bottom, 0px));
-    object-fit: contain;
-    pointer-events: auto;
-  }
-
-  .photo-viewer-close {
-    justify-self: end;
-    margin-top: 16px;
-    min-height: var(--shell-touch-min, 44px);
-    padding: 0 16px;
-    border: 0;
-    border-radius: 999px;
-    background: var(--panel);
-    color: var(--text-main);
-    font-weight: 800;
-    pointer-events: auto;
-    cursor: pointer;
-  }
-
-  @media (min-width: 1081px) {
-    .photo-viewer-frame {
-      padding: 56px 72px 40px;
-    }
-
-    .photo-viewer-frame img {
-      max-width: calc(100vw - 144px);
-      max-height: calc(100dvh - 176px);
-    }
   }
 
   .file-row {
