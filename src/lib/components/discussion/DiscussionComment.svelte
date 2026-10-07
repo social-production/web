@@ -30,6 +30,7 @@
   let reportDescription = '';
   let revealHiddenBody = false;
   let cardElement: HTMLElement;
+  let commentSelfElement: HTMLElement;
   let hasAutoScrolled = false;
   let lastHighlightedCommentId: string | null = null;
 
@@ -58,7 +59,7 @@
   }
   $: if (browser && isHighlighted && !hasAutoScrolled) {
     hasAutoScrolled = true;
-    void scrollCommentIntoView(() => cardElement);
+    void scrollCommentIntoView(() => commentSelfElement ?? cardElement);
   }
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
@@ -125,10 +126,10 @@
   id={`comment-${comment.id}`}
   bind:this={cardElement}
   class:embedded={embedded}
-  class:highlighted={isHighlighted}
   class:reply-open={replyOpen}
   class="comment-card"
 >
+  <div bind:this={commentSelfElement} class:highlighted={isHighlighted} class="comment-self">
   <div class="topline">
     <a class="author-link" href={`/profile/${comment.authorUsername}`}>{comment.authorUsername}</a>
     <span>{formatRelativeTime(comment.createdAt)}</span>
@@ -214,6 +215,7 @@
     on:close={closeReportComposer}
     on:submit={submitCommentReport}
   />
+  </div>
 
   {#if comment.replies.length > 0}
     <div class="reply-stack">
@@ -246,22 +248,28 @@
     border-radius: 0;
     background: var(--panel);
     min-width: 0;
+  }
+
+  .comment-self {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
     scroll-margin-top: calc(var(--topbar-height, 84px) + 8px);
     scroll-margin-bottom: calc(var(--shell-bottom-nav-offset, 0px) + 16px);
-    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+    transition: background 140ms ease, box-shadow 140ms ease;
   }
 
   .comment-card.embedded {
     background: transparent;
   }
 
-  .comment-card.embedded.highlighted {
-    background: color-mix(in srgb, var(--brand-soft) 30%, transparent);
-  }
-
-  .comment-card.highlighted {
+  .comment-self.highlighted {
     background: color-mix(in srgb, var(--brand-soft) 30%, var(--panel));
     box-shadow: inset -2px 0 0 var(--brand);
+  }
+
+  .comment-card.embedded .comment-self.highlighted {
+    background: color-mix(in srgb, var(--brand-soft) 45%, transparent);
   }
 
   .topline,

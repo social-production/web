@@ -70,6 +70,7 @@
   let mapPanel: { refreshMap: () => Promise<void> } | null = null;
   let feedChromeHidden = false;
   let lastFeedScrollY = 0;
+  let chromeLockUntil = 0;
   let keyboardOpen = false;
   let textFieldFocused = false;
   let activityRailLoaded = activityRailItems.length > 0 || activityRailHistoryItems.length > 0;
@@ -100,22 +101,14 @@
   $: if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded) {
     feedChromeHidden = false;
   }
-  // Reserve bottom space only while the nav is visible. When it slides away,
-  // drop the inset so short pages and scroll-reveal don't leave a dead band.
+  // Keep these sizes steady while the bars slide away. Zeroing them mid-scroll
+  // changes the page height and the next scroll event yanks the bars back.
   $: shellBottomNavOffset =
-    isCompact &&
-    !isAuthSurface &&
-    !keyboardOpen &&
-    !immersiveChat &&
-    !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
+    isCompact && !isAuthSurface && !keyboardOpen && !immersiveChat
       ? 'var(--shell-bottom-nav-height)'
       : '0px';
   $: shellDockSafeBottom = shellBottomNavOffset === '0px' ? 'var(--shell-safe-bottom)' : '0px';
-  $: shellTopbarHeight = immersiveChat
-    ? 0
-    : mapSurfaceActive || !(feedChromeActive && feedChromeHidden)
-      ? topbarHeight
-      : 0;
+  $: shellTopbarHeight = immersiveChat ? 0 : topbarHeight;
   $: topbarCollapsed =
     immersiveChat ||
     (feedChromeActive && feedChromeHidden && !mapSurfaceActive) ||
@@ -200,12 +193,15 @@
 
     const y = feedScrollY();
     const delta = y - lastFeedScrollY;
+    const now = performance.now();
     if (y < 24) {
       feedChromeHidden = false;
-    } else if (delta > 16) {
+    } else if (now >= chromeLockUntil && delta > 28) {
       feedChromeHidden = true;
-    } else if (delta < -16) {
+      chromeLockUntil = now + 360;
+    } else if (now >= chromeLockUntil && delta < -28) {
       feedChromeHidden = false;
+      chromeLockUntil = now + 360;
     }
     lastFeedScrollY = y;
   }
@@ -1105,15 +1101,12 @@
     border-bottom: 1px solid var(--panel-border);
     background: var(--toolbar-background);
     overflow: visible;
-    transition:
-      transform 0.22s ease,
-      margin-top 0.22s ease;
-    will-change: transform, margin-top;
+    transition: transform 0.22s ease;
+    will-change: transform;
   }
 
   .topbar.chrome-collapsed {
     transform: translateY(-100%);
-    margin-top: calc(-1 * var(--topbar-natural-height, var(--topbar-height, 53px)));
     pointer-events: none;
     visibility: hidden;
   }

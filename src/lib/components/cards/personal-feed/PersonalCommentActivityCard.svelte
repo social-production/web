@@ -1,9 +1,12 @@
 <script lang="ts">
+  import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
+  import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import { castFeedVote } from '$lib/services/commands/shared';
   import type { PersonalCommentActivityItem, VoteDirection } from '$lib/types/feed';
+  import { displayUsername } from '$lib/utils/displayUsername';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
 
@@ -32,7 +35,32 @@
   }
 </script>
 
-<FeedSurface href={item.href} tone="personal" accent={surfaceTypeAccent(item.subjectKind)}>
+<FeedSurface
+  contentRestricted={item.moderationState === 'hidden'}
+  href={item.href}
+  tone="personal"
+  accent={surfaceTypeAccent(item.subjectKind)}
+>
+  <div class="card-header">
+    <div class="header-row">
+      <div class="identity-row">
+        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
+        <a class="name header-name" href={`/profile/${item.author.username}`} title={item.author.username}>{displayUsername(item.author.username)}</a>
+      </div>
+      <ReportControl
+        hasActiveReport={item.hasActiveReport}
+        isUnderReview={item.isUnderReview}
+        itemLabel="comment"
+        moderationState={item.moderationState}
+        ownerUsername={item.author.username}
+        report={item.report ?? null}
+        subjectId={item.id}
+        targetId={item.id}
+        targetType="comment"
+      />
+    </div>
+  </div>
+
   <p class="comment-excerpt">{item.commentExcerpt}</p>
 
   <div class="footer">
@@ -49,6 +77,13 @@
 </FeedSurface>
 
 <style>
+  .card-header {
+    display: grid;
+    min-width: 0;
+  }
+
+  .header-row,
+  .identity-row,
   .footer,
   .engagement-row {
     display: flex;
@@ -56,10 +91,25 @@
     min-width: 0;
   }
 
+  .header-row,
   .footer {
     gap: 8px;
     justify-content: space-between;
     flex-wrap: nowrap;
+  }
+
+  .identity-row {
+    gap: 0.6rem;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .header-name {
+    overflow: hidden;
+    color: var(--text-main);
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .comment-excerpt {

@@ -343,7 +343,7 @@ export type PersonalFeedItem =
   | PersonalHelpRequestItem
   | PersonalCommentActivityItem;
 
-export interface PersonalCommentActivityItem {
+export interface PersonalCommentActivityItem extends FeedModerationFields {
   kind: 'comment-activity';
   id: string;
   href: string;
