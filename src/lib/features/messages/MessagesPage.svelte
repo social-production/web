@@ -1736,12 +1736,21 @@
       menu.kind === 'linked' ? linkedChats.find((item) => item.id === menu.id) : null}
     {@const menuPinned = Boolean(menuConversation?.pinned || menuLinked?.pinned)}
     {@const menuMuted = Boolean(menuConversation?.muted || menuLinked?.muted)}
+    {@const menuPartner =
+      menuConversation?.kind === 'direct'
+        ? (menuConversation.participants.find((person) => person.id !== data.viewer.id) ??
+          menuConversation.participants[0] ??
+          null)
+        : null}
     <div
       class="chat-row-menu"
       role="menu"
       style="left: {chatMenu.x}px; top: {chatMenu.y}px"
       use:portal={'body'}
     >
+      {#if menuPartner}
+        <a role="menuitem" href={`/profile/${menuPartner.username}`} on:click={closeChatMenu}>View profile</a>
+      {/if}
       <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ pinned: !menuPinned })}>
         {menuPinned ? 'Unpin' : 'Pin'}
       </button>
@@ -2142,16 +2151,19 @@
     box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
   }
 
+  .chat-row-menu a,
   .chat-row-menu button {
     border: 0;
     background: transparent;
     color: inherit;
     text-align: left;
+    text-decoration: none;
     padding: 8px 10px;
     border-radius: 8px;
     cursor: pointer;
   }
 
+  .chat-row-menu a:hover,
   .chat-row-menu button:hover {
     background: color-mix(in srgb, var(--accent, #3d6b4f) 12%, transparent);
   }

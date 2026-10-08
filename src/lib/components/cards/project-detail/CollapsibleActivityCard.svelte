@@ -73,6 +73,18 @@
     return [placeLabel(), datePartLabel(), clockLabel()].filter(Boolean).join(' · ');
   }
 
+  function sameText(left: string, right: string) {
+    return left.trim().toLowerCase() === right.trim().toLowerCase();
+  }
+
+  function roleCapacity(role: ProjectActivityRole) {
+    const span =
+      role.maximumCount != null && role.maximumCount !== role.requiredCount
+        ? `${role.requiredCount}–${role.maximumCount}`
+        : `${role.requiredCount}`;
+    return `${role.filledCount} of ${span}`;
+  }
+
   function placeLabel() {
     if (activity.isOnline) {
       return activity.locationLabel && activity.locationLabel !== 'Online'
@@ -138,6 +150,11 @@
       : activity.committedCount >= activity.minimumParticipants
         ? 'met'
         : 'partial';
+  $: noteText = activity.note.trim();
+  $: showNote = Boolean(noteText) && !sameText(noteText, activity.title);
+  $: authorIsSignedUp = activity.roles.some((role) =>
+    roleAssignees(role).some((person) => person.username === activity.authorUsername)
+  );
   $: hasOpenRolesForViewer =
     !readOnly &&
     !activity.rolesLocked &&
@@ -190,102 +207,29 @@
   </button>
 
   <OverlaySheet activity bind:open={sheetOpen} elevated title={activity.title}>
+    <svelte:fragment slot="subtitle">
+      {#if factLine()}
+        <p class="sheet-subtitle">{factLine()}</p>
+      {/if}
+      {#if !authorIsSignedUp}
+        <a class="sheet-author" href={`/profile/${activity.authorUsername}`}>{activity.authorUsername}</a>
+      {/if}
+    </svelte:fragment>
     {#if sheetOpen}
       <div class="activity-body">
-        {#if factLine()}
-          <p class="live-fact">{factLine()}</p>
+        {#if showNote}
+          <p class="activity-note">{noteText}</p>
         {/if}
-        {#if historyMode}
-          <section class="history-activity-record">
-            <h4 class="history-activity-record-heading">Activity record</h4>
-            <div class="history-activity-record-body">
-              {#if activity.note}
-                <p class="history-record-note">{activity.note}</p>
-              {/if}
-              <div class="history-record-meta">
-                {#if activity.linkedPlanPhaseLabel}
-                  <span>Stage: {activity.linkedPlanPhaseLabel}</span>
-                {/if}
-                {#if activity.isOnline}
-                  <span class="online-badge">Online</span>
-                  {#if activity.locationLabel && activity.locationLabel !== 'Online'}
-                    <span>{activity.locationLabel}</span>
-                  {/if}
-                {:else if activity.locationLabel}
-                  <span>{activity.locationLabel}</span>
-                {/if}
-                <span>Minimum {activity.minimumParticipants} needed</span>
-                {#if activity.maximumParticipants && activity.maximumParticipants > activity.minimumParticipants}
-                  <span>Up to {activity.maximumParticipants} total</span>
-                {/if}
-                <span>{activity.committedCount}/{activity.minimumParticipants} committed</span>
-              </div>
-              <div class="role-list">
-                {#each activity.roles as role}
-                  <div class="role-row">
-                    <div class="role-row-head">
-                      <strong>{role.label}</strong>
-                      <span>{role.filledCount} joined</span>
-                    </div>
-                    <p class="role-limits">
-                      Minimum {role.requiredCount}
-                      {#if role.maximumCount != null}
-                        · Maximum {role.maximumCount}
-                      {/if}
-                    </p>
-                    {#if roleAssignees(role).length > 0}
-                      <div class="assignee-list">
-                        {#each roleAssignees(role) as assignee (assignee.username)}
-                          <a class="assignee-row" href={`/profile/${assignee.username}`}>
-                            <AvatarBadge
-                              size="sm"
-                              username={assignee.username}
-                              imageUrl={assignee.profileImageUrl ?? null}
-                            />
-                            <span>{assignee.username}</span>
-                          </a>
-                        {/each}
-                      </div>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
-            </div>
-          </section>
-          <slot />
-          <div class="expanded-footer">
-            <span>Created by</span>
-            <a class="creator-link creator-tag" href={`/profile/${activity.authorUsername}`}>{activity.authorUsername}</a>
-          </div>
-        {:else}
-          <div class="sheet-status">
-            <span class={`phase-badge ${resolvedBadgeClass}`}>{resolvedBadgeLabel}</span>
-            <span>{activity.committedCount}/{activity.minimumParticipants} committed</span>
-          </div>
-          {#if activity.note}
-            <p class="activity-note">{activity.note}</p>
-          {/if}
-          <p class="activity-meta">
-            Minimum {activity.minimumParticipants} needed
-            {#if activity.maximumParticipants && activity.maximumParticipants > activity.minimumParticipants}
-              · Up to {activity.maximumParticipants}
-            {/if}
-            {#if activity.linkedPlanPhaseLabel}
-              · {activity.linkedPlanPhaseLabel}
-            {/if}
-          </p>
-          <div class="role-list">
-            {#each activity.roles as role}
-              <div class="role-bar">
-                <div class="role-copy">
+        {#if activity.linkedPlanPhaseLabel}
+          <p class="activity-stage">{activity.linkedPlanPhaseLabel}</p>
+        {/if}
+        <div class="role-list">
+          {#each activity.roles as role}
+            <div class="role-bar">
+              <div class="role-copy">
+                {#if !sameText(role.label, activity.title)}
                   <strong>{role.label}</strong>
-                  <span>
-                    {role.filledCount} joined
-                    · Minimum {role.requiredCount}
-                    {#if role.maximumCount != null}
-                      · Maximum {role.maximumCount}
-                    {/if}
-                  </span>
+                {/if}
                 {#if roleAssignees(role).length > 0}
                   <div class="assignee-list">
                     {#each roleAssignees(role) as assignee (assignee.username)}
@@ -300,14 +244,15 @@
                     {/each}
                   </div>
                 {/if}
-                {#if role.suggestedUser}
-                  <span class="suggested-chip">suggested: @{role.suggestedUser.username}</span>
+                <span>{roleCapacity(role)}</span>
+                {#if !historyMode && role.suggestedUser}
+                  <span class="suggested-chip">Suggested · {role.suggestedUser.username}</span>
                   {#if role.isViewerSuggested && role.id}
                     <button class="text-button" type="button" on:click={() => onDeclineRoleSuggestion(activity.id, role.id ?? '')}>
                       Decline
                     </button>
                   {/if}
-                {:else if viewerCanSuggest && role.id && !role.isViewerAssigned}
+                {:else if !historyMode && viewerCanSuggest && role.id && !role.isViewerAssigned}
                   <button class="text-button" type="button" on:click={() => (suggestRoleId = role.id ?? null)}>
                     Suggest someone
                   </button>
@@ -330,39 +275,34 @@
                           suggestResults = [];
                         }}
                       >
-                        @{person.username}
+                        {person.username}
                       </button>
                     {/each}
                   {/if}
                 {/if}
-                </div>
-                {#if !readOnly && activity.rolesLocked}
-                  <span class="roles-locked-copy">Locked</span>
-                {:else if !readOnly}
-                  <button
-                    class:selected={activity.viewerAssignedRoleLabel === role.label}
-                    class="signup"
-                    data-participation-action={!role.isViewerAssigned && roleHasOpenCapacity(role) ? 'take-role' : undefined}
-                    disabled={!role.isViewerAssigned && !roleHasOpenCapacity(role)}
-                    type="button"
-                    on:click={() =>
-                      changecommitment(
-                        activity.id,
-                        activity.viewerAssignedRoleLabel === role.label ? null : role.label
-                      )}
-                  >
-                    {commitmentButtonLabel(role)}
-                  </button>
-                {/if}
               </div>
-            {/each}
-          </div>
-          <slot />
-          <div class="expanded-footer">
-            <span>Created by</span>
-            <a class="creator-link creator-tag" href={`/profile/${activity.authorUsername}`}>{activity.authorUsername}</a>
-          </div>
-        {/if}
+              {#if !historyMode && !readOnly && activity.rolesLocked}
+                <span class="roles-locked-copy">Locked</span>
+              {:else if !historyMode && !readOnly}
+                <button
+                  class:selected={activity.viewerAssignedRoleLabel === role.label}
+                  class="signup"
+                  data-participation-action={!role.isViewerAssigned && roleHasOpenCapacity(role) ? 'take-role' : undefined}
+                  disabled={!role.isViewerAssigned && !roleHasOpenCapacity(role)}
+                  type="button"
+                  on:click={() =>
+                    changecommitment(
+                      activity.id,
+                      activity.viewerAssignedRoleLabel === role.label ? null : role.label
+                    )}
+                >
+                  {commitmentButtonLabel(role)}
+                </button>
+              {/if}
+            </div>
+          {/each}
+        </div>
+        <slot />
       </div>
     {/if}
   </OverlaySheet>
@@ -466,15 +406,24 @@
     font-weight: 700;
   }
 
-  .creator-link {
+  .sheet-subtitle,
+  .sheet-author,
+  .activity-stage {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .sheet-author {
+    color: var(--text-main);
+    font-weight: 700;
     text-decoration: none;
   }
 
-  .sheet-status {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+  .activity-stage {
+    font-weight: 700;
   }
 
   .activity-note {
@@ -496,56 +445,6 @@
     line-height: 1.5;
   }
 
-  .history-mode .activity-body > p,
-  .history-mode .role-row strong,
-  .history-mode .role-row span {
-    color: var(--text-soft);
-    font-size: 12px;
-  }
-
-  .history-activity-record {
-    display: grid;
-    gap: 8px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
-  }
-
-  .history-activity-record-heading {
-    margin: 0;
-    color: var(--brand-strong);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .history-activity-record-body {
-    display: grid;
-    gap: 10px;
-    color: var(--text-soft);
-    font-size: 12px;
-  }
-
-  .history-record-note {
-    margin: 0;
-    line-height: 1.45;
-    color: var(--text-main);
-    font-size: 13px;
-  }
-
-  .history-activity-record-body p {
-    margin: 0;
-    line-height: 1.45;
-  }
-
-  .history-record-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    font-size: 12px;
-  }
-
   .role-list {
     display: grid;
     gap: 8px;
@@ -555,13 +454,6 @@
     gap: 0;
     margin: 0 -20px;
     border-top: 1px solid var(--panel-border);
-  }
-
-  .activity-meta {
-    margin: 0;
-    color: var(--text-soft);
-    font-size: 13px;
-    line-height: 1.4;
   }
 
   .role-bar {
@@ -634,49 +526,10 @@
     cursor: not-allowed;
   }
 
-  .role-row {
-    display: grid;
-    gap: 8px;
-    padding: 14px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-  }
-
-  .role-row-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .role-row-head strong {
-    color: var(--text-main);
-    font-size: 14px;
-  }
-
-  .role-row-head span,
-  .role-limits {
-    margin: 0;
-    color: var(--text-soft);
-    font-size: 12px;
-  }
-
   .assignee-list {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-  }
-
-  .expanded-footer {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 4px;
-    padding-top: 12px;
-    color: var(--text-soft);
-    font-size: 13px;
   }
 
   .assignee-row {
@@ -697,7 +550,8 @@
   }
 
   .suggested-chip {
-    display: inline-flex;
+    justify-self: start;
+    width: fit-content;
     padding: 4px 8px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--brand-soft) 70%, var(--panel));
@@ -724,16 +578,6 @@
     border-radius: 999px;
     background: var(--panel);
     color: var(--text-soft);
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .online-badge {
-    padding: 4px 8px;
-    border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--panel-border));
-    background: color-mix(in srgb, var(--brand-soft) 70%, var(--panel));
-    color: var(--brand-strong);
     font-size: 11px;
     font-weight: 700;
   }

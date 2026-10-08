@@ -880,6 +880,11 @@
       style="left: {messageMenu.x}px; top: {messageMenu.y}px"
       use:portal={'body'}
     >
+      {#if menuMessage.authorUsername}
+        <a role="menuitem" href={`/profile/${menuMessage.authorUsername}`} on:click={closeMessageMenu}
+          >View profile</a
+        >
+      {/if}
       {#if conversationActions && onSubmitMessage}
         <button type="button" role="menuitem" on:click={() => beginReply(menuMessage)}>Reply</button>
       {/if}
@@ -1153,16 +1158,19 @@
     box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
   }
 
+  .bubble-menu a,
   .bubble-menu button {
     border: 0;
     background: transparent;
     color: inherit;
     text-align: left;
+    text-decoration: none;
     padding: 8px 10px;
     border-radius: 8px;
     cursor: pointer;
   }
 
+  .bubble-menu a:hover,
   .bubble-menu button:hover {
     background: color-mix(in srgb, var(--accent, #3d6b4f) 12%, transparent);
   }
