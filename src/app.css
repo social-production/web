@@ -83,6 +83,8 @@
   --shell-touch-min: 44px;
   --shell-bottom-nav-base: 56px;
   --shell-bottom-nav-height: calc(var(--shell-bottom-nav-base) + var(--shell-safe-bottom));
+  /* How far the tab icons sit above the screen edge. iOS overrides this. */
+  --shell-nav-button-lift: 0px;
   --shell-bottom-nav-offset: 0px;
   /* 0 while the bottom nav is on screen (it already includes the inset). The real inset when the nav is hidden. */
   --shell-dock-safe-bottom: 0px;
@@ -100,10 +102,15 @@
   --chat-bubble-own-border: color-mix(in srgb, var(--brand) 52%, var(--panel-border));
 }
 
-/* -webkit-touch-callout is iOS only, so Firefox and Android stay at 0. */
+/*
+  -webkit-touch-callout is iOS only, so Firefox and Android stay at 0.
+  The bar still fills the home-indicator band. The icons only rise a little
+  into it, instead of sitting on top of the whole inset.
+*/
 @supports (-webkit-touch-callout: none) {
   :root {
     --shell-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --shell-nav-button-lift: min(16px, env(safe-area-inset-bottom, 0px));
   }
 }
 

@@ -193,6 +193,7 @@
     overflow: hidden;
     touch-action: none;
     cursor: grab;
+    pointer-events: none;
   }
 
   img {
@@ -206,13 +207,15 @@
     touch-action: none;
     user-select: none;
     -webkit-user-drag: none;
+    pointer-events: auto;
   }
 
   .close {
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: calc(12px + var(--shell-safe-top, 0px));
+    right: calc(12px + var(--shell-safe-right, 0px));
     z-index: 2;
+    pointer-events: auto;
     width: 44px;
     height: 44px;
     border: 0;

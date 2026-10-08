@@ -83,8 +83,9 @@
 
 <style>
   /*
-    Tabs run to the screen edge so the home-indicator inset is part of each
-    tab, not an empty strip under them.
+    The bar still paints through the home-indicator band. Icons sit at the
+    bottom of that band, lifted only --shell-nav-button-lift, so the strip
+    under them is not an empty gap.
   */
   .mobile-bottom-nav {
     position: fixed;
@@ -97,13 +98,13 @@
     box-sizing: border-box;
     display: grid;
     grid-template-columns: repeat(var(--bottom-nav-slots, 5), minmax(0, 1fr));
-    align-content: start;
+    align-content: end;
     gap: 2px;
     height: var(--shell-bottom-nav-height);
     min-height: var(--shell-bottom-nav-height);
     max-height: var(--shell-bottom-nav-height);
     margin: 0;
-    padding: 0 var(--shell-safe-right) var(--shell-safe-bottom) var(--shell-safe-left);
+    padding: 0 var(--shell-safe-right) var(--shell-nav-button-lift, 0px) var(--shell-safe-left);
     border: none;
     border-top: 1px solid var(--panel-border);
     background: var(--toolbar-background);
