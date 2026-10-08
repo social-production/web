@@ -11,6 +11,14 @@ const CALL_SOCKET_PATH = '/api/messages/calls/ws';
 const target = (process.env.API_PROXY_TARGET || process.env.VITE_API_URL || '').replace(/\/$/, '');
 const httpServer = server?.server;
 
+if (!httpServer || !target) {
+  console.error(
+    `Call signaling proxy did not attach (server=${Boolean(httpServer)} target=${Boolean(target)}).`
+  );
+} else {
+  console.log('Call signaling proxy attached.');
+}
+
 if (httpServer && target) {
   const upstream = new URL(target);
   const transport = upstream.protocol === 'https:' ? https : http;
