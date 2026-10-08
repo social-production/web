@@ -15,6 +15,19 @@ const SESSION_KEEPALIVE_MS = 10 * 60 * 1000;
 let refreshInFlight: Promise<boolean> | null = null;
 let lastSessionRefreshAt = 0;
 
+export function apiWebSocketUrl(path: string): string {
+  const base = getBaseUrl().replace(/\/$/, '');
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  const httpUrl = `${base}${suffix}`;
+  if (httpUrl.startsWith('https://')) {
+    return `wss://${httpUrl.slice('https://'.length)}`;
+  }
+  if (httpUrl.startsWith('http://')) {
+    return `ws://${httpUrl.slice('http://'.length)}`;
+  }
+  return httpUrl;
+}
+
 function getBaseUrl(): string {
   // The page and the API must share an origin so the browser will store the
   // login cookies. The website forwards /api/* to the real API.

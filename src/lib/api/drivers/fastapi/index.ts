@@ -107,6 +107,7 @@ import {
   fetchPinMessage,
   fetchUnpinMessage,
 } from './domains/messages';
+import { openFastApiCallChannel } from './domains/calls';
 import {
   fetchProject,
   fetchProjectHistory,
@@ -660,6 +661,10 @@ export function createFastApiDriver(): AppAdapter {
 
     async sendMessage(conversationId, body, file, replyToId) {
       return fetchSendMessage(conversationId, body, file, replyToId);
+    },
+
+    openCallChannel(onEnvelope) {
+      return openFastApiCallChannel(onEnvelope);
     },
 
     async editMessage(conversationId, messageId, body) {

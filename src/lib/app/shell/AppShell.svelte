@@ -9,6 +9,7 @@
   import MobileBottomNav from '$lib/app/shell/MobileBottomNav.svelte';
   import MobileMoreSheet from '$lib/app/shell/MobileMoreSheet.svelte';
   import CreateFab from '$lib/app/shell/CreateFab.svelte';
+  import CallHost from '$lib/calls/CallHost.svelte';
   import GroupsIcon from '$lib/components/shared/GroupsIcon.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import { createLiveSearchScheduler } from '$lib/features/search/liveSearch';
@@ -1066,6 +1067,10 @@
     />
   {/if}
 </div>
+
+{#if bootstrap.viewer}
+  <CallHost />
+{/if}
 
 <AuthActionNotice />
 

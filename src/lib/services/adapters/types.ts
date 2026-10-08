@@ -1,3 +1,4 @@
+import type { CallChannel, CallEnvelope } from '$lib/calls/types';
 import type {
   BootstrapPayload,
   DiscoverScopeItem,
@@ -652,6 +653,7 @@ export interface AppAdapter {
     file?: File | File[] | null,
     replyToId?: string | null
   ): Promise<void>;
+  openCallChannel(onEnvelope: (envelope: CallEnvelope) => void): CallChannel;
   editMessage(conversationId: string, messageId: string, body: string): Promise<void>;
   deleteMessage(conversationId: string, messageId: string): Promise<void>;
   setConversationListPreferences(

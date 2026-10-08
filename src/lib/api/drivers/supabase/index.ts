@@ -625,6 +625,9 @@ export function createSupabaseDriver(): AppAdapter {
     async sendMessage(conversationId, body, file) {
       return fetchSendMessage(conversationId, body, file);
     },
+    openCallChannel() {
+      throw new Error('Calls are not available on this backend.');
+    },
     async editMessage() {
       throw new Error('Editing messages is not available on this backend.');
     },

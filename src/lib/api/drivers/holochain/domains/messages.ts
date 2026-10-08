@@ -15,6 +15,11 @@ export const messagesDomain: Partial<AppAdapter> = {
   getConversationMessages: stubMethod(provider, domain, 'getConversationMessages') as AppAdapter['getConversationMessages'],
   getMessageContacts: stubMethod(provider, domain, 'getMessageContacts') as AppAdapter['getMessageContacts'],
   sendMessage: stubMethod(provider, domain, 'sendMessage') as AppAdapter['sendMessage'],
+  openCallChannel: stubMethod(
+    provider,
+    domain,
+    'openCallChannel'
+  ) as unknown as AppAdapter['openCallChannel'],
   editMessage: stubMethod(provider, domain, 'editMessage') as AppAdapter['editMessage'],
   deleteMessage: stubMethod(provider, domain, 'deleteMessage') as AppAdapter['deleteMessage'],
   setConversationListPreferences: stubMethod(

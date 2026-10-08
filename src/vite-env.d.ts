@@ -14,6 +14,10 @@ interface ImportMetaEnv {
   readonly VITE_PWA_ENABLED?: string;
   readonly VITE_PUSH_ENABLED?: string;
   readonly VITE_TURNSTILE_SITE_KEY?: string;
+  readonly VITE_CALL_STUN_URLS?: string;
+  readonly VITE_CALL_TURN_URLS?: string;
+  readonly VITE_CALL_TURN_USERNAME?: string;
+  readonly VITE_CALL_TURN_CREDENTIAL?: string;
 }
 
 declare module '*?worker&url' {

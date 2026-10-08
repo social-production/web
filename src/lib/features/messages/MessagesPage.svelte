@@ -4,6 +4,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { syncChatImmersive } from '$lib/stores/chatChrome';
   import { get } from 'svelte/store';
+  import { placeDirectCall } from '$lib/calls/session';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import ComposeMessageSheet from '$lib/components/shared/ComposeMessageSheet.svelte';
@@ -1099,6 +1100,13 @@
     }
   }
 
+  function startDirectCall() {
+    if (!activeConversation || activeConversation.kind !== 'direct') {
+      return;
+    }
+    void placeDirectCall(activeConversation.id, conversationDisplayTitle(activeConversation));
+  }
+
   function closeActiveChat() {
     activeConversationId = null;
     activeLinkedChatId = null;
@@ -1390,7 +1398,7 @@
     class="messages-shell"
   >
     {#if activeConversation || activeLinkedChat}
-      <header class="chat-header">
+      <header class="chat-header" class:with-call={activeConversation?.kind === 'direct'}>
         <button class="back-button" type="button" on:click={closeActiveChat}>Back</button>
 
         {#if activeConversation}
@@ -1438,6 +1446,25 @@
               </button>
             {/if}
           </div>
+          {#if activeConversation.kind === 'direct'}
+            <button
+              class="call-button"
+              type="button"
+              aria-label={`Call ${conversationDisplayTitle(activeConversation)}`}
+              on:click={startDirectCall}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"
+                />
+              </svg>
+            </button>
+          {/if}
         {:else if activeLinkedChat}
           <div class="chat-identity">
             <div class="identity-trigger">
@@ -1936,6 +1963,34 @@
     grid-template-columns: auto minmax(0, 1fr);
     gap: 12px;
     align-items: center;
+  }
+
+  .chat-header.with-call {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .call-button {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel-strong);
+    color: var(--text-main);
+    cursor: pointer;
+  }
+
+  .call-button svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .call-button:hover {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
   }
 
   .pin-bar {

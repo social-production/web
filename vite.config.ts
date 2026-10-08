@@ -18,7 +18,13 @@ const htmlBypassPaths = new Set([
   '/onboarding'
 ]);
 
-function bypassHtmlNavigation(req: { headers?: { accept?: string }; url?: string }) {
+function bypassHtmlNavigation(req: {
+  headers?: { accept?: string; upgrade?: string };
+  url?: string;
+}) {
+  if (req.headers?.upgrade) {
+    return;
+  }
   const accept = req.headers?.accept ?? '';
   if (accept.includes('text/html')) {
     return req.url;
@@ -32,6 +38,7 @@ function createBackendProxy(): Record<string, ProxyOptions> {
     proxy[path] = {
       target: BACKEND_TARGET,
       changeOrigin: true,
+      ws: true,
       ...(htmlBypassPaths.has(path) ? { bypass: bypassHtmlNavigation } : {})
     };
   }

@@ -57,7 +57,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(self)');
 
   if (event.url.protocol === 'https:') {
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
@@ -85,6 +85,7 @@ export const handle: Handle = async ({ event, resolve }) => {
       "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://basemaps.cartocdn.com https://demotiles.maplibre.org",
       "img-src 'self' data: blob: https:",
+      "media-src 'self' blob:",
       "font-src 'self' data: https://fonts.gstatic.com https://basemaps.cartocdn.com https://demotiles.maplibre.org",
       `connect-src ${connectSrc}`,
       "worker-src 'self' blob:",
