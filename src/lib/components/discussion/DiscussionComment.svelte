@@ -12,6 +12,7 @@
   import { scrollCommentIntoView } from '$lib/utils/comment-scroll';
   import { moderatedPlaceholder, shouldHideModeratedBody } from '$lib/utils/moderation';
   import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
+  import { linkifyMessageBody } from '$lib/utils/linkifyMessageBody';
   import { formatRelativeTime } from '$lib/utils/time';
 
   export let comment: DetailComment;
@@ -148,7 +149,13 @@
   {/if}
 
   {#if !bodyIsHidden}
-    <p class:moderated={isModeratedAway} class="body">{displayBody}</p>
+    <p class:moderated={isModeratedAway} class="body">
+      {#if isModeratedAway}
+        {displayBody}
+      {:else}
+        {@html linkifyMessageBody(displayBody)}
+      {/if}
+    </p>
   {/if}
 
   <div class="actions-row">
@@ -307,6 +314,18 @@
 
   .body.moderated {
     font-style: italic;
+  }
+
+  .body :global(a.mention),
+  .body :global(a.mention:hover) {
+    color: #5b9dff;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .body :global(a.mention:hover) {
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .reply-stack {

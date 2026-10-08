@@ -20,6 +20,12 @@ describe('linkifyMessageBody', () => {
     );
   });
 
+  it('turns an @username into a profile link', () => {
+    expect(linkifyMessageBody('Thanks @abc1 for the notes.')).toBe(
+      'Thanks <a class="mention" href="/profile/abc1">@abc1</a> for the notes.'
+    );
+  });
+
   it('escapes markup instead of rendering it', () => {
     const html = linkifyMessageBody('<img src=x onerror=alert(1)>');
     expect(html).not.toContain('<img');

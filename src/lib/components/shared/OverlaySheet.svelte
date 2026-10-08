@@ -209,6 +209,14 @@
     padding: 16px 20px 24px;
   }
 
+  .overlay-sheet.activity .header-close {
+    align-self: stretch;
+    height: auto;
+    border-left: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: transparent;
+  }
+
   .overlay-header {
     display: flex;
     align-items: stretch;

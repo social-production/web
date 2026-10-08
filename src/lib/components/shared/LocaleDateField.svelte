@@ -10,98 +10,88 @@
     $displayTimezone?.trim() ||
     (typeof Intl === 'undefined' ? '' : Intl.DateTimeFormat().resolvedOptions().timeZone || '');
   $: dayFirst = activeTimezone.startsWith('Australia/');
+  $: readout = formatReadout(value, mode);
 
-  function splitValue(raw: string) {
-    const [datePart = '', timePart = ''] = raw.split('T');
-    const [year = '', month = '', day = ''] = datePart.split('-');
-    return {
-      year,
-      month,
-      day,
-      time: timePart.slice(0, 5)
-    };
-  }
-
-  function commit(next: { year: string; month: string; day: string; time: string }) {
-    if (!next.year || !next.month || !next.day) {
-      value = '';
-      return;
+  function formatReadout(raw: string, kind: 'date' | 'datetime') {
+    if (!raw) {
+      return kind === 'datetime' ? 'DD/MM/YYYY, HH:MM' : 'DD/MM/YYYY';
     }
-    const date = `${next.year.padStart(4, '0')}-${next.month.padStart(2, '0')}-${next.day.padStart(2, '0')}`;
-    value = mode === 'datetime' ? `${date}T${next.time || '00:00'}` : date;
-  }
 
-  function updatePart(part: 'year' | 'month' | 'day' | 'time', raw: string) {
-    const next = splitValue(value);
-    next[part] = raw.replace(/[^\d:]/g, '').slice(0, part === 'year' ? 4 : part === 'time' ? 5 : 2);
-    commit(next);
+    const [datePart = '', timePart = ''] = raw.split('T');
+    const [year, month, day] = datePart.split('-').map((part) => Number(part));
+    if (!year || !month || !day) {
+      return kind === 'datetime' ? 'DD/MM/YYYY, HH:MM' : 'DD/MM/YYYY';
+    }
+
+    const [hour = 0, minute = 0] = timePart.split(':').map((part) => Number(part));
+    const local = new Date(year, month - 1, day, hour, minute);
+    const dateLabel = new Intl.DateTimeFormat('en-AU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(local);
+
+    if (kind !== 'datetime') {
+      return dateLabel;
+    }
+
+    const timeLabel = new Intl.DateTimeFormat('en-AU', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).format(local);
+    return `${dateLabel}, ${timeLabel}`;
   }
 </script>
 
-{#if dayFirst}
-  {@const parts = splitValue(value)}
-  <span class="locale-date">
-    <input
-      aria-label="Day"
-      inputmode="numeric"
-      maxlength="2"
-      placeholder="DD"
-      value={parts.day}
-      on:input={(event) => updatePart('day', event.currentTarget.value)}
-    />
-    <span aria-hidden="true">/</span>
-    <input
-      aria-label="Month"
-      inputmode="numeric"
-      maxlength="2"
-      placeholder="MM"
-      value={parts.month}
-      on:input={(event) => updatePart('month', event.currentTarget.value)}
-    />
-    <span aria-hidden="true">/</span>
-    <input
-      aria-label="Year"
-      inputmode="numeric"
-      maxlength="4"
-      placeholder="YYYY"
-      value={parts.year}
-      on:input={(event) => updatePart('year', event.currentTarget.value)}
-    />
-    {#if mode === 'datetime'}
-      <input
-        aria-label="Time"
-        inputmode="numeric"
-        maxlength="5"
-        placeholder="HH:MM"
-        value={parts.time}
-        on:input={(event) => updatePart('time', event.currentTarget.value)}
-      />
-    {/if}
-  </span>
-{:else if mode === 'datetime'}
-  <input {max} {min} type="datetime-local" bind:value />
-{:else}
-  <input {max} {min} type="date" bind:value />
-{/if}
+<span class="locale-date" class:day-first={dayFirst}>
+  <input {max} {min} type={mode === 'datetime' ? 'datetime-local' : 'date'} bind:value />
+  {#if dayFirst}
+    <span class="locale-readout" class:placeholder={!value} aria-hidden="true">{readout}</span>
+  {/if}
+</span>
 
 <style>
   .locale-date {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+    position: relative;
+    display: block;
+    width: 100%;
     min-width: 0;
   }
 
   .locale-date input {
-    width: 3.2em;
-    min-width: 0;
+    width: 100%;
   }
 
-  .locale-date input[aria-label='Year'] {
-    width: 4.6em;
+  .day-first input::-webkit-datetime-edit,
+  .day-first input::-webkit-datetime-edit-fields-wrapper,
+  .day-first input::-webkit-datetime-edit-text,
+  .day-first input::-webkit-datetime-edit-month-field,
+  .day-first input::-webkit-datetime-edit-day-field,
+  .day-first input::-webkit-datetime-edit-year-field,
+  .day-first input::-webkit-datetime-edit-hour-field,
+  .day-first input::-webkit-datetime-edit-minute-field,
+  .day-first input::-webkit-datetime-edit-ampm-field {
+    color: transparent;
+    caret-color: transparent;
   }
 
-  .locale-date input[aria-label='Time'] {
-    width: 5.2em;
+  .locale-readout {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    right: 36px;
+    overflow: hidden;
+    color: var(--text-main);
+    font: inherit;
+    line-height: 1.2;
+    pointer-events: none;
+    text-overflow: ellipsis;
+    transform: translateY(-50%);
+    white-space: nowrap;
+  }
+
+  .locale-readout.placeholder {
+    color: var(--text-soft);
   }
 </style>

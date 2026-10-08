@@ -312,20 +312,20 @@
   }
 
   .content :global(.feed-corner-actions:has(.detail-tool)) {
-    flex-basis: auto;
-    width: auto;
-    min-width: 0;
-    max-width: none;
+    flex-basis: 204px;
+    width: 204px;
+    min-width: 204px;
+    max-width: 204px;
   }
 
   .content :global(.feed-corner-actions) {
     display: flex;
-    flex: 0 0 136px;
+    flex: 0 0 172px;
     align-items: stretch;
     gap: 0;
-    width: 136px;
-    min-width: 136px;
-    max-width: 136px;
+    width: 172px;
+    min-width: 172px;
+    max-width: 172px;
     height: 36px;
     min-height: 36px;
     overflow: hidden;
@@ -336,17 +336,21 @@
 
   .content :global(.feed-corner-actions .vote-strip) {
     flex: 0 0 100px;
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
+    overflow: hidden;
   }
 
   .content :global(.feed-corner-actions .comment-link),
   .content :global(.feed-corner-actions .comment-link:hover),
   .content :global(.feed-corner-actions .comment-link:focus-visible) {
     display: flex;
-    flex: 0 0 36px;
+    flex: 0 0 72px;
     align-items: stretch;
-    width: 36px;
-    min-width: 36px;
-    max-width: 36px;
+    width: 72px;
+    min-width: 72px;
+    max-width: 72px;
     overflow: hidden;
     border-left: 1px solid var(--panel-border);
     border-radius: 0;
@@ -360,13 +364,13 @@
 
   .content :global(.feed-corner-actions .pill),
   .content :global(.feed-corner-actions .pill:hover) {
-    width: 36px;
-    min-width: 36px;
-    max-width: 36px;
+    width: 72px;
+    min-width: 72px;
+    max-width: 72px;
     height: 36px;
     min-height: 36px;
-    padding: 0 4px;
-    gap: 2px;
+    padding: 0 8px;
+    gap: 4px;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -428,11 +432,13 @@
   }
 
   .content :global(.feed-corner-actions .pill-count) {
-    min-width: 2.4em;
-    max-width: none;
-    overflow: visible;
-    justify-content: center;
+    min-width: 0;
+    max-width: 4.2em;
+    overflow: hidden;
+    justify-content: flex-start;
     font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .content :global(a),

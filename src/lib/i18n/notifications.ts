@@ -1,6 +1,37 @@
 import type { NotificationItem } from '$lib/types/inbox';
 import * as m from '$lib/paraglide/messages';
 
+const replyCommentPrefix = 'reply-comment\n';
+const replySubjectPrefix = 'reply-subject\n';
+
+export function commentNotificationCopy(item: NotificationItem): { lead: string; excerpt: string } | null {
+  if (item.kind !== 'reply') {
+    return null;
+  }
+
+  const commentReply = item.body.startsWith(replyCommentPrefix);
+  const subjectReply = item.body.startsWith(replySubjectPrefix);
+  if (!commentReply && !subjectReply) {
+    return null;
+  }
+
+  const prefix = commentReply ? replyCommentPrefix : replySubjectPrefix;
+  const templates: Partial<Record<NotificationItem['subjectKind'], string>> = {
+    thread: m.notification_reply_thread(),
+    post: m.notification_reply_post(),
+    project: m.notification_reply_project(),
+    event: m.notification_reply_event(),
+    'help-request': m.notification_reply_help_request()
+  };
+
+  return {
+    lead: commentReply
+      ? m.notification_reply_comment()
+      : templates[item.subjectKind] ?? m.notification_reply_generic(),
+    excerpt: item.body.slice(prefix.length).trim()
+  };
+}
+
 export function localizedNotificationBody(item: NotificationItem): string {
   if (item.kind === 'follow-request' && item.actorUsername) {
     return m.notification_follow_request();

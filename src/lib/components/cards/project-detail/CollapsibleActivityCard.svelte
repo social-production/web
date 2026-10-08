@@ -36,12 +36,11 @@
     );
   }
 
-  function factLine() {
-    const place = placeLabel();
+  function dateLine() {
     const start = activity.startAt?.trim() ? new Date(activity.startAt) : null;
     const end = activity.endAt?.trim() ? new Date(activity.endAt) : null;
     if (!start || Number.isNaN(start.getTime())) {
-      return [place, timeLabel()].filter(Boolean).join(' · ');
+      return timeLabel();
     }
     const dateOptions: Intl.DateTimeFormatOptions = {
       weekday: 'short',
@@ -52,18 +51,18 @@
     const startDate = start.toLocaleDateString(undefined, dateOptions);
     const startTime = start.toLocaleTimeString(undefined, timeOptions);
     if (!end || Number.isNaN(end.getTime())) {
-      return [place, startDate, startTime].filter(Boolean).join(' · ');
+      return `${startDate} · ${startTime}`;
     }
     const endTime = end.toLocaleTimeString(undefined, timeOptions);
     if (sameLocalDay(start, end)) {
-      return [place, startDate, `${startTime}–${endTime}`].filter(Boolean).join(' · ');
+      return `${startDate} · ${startTime}–${endTime}`;
     }
     const endDate = end.toLocaleDateString(undefined, dateOptions);
-    return [place, `${startDate}, ${startTime} – ${endDate}, ${endTime}`].filter(Boolean).join(' · ');
+    return `${startDate}, ${startTime} – ${endDate}, ${endTime}`;
   }
 
-  function sameText(left: string, right: string) {
-    return left.trim().toLowerCase() === right.trim().toLowerCase();
+  function factLine() {
+    return [placeLabel(), dateLine()].filter(Boolean).join(' · ');
   }
 
   function roleCapacity(role: ProjectActivityRole) {
@@ -141,9 +140,6 @@
         : 'partial';
   $: noteText = activity.note.trim();
   $: showNote = Boolean(noteText);
-  $: authorIsSignedUp = activity.roles.some((role) =>
-    roleAssignees(role).some((person) => person.username === activity.authorUsername)
-  );
   $: hasOpenRolesForViewer =
     !readOnly &&
     !activity.rolesLocked &&
@@ -196,101 +192,107 @@
   </button>
 
   <OverlaySheet activity bind:open={sheetOpen} elevated title={activity.title}>
-    <svelte:fragment slot="subtitle">
-      {#if factLine()}
-        <p class="sheet-subtitle">{factLine()}</p>
-      {/if}
-      {#if !authorIsSignedUp}
-        <a class="sheet-author" href={`/profile/${activity.authorUsername}`}>{activity.authorUsername}</a>
-      {/if}
-    </svelte:fragment>
     {#if sheetOpen}
       <div class="activity-body">
-        {#if showNote}
-          <p class="activity-note">{noteText}</p>
+        {#if placeLabel()}
+          <p class="sheet-place">{placeLabel()}</p>
+        {/if}
+        {#if dateLine()}
+          <p class="sheet-when">{dateLine()}</p>
         {/if}
         {#if activity.linkedPlanPhaseLabel}
           <p class="activity-stage">{activity.linkedPlanPhaseLabel}</p>
         {/if}
-        <div class="role-list">
-          {#each activity.roles as role}
-            <div class="role-bar">
-              <div class="role-copy">
-                {#if !sameText(role.label, activity.title)}
-                  <strong>{role.label}</strong>
-                {/if}
-                {#if roleAssignees(role).length > 0}
-                  <div class="assignee-list">
-                    {#each roleAssignees(role) as assignee (assignee.username)}
-                      <a class="assignee-row" href={`/profile/${assignee.username}`}>
-                        <AvatarBadge
-                          size="sm"
-                          username={assignee.username}
-                          imageUrl={assignee.profileImageUrl ?? null}
+
+        {#if showNote}
+          <section class="sheet-section">
+            <h3>Description</h3>
+            <p class="activity-note">{noteText}</p>
+          </section>
+        {/if}
+
+        {#if activity.roles.length > 0}
+          <section class="sheet-section">
+            <h3>Roles</h3>
+            <div class="role-list">
+              {#each activity.roles as role}
+                <div class="role-bar">
+                  <div class="role-copy">
+                    <strong>{role.label}</strong>
+                    <span>{roleCapacity(role)}</span>
+                    {#if roleAssignees(role).length > 0}
+                      <div class="assignee-list">
+                        {#each roleAssignees(role) as assignee (assignee.username)}
+                          <a class="assignee-row" href={`/profile/${assignee.username}`}>
+                            <AvatarBadge
+                              size="sm"
+                              username={assignee.username}
+                              imageUrl={assignee.profileImageUrl ?? null}
+                            />
+                            <span>{assignee.username}</span>
+                          </a>
+                        {/each}
+                      </div>
+                    {/if}
+                    {#if !historyMode && role.suggestedUser}
+                      <span class="suggested-chip">Suggested · {role.suggestedUser.username}</span>
+                      {#if role.isViewerSuggested && role.id}
+                        <button class="text-button" type="button" on:click={() => onDeclineRoleSuggestion(activity.id, role.id ?? '')}>
+                          Decline
+                        </button>
+                      {/if}
+                    {:else if !historyMode && viewerCanSuggest && role.id && !role.isViewerAssigned}
+                      <button class="text-button" type="button" on:click={() => (suggestRoleId = role.id ?? null)}>
+                        Suggest someone
+                      </button>
+                      {#if suggestRoleId === role.id}
+                        <input
+                          placeholder="Search username"
+                          type="text"
+                          value={suggestQuery}
+                          on:input={(event) =>
+                            handleSuggestQuery(role.id ?? '', (event.currentTarget as HTMLInputElement).value)}
                         />
-                        <span>{assignee.username}</span>
-                      </a>
-                    {/each}
+                        {#each suggestResults as person}
+                          <button
+                            class="text-button"
+                            type="button"
+                            on:click={() => {
+                              void onSuggestRole(activity.id, role.id ?? '', person.id);
+                              suggestRoleId = null;
+                              suggestQuery = '';
+                              suggestResults = [];
+                            }}
+                          >
+                            {person.username}
+                          </button>
+                        {/each}
+                      {/if}
+                    {/if}
                   </div>
-                {/if}
-                <span>{roleCapacity(role)}</span>
-                {#if !historyMode && role.suggestedUser}
-                  <span class="suggested-chip">Suggested · {role.suggestedUser.username}</span>
-                  {#if role.isViewerSuggested && role.id}
-                    <button class="text-button" type="button" on:click={() => onDeclineRoleSuggestion(activity.id, role.id ?? '')}>
-                      Decline
+                  {#if !historyMode && !readOnly && activity.rolesLocked}
+                    <span class="roles-locked-copy">Locked</span>
+                  {:else if !historyMode && !readOnly}
+                    <button
+                      class:selected={activity.viewerAssignedRoleLabel === role.label}
+                      class="signup"
+                      data-participation-action={!role.isViewerAssigned && roleHasOpenCapacity(role) ? 'take-role' : undefined}
+                      disabled={!role.isViewerAssigned && !roleHasOpenCapacity(role)}
+                      type="button"
+                      on:click={() =>
+                        changecommitment(
+                          activity.id,
+                          activity.viewerAssignedRoleLabel === role.label ? null : role.label
+                        )}
+                    >
+                      {commitmentButtonLabel(role)}
                     </button>
                   {/if}
-                {:else if !historyMode && viewerCanSuggest && role.id && !role.isViewerAssigned}
-                  <button class="text-button" type="button" on:click={() => (suggestRoleId = role.id ?? null)}>
-                    Suggest someone
-                  </button>
-                  {#if suggestRoleId === role.id}
-                    <input
-                      placeholder="Search username"
-                      type="text"
-                      value={suggestQuery}
-                      on:input={(event) =>
-                        handleSuggestQuery(role.id ?? '', (event.currentTarget as HTMLInputElement).value)}
-                    />
-                    {#each suggestResults as person}
-                      <button
-                        class="text-button"
-                        type="button"
-                        on:click={() => {
-                          void onSuggestRole(activity.id, role.id ?? '', person.id);
-                          suggestRoleId = null;
-                          suggestQuery = '';
-                          suggestResults = [];
-                        }}
-                      >
-                        {person.username}
-                      </button>
-                    {/each}
-                  {/if}
-                {/if}
-              </div>
-              {#if !historyMode && !readOnly && activity.rolesLocked}
-                <span class="roles-locked-copy">Locked</span>
-              {:else if !historyMode && !readOnly}
-                <button
-                  class:selected={activity.viewerAssignedRoleLabel === role.label}
-                  class="signup"
-                  data-participation-action={!role.isViewerAssigned && roleHasOpenCapacity(role) ? 'take-role' : undefined}
-                  disabled={!role.isViewerAssigned && !roleHasOpenCapacity(role)}
-                  type="button"
-                  on:click={() =>
-                    changecommitment(
-                      activity.id,
-                      activity.viewerAssignedRoleLabel === role.label ? null : role.label
-                    )}
-                >
-                  {commitmentButtonLabel(role)}
-                </button>
-              {/if}
+                </div>
+              {/each}
             </div>
-          {/each}
-        </div>
+          </section>
+        {/if}
         <slot />
       </div>
     {/if}
@@ -395,24 +397,34 @@
     font-weight: 700;
   }
 
-  .sheet-subtitle,
-  .sheet-author,
+  .sheet-place,
+  .sheet-when,
   .activity-stage {
     margin: 0;
-    color: var(--text-soft);
-    font-size: 13px;
-    font-weight: 400;
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 500;
     line-height: 1.4;
   }
 
-  .sheet-author {
-    color: var(--text-main);
-    font-weight: 700;
-    text-decoration: none;
+  .sheet-when,
+  .activity-stage {
+    color: var(--text-soft);
+    font-weight: 400;
   }
 
-  .activity-stage {
+  .sheet-section {
+    display: grid;
+    gap: 8px;
+  }
+
+  .sheet-section h3 {
+    margin: 0;
+    color: var(--brand-strong);
+    font-size: 11px;
     font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
   .activity-note {
@@ -424,24 +436,16 @@
 
   .activity-body {
     display: grid;
-    gap: 16px;
+    gap: 8px;
   }
 
-  .activity-body > p {
-    margin: 0;
-    color: var(--text-main);
-    font-size: 15px;
-    line-height: 1.5;
+  .activity-body > .sheet-section {
+    margin-top: 10px;
   }
 
   .role-list {
     display: grid;
-    gap: 8px;
-  }
-
-  .role-list:has(.role-bar) {
     gap: 0;
-    margin: 0 -20px;
     border-top: 1px solid var(--panel-border);
   }
 
@@ -450,9 +454,14 @@
     align-items: center;
     gap: 12px;
     width: 100%;
-    padding: 10px 12px 10px 20px;
+    padding: 12px 0;
     border-bottom: 1px solid var(--panel-border);
-    background: var(--panel);
+    background: transparent;
+  }
+
+  .role-bar:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
   }
 
   .role-copy {

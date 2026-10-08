@@ -5,7 +5,7 @@
   import SurfaceTypeLabel from '$lib/components/cards/shared/SurfaceTypeLabel.svelte';
   import TagList from '$lib/components/cards/shared/TagList.svelte';
   import type { NotificationItem } from '$lib/types/inbox';
-  import { localizedNotificationBody } from '$lib/i18n/notifications';
+  import { commentNotificationCopy, localizedNotificationBody } from '$lib/i18n/notifications';
   import * as m from '$lib/paraglide/messages';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
@@ -20,7 +20,8 @@
   $: isSocialFollowNotice =
     item.kind === 'follow-request' || item.kind === 'follow-accepted' || item.kind === 'new-follower';
   $: showFollowRequestActions = isFollowRequest && item.isUnread;
-  $: displayBody = localizedNotificationBody(item);
+  $: replyCopy = commentNotificationCopy(item);
+  $: displayBody = replyCopy ? '' : localizedNotificationBody(item);
 
   const dispatch = createEventDispatcher<{ read: void; activate: void }>();
 
@@ -81,11 +82,16 @@
 
     <div class="copy-row">
       <div class="copy">
-        {#if !isSocialFollowNotice && item.title}
+        {#if replyCopy}
+          <p class="title-text">{replyCopy.lead}</p>
+          {#if replyCopy.excerpt}
+            <p class="body excerpt">{replyCopy.excerpt}</p>
+          {/if}
+        {:else if !isSocialFollowNotice && item.title}
           <p class="title-text">{item.title}</p>
         {/if}
 
-        {#if displayBody}
+        {#if !replyCopy && displayBody}
           <p class="body">{displayBody}</p>
         {/if}
 
@@ -212,6 +218,14 @@
     margin: 0;
     color: var(--text-soft);
     line-height: 1.4;
+  }
+
+  .excerpt {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: pre-wrap;
   }
 
   .action {

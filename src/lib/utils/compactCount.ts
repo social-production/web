@@ -9,7 +9,8 @@ export function formatCompactCount(value: number) {
     return thousands % 1 === 0 ? `${thousands.toFixed(0)}k` : `${thousands.toFixed(1)}k`;
   }
   if (count < 1_000_000) {
-    return `${Math.round(count / 1000)}k`;
+    const thousands = Math.round(count / 1000);
+    return thousands >= 1000 ? '1m' : `${thousands}k`;
   }
   const hundredThousands = Math.round(count / 100_000) * 100_000;
   const millions = hundredThousands / 1_000_000;

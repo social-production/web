@@ -1570,6 +1570,18 @@
     text-underline-offset: 2px;
   }
 
+  .message-copy p :global(a.mention),
+  .message-copy p :global(a.mention:hover) {
+    color: #5b9dff;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .message-copy p :global(a.mention:hover) {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   .message-copy p :global(a:hover) {
     color: var(--brand);
   }

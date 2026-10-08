@@ -452,9 +452,7 @@
         {/each}
       </div>
     {/if}
-  {:else if value.mode === 'online'}
-    <p class="online-chip" aria-live="polite">Online</p>
-  {:else}
+  {:else if value.mode !== 'online'}
     <p class="tbd-label">Location will be decided later.</p>
   {/if}
 </div>
@@ -641,20 +639,6 @@
 
   .suggestions button:hover {
     background: var(--brand-soft);
-  }
-
-  .online-chip {
-    margin: 0;
-    display: inline-flex;
-    align-items: center;
-    width: fit-content;
-    border: 1px solid var(--brand);
-    border-radius: 999px;
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-    font-size: 13px;
-    font-weight: 600;
-    padding: 6px 12px;
   }
 
   .tbd-label {
