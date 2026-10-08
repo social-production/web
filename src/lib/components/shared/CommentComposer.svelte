@@ -1,6 +1,9 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { createEventDispatcher, onMount, tick } from 'svelte';
+  import MentionMenu from '$lib/components/shared/MentionMenu.svelte';
+  import { searchPeopleSuggestions } from '$lib/services/queries/account';
+  import { activeMention, insertMention } from '$lib/utils/mentions';
   import { requireViewer } from '$lib/utils/requireViewer';
 
   export let value = '';
@@ -14,6 +17,10 @@
 
   let composerElement: HTMLTextAreaElement | null = null;
   let isScrollable = false;
+  let mentionResults: Array<{ id: string; username: string }> = [];
+  let mentionStart = -1;
+  let mentionCursor = 0;
+  let mentionTimer: ReturnType<typeof setTimeout> | null = null;
 
   $: canSubmit = value.trim().length > 0;
   $: signedIn = Boolean($page.data.bootstrap?.viewer);
@@ -33,12 +40,56 @@
     isScrollable = composerElement.scrollHeight > MAX_HEIGHT;
   }
 
-  async function handleInput() {
+  function clearMentions() {
+    mentionResults = [];
+    mentionStart = -1;
+  }
+
+  async function handleInput(event: Event) {
+    const field = event.currentTarget;
+    if (field instanceof HTMLTextAreaElement) {
+      const cursor = field.selectionStart ?? value.length;
+      const found = activeMention(value, cursor);
+      if (!found) {
+        clearMentions();
+      } else {
+        mentionStart = found.start;
+        mentionCursor = cursor;
+        if (mentionTimer) {
+          clearTimeout(mentionTimer);
+        }
+        mentionTimer = setTimeout(() => {
+          void searchPeopleSuggestions(found.query).then((items) => {
+            mentionResults = items;
+          });
+        }, 160);
+      }
+    }
+    await resizeComposer();
+  }
+
+  async function chooseMention(username: string) {
+    const inserted = insertMention(value, mentionStart, mentionCursor, username);
+    value = inserted.value;
+    clearMentions();
+    await tick();
+    composerElement?.focus();
+    composerElement?.setSelectionRange(inserted.caret, inserted.caret);
     await resizeComposer();
   }
 
   function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && mentionResults.length > 0) {
+      event.preventDefault();
+      clearMentions();
+      return;
+    }
     if (event.key === 'Enter' && !event.shiftKey) {
+      if (mentionResults.length > 0) {
+        event.preventDefault();
+        void chooseMention(mentionResults[0].username);
+        return;
+      }
       event.preventDefault();
       submit();
     }
@@ -53,6 +104,7 @@
       return;
     }
 
+    clearMentions();
     dispatch('submit');
     await tick();
     await resizeComposer();
@@ -69,6 +121,7 @@
 </script>
 
 <div class="composer-field">
+  <MentionMenu results={mentionResults} onSelect={chooseMention} />
   {#if signedIn}
   <textarea
     bind:this={composerElement}

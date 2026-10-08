@@ -1,13 +1,12 @@
 <script lang="ts">
-  import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import { castFeedVote } from '$lib/services/commands/shared';
   import type { PersonalCommentActivityItem, VoteDirection } from '$lib/types/feed';
-  import { displayUsername } from '$lib/utils/displayUsername';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
+  import PersonalFeedIdentity from '$lib/components/cards/personal-feed/PersonalFeedIdentity.svelte';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
 
   export let item: PersonalCommentActivityItem;
@@ -22,6 +21,7 @@
 
   $: commentHref = buildCommentHref(item.href);
   $: replyLabel = item.commentCount === 1 ? '1 reply' : `${item.commentCount} replies`;
+  $: replyNote = item.subjectTitle.trim() ? `Replied · ${item.subjectTitle.trim()}` : 'Replied';
 
   async function handleVote({ vote }: { vote: VoteDirection }) {
     return castFeedVote(
@@ -43,10 +43,11 @@
 >
   <div class="card-header">
     <div class="header-row">
-      <div class="identity-row">
-        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
-        <a class="name header-name" href={`/profile/${item.author.username}`} title={item.author.username}>{displayUsername(item.author.username)}</a>
-      </div>
+      <PersonalFeedIdentity
+        username={item.author.username}
+        profileImageUrl={item.author.profileImageUrl ?? null}
+        action={replyNote}
+      />
       <ReportControl
         hasActiveReport={item.hasActiveReport}
         isUnderReview={item.isUnderReview}
@@ -83,7 +84,6 @@
   }
 
   .header-row,
-  .identity-row,
   .footer,
   .engagement-row {
     display: flex;
@@ -96,20 +96,6 @@
     gap: 8px;
     justify-content: space-between;
     flex-wrap: nowrap;
-  }
-
-  .identity-row {
-    gap: 0.6rem;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .header-name {
-    overflow: hidden;
-    color: var(--text-main);
-    font-weight: 800;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .comment-excerpt {

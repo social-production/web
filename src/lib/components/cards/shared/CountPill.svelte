@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { formatCompactCount } from '$lib/utils/compactCount';
+
   export let label: string;
 
   $: countMatch = label.match(/^(\d+)/);
-  $: compactCount = countMatch?.[1] ?? '';
+  $: compactCount = countMatch ? formatCompactCount(Number(countMatch[1])) : '';
 </script>
 
 <span class="pill" aria-label={label}>
@@ -73,9 +75,10 @@
   }
 
   .pill-count {
-    min-width: 20px;
+    min-width: 2.4em;
     text-align: center;
     color: var(--text-main);
+    font-variant-numeric: tabular-nums;
   }
 
   @media (max-width: 760px) {
@@ -93,7 +96,7 @@
     }
 
     .pill-count {
-      min-width: 16px;
+      min-width: 2.4em;
     }
   }
 </style>

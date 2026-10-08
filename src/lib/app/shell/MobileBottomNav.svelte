@@ -107,7 +107,7 @@
     border: none;
     border-top: 1px solid var(--panel-border);
     background: var(--toolbar-background);
-    transition: transform 0.22s ease, visibility 0.22s ease;
+    transition: transform 0.22s ease, visibility 0s;
     will-change: transform;
   }
 
@@ -115,6 +115,7 @@
     transform: translateY(100%);
     pointer-events: none;
     visibility: hidden;
+    transition: transform 0.22s ease, visibility 0s linear 0.22s;
   }
 
   .bottom-nav-item {

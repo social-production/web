@@ -164,7 +164,7 @@
         <span class="field-inline-label">Suggest someone (optional)</span>
         {#if role.suggestedUserId}
           <div class="suggested-chip-row">
-            <span class="suggested-chip">suggested: @{suggestionQuery[index] || 'user'}</span>
+            <span class="suggested-chip">Suggested · {suggestionQuery[index] || 'user'}</span>
             <button class="text-button" type="button" on:click={() => clearSuggestedUser(index)}>Clear</button>
           </div>
         {:else}
@@ -179,7 +179,7 @@
             <div class="suggestion-list">
               {#each suggestionResults[index] as person}
                 <button class="suggestion-item" type="button" on:click={() => selectSuggestedUser(index, person)}>
-                  @{person.username}
+                  {person.username}
                 </button>
               {/each}
             </div>

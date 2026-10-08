@@ -1,5 +1,4 @@
 <script lang="ts">
-  import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedCardTop from '$lib/components/cards/shared/FeedCardTop.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
@@ -10,6 +9,7 @@
   import type { PersonalHelpRequestItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
   import { formatLocalDateTime } from '$lib/utils/time';
+  import PersonalFeedIdentity from '$lib/components/cards/personal-feed/PersonalFeedIdentity.svelte';
 
   export let item: PersonalHelpRequestItem;
 
@@ -56,10 +56,10 @@
       />
     </FeedCardTop>
     <div class="header-row">
-      <div class="identity-row">
-        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
-        <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-      </div>
+      <PersonalFeedIdentity
+        username={item.author.username}
+        profileImageUrl={item.author.profileImageUrl ?? null}
+      />
     </div>
   </div>
 
@@ -93,7 +93,6 @@
   }
 
   .header-row,
-  .identity-row,
   .footer,
   .engagement-row {
     display: flex;
@@ -116,28 +115,9 @@
     flex-wrap: nowrap;
   }
 
-  .identity-row {
-    gap: 0.6rem;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .name,
   .body {
     margin: 0;
-  }
-
-  .name {
-    font-weight: 800;
-  }
-
-  .body {
     color: var(--text-soft);
-  }
-
-  .header-name {
-    overflow-wrap: anywhere;
-    word-break: break-word;
   }
 
   .title {
@@ -191,9 +171,4 @@
     white-space: nowrap;
   }
 
-  @media (max-width: 760px) {
-    .header-name {
-      font-size: 15px;
-    }
-  }
 </style>

@@ -92,6 +92,7 @@
     right: var(--right-width, 0px);
     bottom: var(--shell-bottom-nav-offset, 0px);
     display: flex;
+    transition: bottom 0.22s ease;
     flex-direction: column;
     gap: 8px;
     box-sizing: border-box;

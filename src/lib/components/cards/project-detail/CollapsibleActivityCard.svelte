@@ -28,49 +28,38 @@
     return formatLocalDateTimeRange(activity.startAt, activity.endAt);
   }
 
-  function datePartLabel() {
-    const start = activity.startAt?.trim() ?? '';
-    if (!start) {
-      return '';
-    }
-    const startDate = new Date(start);
-    if (Number.isNaN(startDate.getTime())) {
-      return '';
-    }
-    return startDate.toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
-  }
-
-  function clockLabel() {
-    const start = activity.startAt?.trim() ?? '';
-    if (!start) {
-      return '';
-    }
-    const startDate = new Date(start);
-    if (Number.isNaN(startDate.getTime())) {
-      return timeLabel();
-    }
-    const startTime = startDate.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-    const end = activity.endAt?.trim() ?? '';
-    const endDate = end ? new Date(end) : null;
-    if (!endDate || Number.isNaN(endDate.getTime())) {
-      return startTime;
-    }
-    const endTime = endDate.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-    return `${startTime}–${endTime}`;
+  function sameLocalDay(start: Date, end: Date) {
+    return (
+      start.getFullYear() === end.getFullYear() &&
+      start.getMonth() === end.getMonth() &&
+      start.getDate() === end.getDate()
+    );
   }
 
   function factLine() {
-    return [placeLabel(), datePartLabel(), clockLabel()].filter(Boolean).join(' · ');
+    const place = placeLabel();
+    const start = activity.startAt?.trim() ? new Date(activity.startAt) : null;
+    const end = activity.endAt?.trim() ? new Date(activity.endAt) : null;
+    if (!start || Number.isNaN(start.getTime())) {
+      return [place, timeLabel()].filter(Boolean).join(' · ');
+    }
+    const dateOptions: Intl.DateTimeFormatOptions = {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    };
+    const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+    const startDate = start.toLocaleDateString(undefined, dateOptions);
+    const startTime = start.toLocaleTimeString(undefined, timeOptions);
+    if (!end || Number.isNaN(end.getTime())) {
+      return [place, startDate, startTime].filter(Boolean).join(' · ');
+    }
+    const endTime = end.toLocaleTimeString(undefined, timeOptions);
+    if (sameLocalDay(start, end)) {
+      return [place, startDate, `${startTime}–${endTime}`].filter(Boolean).join(' · ');
+    }
+    const endDate = end.toLocaleDateString(undefined, dateOptions);
+    return [place, `${startDate}, ${startTime} – ${endDate}, ${endTime}`].filter(Boolean).join(' · ');
   }
 
   function sameText(left: string, right: string) {
@@ -151,7 +140,7 @@
         ? 'met'
         : 'partial';
   $: noteText = activity.note.trim();
-  $: showNote = Boolean(noteText) && !sameText(noteText, activity.title);
+  $: showNote = Boolean(noteText);
   $: authorIsSignedUp = activity.roles.some((role) =>
     roleAssignees(role).some((person) => person.username === activity.authorUsername)
   );

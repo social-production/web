@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LocaleDateField from '$lib/components/shared/LocaleDateField.svelte';
   import PlanWizardShell from '$lib/components/shared/PlanWizardShell.svelte';
   import LocationPicker from '$lib/components/shared/LocationPicker.svelte';
   import TimePicker from '$lib/components/shared/TimePicker.svelte';
@@ -511,16 +512,16 @@
           <option value="range">Date range</option>
         </select>
       {:else if currentStep.type === 'schedule-date'}
-        <input bind:value={form.scheduledDate} type="date" />
+        <LocaleDateField bind:value={form.scheduledDate} />
       {:else if currentStep.type === 'schedule-range'}
         <div class="field-grid">
           <label>
             <span>Start date</span>
-            <input bind:value={form.rangeStartDate} type="date" />
+            <LocaleDateField bind:value={form.rangeStartDate} />
           </label>
           <label>
             <span>End date</span>
-            <input bind:value={form.rangeEndDate} type="date" />
+            <LocaleDateField bind:value={form.rangeEndDate} />
           </label>
         </div>
       {:else if currentStep.type === 'schedule-time'}

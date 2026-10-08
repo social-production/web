@@ -428,9 +428,9 @@
   }
 
   .content :global(.feed-corner-actions .pill-count) {
-    min-width: 0;
-    max-width: 28px;
-    overflow: hidden;
+    min-width: 2.4em;
+    max-width: none;
+    overflow: visible;
     justify-content: center;
     font-variant-numeric: tabular-nums;
   }

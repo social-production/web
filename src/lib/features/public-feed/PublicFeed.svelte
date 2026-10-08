@@ -116,6 +116,7 @@
   let lastPersistedPreferences = preferenceSignature(defaultPreferences);
   let visibleItems: PublicFeedItem[] = items;
   let personalItems: PersonalFeedItem[] = [];
+  let combinedSettled = false;
   let personalOffset = 0;
   let personalHasMore = false;
   let publicHasMore = initialHasMore ?? items.length >= DEFAULT_FEED_PAGE_SIZE;
@@ -294,11 +295,12 @@
       visibleItems = [];
       feedHasMore = false;
       feedOffset = 0;
+      combinedSettled = true;
       return;
     }
 
     const signature = feedQuerySignature();
-    if (signature === lastLoadedQuery && visibleItems.length > 0) {
+    if (signature === lastLoadedQuery && visibleItems.length > 0 && (!combineFeeds || combinedSettled)) {
       return;
     }
 
@@ -308,9 +310,11 @@
     feedHasMore = true;
     feedOffset = 0;
     try {
-      const pageResult = await fetchPublicPage(0);
-      const personalPage =
-        combineFeeds && $page.data.bootstrap?.viewer ? await fetchPersonalPage(0) : null;
+      const wantsPersonal = combineFeeds && Boolean($page.data.bootstrap?.viewer);
+      const [pageResult, personalPage] = await Promise.all([
+        fetchPublicPage(0),
+        wantsPersonal ? fetchPersonalPage(0) : Promise.resolve(null)
+      ]);
       if (requestId === feedRequestId) {
         visibleItems = pageResult.items;
         personalItems = personalPage?.items ?? [];
@@ -325,6 +329,7 @@
     } finally {
       if (requestId === feedRequestId) {
         feedLoading = false;
+        combinedSettled = true;
       }
     }
   }
@@ -343,11 +348,11 @@
     const requestId = ++feedRequestId;
     feedLoadingMore = true;
     try {
-      const pageResult = publicHasMore ? await fetchPublicPage(feedOffset) : null;
-      const personalPage =
-        combineFeeds && personalHasMore && $page.data.bootstrap?.viewer
-          ? await fetchPersonalPage(personalOffset)
-          : null;
+      const wantsPersonal = combineFeeds && personalHasMore && Boolean($page.data.bootstrap?.viewer);
+      const [pageResult, personalPage] = await Promise.all([
+        publicHasMore ? fetchPublicPage(feedOffset) : Promise.resolve(null),
+        wantsPersonal ? fetchPersonalPage(personalOffset) : Promise.resolve(null)
+      ]);
       if (requestId !== feedRequestId) {
         return;
       }
@@ -540,7 +545,11 @@
       preferencesReady = true;
     }
   }
-  $: feedRows = combineFeeds
+  $: showCombinedPlaceholder =
+    combineFeeds && Boolean($page.data.bootstrap?.viewer) && !combinedSettled;
+  $: feedRows = showCombinedPlaceholder
+    ? []
+    : combineFeeds
     ? mergeHomeFeed(
         visibleItems,
         personalItems,
@@ -562,6 +571,7 @@
     } else if (trackedCombine !== combineFeeds) {
       trackedCombine = combineFeeds;
       lastLoadedQuery = '';
+      combinedSettled = !combineFeeds;
       visibleItems = [];
       personalItems = [];
       void loadFeedItems();
@@ -887,7 +897,7 @@
   </section>
 
   <div class="stack">
-    {#if feedLoading && feedRows.length === 0}
+    {#if showCombinedPlaceholder || (feedLoading && feedRows.length === 0)}
       <section class="empty-card">
         <p>Loading feed...</p>
       </section>

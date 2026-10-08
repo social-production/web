@@ -103,8 +103,9 @@
   }
 
   .vote-button:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--brand-soft) 88%, transparent);
+    background: color-mix(in srgb, var(--brand-soft) 78%, var(--panel-strong));
     color: var(--brand-strong);
+    box-shadow: inset 0 0 0 1px var(--brand);
   }
 
   .vote-button:disabled {
@@ -192,6 +193,10 @@
     border-radius: 0;
     font-size: 15px;
     font-weight: 800;
+  }
+
+  .signal-strip.docked .vote-button:hover:not(:disabled) {
+    filter: brightness(1.12);
   }
 
   .signal-strip.docked:not(:has(.active-support)):not(:has(.active-oppose)) .vote-button,

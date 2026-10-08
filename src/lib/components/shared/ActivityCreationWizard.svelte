@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LocaleDateField from '$lib/components/shared/LocaleDateField.svelte';
   import PlanWizardShell from '$lib/components/shared/PlanWizardShell.svelte';
   import ProjectActivityRolesEditor from '$lib/components/forms/project-detail/ProjectActivityRolesEditor.svelte';
   import LocationPicker from '$lib/components/shared/LocationPicker.svelte';
@@ -181,18 +182,18 @@
         <div class="field-grid">
           <label>
             <span>Start time</span>
-            <input
+            <LocaleDateField
               bind:value={form.scheduledAt}
-              type="datetime-local"
+              mode="datetime"
               min={scheduleStartMin ?? scheduleBounds?.startLocal ?? undefined}
               max={scheduleBounds?.endLocal ?? undefined}
             />
           </label>
           <label>
             <span>Finish time</span>
-            <input
+            <LocaleDateField
               bind:value={form.endsAt}
-              type="datetime-local"
+              mode="datetime"
               min={form.scheduledAt || scheduleStartMin || scheduleBounds?.startLocal || undefined}
               max={scheduleBounds?.endLocal ?? undefined}
             />

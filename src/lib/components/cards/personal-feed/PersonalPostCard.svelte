@@ -1,5 +1,4 @@
 <script lang="ts">
-  import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import LinkedPostBody from '$lib/components/shared/LinkedPostBody.svelte';
@@ -9,6 +8,7 @@
   import { castFeedVote } from '$lib/services/commands/shared';
   import type { PersonalPostItem, VoteDirection } from '$lib/types/feed';
   import { surfaceTypeAccent } from '$lib/utils/surfaceType';
+  import PersonalFeedIdentity from '$lib/components/cards/personal-feed/PersonalFeedIdentity.svelte';
 
   export let item: PersonalPostItem;
 
@@ -41,10 +41,10 @@
 >
   <div class="card-header">
     <div class="header-row">
-      <div class="identity-row">
-        <AvatarBadge size="sm" username={item.author.username} imageUrl={item.author.profileImageUrl ?? null} />
-        <a class="name header-name" href={`/profile/${item.author.username}`}>{item.author.username}</a>
-      </div>
+      <PersonalFeedIdentity
+        username={item.author.username}
+        profileImageUrl={item.author.profileImageUrl ?? null}
+      />
       <ReportControl
         hasActiveReport={item.hasActiveReport}
         isUnderReview={item.isUnderReview}
@@ -82,7 +82,6 @@
   }
 
   .header-row,
-  .identity-row,
   .footer,
   .engagement-row {
     display: flex;
@@ -103,31 +102,7 @@
 
   .footer {
     flex-wrap: nowrap;
-  }
-
-  .identity-row {
-    gap: 0.6rem;
-    flex: 1 1 auto;
-    min-width: 0;
-    align-items: center;
-  }
-
-  .header-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .name,
-  .footer {
     margin: 0;
-  }
-
-  .name {
-    font-weight: 800;
-  }
-
-  .footer {
     color: var(--text-soft);
     font-size: 13px;
   }
@@ -153,9 +128,4 @@
     white-space: nowrap;
   }
 
-  @media (max-width: 760px) {
-    .header-name {
-      font-size: 15px;
-    }
-  }
 </style>

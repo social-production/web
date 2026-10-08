@@ -175,6 +175,13 @@
     cursor: pointer;
   }
 
+  button.overlay-scrim.overlay-scrim:hover,
+  button.overlay-scrim.overlay-scrim:focus-visible {
+    background: var(--shell-scrim);
+    color: inherit;
+    filter: none;
+  }
+
   .overlay-sheet {
     position: relative;
     z-index: 1;

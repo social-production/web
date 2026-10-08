@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import LocaleDateField from '$lib/components/shared/LocaleDateField.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
   import TimePicker from '$lib/components/shared/TimePicker.svelte';
@@ -691,16 +692,16 @@
                   {#if planForm.scheduleMode === 'date'}
                     <label>
                       <RequiredFieldLabel>Date</RequiredFieldLabel>
-                      <input type="date" bind:value={planForm.scheduledDate} />
+                      <LocaleDateField bind:value={planForm.scheduledDate} />
                     </label>
                   {:else}
                     <label>
                       <RequiredFieldLabel>Start date</RequiredFieldLabel>
-                      <input type="date" bind:value={planForm.rangeStartDate} />
+                      <LocaleDateField bind:value={planForm.rangeStartDate} />
                     </label>
                     <label>
                       <RequiredFieldLabel>End date</RequiredFieldLabel>
-                      <input type="date" bind:value={planForm.rangeEndDate} />
+                      <LocaleDateField bind:value={planForm.rangeEndDate} />
                     </label>
                   {/if}
                 </div>

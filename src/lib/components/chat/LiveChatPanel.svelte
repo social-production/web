@@ -14,7 +14,10 @@
   import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
   import { scrollCenteredInContainer } from '$lib/utils/comment-scroll';
   import { requireViewer } from '$lib/utils/requireViewer';
+  import MentionMenu from '$lib/components/shared/MentionMenu.svelte';
   import PhotoViewer from '$lib/components/shared/PhotoViewer.svelte';
+  import { searchPeopleSuggestions } from '$lib/services/queries/account';
+  import { activeMention, insertMention } from '$lib/utils/mentions';
   import type { MessageAttachment } from '$lib/types/inbox';
   import { compressChatPhoto, rejectOutgoingAttachment } from '$lib/features/messages/attachmentLimits';
   import { onMount, tick } from 'svelte';
@@ -89,6 +92,15 @@
   let photoInput: HTMLInputElement | null = null;
   let fileInput: HTMLInputElement | null = null;
   let messageMenu: { message: ChatMessage; x: number; y: number } | null = null;
+  let suppressMessageMenuOpen = false;
+  let composerElement: HTMLTextAreaElement | null = null;
+  let mentionResults: Array<{ id: string; username: string }> = [];
+  let mentionStart = -1;
+  let mentionCursor = 0;
+  let mentionTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const mentionSubjects = new Set(['project', 'event', 'thread', 'post']);
+  $: mentionsEnabled = Boolean(subjectType && mentionSubjects.has(subjectType));
   let replyTarget: ChatMessage | null = null;
   let editingMessage: ChatMessage | null = null;
   const maxPendingAttachments = 10;
@@ -100,14 +112,25 @@
   function onMessageMenuOutside(event: PointerEvent) {
     const target = event.target;
     if (target instanceof Element && target.closest('.bubble-menu')) {
+      window.addEventListener('pointerdown', onMessageMenuOutside, { once: true });
       return;
     }
+    suppressMessageMenuOpen = true;
     closeMessageMenu();
+    window.setTimeout(() => {
+      suppressMessageMenuOpen = false;
+    }, 0);
   }
 
   async function openMessageMenu(message: ChatMessage, event: MouseEvent) {
     const target = event.target;
     if (target instanceof Element && target.closest('a, button, input, textarea, label')) {
+      return;
+    }
+
+    if (messageMenu || suppressMessageMenuOpen) {
+      suppressMessageMenuOpen = false;
+      closeMessageMenu();
       return;
     }
 
@@ -627,6 +650,7 @@
     }
 
     draftMessage = '';
+    clearMentions();
     submitPending = true;
 
     try {
@@ -673,8 +697,59 @@
     }
   }
 
+  function clearMentions() {
+    mentionResults = [];
+    mentionStart = -1;
+  }
+
+  function syncMentions(event: Event) {
+    if (!mentionsEnabled) {
+      clearMentions();
+      return;
+    }
+    const field = event.currentTarget;
+    if (!(field instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    const cursor = field.selectionStart ?? draftMessage.length;
+    const found = activeMention(draftMessage, cursor);
+    if (!found) {
+      clearMentions();
+      return;
+    }
+    mentionStart = found.start;
+    mentionCursor = cursor;
+    if (mentionTimer) {
+      clearTimeout(mentionTimer);
+    }
+    mentionTimer = setTimeout(() => {
+      void searchPeopleSuggestions(found.query).then((items) => {
+        mentionResults = items;
+      });
+    }, 160);
+  }
+
+  async function chooseMention(username: string) {
+    const inserted = insertMention(draftMessage, mentionStart, mentionCursor, username);
+    draftMessage = inserted.value;
+    clearMentions();
+    await tick();
+    composerElement?.focus();
+    composerElement?.setSelectionRange(inserted.caret, inserted.caret);
+  }
+
   function handleComposerKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && mentionResults.length > 0) {
+      event.preventDefault();
+      clearMentions();
+      return;
+    }
     if (event.key === 'Enter' && !event.shiftKey) {
+      if (mentionResults.length > 0) {
+        event.preventDefault();
+        void chooseMention(mentionResults[0].username);
+        return;
+      }
       event.preventDefault();
       void submitMessage();
     }
@@ -1017,9 +1092,12 @@
       <p class="attach-error" role="alert">{attachmentError}</p>
     {/if}
     <div class="composer-input-shell">
+      <MentionMenu results={mentionResults} onSelect={chooseMention} />
       <textarea
+        bind:this={composerElement}
         bind:value={draftMessage}
         on:focus={syncPanelHeight}
+        on:input={syncMentions}
         on:keydown={handleComposerKeydown}
         placeholder={placeholder}
         rows="3"
@@ -1042,6 +1120,10 @@
   .composer-input-shell {
     display: grid;
     gap: 12px;
+  }
+
+  .composer-input-shell {
+    position: relative;
   }
 
   .chat-panel {
