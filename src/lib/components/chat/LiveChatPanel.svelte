@@ -5,7 +5,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import ReportComposerModal from '$lib/components/shared/ReportComposerModal.svelte';
-  import ReportMenu from '$lib/components/shared/ReportMenu.svelte';
+  import { portal } from '$lib/utils/portal';
   import { addComment, setReportVote, submitReport } from '$lib/services/commands/shared';
   import type { ContentReportSummary, DetailComment, ModerationState } from '$lib/types/detail';
   import type { CommentSubjectType, ReportTargetType } from '$lib/types/governance';
@@ -30,6 +30,9 @@
     showAuthor?: boolean;
     attachments?: MessageAttachment[];
     pinned?: boolean;
+    editedAt?: string | null;
+    replyAuthor?: string | null;
+    replyPreview?: string | null;
   };
 
   export let comments: DetailComment[] = [];
@@ -47,7 +50,16 @@
   export let fitViewport = false;
   export let variant: 'chat' | 'message' = 'chat';
   export let reportTargetType: ReportTargetType | undefined = undefined;
-  export let onSubmitMessage: ((body: string, files?: File[]) => Promise<void> | void) | null = null;
+  export let onSubmitMessage:
+    | ((
+        body: string,
+        files?: File[],
+        options?: { replyToId?: string | null }
+      ) => Promise<void> | void)
+    | null = null;
+  export let onEditMessage: ((messageId: string, body: string) => Promise<void> | void) | null = null;
+  export let onDeleteMessage: ((messageId: string) => Promise<void> | void) | null = null;
+  export let conversationActions = false;
   export let onModerated: (() => Promise<void> | void) | null = null;
   export let allowAttachments = false;
   export let onTogglePin: ((messageId: string, pinned: boolean) => Promise<void> | void) | null = null;
@@ -76,7 +88,85 @@
   let attachmentError = '';
   let photoInput: HTMLInputElement | null = null;
   let fileInput: HTMLInputElement | null = null;
+  let messageMenu: { message: ChatMessage; x: number; y: number } | null = null;
+  let replyTarget: ChatMessage | null = null;
+  let editingMessage: ChatMessage | null = null;
   const maxPendingAttachments = 10;
+
+  function closeMessageMenu() {
+    messageMenu = null;
+  }
+
+  function onMessageMenuOutside(event: PointerEvent) {
+    const target = event.target;
+    if (target instanceof Element && target.closest('.bubble-menu')) {
+      return;
+    }
+    closeMessageMenu();
+  }
+
+  async function openMessageMenu(message: ChatMessage, event: MouseEvent) {
+    const target = event.target;
+    if (target instanceof Element && target.closest('a, button, input, textarea, label')) {
+      return;
+    }
+
+    messageMenu = {
+      message,
+      x: Math.min(event.clientX, window.innerWidth - 196),
+      y: Math.min(event.clientY, window.innerHeight - 280)
+    };
+    await tick();
+    window.addEventListener('pointerdown', onMessageMenuOutside, { once: true });
+  }
+
+  function beginReply(message: ChatMessage) {
+    editingMessage = null;
+    replyTarget = message;
+    closeMessageMenu();
+  }
+
+  function beginEdit(message: ChatMessage) {
+    replyTarget = null;
+    editingMessage = message;
+    draftMessage = message.body;
+    closeMessageMenu();
+  }
+
+  function clearComposerContext() {
+    replyTarget = null;
+    editingMessage = null;
+  }
+
+  async function copyMessage(message: ChatMessage) {
+    closeMessageMenu();
+    try {
+      await navigator.clipboard.writeText(message.body);
+    } catch {
+      attachmentError = 'Could not copy that message';
+    }
+  }
+
+  async function runMessagePin(message: ChatMessage) {
+    closeMessageMenu();
+    await onTogglePin?.(message.id, Boolean(message.pinned));
+  }
+
+  async function runMessageDelete(message: ChatMessage) {
+    closeMessageMenu();
+    if (!onDeleteMessage) {
+      return;
+    }
+    await onDeleteMessage(message.id);
+  }
+
+  function reportFromMenu(message: ChatMessage) {
+    closeMessageMenu();
+    if (viewerUsername === message.authorUsername) {
+      return;
+    }
+    openReportComposer(message);
+  }
 
   function formatByteSize(bytes: number) {
     if (bytes < 1024) {
@@ -540,8 +630,18 @@
     submitPending = true;
 
     try {
-      if (onSubmitMessage) {
-        await onSubmitMessage(body, files.length ? files : undefined);
+      if (editingMessage && onEditMessage) {
+        if (!body) {
+          draftMessage = body;
+          return;
+        }
+        await onEditMessage(editingMessage.id, body);
+        editingMessage = null;
+      } else if (onSubmitMessage) {
+        await onSubmitMessage(body, files.length ? files : undefined, {
+          replyToId: replyTarget?.id ?? null
+        });
+        replyTarget = null;
       } else if (subjectId && subjectType) {
         await addComment({ id: subjectId, type: subjectType }, body);
         await invalidateAll();
@@ -660,6 +760,7 @@
             class:own={message.isOwn ?? viewerUsername === message.authorUsername}
             class="chat-message"
             use:registerMessageElement={message.id}
+            on:click={(event) => openMessageMenu(message, event)}
           >
             <div
               class="message-copy"
@@ -670,6 +771,12 @@
             >
               {#if message.showAuthor ?? true}
                 <a class="author-link" href={`/profile/${message.authorUsername}`}>{message.authorUsername}</a>
+              {/if}
+              {#if message.replyAuthor || message.replyPreview}
+                <div class="reply-quote">
+                  <strong>{message.replyAuthor || 'Message'}</strong>
+                  <span>{message.replyPreview || ''}</span>
+                </div>
               {/if}
               {#if supportsHiddenToggle(message)}
                 <button
@@ -717,24 +824,8 @@
                       {#if !caption && photos.length === 0 && fileIndex === files.length - 1}
                         <span class="message-footer">
                           <span class="message-time">{formatMessageTime(message.createdAt)}</span>
-                          {#if subjectId}
-                            <span class="message-actions" aria-label="Message actions">
-                              <ReportMenu
-                                blockedMessage={viewerUsername === message.authorUsername ? "You can't report yourself" : ''}
-                                extraActionLabel={onTogglePin ? (message.pinned ? 'Unpin' : 'Pin') : ''}
-                                hasActiveReport={Boolean(message.report)}
-                                isUnderReview={message.report?.resolution === 'under_review' || message.report?.resolution === 'open' || message.moderationState === 'under_review'}
-                                itemLabel={variant === 'message' ? 'message' : 'comment'}
-                                moderationState={message.moderationState}
-                                onExtraAction={onTogglePin
-                                  ? () => onTogglePin?.(message.id, Boolean(message.pinned))
-                                  : null}
-                                pending={reportPending}
-                                report={message.report ?? null}
-                                on:compose={() => openReportComposer(message)}
-                                on:vote={(event) => voteOnActiveReport(message.report?.id ?? '', event.detail.vote)}
-                              />
-                            </span>
+                          {#if message.editedAt}
+                            <span class="edited-mark">edited</span>
                           {/if}
                         </span>
                       {/if}
@@ -755,24 +846,8 @@
                       {#if photos.length === 0}
                       <span class="message-footer">
                         <span class="message-time">{formatMessageTime(message.createdAt)}</span>
-                        {#if subjectId}
-                          <span class="message-actions" aria-label="Message actions">
-                            <ReportMenu
-                              blockedMessage={viewerUsername === message.authorUsername ? "You can't report yourself" : ''}
-                              extraActionLabel={onTogglePin ? (message.pinned ? 'Unpin' : 'Pin') : ''}
-                              hasActiveReport={Boolean(message.report)}
-                              isUnderReview={message.report?.resolution === 'under_review' || message.report?.resolution === 'open' || message.moderationState === 'under_review'}
-                              itemLabel={variant === 'message' ? 'message' : 'comment'}
-                              moderationState={message.moderationState}
-                              onExtraAction={onTogglePin
-                                ? () => onTogglePin?.(message.id, Boolean(message.pinned))
-                                : null}
-                              pending={reportPending}
-                              report={message.report ?? null}
-                              on:compose={() => openReportComposer(message)}
-                              on:vote={(event) => voteOnActiveReport(message.report?.id ?? '', event.detail.vote)}
-                            />
-                          </span>
+                        {#if message.editedAt}
+                          <span class="edited-mark">edited</span>
                         {/if}
                       </span>
                       {/if}
@@ -784,24 +859,8 @@
               {#if photos.length > 0 || (!caption && files.length === 0)}
                 <div class="message-footer photo-footer">
                   <span class="message-time">{formatMessageTime(message.createdAt)}</span>
-                  {#if subjectId}
-                    <span class="message-actions" aria-label="Message actions">
-                      <ReportMenu
-                        blockedMessage={viewerUsername === message.authorUsername ? "You can't report yourself" : ''}
-                        extraActionLabel={onTogglePin ? (message.pinned ? 'Unpin' : 'Pin') : ''}
-                        hasActiveReport={Boolean(message.report)}
-                        isUnderReview={message.report?.resolution === 'under_review' || message.report?.resolution === 'open' || message.moderationState === 'under_review'}
-                        itemLabel={variant === 'message' ? 'message' : 'comment'}
-                        moderationState={message.moderationState}
-                        onExtraAction={onTogglePin
-                          ? () => onTogglePin?.(message.id, Boolean(message.pinned))
-                          : null}
-                        pending={reportPending}
-                        report={message.report ?? null}
-                        on:compose={() => openReportComposer(message)}
-                        on:vote={(event) => voteOnActiveReport(message.report?.id ?? '', event.detail.vote)}
-                      />
-                    </span>
+                  {#if message.editedAt}
+                    <span class="edited-mark">edited</span>
                   {/if}
                 </div>
               {/if}
@@ -811,6 +870,54 @@
       {/if}
     </div>
   </div>
+
+  {#if messageMenu}
+    {@const menuMessage = messageMenu.message}
+    {@const menuOwn = menuMessage.isOwn ?? viewerUsername === menuMessage.authorUsername}
+    <div
+      class="bubble-menu"
+      role="menu"
+      style="left: {messageMenu.x}px; top: {messageMenu.y}px"
+      use:portal={'body'}
+    >
+      {#if conversationActions && onSubmitMessage}
+        <button type="button" role="menuitem" on:click={() => beginReply(menuMessage)}>Reply</button>
+      {/if}
+      <button type="button" role="menuitem" on:click={() => copyMessage(menuMessage)}>Copy</button>
+      {#if onTogglePin}
+        <button type="button" role="menuitem" on:click={() => runMessagePin(menuMessage)}>
+          {menuMessage.pinned ? 'Unpin' : 'Pin'}
+        </button>
+      {/if}
+      {#if conversationActions && menuOwn && onEditMessage}
+        <button type="button" role="menuitem" on:click={() => beginEdit(menuMessage)}>Edit</button>
+      {/if}
+      {#if conversationActions && menuOwn && onDeleteMessage}
+        <button type="button" role="menuitem" on:click={() => runMessageDelete(menuMessage)}>Delete</button>
+      {/if}
+      {#if !menuOwn && subjectId}
+        <button type="button" role="menuitem" on:click={() => reportFromMenu(menuMessage)}>Report</button>
+      {/if}
+      {#if menuMessage.report && menuMessage.report.resolution !== 'removed' && menuMessage.report.resolution !== 'dismissed'}
+        <button
+          type="button"
+          role="menuitem"
+          on:click={() => {
+            void voteOnActiveReport(menuMessage.report?.id ?? '', 'yes');
+            closeMessageMenu();
+          }}>Vote to remove</button
+        >
+        <button
+          type="button"
+          role="menuitem"
+          on:click={() => {
+            void voteOnActiveReport(menuMessage.report?.id ?? '', 'no');
+            closeMessageMenu();
+          }}>Vote to keep</button
+        >
+      {/if}
+    </div>
+  {/if}
 
   <PhotoViewer
     url={viewerPhoto?.url ?? null}
@@ -829,6 +936,26 @@
   />
 
   <div class="composer-card">
+    {#if replyTarget}
+      <div class="composer-context">
+        <div>
+          <strong>Reply to {replyTarget.authorUsername}</strong>
+          <p>{replyTarget.body}</p>
+        </div>
+        <button type="button" on:click={clearComposerContext}>Close</button>
+      </div>
+    {:else if editingMessage}
+      <div class="composer-context">
+        <strong>Edit message</strong>
+        <button
+          type="button"
+          on:click={() => {
+            clearComposerContext();
+            draftMessage = '';
+          }}>Close</button
+        >
+      </div>
+    {/if}
     {#if allowAttachments && viewerSignedIn}
       <div class="attach-row">
         <button aria-label="Add a photo" class="attach-button" type="button" on:click={() => photoInput?.click()}>
@@ -894,7 +1021,7 @@
       ></textarea>
       {#if viewerSignedIn}
         <button class="primary-button" disabled={submitPending} type="button" on:click={submitMessage}
-          >{submitLabel}</button
+          >{editingMessage ? 'Save' : submitLabel}</button
         >
       {:else}
         <button class="primary-button" type="button" on:click={promptChatSignIn}>Sign in</button>
@@ -981,7 +1108,89 @@
     border-radius: 0;
     scroll-margin-top: 12px;
     scroll-margin-bottom: 16px;
+    cursor: pointer;
     transition: background 140ms ease, box-shadow 140ms ease;
+  }
+
+  .reply-quote {
+    display: grid;
+    gap: 2px;
+    margin-bottom: 6px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--accent, #3d6b4f);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--panel, #fff) 70%, transparent);
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .reply-quote strong,
+  .reply-quote span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .reply-quote span {
+    color: var(--muted, #667);
+    font-size: 0.85em;
+  }
+
+  .edited-mark {
+    color: var(--muted, #667);
+    font-size: 0.75em;
+  }
+
+  .bubble-menu {
+    position: fixed;
+    z-index: 80;
+    display: grid;
+    min-width: 148px;
+    padding: 6px;
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    background: var(--panel);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
+  }
+
+  .bubble-menu button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .bubble-menu button:hover {
+    background: color-mix(in srgb, var(--accent, #3d6b4f) 12%, transparent);
+  }
+
+  .composer-context {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px;
+    border-left: 3px solid var(--accent, #3d6b4f);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--panel, #fff) 80%, var(--accent, #3d6b4f));
+  }
+
+  .composer-context p {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 36ch;
+  }
+
+  .composer-context button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
   }
 
   .message-copy {

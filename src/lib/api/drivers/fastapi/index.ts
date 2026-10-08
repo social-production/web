@@ -93,6 +93,10 @@ import {
   fetchConversationMessages,
   fetchMessageContacts,
   fetchSendMessage,
+  fetchEditMessage,
+  fetchDeleteMessage,
+  fetchConversationListPreferences,
+  fetchLinkedChatListPreferences,
   fetchStartDirectMessage,
   fetchCreateGroupConversation,
   fetchRenameGroupConversation,
@@ -654,8 +658,24 @@ export function createFastApiDriver(): AppAdapter {
       return fetchMessageContacts(query, limit);
     },
 
-    async sendMessage(conversationId, body, file) {
-      return fetchSendMessage(conversationId, body, file);
+    async sendMessage(conversationId, body, file, replyToId) {
+      return fetchSendMessage(conversationId, body, file, replyToId);
+    },
+
+    async editMessage(conversationId, messageId, body) {
+      return fetchEditMessage(conversationId, messageId, body);
+    },
+
+    async deleteMessage(conversationId, messageId) {
+      return fetchDeleteMessage(conversationId, messageId);
+    },
+
+    async setConversationListPreferences(conversationId, preferences) {
+      return fetchConversationListPreferences(conversationId, preferences);
+    },
+
+    async setLinkedChatListPreferences(subjectType, subjectId, preferences) {
+      return fetchLinkedChatListPreferences(subjectType, subjectId, preferences);
     },
 
     async startDirectMessage(username, body) {

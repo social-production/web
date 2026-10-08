@@ -37,6 +37,8 @@ interface BackendConversation {
   last_message_at: string | null;
   preview?: string;
   unread_count?: number;
+  list_pinned?: boolean;
+  muted?: boolean;
   participants: BackendParticipant[];
 }
 
@@ -64,6 +66,9 @@ interface BackendMessage {
   body: string;
   created_at: string;
   updated_at: string;
+  edited_at?: string | null;
+  reply_author?: string | null;
+  reply_preview?: string | null;
   report?: unknown;
   moderation_state?: string;
   moderationState?: string;
@@ -94,6 +99,8 @@ interface BackendLinkedChat {
   last_message_at: string;
   comment_count: number;
   unread_count?: number;
+  list_pinned?: boolean;
+  muted?: boolean;
 }
 
 interface BackendLinkedChatsResponse {
@@ -139,6 +146,8 @@ function mapConversation(c: BackendConversation, viewerId?: string) {
     preview: c.preview ?? '',
     lastMessageAt: c.last_message_at ?? c.created_at,
     unreadCount: c.unread_count ?? 0,
+    pinned: Boolean(c.list_pinned),
+    muted: Boolean(c.muted),
     messages: [] as DirectMessage[]
   };
 }
@@ -180,7 +189,10 @@ function mapMessage(
     isOwn: senderId === viewerId,
     report: mapContentReport(message.report),
     moderationState: mapModerationState(message),
-    attachments: (message.attachments ?? []).map(mapAttachment)
+    attachments: (message.attachments ?? []).map(mapAttachment),
+    editedAt: message.edited_at ?? null,
+    replyAuthor: message.reply_author ?? null,
+    replyPreview: message.reply_preview ?? null
   };
 }
 
@@ -225,6 +237,8 @@ export async function fetchLinkedChats(): Promise<MessageLinkedChat[]> {
       preview: chat.preview,
       lastMessageAt: chat.last_message_at,
       unreadCount: chat.unread_count ?? 0,
+      pinned: Boolean(chat.list_pinned),
+      muted: Boolean(chat.muted),
       comments: []
     }));
   } catch (err) {
@@ -268,13 +282,17 @@ export async function fetchMessageContacts(query: string, limit = 8): Promise<Vi
 export async function fetchSendMessage(
   conversationId: string,
   body: string,
-  file?: File | File[] | null
+  file?: File | File[] | null,
+  replyToId?: string | null
 ): Promise<void> {
   const files = !file ? [] : Array.isArray(file) ? file : [file];
   try {
     if (files.length) {
       const form = new FormData();
       form.append('body', body);
+      if (replyToId) {
+        form.append('reply_to_id', replyToId);
+      }
       for (const item of files) {
         form.append('file', item, item.name);
       }
@@ -282,9 +300,55 @@ export async function fetchSendMessage(
       return;
     }
 
-    await apiClient.post(`/messages/conversations/${conversationId}/messages`, { body });
+    await apiClient.post(`/messages/conversations/${conversationId}/messages`, {
+      body,
+      reply_to_id: replyToId || null
+    });
   } catch (err) {
     throw new Error(extractErrorMessage(err, 'Could not send message'));
+  }
+}
+
+export async function fetchEditMessage(
+  conversationId: string,
+  messageId: string,
+  body: string
+): Promise<void> {
+  try {
+    await apiClient.patch(`/messages/conversations/${conversationId}/messages/${messageId}`, { body });
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Could not edit message'));
+  }
+}
+
+export async function fetchDeleteMessage(conversationId: string, messageId: string): Promise<void> {
+  try {
+    await apiClient.delete(`/messages/conversations/${conversationId}/messages/${messageId}`);
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Could not delete message'));
+  }
+}
+
+export async function fetchConversationListPreferences(
+  conversationId: string,
+  preferences: { pinned?: boolean; muted?: boolean; hidden?: boolean }
+): Promise<void> {
+  try {
+    await apiClient.patch(`/messages/conversations/${conversationId}/preferences`, preferences);
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Could not update this chat'));
+  }
+}
+
+export async function fetchLinkedChatListPreferences(
+  subjectType: string,
+  subjectId: string,
+  preferences: { pinned?: boolean; muted?: boolean; hidden?: boolean }
+): Promise<void> {
+  try {
+    await apiClient.patch(`/messages/linked-chats/${subjectType}/${subjectId}/preferences`, preferences);
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Could not update this chat'));
   }
 }
 

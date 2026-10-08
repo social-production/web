@@ -625,6 +625,18 @@ export function createSupabaseDriver(): AppAdapter {
     async sendMessage(conversationId, body, file) {
       return fetchSendMessage(conversationId, body, file);
     },
+    async editMessage() {
+      throw new Error('Editing messages is not available on this backend.');
+    },
+    async deleteMessage() {
+      throw new Error('Deleting messages is not available on this backend.');
+    },
+    async setConversationListPreferences() {
+      throw new Error('Chat preferences are not available on this backend.');
+    },
+    async setLinkedChatListPreferences() {
+      throw new Error('Chat preferences are not available on this backend.');
+    },
     async startDirectMessage(username, body) {
       return fetchStartDirectMessage(username, body);
     },

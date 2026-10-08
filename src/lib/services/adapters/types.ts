@@ -646,7 +646,23 @@ export interface AppAdapter {
   markLinkedChatRead(subjectType: string, subjectId: string): Promise<void>;
   pinMessage(conversationId: string, messageId: string): Promise<void>;
   unpinMessage(conversationId: string, messageId: string): Promise<void>;
-  sendMessage(conversationId: string, body: string, file?: File | File[] | null): Promise<void>;
+  sendMessage(
+    conversationId: string,
+    body: string,
+    file?: File | File[] | null,
+    replyToId?: string | null
+  ): Promise<void>;
+  editMessage(conversationId: string, messageId: string, body: string): Promise<void>;
+  deleteMessage(conversationId: string, messageId: string): Promise<void>;
+  setConversationListPreferences(
+    conversationId: string,
+    preferences: { pinned?: boolean; muted?: boolean; hidden?: boolean }
+  ): Promise<void>;
+  setLinkedChatListPreferences(
+    subjectType: string,
+    subjectId: string,
+    preferences: { pinned?: boolean; muted?: boolean; hidden?: boolean }
+  ): Promise<void>;
   startDirectMessage(participantUsername: string, body: string): Promise<MessageConversationResult>;
   createGroupConversation(input: CreateGroupMessageInput): Promise<MessageConversationResult>;
   renameGroupConversation(

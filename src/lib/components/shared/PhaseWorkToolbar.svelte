@@ -1,8 +1,11 @@
 <script lang="ts">
   import { afterUpdate, onDestroy, onMount } from 'svelte';
 
+  const MIN_CELL_WIDTH = 112;
+
   let node: HTMLDivElement;
   let observer: MutationObserver | null = null;
+  let resizeObserver: ResizeObserver | null = null;
   let packFrame = 0;
 
   function place() {
@@ -60,15 +63,17 @@
         cell.style.maxWidth = '';
       }
     });
+    const width = node.clientWidth || MIN_CELL_WIDTH;
+    const perRow = Math.max(1, Math.floor(width / MIN_CELL_WIDTH));
     cells.forEach((cell, index) => {
-      const rowStart = Math.floor(index / 3) * 3;
-      const rowCount = Math.min(3, cells.length - rowStart);
-      const alone = rowCount === 1;
+      const rowStart = Math.floor(index / perRow) * perRow;
+      const rowCount = Math.min(perRow, cells.length - rowStart);
+      const share = 100 / rowCount;
       cell.classList.add('phase-pack-cell');
-      cell.classList.toggle('row-start', index % 3 === 0);
-      cell.classList.toggle('wrapped', index >= 3);
-      cell.style.flex = alone ? '1 1 100%' : `1 1 ${100 / rowCount}%`;
-      cell.style.maxWidth = alone ? '100%' : `${100 / rowCount}%`;
+      cell.classList.toggle('row-start', index % perRow === 0);
+      cell.classList.toggle('wrapped', index >= perRow);
+      cell.style.flex = `1 1 ${share}%`;
+      cell.style.maxWidth = `${share}%`;
     });
   }
 
@@ -81,6 +86,8 @@
     place();
     observer = new MutationObserver(schedulePack);
     observer.observe(node, { childList: true, subtree: true });
+    resizeObserver = new ResizeObserver(schedulePack);
+    resizeObserver.observe(node);
     schedulePack();
   });
 
@@ -92,6 +99,7 @@
   onDestroy(() => {
     cancelAnimationFrame(packFrame);
     observer?.disconnect();
+    resizeObserver?.disconnect();
     node?.remove();
   });
 </script>
@@ -155,13 +163,25 @@
     min-width: 0;
   }
 
-  .phase-nav-bar :global(.phase-shift-button) {
+  .phase-nav-bar :global(.phase-shift-button.phase-shift-button) {
     flex: 1 1 auto;
     width: 100%;
+    min-width: 0;
+    max-width: none;
+    height: auto;
     min-height: 44px;
     margin: 0;
+    padding: 8px 10px;
     justify-content: center;
     border-radius: 0;
+    border-width: 0;
+    box-sizing: border-box;
+  }
+
+  .phase-nav-bar :global(.phase-shift-button .label) {
+    white-space: normal;
+    line-height: 1.15;
+    text-align: center;
   }
 
   .phase-nav-bar:has(#phase-nav-start :global(button)) #phase-nav-end :global(.phase-shift-button) {
@@ -183,13 +203,15 @@
     border-top: 1px solid var(--panel-border);
   }
 
-  :global(.phase-pack-cell.round-plus-button),
-  :global(.phase-pack-cell.phase-shift-button) {
+  :global(.phase-pack-cell.round-plus-button.round-plus-button),
+  :global(.phase-pack-cell.phase-shift-button.phase-shift-button) {
     width: 100%;
+    min-width: 0;
     height: auto;
     min-height: 44px;
     justify-content: center;
     border-radius: 0;
+    box-sizing: border-box;
   }
 
   :global(.phase-pack-cell.vote-dock) {

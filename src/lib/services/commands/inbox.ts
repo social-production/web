@@ -86,8 +86,36 @@ export function markLinkedChatRead(subjectType: string, subjectId: string, clear
   });
 }
 
-export function sendMessage(threadId: string, body: string, file?: File | File[] | null) {
-  return currentAdapter.sendMessage(threadId, body, file);
+export function sendMessage(
+  threadId: string,
+  body: string,
+  file?: File | File[] | null,
+  replyToId?: string | null
+) {
+  return currentAdapter.sendMessage(threadId, body, file, replyToId);
+}
+
+export function editMessage(threadId: string, messageId: string, body: string) {
+  return currentAdapter.editMessage(threadId, messageId, body);
+}
+
+export function deleteMessage(threadId: string, messageId: string) {
+  return currentAdapter.deleteMessage(threadId, messageId);
+}
+
+export function setConversationListPreferences(
+  conversationId: string,
+  preferences: { pinned?: boolean; muted?: boolean; hidden?: boolean }
+) {
+  return currentAdapter.setConversationListPreferences(conversationId, preferences);
+}
+
+export function setLinkedChatListPreferences(
+  subjectType: string,
+  subjectId: string,
+  preferences: { pinned?: boolean; muted?: boolean; hidden?: boolean }
+) {
+  return currentAdapter.setLinkedChatListPreferences(subjectType, subjectId, preferences);
 }
 
 export function pinMessage(conversationId: string, messageId: string) {

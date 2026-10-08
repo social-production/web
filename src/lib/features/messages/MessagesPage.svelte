@@ -8,7 +8,9 @@
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import ComposeMessageSheet from '$lib/components/shared/ComposeMessageSheet.svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
+  import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
+  import { portal } from '$lib/utils/portal';
   import { unreadCounts } from '$lib/stores/unreadCounts';
   import { addComment } from '$lib/services/commands/shared';
   import { registerEntityType, registerCommentIds } from '$lib/services/governanceEntityRegistry';
@@ -29,10 +31,14 @@
     addGroupConversationMember,
     markConversationRead,
     markLinkedChatRead,
+    deleteMessage,
+    editMessage,
     pinMessage,
     removeGroupConversationMember,
     renameGroupConversation,
     sendMessage,
+    setConversationListPreferences,
+    setLinkedChatListPreferences,
     unpinMessage,
   } from '$lib/services/commands/inbox';
   import type {
@@ -67,11 +73,13 @@
   let showGroupOptions = false;
   let showAddMembers = false;
   let showRemoveMembers = false;
-  let showDirectOptions = false;
+  let chatMenu: { kind: 'conversation' | 'linked'; id: string; x: number; y: number } | null = null;
+  let suppressRowOpen = false;
+  let rowHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  let rowHoldOrigin = { x: 0, y: 0 };
   let renameDraft = '';
   let groupSettingsFeedback = '';
   let groupSettingsTone: 'success' | 'warning' = 'success';
-  let directOptionsFeedback = '';
   let titleSyncKey = '';
   let messagesShellElement: HTMLElement | null = null;
   let linkedChatComments: DetailComment[] = [];
@@ -117,11 +125,22 @@
   $: chatHold = syncChatImmersive(Boolean(activeConversation || activeLinkedChat), chatHold);
   onDestroy(() => {
     chatHold = syncChatImmersive(false, chatHold);
+    if (rowHoldTimer) {
+      clearTimeout(rowHoldTimer);
+    }
   });
   $: activeLinkedChat = linkedChats.find((chat) => chat.id === activeLinkedChatId) ?? null;
-  $: publicChats = [...linkedChats].sort(
-    (left, right) => Date.parse(right.lastMessageAt) - Date.parse(left.lastMessageAt)
-  );
+  function byPinnedThenRecent<T extends { pinned?: boolean; lastMessageAt: string }>(items: T[]) {
+    return [...items].sort((left, right) => {
+      const pinDelta = Number(Boolean(right.pinned)) - Number(Boolean(left.pinned));
+      if (pinDelta !== 0) {
+        return pinDelta;
+      }
+      return Date.parse(right.lastMessageAt) - Date.parse(left.lastMessageAt);
+    });
+  }
+  $: personalChats = byPinnedThenRecent(conversations);
+  $: publicChats = byPinnedThenRecent(linkedChats);
   $: personalUnreadTotal = conversations.reduce(
     (sum, conversation) => sum + conversation.unreadCount,
     0
@@ -146,6 +165,9 @@
         showAuthor: !message.isOwn,
         attachments: message.attachments ?? [],
         pinned: activePins.some((pin) => pin.messageId === message.id),
+        editedAt: message.editedAt ?? null,
+        replyAuthor: message.replyAuthor ?? null,
+        replyPreview: message.replyPreview ?? null,
       }))
     : [];
   $: directConversationPartner =
@@ -188,10 +210,8 @@
     showGroupOptions = false;
     showAddMembers = false;
     showRemoveMembers = false;
-    showDirectOptions = false;
     groupMemberDraft = '';
     groupSettingsFeedback = '';
-    directOptionsFeedback = '';
   }
 
   function linkedChatAuthorUsername(authorUsername: string, authorId: string | null) {
@@ -690,7 +710,6 @@
     activeConversation?.id ?? 'no-conversation',
     activeLinkedChat?.id ?? 'no-linked-chat',
     showGroupOptions ? 'group-options-open' : 'group-options-closed',
-    showDirectOptions ? 'direct-options-open' : 'direct-options-closed',
   ].join(':');
 
   $: if (browser && messagesShellElement && shellLayoutKey) {
@@ -709,10 +728,13 @@
     activeLinkedChatId = null;
     showComposer = false;
     composerError = '';
+    if (suppressRowOpen) {
+      suppressRowOpen = false;
+      return false;
+    }
+
     showGroupOptions = false;
-    showDirectOptions = false;
     groupSettingsFeedback = '';
-    directOptionsFeedback = '';
 
     activeConversationId = conversationId;
     conversationLoadError = '';
@@ -841,13 +863,16 @@
       return false;
     }
 
+    if (suppressRowOpen) {
+      suppressRowOpen = false;
+      return false;
+    }
+
     activeConversationId = null;
     showComposer = false;
     composerError = '';
     showGroupOptions = false;
-    showDirectOptions = false;
     groupSettingsFeedback = '';
-    directOptionsFeedback = '';
     linkedChatComments = [];
     linkedChatOptimisticComments = [];
 
@@ -875,7 +900,11 @@
     return true;
   }
 
-  async function submitConversationMessage(body: string, files?: File[]) {
+  async function submitConversationMessage(
+    body: string,
+    files?: File[],
+    options?: { replyToId?: string | null }
+  ) {
     if (!activeConversation) {
       return;
     }
@@ -905,6 +934,14 @@
         byteSize: file.size,
         url: file.type.startsWith('image/') ? previewUrls[previewIndex++] : '',
       })),
+      replyAuthor: options?.replyToId
+        ? (conversationMessagesById[conversationId] ?? []).find((item) => item.id === options.replyToId)
+            ?.sender.username ?? null
+        : null,
+      replyPreview: options?.replyToId
+        ? (conversationMessagesById[conversationId] ?? []).find((item) => item.id === options.replyToId)
+            ?.body.slice(0, 140) ?? null
+        : null,
     };
 
     conversationMessagesById = {
@@ -914,7 +951,7 @@
 
     composerError = '';
     try {
-      await sendMessage(conversationId, body, files);
+      await sendMessage(conversationId, body, files, options?.replyToId);
       await loadConversationMessages(conversationId, { silent: true });
       void refreshMessagesInbox();
     } catch (err) {
@@ -1027,9 +1064,8 @@
     activeConversationId = null;
     activeLinkedChatId = null;
     showGroupOptions = false;
-    showDirectOptions = false;
     groupSettingsFeedback = '';
-    directOptionsFeedback = '';
+    chatMenu = null;
     scheduleMessagesShellHeightSync();
 
     if (browser) {
@@ -1083,23 +1119,143 @@
     }
   }
 
-  function toggleGroupOptions() {
-    showGroupOptions = !showGroupOptions;
-    showDirectOptions = false;
+  function closeChatMenu() {
+    chatMenu = null;
+  }
+
+  function onChatMenuOutside(event: PointerEvent) {
+    const target = event.target;
+    if (target instanceof Element && target.closest('.chat-row-menu')) {
+      return;
+    }
+    closeChatMenu();
+  }
+
+  async function openChatMenu(
+    target: { kind: 'conversation' | 'linked'; id: string },
+    x: number,
+    y: number
+  ) {
+    chatMenu = {
+      ...target,
+      x: Math.min(x, window.innerWidth - 196),
+      y: Math.min(y, window.innerHeight - 220)
+    };
+    await tick();
+    window.addEventListener('pointerdown', onChatMenuOutside, { once: true });
+  }
+
+  function startRowHold(event: PointerEvent, target: { kind: 'conversation' | 'linked'; id: string }) {
+    if (event.button !== 0) {
+      return;
+    }
+    rowHoldOrigin = { x: event.clientX, y: event.clientY };
+    if (rowHoldTimer) {
+      clearTimeout(rowHoldTimer);
+    }
+    rowHoldTimer = setTimeout(() => {
+      suppressRowOpen = true;
+      void openChatMenu(target, rowHoldOrigin.x, rowHoldOrigin.y);
+    }, 450);
+  }
+
+  function moveRowHold(event: PointerEvent) {
+    if (!rowHoldTimer) {
+      return;
+    }
+    if (Math.hypot(event.clientX - rowHoldOrigin.x, event.clientY - rowHoldOrigin.y) > 8) {
+      clearTimeout(rowHoldTimer);
+      rowHoldTimer = null;
+    }
+  }
+
+  function endRowHold() {
+    if (rowHoldTimer) {
+      clearTimeout(rowHoldTimer);
+      rowHoldTimer = null;
+    }
+  }
+
+  function openHeaderMenu(event: MouseEvent) {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    if (activeConversation) {
+      void openChatMenu({ kind: 'conversation', id: activeConversation.id }, rect.left, rect.bottom);
+      return;
+    }
+    if (activeLinkedChat) {
+      void openChatMenu({ kind: 'linked', id: activeLinkedChat.id }, rect.left, rect.bottom);
+    }
+  }
+
+  async function applyChatMenuPreference(preferences: { pinned?: boolean; muted?: boolean; hidden?: boolean }) {
+    const menu = chatMenu;
+    closeChatMenu();
+    if (!menu) {
+      return;
+    }
+
+    if (menu.kind === 'conversation') {
+      await setConversationListPreferences(menu.id, preferences);
+      if (preferences.hidden && activeConversationId === menu.id) {
+        closeActiveChat();
+      }
+      await refreshMessagesInbox({ force: true });
+      return;
+    }
+
+    const chat = linkedChats.find((item) => item.id === menu.id);
+    if (!chat) {
+      return;
+    }
+    await setLinkedChatListPreferences(chat.kind, chat.subjectId, preferences);
+    if (preferences.hidden && activeLinkedChatId === menu.id) {
+      closeActiveChat();
+    }
+    await hydrateLinkedChats({ force: true });
+  }
+
+  async function openChatInfoFromMenu() {
+    const menu = chatMenu;
+    closeChatMenu();
+    if (!menu || menu.kind !== 'conversation') {
+      return;
+    }
+    suppressRowOpen = false;
+    if (activeConversationId !== menu.id) {
+      await openConversation(menu.id, 0);
+    }
     showAddMembers = false;
     showRemoveMembers = false;
-    groupMemberDraft = '';
     groupSettingsFeedback = '';
+    showGroupOptions = true;
   }
 
-  function toggleDirectOptions() {
-    showDirectOptions = !showDirectOptions;
-    showGroupOptions = false;
-    directOptionsFeedback = '';
+  async function editConversationMessage(messageId: string, body: string) {
+    if (!activeConversationId) {
+      return;
+    }
+    composerError = '';
+    try {
+      await editMessage(activeConversationId, messageId, body);
+      await loadConversationMessages(activeConversationId, { silent: true });
+    } catch (err) {
+      composerError = err instanceof Error ? err.message : 'Could not edit message';
+      throw err;
+    }
   }
 
-  function handleDirectOption(action: 'mute' | 'block') {
-    directOptionsFeedback = `${action === 'mute' ? 'Mute' : 'Block'} is not wired yet.`;
+  async function deleteConversationMessage(messageId: string) {
+    if (!activeConversationId) {
+      return;
+    }
+    composerError = '';
+    try {
+      await deleteMessage(activeConversationId, messageId);
+      await loadConversationMessages(activeConversationId, { silent: true });
+    } catch (err) {
+      composerError = err instanceof Error ? err.message : 'Could not delete message';
+      throw err;
+    }
   }
 
   async function saveGroupName() {
@@ -1180,9 +1336,6 @@
     bind:this={messagesShellElement}
     class:conversation-view={!!activeConversation || !!activeLinkedChat}
     class:list-view={!activeConversation && !activeLinkedChat}
-    class:with-chat-options={!!activeConversation &&
-      ((activeConversation.kind === 'group' && showGroupOptions) ||
-        (activeConversation.kind === 'direct' && showDirectOptions && !!directConversationPartner))}
     class="messages-shell"
   >
     {#if activeConversation || activeLinkedChat}
@@ -1193,24 +1346,24 @@
           <div class="chat-identity">
             {#if activeConversation.kind === 'group'}
               <button
-                aria-expanded={showGroupOptions}
+                aria-expanded={!!chatMenu}
                 class="identity-trigger"
                 type="button"
-                on:click={toggleGroupOptions}
+                on:click={openHeaderMenu}
               >
                 <div>
                   <h2>{conversationDisplayTitle(activeConversation)}</h2>
-                  <p class="identity-note">Group chat settings</p>
+                  <p class="identity-note">Group</p>
                 </div>
 
                 <AvatarBadge size="md" username={conversationDisplayTitle(activeConversation)} />
               </button>
             {:else}
               <button
-                aria-expanded={showDirectOptions}
+                aria-expanded={!!chatMenu}
                 class="identity-trigger"
                 type="button"
-                on:click={toggleDirectOptions}
+                on:click={openHeaderMenu}
               >
                 <div>
                   <h2>{conversationDisplayTitle(activeConversation)}</h2>
@@ -1226,10 +1379,12 @@
           </div>
         {:else if activeLinkedChat}
           <div class="chat-identity linked-chat-identity">
-            <div>
-              <h2>{activeLinkedChat.title}</h2>
-              <p class="identity-note">{linkedChatMeta(activeLinkedChat)}</p>
-            </div>
+            <button class="identity-trigger" type="button" on:click={openHeaderMenu}>
+              <div>
+                <h2>{activeLinkedChat.title}</h2>
+                <p class="identity-note">{linkedChatMeta(activeLinkedChat)}</p>
+              </div>
+            </button>
 
             <a class="secondary-button open-source-link" href={activeLinkedChat.href}
               >Open source page</a
@@ -1264,8 +1419,12 @@
         {/if}
       </header>
 
-      {#if activeConversation?.kind === 'group' && showGroupOptions}
-        <section class="group-settings-card in-shell-settings-card">
+      <OverlaySheet
+        open={activeConversation?.kind === 'group' && showGroupOptions}
+        title="Chat info"
+        on:close={() => (showGroupOptions = false)}
+      >
+        <section class="group-settings-card">
           <label class="composer-field">
             <span>Group name</span>
             <div class="inline-field">
@@ -1364,36 +1523,7 @@
             </p>
           {/if}
         </section>
-      {:else if activeConversation?.kind === 'direct' && showDirectOptions && directConversationPartner}
-        <section class="profile-actions-card in-shell-settings-card">
-          <div class="composer-field">
-            <span>Conversation actions</span>
-            <div class="member-links">
-              <a class="member-link" href={`/profile/${directConversationPartner.username}`}>
-                Open @{directConversationPartner.username}
-              </a>
-              <button
-                class="contact-chip"
-                type="button"
-                on:click={() => handleDirectOption('mute')}
-              >
-                Mute
-              </button>
-              <button
-                class="contact-chip"
-                type="button"
-                on:click={() => handleDirectOption('block')}
-              >
-                Block
-              </button>
-            </div>
-          </div>
-
-          {#if directOptionsFeedback}
-            <p class="composer-feedback">{directOptionsFeedback}</p>
-          {/if}
-        </section>
-      {/if}
+      </OverlaySheet>
 
       {#if activeConversation}
         {#if conversationLoadError}
@@ -1413,6 +1543,9 @@
           highlightedCommentId={highlightedMessageId}
           messages={activeConversationMessages}
           onModerated={refreshActiveThread}
+          conversationActions={true}
+          onDeleteMessage={deleteConversationMessage}
+          onEditMessage={editConversationMessage}
           onSubmitMessage={submitConversationMessage}
           onTogglePin={fastapiMessaging && canPinActiveConversation ? toggleConversationPin : null}
           placeholder="Write a message..."
@@ -1481,15 +1614,29 @@
 
       <div class="conversation-list">
         {#if activeListTab === 'personal'}
-          {#if conversations.length === 0}
+          {#if personalChats.length === 0}
             <div class="empty-state">No personal messages yet.</div>
           {:else}
-            {#each conversations as conversation}
+            {#each personalChats as conversation}
               <button
                 class:unread={conversation.unreadCount > 0}
                 class="conversation-row"
                 type="button"
                 on:click={() => openConversation(conversation.id, conversation.unreadCount)}
+                on:contextmenu={(event) => {
+                  event.preventDefault();
+                  suppressRowOpen = true;
+                  void openChatMenu(
+                    { kind: 'conversation', id: conversation.id },
+                    event.clientX,
+                    event.clientY
+                  );
+                }}
+                on:pointerdown={(event) =>
+                  startRowHold(event, { kind: 'conversation', id: conversation.id })}
+                on:pointermove={moveRowHold}
+                on:pointerup={endRowHold}
+                on:pointercancel={endRowHold}
               >
                 <AvatarBadge
                   size="sm"
@@ -1499,6 +1646,9 @@
                 <div class="conversation-copy">
                   <div class="conversation-topline">
                     <strong>{conversationDisplayTitle(conversation)}</strong>
+                    {#if conversation.muted}
+                      <span class="muted-mark">Muted</span>
+                    {/if}
                     <span class="conversation-time"
                       >{formatRelativeTime(conversation.lastMessageAt)}</span
                     >
@@ -1520,11 +1670,23 @@
               class="conversation-row"
               type="button"
               on:click={() => openLinkedChat(chat.id)}
+              on:contextmenu={(event) => {
+                event.preventDefault();
+                suppressRowOpen = true;
+                void openChatMenu({ kind: 'linked', id: chat.id }, event.clientX, event.clientY);
+              }}
+              on:pointerdown={(event) => startRowHold(event, { kind: 'linked', id: chat.id })}
+              on:pointermove={moveRowHold}
+              on:pointerup={endRowHold}
+              on:pointercancel={endRowHold}
             >
               <AvatarBadge size="sm" username={chat.title} />
               <div class="conversation-copy">
                 <div class="conversation-topline">
                   <strong>{chat.title}</strong>
+                  {#if chat.muted}
+                    <span class="muted-mark">Muted</span>
+                  {/if}
                   <span class="chat-kind">{publicChatKind(chat)}</span>
                   <span class="conversation-time">{formatRelativeTime(chat.lastMessageAt)}</span>
                 </div>
@@ -1545,6 +1707,35 @@
       </button>
     {/if}
   </section>
+
+  {#if chatMenu}
+    {@const menu = chatMenu}
+    {@const menuConversation =
+      menu.kind === 'conversation' ? conversations.find((item) => item.id === menu.id) : null}
+    {@const menuLinked =
+      menu.kind === 'linked' ? linkedChats.find((item) => item.id === menu.id) : null}
+    {@const menuPinned = Boolean(menuConversation?.pinned || menuLinked?.pinned)}
+    {@const menuMuted = Boolean(menuConversation?.muted || menuLinked?.muted)}
+    <div
+      class="chat-row-menu"
+      role="menu"
+      style="left: {chatMenu.x}px; top: {chatMenu.y}px"
+      use:portal={'body'}
+    >
+      <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ pinned: !menuPinned })}>
+        {menuPinned ? 'Unpin' : 'Pin'}
+      </button>
+      <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ muted: !menuMuted })}>
+        {menuMuted ? 'Unmute' : 'Mute'}
+      </button>
+      {#if menuConversation?.kind === 'group'}
+        <button type="button" role="menuitem" on:click={openChatInfoFromMenu}>Chat info</button>
+      {/if}
+      <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ hidden: true })}>
+        Delete
+      </button>
+    </div>
+  {/if}
 </section>
 
 <style>
@@ -1587,13 +1778,8 @@
     height: 100%;
   }
 
-  .messages-shell.conversation-view.with-chat-options {
-    grid-template-rows: auto auto minmax(0, 1fr);
-  }
-
   .chat-header,
-  .group-settings-card,
-  .profile-actions-card {
+  .group-settings-card {
     padding: 14px 16px;
     background: color-mix(in srgb, var(--panel-strong) 38%, var(--panel));
     border-bottom: 1px solid var(--panel-border);
@@ -1656,8 +1842,7 @@
   .chat-identity,
   .conversation-copy,
   .composer-field,
-  .group-settings-card,
-  .profile-actions-card {
+  .group-settings-card {
     display: grid;
     gap: 8px;
   }
@@ -1733,10 +1918,24 @@
   }
 
   .chat-kind {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 42%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--text-soft);
     font-size: 11px;
     font-weight: 700;
+  }
+
+  .chat-identity h2,
+  .linked-chat-identity h2,
+  .identity-trigger h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .surface-tab.active {
@@ -1880,6 +2079,8 @@
     gap: 10px;
     align-items: center;
     min-height: 0;
+    min-width: 0;
+    overflow: hidden;
     width: 100%;
     padding: 12px 14px;
     border: none;
@@ -1888,6 +2089,40 @@
     background: transparent;
     color: var(--text-main);
     text-align: left;
+    touch-action: manipulation;
+  }
+
+  .muted-mark {
+    flex: 0 0 auto;
+    color: var(--muted, #667);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .chat-row-menu {
+    position: fixed;
+    z-index: 80;
+    display: grid;
+    min-width: 148px;
+    padding: 6px;
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    background: var(--panel);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
+  }
+
+  .chat-row-menu button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .chat-row-menu button:hover {
+    background: color-mix(in srgb, var(--accent, #3d6b4f) 12%, transparent);
   }
 
   .conversation-list > .empty-state {
@@ -1924,10 +2159,17 @@
     background: color-mix(in srgb, var(--brand-soft) 38%, var(--panel));
   }
 
+  .conversation-copy {
+    min-width: 0;
+    overflow: hidden;
+  }
+
   .conversation-topline {
     display: flex;
     gap: 8px;
     align-items: baseline;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .conversation-time {
@@ -1941,6 +2183,7 @@
   }
 
   .conversation-topline strong {
+    flex: 1 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -1957,11 +2200,6 @@
     line-clamp: 1;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
-  }
-
-  .in-shell-settings-card,
-  .profile-actions-card {
-    border-bottom: 1px solid var(--panel-border);
   }
 
   .unread-pill {
@@ -2029,8 +2267,10 @@
       grid-template-columns: unset;
     }
 
+    .linked-chat-identity .identity-trigger,
     .linked-chat-identity > div {
       min-width: 0;
+      flex: 1 1 auto;
     }
 
     .chat-identity :global(.identity-trigger > div) {

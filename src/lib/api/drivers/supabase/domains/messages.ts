@@ -209,6 +209,18 @@ export const messagesDomain: Partial<AppAdapter> = {
   getConversationMessages: fetchConversationMessages,
   getMessageContacts: fetchMessageContacts,
   sendMessage: fetchSendMessage,
+  editMessage: async () => {
+    throw new Error('Editing messages is not available on this backend.');
+  },
+  deleteMessage: async () => {
+    throw new Error('Deleting messages is not available on this backend.');
+  },
+  setConversationListPreferences: async () => {
+    throw new Error('Chat preferences are not available on this backend.');
+  },
+  setLinkedChatListPreferences: async () => {
+    throw new Error('Chat preferences are not available on this backend.');
+  },
   pinMessage: fetchPinMessage,
   unpinMessage: fetchUnpinMessage,
   startDirectMessage: fetchStartDirectMessage,

@@ -44,6 +44,9 @@ export interface DirectMessage {
   moderationState?: ModerationState;
   attachments?: MessageAttachment[];
   pinned?: boolean;
+  editedAt?: string | null;
+  replyAuthor?: string | null;
+  replyPreview?: string | null;
 }
 
 export interface ConversationPin {
@@ -78,6 +81,8 @@ export interface MessageConversation {
   preview: string;
   lastMessageAt: string;
   unreadCount: number;
+  pinned?: boolean;
+  muted?: boolean;
   messages: DirectMessage[];
 }
 
@@ -91,6 +96,8 @@ export interface MessageLinkedChat {
   preview: string;
   lastMessageAt: string;
   unreadCount: number;
+  pinned?: boolean;
+  muted?: boolean;
   comments: DetailComment[];
 }
 

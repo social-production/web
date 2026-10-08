@@ -15,6 +15,18 @@ export const messagesDomain: Partial<AppAdapter> = {
   getConversationMessages: stubMethod(provider, domain, 'getConversationMessages') as AppAdapter['getConversationMessages'],
   getMessageContacts: stubMethod(provider, domain, 'getMessageContacts') as AppAdapter['getMessageContacts'],
   sendMessage: stubMethod(provider, domain, 'sendMessage') as AppAdapter['sendMessage'],
+  editMessage: stubMethod(provider, domain, 'editMessage') as AppAdapter['editMessage'],
+  deleteMessage: stubMethod(provider, domain, 'deleteMessage') as AppAdapter['deleteMessage'],
+  setConversationListPreferences: stubMethod(
+    provider,
+    domain,
+    'setConversationListPreferences'
+  ) as AppAdapter['setConversationListPreferences'],
+  setLinkedChatListPreferences: stubMethod(
+    provider,
+    domain,
+    'setLinkedChatListPreferences'
+  ) as AppAdapter['setLinkedChatListPreferences'],
   pinMessage: stubMethod(provider, domain, 'pinMessage') as AppAdapter['pinMessage'],
   unpinMessage: stubMethod(provider, domain, 'unpinMessage') as AppAdapter['unpinMessage'],
   startDirectMessage: stubMethod(provider, domain, 'startDirectMessage') as AppAdapter['startDirectMessage'],
