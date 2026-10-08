@@ -100,6 +100,16 @@
       <span class="comment-link">
         <CountPill label={`${data.commentCount} comments`} />
       </span>
+      {#if $page.data.bootstrap?.viewer}
+        <span class="detail-tool">
+          <ShareUserMenu
+            copyLinkUrl={buildShareUrl(`/threads/${data.slug}`)}
+            menuTitle="Share thread"
+            searchContacts={searchShareContacts}
+            submitShare={handleThreadShare}
+          />
+        </span>
+      {/if}
       <span class="detail-tool">
         <IconMenuButton
           bind:value={sortMode}
@@ -111,16 +121,6 @@
           <FeedToolbarIcon name="sort" />
         </IconMenuButton>
       </span>
-      {#if $page.data.bootstrap?.viewer}
-        <span class="detail-tool">
-          <ShareUserMenu
-            copyLinkUrl={buildShareUrl(`/threads/${data.slug}`)}
-            menuTitle="Share thread"
-            searchContacts={searchShareContacts}
-            submitShare={handleThreadShare}
-          />
-        </span>
-      {/if}
     </div>
     <div class="footer-meta">
       <ContentMetaRow authorUsername={data.authorUsername} createdAt={data.lastActivityAt} />

@@ -92,7 +92,9 @@
     right: var(--right-width, 0px);
     bottom: var(--shell-bottom-nav-offset, 0px);
     display: flex;
-    transition: bottom 0.22s ease;
+    transform: translate3d(0, 0, 0);
+    transition: transform 0.22s ease;
+    will-change: transform;
     flex-direction: column;
     gap: 8px;
     box-sizing: border-box;
@@ -177,6 +179,16 @@
     box-shadow: inset 1px 0 0 var(--panel-border);
     background: var(--panel-strong);
     color: var(--text-main);
+  }
+
+  @media (max-width: 1080px) {
+    .detail-action-dock {
+      bottom: var(--shell-bottom-nav-height);
+    }
+
+    :global(.feed-chrome-collapsed) .detail-action-dock {
+      transform: translate3d(0, var(--shell-bottom-nav-height), 0);
+    }
   }
 
   @media (min-width: 1081px) {

@@ -151,11 +151,18 @@
       position: fixed;
       left: 0;
       right: 0;
-      bottom: var(--shell-bottom-nav-offset, 0px);
+      bottom: var(--shell-bottom-nav-height);
       z-index: 40;
       padding: 8px 12px calc(8px + var(--shell-dock-safe-bottom, 0px));
       border-top: 1px solid var(--panel-border);
       background: var(--panel);
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.22s ease;
+      will-change: transform;
+    }
+
+    :global(.feed-chrome-collapsed) .composer-card {
+      transform: translate3d(0, var(--shell-bottom-nav-height), 0);
     }
   }
 </style>

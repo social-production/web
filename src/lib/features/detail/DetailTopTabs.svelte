@@ -89,7 +89,6 @@
       width: auto;
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
-      transform: none;
       margin: 0 -16px 12px;
       padding: 8px 16px;
       border: 0;
@@ -97,7 +96,9 @@
       border-radius: 0;
       background: var(--toolbar-background, var(--panel));
       box-shadow: 0 8px 16px color-mix(in srgb, var(--page-bg) 55%, transparent);
-      transition: top 0.22s ease, padding-top 0.22s ease, margin-bottom 0.22s ease;
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.22s ease;
+      will-change: transform;
     }
 
     .top-tab-row.chat-immersive {
@@ -105,9 +106,9 @@
     }
 
     :global(.feed-chrome-collapsed) .top-tab-row:not(.chat-immersive) {
-      top: 0;
       padding-top: calc(8px + var(--shell-safe-top, 0px));
       margin-bottom: calc(12px - var(--shell-safe-top, 0px));
+      transform: translate3d(0, calc(-1 * var(--topbar-height, 0px)), 0);
     }
 
     .top-tab {

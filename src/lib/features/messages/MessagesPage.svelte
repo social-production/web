@@ -9,9 +9,12 @@
   import ComposeMessageSheet from '$lib/components/shared/ComposeMessageSheet.svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
+  import ProjectMembersPanel from '$lib/features/projects/detail/ProjectMembersPanel.svelte';
   import PageHeader from '$lib/components/shared/PageHeader.svelte';
   import { portal } from '$lib/utils/portal';
   import { unreadCounts } from '$lib/stores/unreadCounts';
+  import { getProject } from '$lib/services/queries/details';
+  import type { ProjectPageData } from '$lib/types/detail';
   import { addComment } from '$lib/services/commands/shared';
   import { registerEntityType, registerCommentIds } from '$lib/services/governanceEntityRegistry';
   import {
@@ -73,7 +76,17 @@
   let showGroupOptions = false;
   let showAddMembers = false;
   let showRemoveMembers = false;
-  let chatMenu: { kind: 'conversation' | 'linked'; id: string; x: number; y: number } | null = null;
+  let projectMembersData: ProjectPageData | null = null;
+  let showProjectMembers = false;
+  let projectMembersChatId = '';
+  let projectMembersRequest = 0;
+  let chatMenu: {
+    kind: 'conversation' | 'linked';
+    id: string;
+    x: number;
+    y: number;
+    placement: 'list' | 'header';
+  } | null = null;
   let suppressRowOpen = false;
   let rowHoldTimer: ReturnType<typeof setTimeout> | null = null;
   let rowHoldOrigin = { x: 0, y: 0 };
@@ -245,6 +258,32 @@
     }
 
     return 'project';
+  }
+
+  function memberCountLabel(count: number) {
+    return `${count} ${count === 1 ? 'member' : 'members'}`;
+  }
+
+  async function openProjectMembers(chat: MessageLinkedChat) {
+    if (showProjectMembers && projectMembersChatId === chat.id) {
+      showProjectMembers = false;
+      return;
+    }
+
+    const slug = chat.href.split('/').filter(Boolean).pop();
+    if (!slug) {
+      return;
+    }
+
+    const request = ++projectMembersRequest;
+    projectMembersChatId = chat.id;
+    const project = await getProject(slug);
+    if (request !== projectMembersRequest || !project) {
+      return;
+    }
+
+    projectMembersData = project;
+    showProjectMembers = true;
   }
 
   function linkedChatMeta(chat: MessageLinkedChat) {
@@ -1134,10 +1173,12 @@
   async function openChatMenu(
     target: { kind: 'conversation' | 'linked'; id: string },
     x: number,
-    y: number
+    y: number,
+    placement: 'list' | 'header' = 'list'
   ) {
     chatMenu = {
       ...target,
+      placement,
       x: Math.min(x, window.innerWidth - 196),
       y: Math.min(y, window.innerHeight - 220)
     };
@@ -1177,13 +1218,14 @@
   }
 
   function openHeaderMenu(event: MouseEvent) {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = event.clientX;
+    const y = event.clientY;
     if (activeConversation) {
-      void openChatMenu({ kind: 'conversation', id: activeConversation.id }, rect.left, rect.bottom);
+      void openChatMenu({ kind: 'conversation', id: activeConversation.id }, x, y, 'header');
       return;
     }
     if (activeLinkedChat) {
-      void openChatMenu({ kind: 'linked', id: activeLinkedChat.id }, rect.left, rect.bottom);
+      void openChatMenu({ kind: 'linked', id: activeLinkedChat.id }, x, y, 'header');
     }
   }
 
@@ -1322,6 +1364,15 @@
 
 <svelte:window on:resize={scheduleMessagesShellHeightSync} />
 
+{#snippet muteMark()}
+  <span class="muted-mark header-mute" aria-label="Muted" title="Muted">
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
+      <path d="m16 9 5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+    </svg>
+  </span>
+{/snippet}
+
 <section class:conversation-page={!!activeConversation || !!activeLinkedChat} class="page">
   {#if !activeConversation && !activeLinkedChat}
     <div class="desktop-only-header">
@@ -1352,7 +1403,12 @@
                 on:click={openHeaderMenu}
               >
                 <div>
-                  <h2>{conversationDisplayTitle(activeConversation)}</h2>
+                  <h2>
+                    <span class="identity-title">{conversationDisplayTitle(activeConversation)}</span>
+                    {#if activeConversation.muted}
+                      {@render muteMark()}
+                    {/if}
+                  </h2>
                   <p class="identity-note">Group</p>
                 </div>
 
@@ -1366,7 +1422,12 @@
                 on:click={openHeaderMenu}
               >
                 <div>
-                  <h2>{conversationDisplayTitle(activeConversation)}</h2>
+                  <h2>
+                    <span class="identity-title">{conversationDisplayTitle(activeConversation)}</span>
+                    {#if activeConversation.muted}
+                      {@render muteMark()}
+                    {/if}
+                  </h2>
                 </div>
 
                 <AvatarBadge
@@ -1378,17 +1439,43 @@
             {/if}
           </div>
         {:else if activeLinkedChat}
-          <div class="chat-identity linked-chat-identity">
-            <button class="identity-trigger" type="button" on:click={openHeaderMenu}>
+          <div class="chat-identity">
+            <div class="identity-trigger">
               <div>
-                <h2>{activeLinkedChat.title}</h2>
-                <p class="identity-note">{linkedChatMeta(activeLinkedChat)}</p>
+                <button
+                  aria-expanded={!!chatMenu}
+                  class="title-hit"
+                  type="button"
+                  on:click={openHeaderMenu}
+                >
+                  <h2>
+                    <span class="identity-title">{activeLinkedChat.title}</span>
+                    {#if activeLinkedChat.muted}
+                      {@render muteMark()}
+                    {/if}
+                  </h2>
+                </button>
+                <p class="identity-note">
+                  {#if activeLinkedChat.kind === 'project'}
+                    Project chat ·
+                    <button
+                      aria-expanded={showProjectMembers}
+                      class="members-link"
+                      type="button"
+                      on:click={() => openProjectMembers(activeLinkedChat)}
+                    >
+                      {memberCountLabel(activeLinkedChat.memberCount ?? 0)}
+                    </button>
+                  {:else}
+                    {linkedChatMeta(activeLinkedChat)}
+                  {/if}
+                </p>
               </div>
-            </button>
 
-            <a class="secondary-button open-source-link" href={activeLinkedChat.href}
-              >Open source page</a
-            >
+              <button class="avatar-hit" type="button" aria-label="Chat options" on:click={openHeaderMenu}>
+                <AvatarBadge size="md" username={activeLinkedChat.title} />
+              </button>
+            </div>
           </div>
         {/if}
 
@@ -1657,7 +1744,12 @@
                     {/if}
                     <strong>{conversationDisplayTitle(conversation)}</strong>
                     {#if conversation.muted}
-                      <span class="muted-mark">Muted</span>
+                      <span class="muted-mark" aria-label="Muted" title="Muted">
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                          <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
+                          <path d="m16 9 5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                      </span>
                     {/if}
                     <span class="conversation-time"
                       >{formatRelativeTimeCompact(conversation.lastMessageAt)}</span
@@ -1705,7 +1797,12 @@
                   {/if}
                   <strong>{chat.title}</strong>
                   {#if chat.muted}
-                    <span class="muted-mark">Muted</span>
+                    <span class="muted-mark" aria-label="Muted" title="Muted">
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
+                        <path d="m16 9 5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                      </svg>
+                    </span>
                   {/if}
                   <span class="chat-kind">{publicChatKind(chat)}</span>
                   <span class="conversation-time">{formatRelativeTimeCompact(chat.lastMessageAt)}</span>
@@ -1728,6 +1825,14 @@
     {/if}
   </section>
 
+  {#if projectMembersData}
+    <ProjectMembersPanel
+      data={projectMembersData}
+      open={showProjectMembers}
+      on:close={() => (showProjectMembers = false)}
+    />
+  {/if}
+
   {#if chatMenu}
     {@const menu = chatMenu}
     {@const menuConversation =
@@ -1748,21 +1853,33 @@
       style="left: {chatMenu.x}px; top: {chatMenu.y}px"
       use:portal={'body'}
     >
-      {#if menuPartner}
-        <a role="menuitem" href={`/profile/${menuPartner.username}`} on:click={closeChatMenu}>View profile</a>
+      {#if menu.kind === 'linked' && menu.placement === 'header'}
+        {#if menuLinked}
+          <a role="menuitem" href={menuLinked.href} on:click={closeChatMenu}>Open page</a>
+        {/if}
+        <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ muted: !menuMuted })}>
+          {menuMuted ? 'Unmute' : 'Mute'}
+        </button>
+      {:else}
+        {#if menuPartner}
+          <a role="menuitem" href={`/profile/${menuPartner.username}`} on:click={closeChatMenu}>View profile</a>
+        {/if}
+        {#if menuLinked}
+          <a role="menuitem" href={menuLinked.href} on:click={closeChatMenu}>Open page</a>
+        {/if}
+        <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ pinned: !menuPinned })}>
+          {menuPinned ? 'Unpin' : 'Pin'}
+        </button>
+        <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ muted: !menuMuted })}>
+          {menuMuted ? 'Unmute' : 'Mute'}
+        </button>
+        {#if menuConversation?.kind === 'group'}
+          <button type="button" role="menuitem" on:click={openChatInfoFromMenu}>Chat info</button>
+        {/if}
+        <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ hidden: true })}>
+          Delete
+        </button>
       {/if}
-      <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ pinned: !menuPinned })}>
-        {menuPinned ? 'Unpin' : 'Pin'}
-      </button>
-      <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ muted: !menuMuted })}>
-        {menuMuted ? 'Unmute' : 'Mute'}
-      </button>
-      {#if menuConversation?.kind === 'group'}
-        <button type="button" role="menuitem" on:click={openChatInfoFromMenu}>Chat info</button>
-      {/if}
-      <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ hidden: true })}>
-        Delete
-      </button>
     </div>
   {/if}
 </section>
@@ -1959,12 +2076,35 @@
   }
 
   .chat-identity h2,
-  .linked-chat-identity h2,
   .identity-trigger h2 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .identity-title {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .title-hit,
+  .avatar-hit {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    text-align: inherit;
+  }
+
+  .title-hit {
+    display: block;
+    min-width: 0;
+    width: 100%;
   }
 
   .surface-tab.active {
@@ -1987,8 +2127,36 @@
     text-align: inherit;
   }
 
-  .identity-trigger:hover h2,
-  .identity-trigger:hover .identity-note {
+  button.identity-trigger:hover h2,
+  button.identity-trigger:hover .identity-note,
+  .identity-trigger:has(.title-hit:hover) h2,
+  .identity-trigger:has(.avatar-hit:hover) h2 {
+    color: var(--brand-strong);
+  }
+
+  div.identity-trigger {
+    cursor: default;
+  }
+
+  .members-link {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    padding: 0 6px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-main);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.6;
+    cursor: pointer;
+  }
+
+  .members-link:hover,
+  .members-link[aria-expanded='true'] {
+    background: var(--brand-soft);
     color: var(--brand-strong);
   }
 
@@ -2085,8 +2253,7 @@
     color: var(--brand-strong);
   }
 
-  .conversation-list,
-  .linked-chat-identity {
+  .conversation-list {
     justify-self: stretch;
     text-align: left;
   }
@@ -2124,17 +2291,18 @@
   .pin-mark,
   .muted-mark {
     flex: 0 0 auto;
+    display: inline-flex;
     color: var(--text-soft);
     font-size: 11px;
     font-weight: 700;
   }
 
   .pin-mark {
-    display: inline-flex;
     color: var(--brand-strong);
   }
 
-  .pin-mark svg {
+  .pin-mark svg,
+  .muted-mark svg {
     width: 14px;
     height: 14px;
   }
@@ -2192,8 +2360,7 @@
     font-weight: 600;
   }
 
-  .conversation-row:hover,
-  .open-source-link:hover {
+  .conversation-row:hover {
     border-color: color-mix(in srgb, var(--brand) 35%, var(--panel-border));
     background: color-mix(in srgb, var(--brand-soft) 22%, var(--panel));
   }
@@ -2284,52 +2451,19 @@
     color: var(--brand-strong);
   }
 
-  .open-source-link {
-    text-decoration: none;
-  }
-
   @media (max-width: 900px) {
     .chat-header {
       grid-template-columns: auto minmax(0, 1fr);
       gap: 8px;
-      align-items: start;
-    }
-
-    .chat-identity,
-    .linked-chat-identity {
-      display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      min-width: 0;
-    }
-
-    .linked-chat-identity {
-      grid-template-columns: unset;
-    }
-
-    .linked-chat-identity .identity-trigger {
-      min-width: 0;
-      flex: 1 1 auto;
     }
 
     .chat-identity :global(.identity-trigger > div) {
       min-width: 0;
     }
 
-    .linked-chat-identity h2,
     .chat-identity h2 {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .open-source-link {
-      width: auto;
-      flex-shrink: 0;
-      padding: 6px 10px;
-      font-size: 11px;
-      white-space: nowrap;
+      min-width: 0;
     }
 
     .back-button {

@@ -318,6 +318,13 @@
     max-width: 204px;
   }
 
+  .content :global(.feed-corner-actions:has(.detail-tool ~ .detail-tool)) {
+    flex-basis: 236px;
+    width: 236px;
+    min-width: 236px;
+    max-width: 236px;
+  }
+
   .content :global(.feed-corner-actions) {
     display: flex;
     flex: 0 0 172px;

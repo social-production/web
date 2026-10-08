@@ -13,7 +13,7 @@
   import { moderatedPlaceholder, shouldHideModeratedBody } from '$lib/utils/moderation';
   import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
   import { linkifyMessageBody } from '$lib/utils/linkifyMessageBody';
-  import { formatRelativeTime } from '$lib/utils/time';
+  import { formatRelativeTimeCompact } from '$lib/utils/time';
 
   export let comment: DetailComment;
   export let subjectId: string;
@@ -30,6 +30,7 @@
   let reportReason: 'spam' | 'serious-harm' = 'spam';
   let reportDescription = '';
   let revealHiddenBody = false;
+  let chainCollapsed = false;
   let cardElement: HTMLElement;
   let commentSelfElement: HTMLElement;
   let hasAutoScrolled = false;
@@ -133,9 +134,21 @@
   <div bind:this={commentSelfElement} class:highlighted={isHighlighted} class="comment-self">
   <div class="topline">
     <a class="author-link" href={`/profile/${comment.authorUsername}`}>{comment.authorUsername}</a>
-    <span>{formatRelativeTime(comment.createdAt)}</span>
+    <span class="comment-time">{formatRelativeTimeCompact(comment.createdAt)}</span>
+    <button
+      aria-expanded={!chainCollapsed}
+      aria-label={chainCollapsed ? 'Show this comment and its replies' : 'Hide this comment and its replies'}
+      class="collapse-hit"
+      type="button"
+      on:click={() => (chainCollapsed = !chainCollapsed)}
+    >
+      {#if chainCollapsed}
+        <span class="collapsed-mark">+</span>
+      {/if}
+    </button>
   </div>
 
+  <div class="comment-body-block" hidden={chainCollapsed}>
   {#if supportsHiddenToggle}
     <button
       aria-expanded={revealHiddenBody}
@@ -223,9 +236,10 @@
     on:submit={submitCommentReport}
   />
   </div>
+  </div>
 
   {#if comment.replies.length > 0}
-    <div class="reply-stack">
+    <div class="reply-stack" hidden={chainCollapsed}>
       {#each comment.replies as reply}
         <svelte:self
           comment={reply}
@@ -292,6 +306,56 @@
   .topline,
   .actions-row {
     justify-content: flex-start;
+  }
+
+  .topline {
+    flex-wrap: nowrap;
+  }
+
+  .author-link {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .comment-time {
+    flex: 0 0 auto;
+    color: var(--text-soft);
+    font-size: 12px;
+  }
+
+  .collapse-hit {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    min-width: 44px;
+    min-height: 28px;
+    margin: 0;
+    padding: 0 0 0 8px;
+    border: 0;
+    background: transparent;
+    color: var(--text-soft);
+    cursor: pointer;
+    text-align: right;
+  }
+
+  .collapsed-mark {
+    font-weight: 800;
+  }
+
+  .comment-body-block {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .comment-body-block[hidden],
+  .reply-stack[hidden] {
+    display: none;
   }
 
   .author-link {

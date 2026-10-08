@@ -93,6 +93,8 @@ export interface MessageLinkedChat {
   title: string;
   href: string;
   meta: string;
+  memberCount?: number;
+  members?: string[];
   preview: string;
   lastMessageAt: string;
   unreadCount: number;

@@ -92,7 +92,7 @@
   let photoInput: HTMLInputElement | null = null;
   let fileInput: HTMLInputElement | null = null;
   let messageMenu: { message: ChatMessage; x: number; y: number } | null = null;
-  let suppressMessageMenuOpen = false;
+  let blockMessageMenuOpen = false;
   let composerElement: HTMLTextAreaElement | null = null;
   let mentionResults: Array<{ id: string; username: string }> = [];
   let mentionStart = -1;
@@ -109,38 +109,46 @@
     messageMenu = null;
   }
 
-  function onMessageMenuOutside(event: PointerEvent) {
-    const target = event.target;
-    if (target instanceof Element && target.closest('.bubble-menu')) {
-      window.addEventListener('pointerdown', onMessageMenuOutside, { once: true });
+  function onMessageMenuPointerDown(event: PointerEvent) {
+    if (!messageMenu) {
       return;
     }
-    suppressMessageMenuOpen = true;
+    const target = event.target;
+    if (target instanceof Element && target.closest('.bubble-menu')) {
+      return;
+    }
     closeMessageMenu();
-    window.setTimeout(() => {
-      suppressMessageMenuOpen = false;
-    }, 0);
+    blockMessageMenuOpen = true;
   }
 
-  async function openMessageMenu(message: ChatMessage, event: MouseEvent) {
+  function onMessageMenuClick() {
+    blockMessageMenuOpen = false;
+  }
+
+  function openMessageMenu(message: ChatMessage, event: MouseEvent) {
     const target = event.target;
     if (target instanceof Element && target.closest('a, button, input, textarea, label')) {
       return;
     }
 
-    if (messageMenu || suppressMessageMenuOpen) {
-      suppressMessageMenuOpen = false;
+    if (blockMessageMenuOpen || messageMenu) {
+      blockMessageMenuOpen = false;
       closeMessageMenu();
       return;
     }
 
-    messageMenu = {
-      message,
-      x: Math.min(event.clientX, window.innerWidth - 196),
-      y: Math.min(event.clientY, window.innerHeight - 280)
-    };
-    await tick();
-    window.addEventListener('pointerdown', onMessageMenuOutside, { once: true });
+    const menuWidth = 180;
+    const menuHeight = 140;
+    const gap = 8;
+    let x = event.clientX;
+    let y = event.clientY + gap;
+    if (window.innerHeight - event.clientY < menuHeight + gap && event.clientY > window.innerHeight - event.clientY) {
+      y = Math.max(8, event.clientY - gap - menuHeight);
+    }
+    if (x + menuWidth > window.innerWidth - 8) {
+      x = Math.max(8, window.innerWidth - 8 - menuWidth);
+    }
+    messageMenu = { message, x, y };
   }
 
   function beginReply(message: ChatMessage) {
@@ -798,7 +806,11 @@
   });
 </script>
 
-<svelte:window on:resize={syncPanelHeight} />
+<svelte:window
+  on:click={onMessageMenuClick}
+  on:pointerdown={onMessageMenuPointerDown}
+  on:resize={syncPanelHeight}
+/>
 
 <section
   bind:this={panelElement}
@@ -1196,7 +1208,19 @@
     scroll-margin-top: 12px;
     scroll-margin-bottom: 16px;
     cursor: pointer;
-    transition: background 140ms ease, box-shadow 140ms ease;
+    background: transparent;
+    outline: none;
+    box-shadow: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .chat-message:hover,
+  .chat-message:active,
+  .chat-message:focus,
+  .chat-message:focus-visible {
+    background: transparent;
+    outline: none;
+    box-shadow: none;
   }
 
   .reply-quote {

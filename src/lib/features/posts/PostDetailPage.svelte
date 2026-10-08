@@ -112,11 +112,6 @@
         <span class="comment-link">
           <CountPill label={`${data.commentCount} comments`} />
         </span>
-        <span class="detail-tool">
-          <IconMenuButton bind:value={sortMode} ariaLabel="Sort comments" defaultValue="oldest" options={sortOptions}>
-            <FeedToolbarIcon name="sort" />
-          </IconMenuButton>
-        </span>
         {#if $page.data.bootstrap?.viewer}
           <span class="detail-tool">
             <ShareUserMenu
@@ -127,6 +122,11 @@
             />
           </span>
         {/if}
+        <span class="detail-tool">
+          <IconMenuButton bind:value={sortMode} ariaLabel="Sort comments" defaultValue="oldest" options={sortOptions}>
+            <FeedToolbarIcon name="sort" />
+          </IconMenuButton>
+        </span>
       </div>
       <div class="footer-meta">
         <ContentMetaRow timeOnly createdAt={data.createdAt} />

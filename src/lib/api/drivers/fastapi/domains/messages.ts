@@ -98,6 +98,8 @@ interface BackendLinkedChat {
   preview: string;
   last_message_at: string;
   comment_count: number;
+  member_count?: number;
+  members?: string[];
   unread_count?: number;
   list_pinned?: boolean;
   muted?: boolean;
@@ -233,7 +235,12 @@ export async function fetchLinkedChats(): Promise<MessageLinkedChat[]> {
         chat.kind === 'help_request'
           ? `/help-requests/${chat.entity_id}`
           : `/${chat.kind}s/${chat.entity_slug}`,
-      meta: `${chat.comment_count} comments`,
+      meta:
+        chat.kind === 'project'
+          ? `${chat.member_count ?? 0} ${chat.member_count === 1 ? 'member' : 'members'}`
+          : `${chat.comment_count} comments`,
+      memberCount: chat.member_count ?? 0,
+      members: chat.members ?? [],
       preview: chat.preview,
       lastMessageAt: chat.last_message_at,
       unreadCount: chat.unread_count ?? 0,
