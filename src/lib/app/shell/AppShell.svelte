@@ -58,7 +58,6 @@
   let mainContentElement: HTMLElement | null = null;
   let topbarHeight = 53;
   let compactContentOffset = 0;
-  let showThemeHint = false;
   let toolbarSuggestionsOpen = false;
   let toolbarLiveResults: SearchResultItem[] = [];
   let toolbarLiveLoading = false;
@@ -349,7 +348,6 @@
 
   onMount(() => {
     syncUnreadCountsFromBootstrap(bootstrap.unreadCounts);
-    showThemeHint = localStorage.getItem('theme-hint-dismissed') !== 'true';
     let lastBadgeRefreshAt = Date.now();
 
     const refreshBadgeCounts = (force = false) => {
@@ -679,10 +677,6 @@
     queueMicrotask(updateLayoutMetrics);
   }
 
-  function dismissThemeHint() {
-    showThemeHint = false;
-    localStorage.setItem('theme-hint-dismissed', 'true');
-  }
 </script>
 
 <div
@@ -975,14 +969,6 @@
                   ></path>
                 </svg>
               </a>
-              {#if showThemeHint}
-                <div class="theme-hint" role="status">
-                  <p>{m.shell_theme_hint()}</p>
-                  <button class="theme-hint-dismiss" type="button" on:click={dismissThemeHint}
-                    >{m.shell_theme_hint_dismiss()}</button
-                  >
-                </div>
-              {/if}
             </div>
           {/if}
         {:else if !isCompact}
@@ -1530,39 +1516,6 @@
 
   .settings-wrap {
     position: relative;
-  }
-
-  .theme-hint {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    z-index: 50;
-    display: grid;
-    gap: 8px;
-    width: min(240px, calc(100vw - 24px));
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    box-shadow: 0 12px 28px color-mix(in srgb, var(--text-main) 12%, transparent);
-  }
-
-  .theme-hint p {
-    margin: 0;
-    color: var(--text-main);
-    font-size: 12px;
-    line-height: 1.45;
-  }
-
-  .theme-hint-dismiss {
-    justify-self: start;
-    padding: 6px 10px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
   }
 
   .rail-backdrop {

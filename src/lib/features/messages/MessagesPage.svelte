@@ -50,7 +50,7 @@
   import type { ViewerSummary } from '$lib/types/bootstrap';
   import type { DetailComment } from '$lib/types/detail';
   import { tick } from 'svelte';
-  import { formatRelativeTime } from '$lib/utils/time';
+  import { formatRelativeTimeCompact } from '$lib/utils/time';
   import { startVisibilityPoll } from '$lib/utils/visibilityPoll';
   import { isInboxRealtimeEnabled, subscribeToViewerInbox } from '$lib/api/drivers/supabase/realtime';
 
@@ -1645,12 +1645,22 @@
                 />
                 <div class="conversation-copy">
                   <div class="conversation-topline">
+                    {#if conversation.pinned}
+                      <span class="pin-mark" aria-label="Pinned">
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                          <path
+                            d="M16 3l5 5-1.5 1.5-2.2-.7-3.1 3.1.8 3.6L12 13.5 8.2 17.3 6.7 15.8l3.8-3.8-2.1-3.1 3.1-3.1L11 3.5 16 3z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </span>
+                    {/if}
                     <strong>{conversationDisplayTitle(conversation)}</strong>
                     {#if conversation.muted}
                       <span class="muted-mark">Muted</span>
                     {/if}
                     <span class="conversation-time"
-                      >{formatRelativeTime(conversation.lastMessageAt)}</span
+                      >{formatRelativeTimeCompact(conversation.lastMessageAt)}</span
                     >
                   </div>
                   <p class="conversation-preview">{conversation.preview}</p>
@@ -1683,12 +1693,22 @@
               <AvatarBadge size="sm" username={chat.title} />
               <div class="conversation-copy">
                 <div class="conversation-topline">
+                  {#if chat.pinned}
+                    <span class="pin-mark" aria-label="Pinned">
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path
+                          d="M16 3l5 5-1.5 1.5-2.2-.7-3.1 3.1.8 3.6L12 13.5 8.2 17.3 6.7 15.8l3.8-3.8-2.1-3.1 3.1-3.1L11 3.5 16 3z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </span>
+                  {/if}
                   <strong>{chat.title}</strong>
                   {#if chat.muted}
                     <span class="muted-mark">Muted</span>
                   {/if}
                   <span class="chat-kind">{publicChatKind(chat)}</span>
-                  <span class="conversation-time">{formatRelativeTime(chat.lastMessageAt)}</span>
+                  <span class="conversation-time">{formatRelativeTimeCompact(chat.lastMessageAt)}</span>
                 </div>
                 <p class="conversation-preview">{chat.preview}</p>
               </div>
@@ -2092,11 +2112,22 @@
     touch-action: manipulation;
   }
 
+  .pin-mark,
   .muted-mark {
     flex: 0 0 auto;
-    color: var(--muted, #667);
+    color: var(--text-soft);
     font-size: 11px;
     font-weight: 700;
+  }
+
+  .pin-mark {
+    display: inline-flex;
+    color: var(--brand-strong);
+  }
+
+  .pin-mark svg {
+    width: 14px;
+    height: 14px;
   }
 
   .chat-row-menu {
@@ -2173,19 +2204,17 @@
   }
 
   .conversation-time {
+    flex: 0 0 auto;
     margin-left: auto;
-  }
-
-  .conversation-topline strong,
-  .conversation-time {
-    min-width: 0;
     white-space: nowrap;
   }
 
   .conversation-topline strong {
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .conversation-copy p {
@@ -2267,8 +2296,7 @@
       grid-template-columns: unset;
     }
 
-    .linked-chat-identity .identity-trigger,
-    .linked-chat-identity > div {
+    .linked-chat-identity .identity-trigger {
       min-width: 0;
       flex: 1 1 auto;
     }

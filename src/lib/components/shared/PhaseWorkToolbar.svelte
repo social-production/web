@@ -160,11 +160,23 @@
   .phase-nav-bar .phase-action-slot {
     display: flex;
     flex: 1 1 0;
+    align-items: stretch;
     min-width: 0;
   }
 
+  .phase-nav-bar .phase-action-slot :global(.phase-nav-side.phase-nav-side) {
+    display: flex;
+    flex: 1 1 0;
+    align-items: stretch;
+    justify-content: stretch;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+
   .phase-nav-bar :global(.phase-shift-button.phase-shift-button) {
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    align-self: stretch;
     width: 100%;
     min-width: 0;
     max-width: none;
