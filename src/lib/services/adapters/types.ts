@@ -656,6 +656,11 @@ export interface AppAdapter {
   markNotificationRead(notificationId: string): Promise<void>;
   markAllNotificationsRead(): Promise<void>;
   markConversationRead(conversationId: string): Promise<void>;
+  /** Add a finished voice call to the chat ("Voice call · 4:12" / "Missed call"). Idempotent per call. */
+  logCall?(
+    conversationId: string,
+    input: { callId: string; outcome: 'completed' | 'missed' | 'declined'; durationSeconds: number }
+  ): Promise<void>;
   markLinkedChatRead(subjectType: string, subjectId: string): Promise<void>;
   pinMessage(conversationId: string, messageId: string): Promise<void>;
   unpinMessage(conversationId: string, messageId: string): Promise<void>;

@@ -13,8 +13,23 @@ export type CallMedia = {
   acceptAnswer(answer: RTCSessionDescriptionInit): Promise<void>;
   addIceCandidate(candidate: RTCIceCandidateInit): Promise<void>;
   setMuted(muted: boolean): void;
+  /** Route the other person's voice to the loudspeaker (true) or the default output. */
+  setSpeaker(on: boolean): Promise<boolean>;
   stop(): void;
 };
+
+/**
+ * Browsers only let a page pick the audio output where `setSinkId` exists (Chrome,
+ * Edge, Android Chrome). Safari on iPhone does not; that needs the native wrap.
+ */
+export function canSelectAudioOutput(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof HTMLMediaElement !== 'undefined' &&
+    'setSinkId' in HTMLMediaElement.prototype &&
+    typeof navigator.mediaDevices?.enumerateDevices === 'function'
+  );
+}
 
 export function configuredIceServers(): RTCIceServer[] {
   const stun =
@@ -126,6 +141,25 @@ export function createCallMedia(
     setMuted(muted) {
       for (const track of localStream?.getAudioTracks() ?? []) {
         track.enabled = !muted;
+      }
+    },
+
+    async setSpeaker(on) {
+      if (!canSelectAudioOutput()) {
+        return false;
+      }
+      const sinkable = remoteAudio as HTMLAudioElement & { setSinkId(id: string): Promise<void> };
+      try {
+        const outputs = (await navigator.mediaDevices.enumerateDevices()).filter(
+          (device) => device.kind === 'audiooutput'
+        );
+        const speaker = outputs.find((device) => /speaker/i.test(device.label));
+        const earpiece = outputs.find((device) => /earpiece|receiver|handset/i.test(device.label));
+        const target = on ? (speaker?.deviceId ?? 'default') : (earpiece?.deviceId ?? 'default');
+        await sinkable.setSinkId(target);
+        return true;
+      } catch {
+        return false;
       }
     },
 

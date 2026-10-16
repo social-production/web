@@ -223,20 +223,6 @@
     );
   }
 
-  function buildActionPickerStyle(anchor: CalendarActionAnchor | null, popupHeight: number) {
-    const maxWidth = 'min(320px, calc(100vw - 24px))';
-
-    if (!anchor || typeof window === 'undefined') {
-      return `left: 12px; top: 12px; width: ${maxWidth}; transform: none;`;
-    }
-
-    const popupWidth = Math.min(320, Math.max(220, window.innerWidth - 24));
-    const left = Math.max(12, Math.min(anchor.clientX + 14, window.innerWidth - popupWidth - 12));
-    const top = Math.max(12, Math.min(anchor.clientY + 14, window.innerHeight - popupHeight - 12));
-
-    return `left: ${left}px; top: ${top}px; width: ${maxWidth}; transform: none;`;
-  }
-
   function historyItemByActivityId(activityId: string) {
     return data.lifecycle.phaseFive.history.find((item) => item.activity.id === activityId) ?? null;
   }
@@ -430,9 +416,13 @@
     await openComposerForDay(target.isoDay);
   }
 
-  function chooseSubmitPullRequest() {
-    closeCalendarActionTarget();
-    softwareGovernancePanel?.openCreatePullRequest();
+  $: canChangeMergeCapability = Boolean(
+    data.lifecycle.phaseFive.softwareGovernance?.viewerCanRequestMergeCapabilityChanges
+  );
+
+  function chooseMergeCapability() {
+    showServiceSettingsMenu = false;
+    softwareGovernancePanel?.openSoftwareWizard('merge-capability');
   }
 
   async function chooseRequestServiceForDay() {
@@ -542,7 +532,6 @@
   let previewDayIso = '';
   let showRequestsSheet = false;
   let calendarActionAnchor: CalendarActionAnchor | null = null;
-  let actionPickerElement: HTMLDivElement | null = null;
   let softwareGovernancePanel: ProjectSoftwareGovernancePanel | null = null;
   let historyHighlightResetHandle: ReturnType<typeof setTimeout> | null = null;
   let planningRequestId: string | null = null;
@@ -618,10 +607,6 @@
   )
     ? calendarSelectedActivityId
     : '';
-  $: actionPickerStyle = buildActionPickerStyle(
-    calendarActionAnchor,
-    actionPickerElement?.offsetHeight ?? 260
-  );
   $: if (highlightedRequestId) {
     showRequestsSheet = true;
   }
@@ -718,41 +703,21 @@
   {/if}
 
   {#if calendarActionTarget && calendarActionTarget.kind !== 'activity'}
-    <div bind:this={actionPickerElement} class="mechanics-card action-picker-card" style={actionPickerStyle}>
-      <div class="request-header-row">
-        <div>
-          <h3>
-            {#if calendarActionTarget.kind === 'day'}
-              Choose action for {calendarActionTarget.isoDay}
-            {:else}
-              Choose next step
-            {/if}
-          </h3>
-          <p>
-            {#if calendarActionTarget.kind === 'day'}
-              Choose whether this time should become a new activity{canSubmitPullRequest ? ', a pull request,' : ''} or a {requestFormCopy.actionLabel.toLowerCase()} request.
-            {:else}
-              Start a scheduled activity{canSubmitPullRequest ? ', submit a pull request,' : ''} or open a new {requestFormCopy.actionLabel.toLowerCase()} form.
-            {/if}
-          </p>
-        </div>
-      </div>
-
-      <div class="action-picker-grid">
+    <OverlaySheet
+      open
+      title={calendarActionTarget.kind === 'day' ? `Plan ${calendarActionTarget.isoDay}` : 'Add'}
+      labelledById="calendar-action-sheet"
+      on:close={closeCalendarActionTarget}
+    >
+      <div class="action-picker-grid sheet-picker">
         {#if canCreateActivities}
           <button class="action-choice" type="button" on:click={chooseCreateActivity}>
             <strong>Create activity</strong>
             <span>
               {calendarActionTarget.kind === 'day'
-                ? 'Open the activity planner with this day prefilled.'
-                : 'Open the activity planner.'}
+                ? 'Start the activity questions with this day filled in.'
+                : 'Start the activity questions.'}
             </span>
-          </button>
-        {/if}
-        {#if canSubmitPullRequest && calendarActionTarget.kind === 'general'}
-          <button class="action-choice" type="button" on:click={chooseSubmitPullRequest}>
-            <strong>Submit pull request</strong>
-            <span>Open the existing software governance wizard when the change itself needs approval.</span>
           </button>
         {/if}
         {#if canSubmitRequests}
@@ -760,17 +725,13 @@
             <strong>{requestFormCopy.actionLabel}</strong>
             <span>
               {calendarActionTarget.kind === 'day'
-                ? 'Open the request form and prefill the selected time.'
+                ? 'Open the request form with this time filled in.'
                 : 'Open the request form.'}
             </span>
           </button>
         {/if}
       </div>
-
-      <div class="action-picker-actions">
-        <button class="secondary-button" type="button" on:click={closeCalendarActionTarget}>Close</button>
-      </div>
-    </div>
+    </OverlaySheet>
   {/if}
 
   {#if calendarActionTarget?.kind === 'activity'}
@@ -828,14 +789,6 @@
         action={() => openDockedActivity()}
       />
     {/if}
-    {#if selectedLiveActivityId}
-      <RoundPlusButton
-        label="Open activity"
-        ariaLabel="Open activity and sign up for a service role"
-        participationAction="open-activity"
-        action={() => focusActivityCard(selectedLiveActivityId)}
-      />
-    {/if}
     {#if canSubmitRequests}
       <RoundPlusButton
         standout={!canCreateActivities}
@@ -853,7 +806,7 @@
         action={() => (showRequestsSheet = true)}
       />
     {/if}
-    {#if canRequestSettings || canReplaceRepository}
+    {#if canRequestSettings || canReplaceRepository || canChangeMergeCapability}
       <RoundPlusButton
         label="Settings"
         ariaLabel="Service settings"
@@ -870,18 +823,10 @@
           action={() => softwareGovernancePanel?.openCreatePullRequest()}
         />
       {/if}
-      {#if data.lifecycle.phaseFive.softwareGovernance?.viewerCanRequestMergeCapabilityChanges}
-        <RoundPlusButton
-          label="Merge capability"
-          ariaLabel="Change merge capability"
-          participationAction="change-merge-capability"
-          action={() => softwareGovernancePanel?.openSoftwareWizard('merge-capability')}
-        />
-      {/if}
     </svelte:fragment>
   </PhaseWorkToolbar>
 
-  {#if canRequestSettings || canReplaceRepository}
+  {#if canRequestSettings || canReplaceRepository || canChangeMergeCapability}
     <OverlaySheet
       bind:open={showServiceSettingsMenu}
       title="Settings"
@@ -898,6 +843,12 @@
           <button class="settings-option" type="button" on:click={chooseReplaceRepository}>
             <strong>Replace repository</strong>
             <span>Propose a different repository for this project.</span>
+          </button>
+        {/if}
+        {#if canChangeMergeCapability}
+          <button class="settings-option" type="button" on:click={chooseMergeCapability}>
+            <strong>Grant or revoke merge capability</strong>
+            <span>Propose who can merge pull requests into the repository.</span>
           </button>
         {/if}
       </div>
@@ -1296,7 +1247,6 @@
   .history-stack,
   .unified-history,
   .composer-card,
-  .mechanics-card,
   .number-grid {
     display: grid;
     gap: 12px;
@@ -1415,6 +1365,10 @@
 
   .section-head,
   .card-rail,
+  .sheet-picker {
+    padding: 16px 20px 24px;
+  }
+
   .action-picker-grid {
     display: grid;
     gap: 12px;
@@ -1460,22 +1414,8 @@
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 
-  .action-picker-card {
-    position: fixed;
-    z-index: 30;
-    box-shadow: 0 18px 36px color-mix(in srgb, black 18%, transparent);
-    max-height: calc(100dvh - var(--topbar-height, 53px) - var(--shell-bottom-nav-offset, 0px) - 24px);
-    overflow-y: auto;
-  }
-
-  .action-picker-actions {
-    display: flex;
-    justify-content: flex-end;
-  }
-
   .composer-card,
   .empty-card,
-  .mechanics-card,
   .feedback-card {
     padding: 16px;
     border: 1px solid var(--panel-border);
@@ -1636,9 +1576,6 @@
       grid-template-columns: 1fr;
     }
 
-    .action-picker-actions {
-      justify-content: flex-start;
-    }
   }
 
 </style>

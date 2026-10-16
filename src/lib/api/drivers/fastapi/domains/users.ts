@@ -1,4 +1,5 @@
 import { apiClient, extractErrorMessage } from '../client';
+import { hasRememberedAuthCookie } from '../auth';
 import { mapPersonalItem, registerFeedEntity } from './feeds';
 import { DEFAULT_FEED_PAGE_SIZE } from '$lib/types/pagination';
 import type {
@@ -54,6 +55,8 @@ interface BackendFollowItem extends BackendUser {
 }
 
 interface BackendAccountTrust {
+  standing?: string | null;
+  standing_next_step?: string | null;
   real_r: number;
   vouch_weight: number;
   bot_weight: number;
@@ -106,7 +109,11 @@ function mapTrustPeople(
 }
 
 function mapTrust(trust: BackendAccountTrust): AccountTrust {
+  const standing = trust.standing;
   return {
+    standing:
+      standing === 'new' || standing === 'warm' || standing === 'paused' ? standing : 'full',
+    standingNextStep: trust.standing_next_step ?? null,
     realR: trust.real_r,
     vouchWeight: trust.vouch_weight,
     botWeight: trust.bot_weight,
@@ -231,8 +238,9 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
 
 export async function fetchProfile(username: string): Promise<ProfilePageData | null> {
   try {
-    const profileRes = await apiClient.get<BackendProfileResponse>(`/users/${username}`);
-    const [followersRes, followingRes, feedRes, followRequestsRes] = await Promise.all([
+    // One round trip: everything starts together; follow requests are only kept on your own profile.
+    const [profileRes, followersRes, followingRes, feedRes, ownFollowRequests] = await Promise.all([
+      apiClient.get<BackendProfileResponse>(`/users/${username}`),
       apiClient.get<BackendFollowList>(`/users/${username}/followers`),
       apiClient.get<BackendFollowList>(`/users/${username}/following`),
       apiClient.get<{ items: Parameters<typeof mapPersonalItem>[0][] }>(
@@ -242,10 +250,15 @@ export async function fetchProfile(username: string): Promise<ProfilePageData | 
           offset: 0,
         })}`
       ),
-      profileRes.is_own_profile
-        ? apiClient.get<BackendFollowRequestList>('/users/me/follow-requests')
-        : Promise.resolve({ total: 0, items: [] }),
+      hasRememberedAuthCookie()
+        ? apiClient
+            .get<BackendFollowRequestList>('/users/me/follow-requests')
+            .catch((): BackendFollowRequestList => ({ total: 0, items: [] }))
+        : Promise.resolve<BackendFollowRequestList>({ total: 0, items: [] }),
     ]);
+    const followRequestsRes: BackendFollowRequestList = profileRes.is_own_profile
+      ? ownFollowRequests
+      : { total: 0, items: [] };
     return {
       username: profileRes.user.username,
       bio: profileRes.user.bio ?? undefined,

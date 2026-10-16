@@ -36,7 +36,23 @@
     editedAt?: string | null;
     replyAuthor?: string | null;
     replyPreview?: string | null;
+    kind?: 'text' | 'call';
+    callOutcome?: 'completed' | 'missed' | 'declined' | null;
+    callDurationSeconds?: number | null;
   };
+
+  function callLineText(message: ChatMessage) {
+    if (message.callOutcome === 'completed') {
+      const total = Math.max(0, Math.round(message.callDurationSeconds ?? 0));
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      const seconds = String(total % 60).padStart(2, '0');
+      const length = hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`;
+      return `Voice call · ${length}`;
+    }
+    if (message.callOutcome === 'declined') return 'Call declined';
+    return message.isOwn ? 'No answer' : 'Missed call';
+  }
 
   export let comments: DetailComment[] = [];
   export let messages: ChatMessage[] = [];
@@ -877,6 +893,13 @@
           {#if !previousMessage || messageDayKey(previousMessage.createdAt) !== messageDayKey(message.createdAt)}
             <div class="day-divider" role="separator"><span>{messageDayLabel(message.createdAt)}</span></div>
           {/if}
+          {#if message.kind === 'call'}
+            <div id={`comment-${message.id}`} class="call-line" class:missed={message.callOutcome !== 'completed'}>
+              <span aria-hidden="true">📞</span>
+              <span>{callLineText(message)}</span>
+              <span class="message-time">{formatMessageTime(message.createdAt)}</span>
+            </div>
+          {:else}
           <article
             id={`comment-${message.id}`}
             class:highlighted={highlightedCommentId === message.id}
@@ -998,6 +1021,7 @@
               {/if}
             </div>
           </article>
+          {/if}
         {/each}
       {/if}
     </div>
@@ -1073,24 +1097,37 @@
   />
 
   <div class="composer-card">
-    {#if replyTarget}
+    {#if replyTarget || editingMessage}
       <div class="composer-context">
-        <div>
-          <strong>Reply to {replyTarget.authorUsername}</strong>
-          <p>{replyTarget.body}</p>
+        <svg class="composer-context-icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
+          {#if replyTarget}
+            <path d="M10 8V4l-7 7 7 7v-4c5 0 8 1.5 11 6-1-6-4-11-11-12z" fill="currentColor" />
+          {:else}
+            <path d="M4 17.5V20h2.5l9.9-9.9-2.5-2.5L4 17.5zm15.7-9.8a1 1 0 0 0 0-1.4l-2-2a1 1 0 0 0-1.4 0l-1.5 1.5 3.4 3.4 1.5-1.5z" fill="currentColor" />
+          {/if}
+        </svg>
+        <div class="composer-context-text">
+          {#if replyTarget}
+            <strong>Reply to {replyTarget.authorUsername}</strong>
+            <p>{replyTarget.body}</p>
+          {:else}
+            <strong>Edit message</strong>
+          {/if}
         </div>
-        <button type="button" on:click={clearComposerContext}>Close</button>
-      </div>
-    {:else if editingMessage}
-      <div class="composer-context">
-        <strong>Edit message</strong>
         <button
           type="button"
+          aria-label={replyTarget ? 'Cancel reply' : 'Cancel edit'}
+          title={replyTarget ? 'Cancel reply' : 'Cancel edit'}
           on:click={() => {
+            const wasEditing = Boolean(editingMessage);
             clearComposerContext();
-            draftMessage = '';
-          }}>Close</button
+            if (wasEditing) draftMessage = '';
+          }}
         >
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18">
+            <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+          </svg>
+        </button>
       </div>
     {/if}
     {#if allowAttachments && viewerSignedIn && pendingAttachments.length > 0}
@@ -1292,14 +1329,20 @@
 
   .reply-quote {
     display: grid;
-    gap: 2px;
-    margin-bottom: 6px;
-    padding: 6px 8px;
-    border-left: 3px solid var(--accent, #3d6b4f);
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--panel, #fff) 70%, transparent);
+    gap: 1px;
+    margin-bottom: 4px;
+    padding: 3px 8px;
+    border-left: 3px solid var(--brand);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--brand) 9%, transparent);
     max-width: 100%;
     overflow: hidden;
+    font-size: 13px;
+    line-height: 1.3;
+  }
+
+  .reply-quote strong {
+    color: var(--brand-strong);
   }
 
   .reply-quote strong,
@@ -1310,8 +1353,7 @@
   }
 
   .reply-quote span {
-    color: var(--muted, #667);
-    font-size: 0.85em;
+    color: var(--text-soft);
   }
 
   .edited-mark {
@@ -1350,27 +1392,48 @@
 
   .composer-context {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 10px;
-    border-left: 3px solid var(--accent, #3d6b4f);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--panel, #fff) 80%, var(--accent, #3d6b4f));
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px 0 14px;
   }
 
-  .composer-context p {
+  .composer-context-icon {
+    flex: 0 0 auto;
+    color: var(--brand);
+  }
+
+  .composer-context-text {
+    display: grid;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-left: 8px;
+    border-left: 2px solid var(--brand);
+    font-size: 13px;
+    line-height: 1.3;
+  }
+
+  .composer-context-text strong {
+    color: var(--brand-strong);
+  }
+
+  .composer-context-text p {
     margin: 0;
     overflow: hidden;
+    color: var(--text-soft);
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 36ch;
   }
 
   .composer-context button {
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
     border: 0;
     background: transparent;
-    color: inherit;
+    color: var(--text-soft);
     cursor: pointer;
   }
 
@@ -1712,6 +1775,25 @@
   .receipt.read {
     color: #2b8cd6;
     font-weight: 700;
+  }
+
+  .call-line {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    justify-self: center;
+    margin: 6px auto;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--panel-strong);
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .call-line.missed {
+    color: var(--danger);
   }
 
   .day-divider {

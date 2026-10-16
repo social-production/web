@@ -9,9 +9,13 @@
     disconnectCallSignaling,
     hangUpCall,
     toggleCallMute,
+    toggleCallSpeaker,
     type CallView,
   } from './session';
   import { startCallTone, type CallTone } from './tones';
+  import { canSelectAudioOutput } from './media';
+
+  const speakerSupported = canSelectAudioOutput();
 
   const ENDED_DISMISS_MS = 2500;
 
@@ -225,6 +229,29 @@
           </button>
           <span>{view.muted ? 'Unmute' : 'Mute'}</span>
         </div>
+        {#if speakerSupported}
+          <div class="control">
+            <button
+              class="round"
+              type="button"
+              aria-pressed={view.speaker}
+              aria-label={view.speaker ? 'Speaker off' : 'Speaker on'}
+              on:click={toggleCallSpeaker}
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="28" height="28">
+                <path fill="currentColor" d="M4 9v6h4l5 4V5L8 9H4z" />
+                <path
+                  d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+            <span>Speaker</span>
+          </div>
+        {/if}
         <div class="control">
           <button class="round decline" type="button" aria-label="End call" on:click={hangUpCall}>
             <svg aria-hidden="true" viewBox="0 0 24 24" width="30" height="30">

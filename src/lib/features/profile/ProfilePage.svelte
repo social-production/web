@@ -265,6 +265,24 @@
     }
   }
 
+  const STANDING_LABELS: Record<string, string> = {
+    new: 'New',
+    warm: 'Warming up',
+    full: 'Full member',
+    paused: 'Paused',
+  };
+
+  function standingLabel(level: string) {
+    return STANDING_LABELS[level] ?? 'Member';
+  }
+
+  function standingHint(level: string) {
+    if (level === 'new') return 'Can join and take part; voting opens after a short warm-up.';
+    if (level === 'warm') return 'Votes count half until one vouch or an attended activity.';
+    if (level === 'paused') return 'Members marked this account as a bot.';
+    return 'Votes count fully and can vouch for others.';
+  }
+
   function trustAction(next: 'vouch' | 'bot') {
     if (!data.trust || stancePending) {
       return;
@@ -450,7 +468,7 @@
                     ? 'Clear vouch'
                     : data.trust.viewerCanVouch
                       ? 'Vouch'
-                      : 'Vouching needs a trust ratio of at least 0.66.'}
+                      : 'Vouching opens once your own votes count fully.'}
                 type="button"
                 on:click={() => trustAction('vouch')}
               >
@@ -459,15 +477,13 @@
             {/if}
             <button
               aria-expanded={trustOpen}
-              aria-label={`Trust rating ${data.trust.realR.toFixed(2)}`}
+              aria-label={`Standing: ${standingLabel(data.trust.standing)}`}
               class="trust-rating"
-              title={data.trust.bootstrapFloor
-                ? 'Earned ratio. Stances still count while the network is young.'
-                : 'Earned trust ratio'}
+              title={standingHint(data.trust.standing)}
               type="button"
               on:click={toggleTrustSheet}
             >
-              {data.trust.realR.toFixed(2)}
+              {standingLabel(data.trust.standing)}
             </button>
             {#if !data.isOwnProfile}
               <button
@@ -486,7 +502,7 @@
                     ? 'Clear bot mark'
                     : data.trust.viewerCanMarkBot
                       ? 'Mark as bot'
-                      : 'Marking as a bot needs licensing vouches first.'}
+                      : 'Marking as a bot opens once your own votes count fully.'}
                 type="button"
                 on:click={() => trustAction('bot')}
               >
@@ -557,9 +573,8 @@
 
   {#if data.trust}
     <PeopleSheet
-      description={data.trust.bootstrapFloor && data.trust.bootstrapFloorValue != null
-        ? `The rating is what this account has earned. Bootstrap floor is ${data.trust.bootstrapFloorValue.toFixed(2)}, so its stances still count until that floor reaches 0.`
-        : 'The rating is the ratio this account has earned.'}
+      description={data.trust.standingNextStep ??
+        `${standingLabel(data.trust.standing)}. ${standingHint(data.trust.standing)} Vouches and bot marks count only from full members.`}
       open={trustOpen}
       sectionLayout="tabs"
       sections={[

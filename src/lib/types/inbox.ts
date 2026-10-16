@@ -47,6 +47,10 @@ export interface DirectMessage {
   editedAt?: string | null;
   replyAuthor?: string | null;
   replyPreview?: string | null;
+  /** "call" rows are finished voice calls, shown as a centred line in the chat. */
+  kind?: 'text' | 'call';
+  callOutcome?: 'completed' | 'missed' | 'declined' | null;
+  callDurationSeconds?: number | null;
 }
 
 export interface ConversationPin {

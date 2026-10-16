@@ -21,6 +21,8 @@
   --status-yellow: #f0d34f;
   --status-yellow-strong: #ffe89c;
   --status-yellow-soft: #4a4016;
+  --need-soft: #4a1f1f;
+  --need-strong: #ffb4ab;
   --accent-warm: #e59a55;
   --accent-warm-strong: #f1bd84;
   --accent-warm-soft: #3a281b;
@@ -142,6 +144,8 @@ body[data-theme='light'] {
   --status-yellow: #d3ae1b;
   --status-yellow-strong: #7e6600;
   --status-yellow-soft: #fef9c3;
+  --need-soft: #fee2e2;
+  --need-strong: #b91c1c;
   --accent-warm: #c2410c;
   --accent-warm-strong: #c2410c;
   --accent-warm-soft: #ffedd5;

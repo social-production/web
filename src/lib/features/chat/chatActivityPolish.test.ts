@@ -24,8 +24,8 @@ describe('activity and chat presentation', () => {
     expect(history).toContain('--history-stripe: #22c55e');
     expect(history).toContain('--history-stripe: var(--status-yellow)');
     expect(history).toContain('--history-stripe: var(--danger)');
-    expect(history).toContain('box-shadow: inset 4px 0 0 var(--history-stripe)');
-    expect(history).toContain('background: var(--panel-strong)');
+    expect(history).toContain('box-shadow: inset 3px 0 0 var(--history-stripe)');
+    expect(history).toContain('class="card-rail history-rows"');
   });
 
   it('gives activity details a full-screen sheet on small screens', () => {

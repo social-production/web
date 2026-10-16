@@ -39,7 +39,13 @@ export interface TrustPerson {
   profileImageUrl: string | null;
 }
 
+export type AccountStanding = 'new' | 'warm' | 'full' | 'paused';
+
 export interface AccountTrust {
+  /** Voting standing: new (can't vote yet), warm (half weight), full, paused (bot-marked). */
+  standing: AccountStanding;
+  /** Only filled on your own profile: what unlocks the next level. */
+  standingNextStep: string | null;
   realR: number;
   vouchWeight: number;
   botWeight: number;

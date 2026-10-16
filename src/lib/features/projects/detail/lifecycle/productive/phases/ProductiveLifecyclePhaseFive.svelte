@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
+  import RepositoryMenu from '$lib/features/projects/detail/components/RepositoryMenu.svelte';
   import ActivitySchedulingPanel from '$lib/features/projects/detail/components/ActivitySchedulingPanel.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import { isProjectActivityPhase } from '$lib/features/projects/projectMode';
@@ -253,8 +254,6 @@
     }}
     createAction={toggleActivityComposer}
     showExtraDock={showSoftwareDock}
-    canSubmitPullRequest={canSubmitPullRequest}
-    openPullRequestWizard={openSoftwarePullRequestWizard}
     {changecommitment}
     viewerCanSuggest={data.viewerIsMember}
     entityKind="project"
@@ -275,20 +274,12 @@
           action={() => softwareGovernancePanel?.openCreatePullRequest()}
         />
       {/if}
-      {#if softwareGovernance?.viewerCanRequestRepositoryReplacement}
-        <RoundPlusButton
-          label="Replace repository"
-          ariaLabel="Replace repository"
-          participationAction="replace-repository"
-          action={() => softwareGovernancePanel?.openSoftwareWizard('repository-replacement')}
-        />
-      {/if}
-      {#if softwareGovernance?.viewerCanRequestMergeCapabilityChanges}
-        <RoundPlusButton
-          label="Merge capability"
-          ariaLabel="Change merge capability"
-          participationAction="change-merge-capability"
-          action={() => softwareGovernancePanel?.openSoftwareWizard('merge-capability')}
+      {#if softwareGovernance?.viewerCanRequestRepositoryReplacement || softwareGovernance?.viewerCanRequestMergeCapabilityChanges}
+        <RepositoryMenu
+          canReplace={Boolean(softwareGovernance?.viewerCanRequestRepositoryReplacement)}
+          canChangeMerge={Boolean(softwareGovernance?.viewerCanRequestMergeCapabilityChanges)}
+          onReplace={() => softwareGovernancePanel?.openSoftwareWizard('repository-replacement')}
+          onChangeMerge={() => softwareGovernancePanel?.openSoftwareWizard('merge-capability')}
         />
       {/if}
     </svelte:fragment>

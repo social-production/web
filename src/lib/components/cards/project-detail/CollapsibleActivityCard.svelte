@@ -72,6 +72,21 @@
     return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   }
 
+  function shortDay(value: string | null | undefined) {
+    const date = value?.trim() ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  }
+
+  // For activities that run past midnight: the end day, e.g. "Sat 18".
+  function multiDayEnd(startValue: string | null | undefined, endValue: string | null | undefined) {
+    const start = startValue?.trim() ? new Date(startValue) : null;
+    const end = endValue?.trim() ? new Date(endValue) : null;
+    if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '';
+    if (sameLocalDay(start, end)) return '';
+    return `${end.toLocaleDateString(undefined, { weekday: 'short' })} ${end.getDate()}`;
+  }
+
   function factLine() {
     return [placeLabel(), dateLine()].filter(Boolean).join(' · ');
   }
@@ -170,13 +185,27 @@
       : activity.committedCount >= activity.minimumParticipants
         ? 'met'
         : 'partial';
+  // Total spots when every role has a maximum; null means open-ended.
+  $: spotCapacity = activity.roles.every((role) => role.maximumCount != null)
+    ? activity.roles.reduce((sum, role) => sum + (role.maximumCount ?? 0), 0)
+    : null;
+  $: spotsLeft = spotCapacity == null ? null : Math.max(0, spotCapacity - activity.committedCount);
+  $: fillChipTone = activity.rolesLocked
+    ? 'locked'
+    : neededParticipants > 0
+      ? 'need'
+      : spotsLeft === 0
+        ? 'full'
+        : 'open';
   $: fillChipLabel = activity.rolesLocked
     ? 'Ended'
-    : activity.isActive
-      ? 'Live'
-      : neededParticipants > 0
-        ? `Need ${neededParticipants}`
-        : `${activity.committedCount}/${activity.minimumParticipants}`;
+    : neededParticipants > 0
+      ? `Need ${neededParticipants}`
+      : spotsLeft === 0
+        ? 'Full'
+        : spotsLeft != null
+          ? `${spotsLeft} ${spotsLeft === 1 ? 'spot' : 'spots'} left`
+          : `${activity.committedCount} going`;
   $: noteText = activity.note.trim();
   $: showNote = Boolean(noteText);
   $: hasOpenRolesForViewer =
@@ -223,14 +252,35 @@
       on:click={openActivitySheet}
     >
       <span class="agenda-time">
+        {#if historyMode}
+          <span>{shortDay(activity.startAt)}</span>
+        {/if}
         <span>{clockTime(activity.startAt)}</span>
-        <span class="agenda-end">{clockTime(activity.endAt)}</span>
+        {#if multiDayEnd(activity.startAt, activity.endAt)}
+          <span class="agenda-end">→ {multiDayEnd(activity.startAt, activity.endAt)}</span>
+        {:else if !historyMode}
+          <span class="agenda-end">{clockTime(activity.endAt)}</span>
+        {/if}
       </span>
       <span class="agenda-main">
         <strong>{activity.title}</strong>
-        <span>{placeLabel() || 'Place to be confirmed'}</span>
+        <span>
+          {#if multiDayEnd(activity.startAt, activity.endAt)}
+            Until {multiDayEnd(activity.startAt, activity.endAt)}, {clockTime(activity.endAt)} ·
+          {/if}
+          {placeLabel() || 'Place to be confirmed'}
+          {#if historyMode && historyRatingSummary}
+            · {historyRatingSummary}
+          {/if}
+        </span>
       </span>
-      <span class={`agenda-chip ${activity.rolesLocked ? 'locked' : signupTone}`}>{fillChipLabel}</span>
+      {#if historyMode}
+        <span class={`agenda-chip ${resolvedBadgeClass === 'complete' ? 'open' : resolvedBadgeClass === 'locked' ? 'locked' : 'need'}`}>
+          {resolvedBadgeLabel}
+        </span>
+      {:else}
+        <span class={`agenda-chip ${fillChipTone}`}>{fillChipLabel}</span>
+      {/if}
     </button>
   {:else}
   <button id={`activity-${activity.id}`} class="collapse-toggle" type="button" on:click={openActivitySheet}>
@@ -345,25 +395,16 @@
                   </div>
                   {#if !historyMode && !readOnly && activity.rolesLocked}
                     <span class="roles-locked-copy">Locked</span>
-                  {:else if !historyMode && !readOnly && role.isViewerAssigned}
-                    <div class="assigned-stack">
-                      <span class="signup selected">Your role</span>
-                      <button class="text-button" type="button" on:click={() => changecommitment(activity.id, null)}>
-                        Leave role
-                      </button>
-                    </div>
                   {:else if !historyMode && !readOnly}
+                    <!-- One button: Take role, then the same spot becomes Leave role. -->
                     <button
-                      class:selected={activity.viewerAssignedRoleLabel === role.label}
+                      class:selected={role.isViewerAssigned}
+                      aria-pressed={role.isViewerAssigned}
                       class="signup"
                       data-participation-action={!role.isViewerAssigned && roleHasOpenCapacity(role) ? 'take-role' : undefined}
                       disabled={!role.isViewerAssigned && !roleHasOpenCapacity(role)}
                       type="button"
-                      on:click={() =>
-                        changecommitment(
-                          activity.id,
-                          activity.viewerAssignedRoleLabel === role.label ? null : role.label
-                        )}
+                      on:click={() => changecommitment(activity.id, role.isViewerAssigned ? null : role.label)}
                     >
                       {commitmentButtonLabel(role)}
                     </button>
@@ -461,23 +502,20 @@
     font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
-    background: color-mix(in srgb, var(--brand) 16%, transparent);
+    background: var(--brand-soft);
     color: var(--brand-strong);
   }
 
-  .agenda-chip.empty {
-    background: color-mix(in srgb, #ef4444 14%, transparent);
-    color: #b91c1c;
+  .agenda-chip.need {
+    background: var(--need-soft);
+    color: var(--need-strong);
   }
 
-  .agenda-chip.partial {
-    background: color-mix(in srgb, var(--status-yellow) 26%, transparent);
-    color: color-mix(in srgb, var(--status-yellow) 40%, black);
-  }
-
+  .agenda-chip.full,
   .agenda-chip.locked {
-    background: var(--panel-strong);
-    color: var(--text-muted, var(--text-main));
+    background: var(--panel-soft);
+    color: var(--text-soft);
+    box-shadow: inset 0 0 0 1px var(--panel-border);
   }
 
   .activity-card-shell.signup-empty {
@@ -679,7 +717,13 @@
     box-shadow: inset 0 0 0 1px var(--panel-border);
   }
 
-  .signup:hover:not(:disabled) {
+  .signup.selected:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger) 12%, var(--panel-strong));
+    color: var(--danger);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 45%, transparent);
+  }
+
+  .signup:not(.selected):hover:not(:disabled) {
     background: color-mix(in srgb, var(--brand) 78%, white);
     color: var(--page-bg);
     filter: none;
@@ -790,16 +834,5 @@
   .meeting-link {
     font-size: 14px;
     font-weight: 700;
-  }
-
-  .assigned-stack {
-    display: grid;
-    flex: 0 0 auto;
-    justify-items: center;
-    gap: 8px;
-  }
-
-  .assigned-stack .signup {
-    cursor: default;
   }
 </style>

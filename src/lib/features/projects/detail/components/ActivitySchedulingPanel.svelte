@@ -59,8 +59,6 @@
   export let daySelect: (isoDay: string, anchor?: CalendarInteractionAnchor) => void | Promise<void> = () => {};
   export let createAction: (anchor?: CalendarInteractionAnchor) => void | Promise<void> = () => {};
   export let showExtraDock = false;
-  export let canSubmitPullRequest = false;
-  export let openPullRequestWizard: () => void = () => {};
   export let changecommitment: (activityId: string, roleLabel: string | null) => void | Promise<void> = () => {};
   export let viewerCanSuggest = false;
   export let entityKind: 'project' | 'event' = 'project';
@@ -130,29 +128,9 @@
   ) => void | Promise<void> = () => {};
   export let onHistoryActivitySelect: (historyId: string) => void | Promise<void> = () => {};
 
-  let showSoftwareActionPicker = false;
-
+  // Add activity and Pull request are separate buttons; creating from the calendar always starts an activity.
   function handleCreateAction(anchor?: CalendarInteractionAnchor) {
-    if (canSubmitPullRequest) {
-      showSoftwareActionPicker = !showSoftwareActionPicker;
-      return;
-    }
-
     createAction(anchor);
-  }
-
-  function chooseProposeActivity() {
-    showSoftwareActionPicker = false;
-    createAction();
-  }
-
-  function chooseSubmitPullRequest() {
-    showSoftwareActionPicker = false;
-    openPullRequestWizard();
-  }
-
-  $: if (!canSubmitPullRequest || showComposer) {
-    showSoftwareActionPicker = false;
   }
 
   function activityTimestamp(item: ProjectServiceHistoryItem) {
@@ -188,7 +166,7 @@
     {plannedDayIsos}
     {canCreate}
     {showExtraDock}
-    createActive={createActive || showSoftwareActionPicker}
+    {createActive}
     {createAriaLabel}
     {createButtonLabel}
     {selectedDayIso}
@@ -202,27 +180,7 @@
     </svelte:fragment>
   </ProjectActivityCalendarCard>
 
-  {#if showSoftwareActionPicker}
-    <div class="software-action-picker" role="group" aria-label="Choose next software action">
-      <div class="software-action-copy">
-        <h3>What do you want to propose?</h3>
-        <p>
-          Use an activity for coordinated work sessions. Use a pull request when the change itself needs
-          software governance approval.
-        </p>
-      </div>
-      <div class="software-action-grid">
-        <button class="action-choice" type="button" on:click={chooseProposeActivity}>
-          <strong>Propose activity</strong>
-          <span>Schedule a work block people can sign up for.</span>
-        </button>
-        <button class="action-choice" type="button" on:click={chooseSubmitPullRequest}>
-          <strong>Submit pull request</strong>
-          <span>Open the existing software governance wizard for PR approval.</span>
-        </button>
-      </div>
-    </div>
-  {/if}
+  
 
   <slot name="before-live" />
 
@@ -308,63 +266,9 @@
 <style>
   .scheduling-panel,
   .card-rail-section,
-  .unified-history,
-  .software-action-picker,
-  .software-action-grid {
+  .unified-history {
     display: grid;
     gap: 12px;
-  }
-
-  .software-action-picker {
-    padding: 14px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-  }
-
-  .software-action-copy h3,
-  .software-action-copy p {
-    margin: 0;
-  }
-
-  .software-action-copy p {
-    margin-top: 6px;
-    color: var(--text-soft);
-    font-size: 13px;
-    line-height: 1.45;
-  }
-
-  .software-action-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .action-choice {
-    display: grid;
-    gap: 6px;
-    text-align: left;
-    padding: 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-main);
-    cursor: pointer;
-    font: inherit;
-  }
-
-  .action-choice strong {
-    font-size: 14px;
-  }
-
-  .action-choice span {
-    color: var(--text-soft);
-    font-size: 12px;
-    line-height: 1.4;
-  }
-
-  @media (max-width: 760px) {
-    .software-action-grid {
-      grid-template-columns: 1fr;
-    }
   }
 
   .history-section {

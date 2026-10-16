@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, afterNavigate } from '$app/navigation';
+  import { goto, afterNavigate, preloadCode } from '$app/navigation';
   import { navigating, page } from '$app/stores';
   import brandIcon from '$lib/assets/brand/app-icon-no-background-full-white.png';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
@@ -361,6 +361,17 @@
   }
 
   onMount(() => {
+    // Fetch the code for menu destinations while idle so the first tap opens them straight away.
+    const warmMenuRoutes = () => {
+      const routes = ['/settings', '/messages', '/notifications', '/about'];
+      if (bootstrap.viewer) routes.push(`/profile/${bootstrap.viewer.username}`);
+      for (const route of routes) void preloadCode(route).catch(() => {});
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(warmMenuRoutes, { timeout: 4000 });
+    } else {
+      window.setTimeout(warmMenuRoutes, 2500);
+    }
     syncUnreadCountsFromBootstrap(bootstrap.unreadCounts);
     let lastBadgeRefreshAt = Date.now();
 

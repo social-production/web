@@ -1,6 +1,7 @@
 <script lang="ts">
   import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
+  import RepositoryMenu from '$lib/features/projects/detail/components/RepositoryMenu.svelte';
   import ProjectSoftwareGovernancePanel from '$lib/features/projects/detail/components/ProjectSoftwareGovernancePanel.svelte';
   import type {
     ProjectApprovalVote,
@@ -55,20 +56,12 @@
           action={() => softwareGovernancePanel?.openCreatePullRequest()}
         />
       {/if}
-      {#if governance.viewerCanRequestRepositoryReplacement}
-        <RoundPlusButton
-          label="Replace repository"
-          ariaLabel="Replace repository"
-          participationAction="replace-repository"
-          action={() => softwareGovernancePanel?.openSoftwareWizard('repository-replacement')}
-        />
-      {/if}
-      {#if governance.viewerCanRequestMergeCapabilityChanges}
-        <RoundPlusButton
-          label="Merge capability"
-          ariaLabel="Change merge capability"
-          participationAction="change-merge-capability"
-          action={() => softwareGovernancePanel?.openSoftwareWizard('merge-capability')}
+      {#if governance.viewerCanRequestRepositoryReplacement || governance.viewerCanRequestMergeCapabilityChanges}
+        <RepositoryMenu
+          canReplace={Boolean(governance.viewerCanRequestRepositoryReplacement)}
+          canChangeMerge={Boolean(governance.viewerCanRequestMergeCapabilityChanges)}
+          onReplace={() => softwareGovernancePanel?.openSoftwareWizard('repository-replacement')}
+          onChangeMerge={() => softwareGovernancePanel?.openSoftwareWizard('merge-capability')}
         />
       {/if}
       </svelte:fragment>

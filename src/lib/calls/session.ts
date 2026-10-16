@@ -17,6 +17,7 @@ export type CallView = {
   notice: string | null;
   /** True between Accept and audio flowing. */
   connecting: boolean;
+  speaker: boolean;
   /** Length of the call that just ended, for the "Call ended" line. */
   lastDurationMs: number | null;
 };
@@ -33,6 +34,7 @@ const idleView: CallView = {
   connectedAt: null,
   notice: null,
   connecting: false,
+  speaker: false,
   lastDurationMs: null,
 };
 
@@ -60,7 +62,33 @@ function patch(next: Partial<CallView>) {
   callView.set({ ...view, ...next });
 }
 
+// One line per call in the chat. Either phone may report; the server keeps the first.
+function logFinishedCall(phase: CallPhase) {
+  const { callId, conversationId, connectedAt } = view;
+  if (!callId || !conversationId || !currentAdapter.logCall) {
+    return;
+  }
+  let outcome: 'completed' | 'missed' | 'declined' | null = null;
+  if (connectedAt) {
+    outcome = 'completed';
+  } else if (role === 'caller') {
+    outcome = phase === 'declined' ? 'declined' : 'missed';
+  }
+  if (!outcome) {
+    return;
+  }
+  const durationSeconds = connectedAt ? (Date.now() - connectedAt) / 1000 : 0;
+  void currentAdapter
+    .logCall(conversationId, { callId, outcome, durationSeconds })
+    .catch(() => {
+      /* The other phone may still log it. */
+    });
+}
+
 function reset(phase: CallPhase = 'idle', notice: string | null = null) {
+  if (view.phase === 'calling' || view.phase === 'ringing' || view.phase === 'active') {
+    logFinishedCall(phase);
+  }
   attempt += 1;
   clearNoAnswerTimer();
   media?.stop();
@@ -138,6 +166,7 @@ function handleEnvelope(envelope: CallEnvelope) {
       connectedAt: null,
       notice: null,
       connecting: false,
+      speaker: false,
       lastDurationMs: null,
     });
     return;
@@ -266,6 +295,7 @@ export async function placeDirectCall(conversationId: string, peerName: string) 
     connectedAt: null,
     notice: null,
     connecting: false,
+    speaker: false,
     lastDurationMs: null,
   });
   try {
@@ -326,6 +356,16 @@ export function toggleCallMute() {
   const muted = !view.muted;
   media.setMuted(muted);
   patch({ muted });
+}
+
+export async function toggleCallSpeaker() {
+  if (!media || (view.phase !== 'active' && view.phase !== 'calling')) {
+    return;
+  }
+  const next = !view.speaker;
+  if (await media.setSpeaker(next)) {
+    patch({ speaker: next });
+  }
 }
 
 export function dismissCall() {

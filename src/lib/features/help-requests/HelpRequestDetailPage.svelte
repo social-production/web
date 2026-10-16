@@ -413,6 +413,16 @@
       border-radius: 0;
       background: var(--toolbar-background, var(--panel));
       box-shadow: 0 8px 16px color-mix(in srgb, var(--page-bg) 55%, transparent);
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.22s ease;
+      will-change: transform;
+    }
+
+    /* Same as projects and events: when the top bar hides, the tabs slide up and take its place. */
+    :global(.feed-chrome-collapsed) .top-tab-row:not(.chat-immersive) {
+      padding-top: calc(8px + var(--shell-safe-top, 0px));
+      margin-bottom: calc(12px - var(--shell-safe-top, 0px));
+      transform: translate3d(0, calc(-1 * var(--topbar-height, 0px)), 0);
     }
 
     .top-tab {

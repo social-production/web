@@ -135,7 +135,7 @@
   {#if items.length === 0}
     <div class="empty-card">{emptyMessage}</div>
   {:else}
-    <div class="card-rail">
+    <div class="card-rail history-rows">
       {#each items as item (item.id)}
         <div id={`history-card-${item.id}`} class={`rail-card tone-${historyCardTone({
           completion: item.aggregateCompletionTone,
@@ -143,6 +143,7 @@
           ratingCount: item.aggregateRating?.count ?? 0
         })}`}>
           <CollapsibleActivityCard
+            agenda
             activity={item.activity}
             badgeLabel={historyBadgeLabel(item)}
             badgeClass={historyBadgeClass(item)}
@@ -355,6 +356,18 @@
     gap: 0;
   }
 
+  /* Same agenda rows as upcoming activities: one bordered list, hairlines between rows. */
+  .history-rows {
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm, 10px);
+    background: var(--panel-strong);
+    overflow: hidden;
+  }
+
+  .history-rows > .rail-card + .rail-card {
+    border-top: 1px solid var(--panel-border);
+  }
+
   .section-head,
   .section-copy {
     display: flex;
@@ -438,9 +451,7 @@
   .tone-good :global(.activity-card-shell),
   .tone-mixed :global(.activity-card-shell),
   .tone-poor :global(.activity-card-shell) {
-    border-color: var(--panel-border);
-    background: var(--panel-strong);
-    box-shadow: inset 4px 0 0 var(--history-stripe);
+    box-shadow: inset 3px 0 0 var(--history-stripe);
   }
 
   .role-badge {

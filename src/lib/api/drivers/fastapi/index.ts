@@ -103,6 +103,7 @@ import {
   fetchAddGroupConversationMember,
   fetchRemoveGroupConversationMember,
   fetchMarkConversationRead,
+  fetchLogCall,
   fetchMarkLinkedChatRead,
   fetchPinMessage,
   fetchUnpinMessage,
@@ -705,6 +706,10 @@ export function createFastApiDriver(): AppAdapter {
 
     async markConversationRead(id) {
       return fetchMarkConversationRead(id);
+    },
+
+    async logCall(id, input) {
+      return fetchLogCall(id, input);
     },
 
     async markLinkedChatRead(subjectType, subjectId) {

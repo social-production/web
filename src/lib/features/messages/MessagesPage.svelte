@@ -103,6 +103,13 @@
   let conversationMessagesById: Record<string, DirectMessage[]> = {};
   let peerReadAtByConversationId: Record<string, string | null> = {};
   let lastMarkedIncomingAt: Record<string, number> = {};
+  // Telegram-style pin bar: shows the newest pin; each tap jumps to it and moves to the next older one.
+  let pinCursor = 0;
+
+  function openNextPin(messageId: string) {
+    focusPinnedMessage(messageId);
+    pinCursor += 1;
+  }
   let pinsByConversationId: Record<string, ConversationPin[]> = {};
   let canPinByConversationId: Record<string, boolean> = {};
   let highlightedMessageId: string | null = null;
@@ -184,6 +191,9 @@
         editedAt: message.editedAt ?? null,
         replyAuthor: message.replyAuthor ?? null,
         replyPreview: message.replyPreview ?? null,
+        kind: message.kind ?? 'text',
+        callOutcome: message.callOutcome ?? null,
+        callDurationSeconds: message.callDurationSeconds ?? null,
       }))
     : [];
   $: directConversationPartner =
@@ -1538,24 +1548,33 @@
         {/if}
 
         {#if activePins.length}
+          {@const pinIndex = pinCursor % activePins.length}
+          {@const currentPin = activePins[activePins.length - 1 - pinIndex]}
           <div class="pin-bar" aria-label="Pinned messages">
-            {#each activePins as pin (pin.messageId)}
-              <div class="pin-chip">
-                <button class="pin-jump" type="button" on:click={() => focusPinnedMessage(pin.messageId)}>
-                  {pin.preview || 'Pinned message'}
-                </button>
-                {#if canPinActiveConversation}
-                  <button
-                    aria-label={`Unpin ${pin.preview || 'message'}`}
-                    class="pin-remove"
-                    type="button"
-                    on:click={() => toggleConversationPin(pin.messageId, true)}
-                  >
-                    Unpin
-                  </button>
-                {/if}
-              </div>
-            {/each}
+            <span class="pin-rail" aria-hidden="true">
+              {#each activePins as pin, index (pin.messageId)}
+                <span class="pin-rail-segment" class:active={index === activePins.length - 1 - pinIndex}></span>
+              {/each}
+            </span>
+            <button class="pin-jump" type="button" on:click={() => openNextPin(currentPin.messageId)}>
+              <strong>
+                Pinned message{activePins.length > 1 ? ` #${activePins.length - pinIndex}` : ''}
+              </strong>
+              <span>{currentPin.preview || 'Photo or file'}</span>
+            </button>
+            {#if canPinActiveConversation}
+              <button
+                aria-label={`Unpin ${currentPin.preview || 'message'}`}
+                title="Unpin"
+                class="pin-remove"
+                type="button"
+                on:click={() => toggleConversationPin(currentPin.messageId, true)}
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18">
+                  <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                </svg>
+              </button>
+            {/if}
           </div>
         {/if}
 
@@ -2030,41 +2049,66 @@
   .pin-bar {
     grid-column: 1 / -1;
     display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-top: 4px;
-  }
-
-  .pin-chip {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex: 0 0 auto;
-    max-width: 240px;
-    padding: 4px 8px;
-    border: 1px solid var(--panel-border);
-    border-radius: 999px;
+    align-items: stretch;
+    gap: 10px;
+    margin: 4px -12px -8px;
+    padding: 6px 12px;
+    border-top: 1px solid var(--panel-border);
     background: var(--panel);
   }
 
-  .pin-jump,
-  .pin-remove {
-    border: none;
-    background: transparent;
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
+  .pin-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 2px;
+    padding: 2px 0;
+  }
+
+  .pin-rail-segment {
+    flex: 1 1 0;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--brand) 35%, transparent);
+  }
+
+  .pin-rail-segment.active {
+    background: var(--brand);
   }
 
   .pin-jump {
+    display: grid;
+    flex: 1 1 auto;
     min-width: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-main);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .pin-jump strong {
+    color: var(--brand-strong);
+    font-size: 13px;
+  }
+
+  .pin-jump span {
     overflow: hidden;
+    color: var(--text-soft);
+    font-size: 13px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .pin-remove {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    padding: 0;
+    border: none;
+    background: transparent;
     color: var(--text-soft);
+    cursor: pointer;
   }
 
   .pin-error {

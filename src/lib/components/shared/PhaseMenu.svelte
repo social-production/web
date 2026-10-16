@@ -16,6 +16,10 @@
   export let items: PhaseMenuItem[] = [];
   export let currentPhaseLabel = '';
   export let labelledById = 'phase-menu-title';
+  /** Reused for other grouped controls, e.g. Repository ▾. */
+  export let label = 'Phase';
+  export let sheetTitle = 'Change phase';
+  export let participationAction = 'propose-advance';
 
   let open = false;
 
@@ -32,18 +36,18 @@
   <button
     class="phase-menu-trigger"
     class:muted={!hasChoice}
-    data-participation-action="propose-advance"
+    data-participation-action={participationAction}
     type="button"
     aria-haspopup="dialog"
     aria-expanded={open}
-    title="Change phase"
+    title={sheetTitle}
     on:click={() => (open = true)}
   >
-    <span class="label">Phase</span>
+    <span class="label">{label}</span>
     <span class="caret" aria-hidden="true">▾</span>
   </button>
 
-  <OverlaySheet bind:open title="Change phase" {labelledById}>
+  <OverlaySheet bind:open title={sheetTitle} {labelledById}>
     <div class="phase-menu-body">
       {#if currentPhaseLabel}
         <p class="phase-menu-current">Now in <strong>{currentPhaseLabel}</strong></p>

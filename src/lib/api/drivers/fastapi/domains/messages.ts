@@ -73,6 +73,9 @@ interface BackendMessage {
   moderation_state?: string;
   moderationState?: string;
   attachments?: BackendAttachment[];
+  kind?: string | null;
+  call_outcome?: string | null;
+  call_duration_seconds?: number | null;
 }
 
 interface BackendPin {
@@ -195,7 +198,15 @@ function mapMessage(
     attachments: (message.attachments ?? []).map(mapAttachment),
     editedAt: message.edited_at ?? null,
     replyAuthor: message.reply_author ?? null,
-    replyPreview: message.reply_preview ?? null
+    replyPreview: message.reply_preview ?? null,
+    kind: message.kind === 'call' ? 'call' : 'text',
+    callOutcome:
+      message.call_outcome === 'completed' ||
+      message.call_outcome === 'missed' ||
+      message.call_outcome === 'declined'
+        ? message.call_outcome
+        : null,
+    callDurationSeconds: message.call_duration_seconds ?? null
   };
 }
 
@@ -450,6 +461,17 @@ export async function fetchRemoveGroupConversationMember(
     const message = extractErrorMessage(err, 'Could not remove member');
     return { ok: false, error: message };
   }
+}
+
+export async function fetchLogCall(
+  conversationId: string,
+  input: { callId: string; outcome: 'completed' | 'missed' | 'declined'; durationSeconds: number }
+): Promise<void> {
+  await apiClient.post(`/messages/conversations/${conversationId}/call-log`, {
+    call_id: input.callId,
+    outcome: input.outcome,
+    duration_seconds: Math.max(0, Math.round(input.durationSeconds))
+  });
 }
 
 export async function fetchMarkConversationRead(conversationId: string): Promise<void> {
