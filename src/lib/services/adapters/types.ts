@@ -250,6 +250,8 @@ export interface AppAdapter {
   updateSettings(input: SettingsUpdateInput): Promise<void>;
   getProfile(username: string): Promise<ProfilePageData | null>;
   setAccountStance(username: string, stance: 'vouch' | 'bot' | 'clear'): Promise<void>;
+  voteBotReview?(username: string, vote: 'bot' | 'real'): Promise<void>;
+  requestBotReReview?(): Promise<void>;
   followUser(username: string): Promise<{ followStatus: string | null }>;
   unfollowUser(username: string): Promise<void>;
   acceptFollowRequest(username: string): Promise<void>;

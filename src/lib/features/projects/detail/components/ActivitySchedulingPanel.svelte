@@ -216,8 +216,10 @@
   {#if historyCount > 0}
   <details class="history-section" bind:open={historyOpen}>
     <summary class="history-summary">
-      <span>History</span>
-      <span class="history-count">{historyCount}</span>
+      <span>Past activity</span>
+      <svg class="history-chevron" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18">
+        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
     </summary>
     {#if !hasUnifiedHistory}
       <div class="empty-card">{emptyHistoryMessage}</div>
@@ -235,7 +237,6 @@
       />
     {:else}
       <div class="unified-history">
-        <p class="unified-copy">{historyDescription}</p>
         {#each unifiedHistory as entry (entry.kind === 'activity' ? entry.item.id : `gov-${entry.item.id}`)}
           {#if entry.kind === 'activity'}
             <ActivityHistorySection
@@ -287,36 +288,35 @@
     font-weight: 700;
   }
 
-  .unified-copy {
-    margin: 0;
-    color: var(--text-soft);
-    font-size: 13px;
-    line-height: 1.45;
-  }
-
   .history-summary {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    padding: 4px 0;
     cursor: pointer;
     list-style: none;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-main);
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
   .history-summary::-webkit-details-marker {
     display: none;
   }
 
-  .history-count {
-    padding: 4px 8px;
-    border: 1px solid var(--panel-border);
-    border-radius: 999px;
-    color: var(--text-soft);
-    font-size: 11px;
-    font-weight: 700;
+  .history-chevron {
+    transition: transform 0.15s ease;
+  }
+
+  .history-section[open] .history-chevron {
+    transform: rotate(180deg);
+  }
+
+  .history-section[open] > :global(:not(summary)) {
+    margin-top: 8px;
   }
 
   .scheduling-panel :global([id^='activity-card-']) {

@@ -36,6 +36,7 @@
     editedAt?: string | null;
     replyAuthor?: string | null;
     replyPreview?: string | null;
+    replyToId?: string | null;
     kind?: 'text' | 'call';
     callOutcome?: 'completed' | 'missed' | 'declined' | null;
     callDurationSeconds?: number | null;
@@ -480,6 +481,22 @@
     viewerReturnFocus = null;
   }
 
+  // Tapping a reply quote jumps to the original and flashes it.
+  let flashedMessageId: string | null = null;
+  let flashTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function jumpToMessage(messageId: string | null | undefined) {
+    if (!messageId || !messageElements.has(messageId)) {
+      return;
+    }
+    centerMessageInChatLog(messageId);
+    flashedMessageId = messageId;
+    if (flashTimer) clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => {
+      flashedMessageId = null;
+    }, 1800);
+  }
+
   function centerMessageInChatLog(messageId: string) {
     const target = messageElements.get(messageId);
 
@@ -903,6 +920,7 @@
           <article
             id={`comment-${message.id}`}
             class:highlighted={highlightedCommentId === message.id}
+            class:flash={flashedMessageId === message.id}
             class:own={message.isOwn ?? viewerUsername === message.authorUsername}
             class="chat-message"
             use:registerMessageElement={message.id}
@@ -919,10 +937,16 @@
                 <a class="author-link" href={`/profile/${message.authorUsername}`}>{message.authorUsername}</a>
               {/if}
               {#if message.replyAuthor || message.replyPreview}
-                <div class="reply-quote">
+                <button
+                  class="reply-quote"
+                  type="button"
+                  title="Show the original message"
+                  disabled={!message.replyToId}
+                  on:click|stopPropagation={() => jumpToMessage(message.replyToId)}
+                >
                   <strong>{message.replyAuthor || 'Message'}</strong>
                   <span>{message.replyPreview || ''}</span>
-                </div>
+                </button>
               {/if}
               {#if supportsHiddenToggle(message)}
                 <button
@@ -1327,7 +1351,26 @@
     box-shadow: none;
   }
 
+  .chat-message.flash .message-copy {
+    animation: reply-flash 1.8s ease-out;
+  }
+
+  @keyframes reply-flash {
+    0%,
+    40% {
+      background-color: color-mix(in srgb, var(--brand) 28%, var(--panel));
+    }
+  }
+
   .reply-quote {
+    width: 100%;
+    border-top: 0;
+    border-right: 0;
+    border-bottom: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
     display: grid;
     gap: 1px;
     margin-bottom: 4px;

@@ -86,6 +86,9 @@
   }
 
   $: feedChromeActive = isCompact;
+  // Desktop: content fills the space between open side panels; with both closed it sits centred.
+  $: mainFrameMaxWidth =
+    !isCompact && !leftRailOpen && !rightRailOpen && !mapSurfaceActive ? 'min(80%, 1200px)' : 'none';
   $: navigatingTo = $navigating?.to?.url.pathname ?? null;
   $: showNavProgress = Boolean($navigating);
   $: showDetailSkeleton = Boolean(
@@ -720,7 +723,7 @@
   class:shell-map-page={dedicatedMapPage}
   class:feed-chrome-collapsed={topbarCollapsed}
   class:shell-auth={isAuthSurface}
-  style={`--left-width: ${leftRailOpen && !isCompact && !isAuthSurface ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact && !isAuthSurface ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --install-banner-offset: ${installBannerOffset}; --shell-scroll-pad: ${shellScrollPad}; --shell-dock-safe-bottom: ${shellDockSafeBottom}; --main-frame-max-width: none;`}
+  style={`--left-width: ${leftRailOpen && !isCompact && !isAuthSurface ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact && !isAuthSurface ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --install-banner-offset: ${installBannerOffset}; --shell-scroll-pad: ${shellScrollPad}; --shell-dock-safe-bottom: ${shellDockSafeBottom}; --main-frame-max-width: ${mainFrameMaxWidth};`}
 >
   {#if mapSurfaceActive}
     <div class="topbar-flow-spacer" style={`height: ${topbarHeight}px`} aria-hidden="true"></div>

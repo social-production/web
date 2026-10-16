@@ -33,6 +33,14 @@ export function setAccountStance(username: string, stance: 'vouch' | 'bot' | 'cl
   return currentAdapter.setAccountStance(username, stance);
 }
 
+export async function voteBotReview(username: string, vote: 'bot' | 'real') {
+  await currentAdapter.voteBotReview?.(username, vote);
+}
+
+export async function requestBotReReview() {
+  await currentAdapter.requestBotReReview?.();
+}
+
 export function unfollowUser(username: string) {
   return currentAdapter.unfollowUser(username);
 }

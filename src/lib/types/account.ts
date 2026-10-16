@@ -41,7 +41,22 @@ export interface TrustPerson {
 
 export type AccountStanding = 'new' | 'warm' | 'full' | 'paused';
 
+/** A public vote among full members on whether an account is a bot. */
+export interface BotReview {
+  status: 'open' | 'upheld';
+  isAppeal: boolean;
+  botVotes: number;
+  realVotes: number;
+  votesRequired: number;
+  closesAt: string | null;
+  viewerVote: 'bot' | 'real' | null;
+  viewerCanVote: boolean;
+  reReviewAvailableAt: string | null;
+  canRequestReReview: boolean;
+}
+
 export interface AccountTrust {
+  botReview: BotReview | null;
   /** Voting standing: new (can't vote yet), warm (half weight), full, paused (bot-marked). */
   standing: AccountStanding;
   /** Only filled on your own profile: what unlocks the next level. */

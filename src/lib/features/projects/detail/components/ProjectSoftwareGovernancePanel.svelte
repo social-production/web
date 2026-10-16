@@ -1,6 +1,7 @@
 <script lang="ts">
   import SoftwareGovernanceWizard from '$lib/features/projects/detail/components/SoftwareGovernanceWizard.svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
+  import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import type {
     ProjectApprovalVote,
     ProjectSoftwareGovernanceData,
@@ -145,10 +146,6 @@
     return request.viewerCanVote && request.canStillPass && !request.passesApprovalThreshold;
   }
 
-  $: mergeCapabilitySummary =
-    governance && governance.mergeCapabilityMembers.length > 0
-      ? governance.mergeCapabilityMembers.map((member) => member.username).join(', ')
-      : 'No merge-capable members recorded yet.';
   $: inProgressPullRequests =
     governance?.pullRequests.filter((request) => isInProgressPullRequest(request)) ?? [];
   $: if (softwareWizardRequest) {
@@ -190,32 +187,25 @@
 
 {#if governance}
   <section id="software-governance-panel" class="software-panel">
-    <div class="panel-header">
-      <div>
-        <h3>Software governance</h3>
-        <p>
-          Pull requests, the official repository, and who can merge are managed here. Open a pull request, replace the
-          repository, or change merge capability from the controller at the bottom.
-        </p>
-      </div>
-    </div>
+    <a class="repo-card" href={normalizeExternalUrl(governance.repositoryUrl)} rel="noreferrer" target="_blank">
+      <strong>Repository</strong>
+      <span>{governance.repositoryUrl}</span>
+    </a>
 
-    <div class="metadata-lines">
-      <p>
-        Official repository:
-        <a class="repo-link" href={normalizeExternalUrl(governance.repositoryUrl)} rel="noreferrer" target="_blank">
-          {governance.repositoryUrl}
-        </a>
-      </p>
-      <p>License: {normalizedLicenseLabel(governance.licenseLabel)}</p>
-      <p>Merge capability: {mergeCapabilitySummary}</p>
-      <p class="github-note">
-        {#if governance.mergeCapabilityManagedByPlatform}
-          Merge holders are synced from active platform moderators.
-        {:else}
-          These users must have merge access on the GitHub repo manually.
-        {/if}
-      </p>
+    <div class="mergers">
+      <strong>Mergers</strong>
+      {#if governance.mergeCapabilityMembers.length > 0}
+        <div class="merger-list">
+          {#each governance.mergeCapabilityMembers as member (member.id)}
+            <a class="merger" href={`/profile/${member.username}`} title={`Open ${member.username}'s profile`}>
+              <AvatarBadge size="sm" username={member.username} imageUrl={member.profileImageUrl ?? null} />
+              <span>{member.username}</span>
+            </a>
+          {/each}
+        </div>
+      {:else}
+        <span class="merger-empty">No one can merge yet.</span>
+      {/if}
     </div>
 
     {#if inProgressPullRequests.length > 0}
@@ -423,21 +413,67 @@
     gap: 12px;
   }
 
-  .panel-header {
+  .detail-card span,
+  .detail-card small {
+    color: var(--text-soft);
+  }
+
+  /* Same look as the repository link on the Links tab. */
+  .repo-card {
     display: grid;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+    color: var(--text-main);
+    text-decoration: none;
+  }
+
+  .repo-card span {
+    color: var(--brand-strong);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+
+  .mergers {
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+  }
+
+  .merger-list {
+    display: flex;
+    flex-wrap: wrap;
     gap: 6px;
   }
 
-  .panel-header h3,
-  .panel-header p {
-    margin: 0;
+  .merger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px 3px 3px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--brand-strong);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
   }
 
-  .panel-header p,
-  .detail-card span,
-  .detail-card small,
-  .github-note {
+  .merger:hover,
+  .merger:focus-visible {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+  }
+
+  .merger-empty {
     color: var(--text-soft);
+    font-size: 13px;
   }
 
   .detail-card {
@@ -447,19 +483,6 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
-  }
-
-  .metadata-lines {
-    display: grid;
-    gap: 2px;
-  }
-
-  .metadata-lines p,
-  .github-note {
-    margin: 0;
-    color: var(--text-soft);
-    font-size: 13px;
-    line-height: 1.45;
   }
 
   .history-list,
@@ -672,10 +695,5 @@
     text-decoration: underline;
     text-underline-offset: 2px;
     font-weight: 700;
-  }
-
-  .metadata-lines .repo-link {
-    color: var(--text-main);
-    font-weight: 400;
   }
 </style>

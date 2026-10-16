@@ -946,7 +946,7 @@
   .feed-page {
     gap: 0;
     min-width: 0;
-    max-width: 720px;
+    width: 100%;
     overflow-x: clip;
   }
 

@@ -148,7 +148,8 @@ export function setProjectActivityCommitment(
 ) {
   return confirmed(
     currentAdapter.setProjectActivityCommitment(projectSlug, activityId, roleLabel),
-    roleLabel ? `You took ${roleLabel}` : 'You left the role'
+    // The button itself flips between Take role and Leave role.
+    null
   );
 }
 

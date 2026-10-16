@@ -54,7 +54,21 @@ interface BackendFollowItem extends BackendUser {
   bootstrap_floor?: boolean;
 }
 
+interface BackendBotReview {
+  status: 'open' | 'upheld';
+  is_appeal?: boolean;
+  bot_votes?: number;
+  real_votes?: number;
+  votes_required?: number;
+  closes_at?: string;
+  viewer_vote?: 'bot' | 'real' | null;
+  viewer_can_vote?: boolean;
+  re_review_available_at?: string | null;
+  can_request_re_review?: boolean;
+}
+
 interface BackendAccountTrust {
+  bot_review?: BackendBotReview | null;
   standing?: string | null;
   standing_next_step?: string | null;
   real_r: number;
@@ -114,6 +128,20 @@ function mapTrust(trust: BackendAccountTrust): AccountTrust {
     standing:
       standing === 'new' || standing === 'warm' || standing === 'paused' ? standing : 'full',
     standingNextStep: trust.standing_next_step ?? null,
+    botReview: trust.bot_review
+      ? {
+          status: trust.bot_review.status,
+          isAppeal: Boolean(trust.bot_review.is_appeal),
+          botVotes: trust.bot_review.bot_votes ?? 0,
+          realVotes: trust.bot_review.real_votes ?? 0,
+          votesRequired: trust.bot_review.votes_required ?? 0,
+          closesAt: trust.bot_review.closes_at ?? null,
+          viewerVote: trust.bot_review.viewer_vote ?? null,
+          viewerCanVote: Boolean(trust.bot_review.viewer_can_vote),
+          reReviewAvailableAt: trust.bot_review.re_review_available_at ?? null,
+          canRequestReReview: Boolean(trust.bot_review.can_request_re_review)
+        }
+      : null,
     realR: trust.real_r,
     vouchWeight: trust.vouch_weight,
     botWeight: trust.bot_weight,
@@ -320,6 +348,22 @@ export async function setAccountStance(
     await apiClient.post(`/users/${encodeURIComponent(username)}/stance`, { stance });
   } catch (err) {
     throw new Error(extractErrorMessage(err, 'Could not update that stance.'));
+  }
+}
+
+export async function voteBotReview(username: string, vote: 'bot' | 'real'): Promise<void> {
+  try {
+    await apiClient.post(`/users/${encodeURIComponent(username)}/bot-review/vote`, { vote });
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Could not record that vote.'));
+  }
+}
+
+export async function requestBotReReview(): Promise<void> {
+  try {
+    await apiClient.post('/users/me/bot-review/re-review', {});
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Could not ask for a re-review.'));
   }
 }
 

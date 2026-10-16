@@ -1151,8 +1151,10 @@
   {#if calendarHistoryCount > 0}
   <details class="history-section" bind:open={historyOpen}>
     <summary class="history-summary">
-      <span>History</span>
-      <span class="history-count">{calendarHistoryCount}</span>
+      <span>Past activity</span>
+      <svg class="history-chevron" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18">
+        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
     </summary>
     <div class="history-stack">
       {#if softwareGovernanceHistory.length > 0}
@@ -1221,25 +1223,26 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    padding: 4px 0;
     cursor: pointer;
     list-style: none;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-main);
-    margin-bottom: 12px;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
   .history-summary::-webkit-details-marker {
     display: none;
   }
 
-  .history-count {
-    padding: 4px 8px;
-    border: 1px solid var(--panel-border);
-    border-radius: 999px;
-    color: var(--text-soft);
-    font-size: 11px;
-    font-weight: 700;
+  .history-chevron {
+    transition: transform 0.15s ease;
+  }
+
+  :global(details[open]) > .history-summary .history-chevron {
+    transform: rotate(180deg);
   }
 
   .phase-surface,

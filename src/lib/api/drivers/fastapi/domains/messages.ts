@@ -69,6 +69,7 @@ interface BackendMessage {
   edited_at?: string | null;
   reply_author?: string | null;
   reply_preview?: string | null;
+  reply_to_id?: string | null;
   report?: unknown;
   moderation_state?: string;
   moderationState?: string;
@@ -199,6 +200,7 @@ function mapMessage(
     editedAt: message.edited_at ?? null,
     replyAuthor: message.reply_author ?? null,
     replyPreview: message.reply_preview ?? null,
+    replyToId: message.reply_to_id ?? null,
     kind: message.kind === 'call' ? 'call' : 'text',
     callOutcome:
       message.call_outcome === 'completed' ||

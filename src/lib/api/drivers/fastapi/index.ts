@@ -23,6 +23,8 @@ import {
   fetchUnfollowUser,
   fetchUpdateSettings,
   setAccountStance as postAccountStance,
+  voteBotReview,
+  requestBotReReview,
 } from './domains/users';
 import {
   fetchPublicFeed,
@@ -782,6 +784,14 @@ export function createFastApiDriver(): AppAdapter {
 
     async setAccountStance(username, stance) {
       return postAccountStance(username, stance);
+    },
+
+    async voteBotReview(username, vote) {
+      return voteBotReview(username, vote);
+    },
+
+    async requestBotReReview() {
+      return requestBotReReview();
     },
 
     async followUser(username) {

@@ -18,6 +18,8 @@
     followUser,
     rejectFollowRequest,
     setAccountStance,
+    voteBotReview,
+    requestBotReReview,
     unfollowUser,
   } from '$lib/services/commands/account';
   import { getUserFeedPage } from '$lib/services/queries/feeds';
@@ -278,8 +280,9 @@
 
   function standingHint(level: string) {
     if (level === 'new') return 'Can join and take part; voting opens after a short warm-up.';
-    if (level === 'warm') return 'Votes count half until one vouch or an attended activity.';
-    if (level === 'paused') return 'Members marked this account as a bot.';
+    if (level === 'warm')
+      return 'Votes count half until a vouch, a completed service request, or 10 active days.';
+    if (level === 'paused') return 'A community review found this account is a bot.';
     return 'Votes count fully and can vouch for others.';
   }
 
@@ -309,6 +312,35 @@
     }
 
     return item.kind === 'post';
+  }
+
+  let reviewPending = false;
+  let reviewMessage = '';
+
+  async function castBotReviewVote(vote: 'bot' | 'real') {
+    reviewPending = true;
+    reviewMessage = '';
+    try {
+      await voteBotReview(data.username, vote);
+      await invalidateAll();
+    } catch (err) {
+      reviewMessage = err instanceof Error ? err.message : 'Could not record that vote.';
+    } finally {
+      reviewPending = false;
+    }
+  }
+
+  async function askForReReview() {
+    reviewPending = true;
+    reviewMessage = '';
+    try {
+      await requestBotReReview();
+      await invalidateAll();
+    } catch (err) {
+      reviewMessage = err instanceof Error ? err.message : 'Could not ask for a re-review.';
+    } finally {
+      reviewPending = false;
+    }
   }
 
   async function updateStance(stance: 'vouch' | 'bot' | 'clear') {
@@ -524,6 +556,64 @@
     {/if}
   </section>
 
+  {#if data.trust?.botReview}
+    {@const review = data.trust.botReview}
+    <section class="bot-review-card" class:upheld={review.status === 'upheld'} aria-live="polite">
+      {#if review.status === 'open'}
+        <div class="bot-review-copy">
+          <strong>{review.isAppeal ? 'Re-review open' : 'Bot review open'}</strong>
+          <p>
+            {data.isOwnProfile
+              ? 'Full members are voting on whether this account belongs to a real person. You can keep using the site meanwhile.'
+              : 'Full members are voting on whether this account belongs to a real person.'}
+          </p>
+          <p class="bot-review-tally">
+            {review.realVotes} real · {review.botVotes} bot · {review.votesRequired} votes needed
+            {#if review.closesAt}
+              · closes {new Date(review.closesAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+            {/if}
+          </p>
+        </div>
+        {#if review.viewerCanVote}
+          <div class="bot-review-actions">
+            <button
+              type="button"
+              class:chosen={review.viewerVote === 'real'}
+              aria-pressed={review.viewerVote === 'real'}
+              disabled={reviewPending}
+              on:click={() => castBotReviewVote('real')}>Real person</button
+            >
+            <button
+              type="button"
+              class="bot"
+              class:chosen={review.viewerVote === 'bot'}
+              aria-pressed={review.viewerVote === 'bot'}
+              disabled={reviewPending}
+              on:click={() => castBotReviewVote('bot')}>Bot</button
+            >
+          </div>
+        {/if}
+      {:else}
+        <div class="bot-review-copy">
+          <strong>Found to be a bot</strong>
+          <p>A community review decided this account is a bot, so it is read-only.</p>
+          {#if data.isOwnProfile && review.canRequestReReview}
+            <button type="button" class="re-review" disabled={reviewPending} on:click={askForReReview}>
+              Ask for a re-review
+            </button>
+          {:else if data.isOwnProfile && review.reReviewAvailableAt}
+            <p class="bot-review-tally">
+              You can ask for one re-review from {new Date(review.reReviewAvailableAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}.
+            </p>
+          {/if}
+        </div>
+      {/if}
+      {#if reviewMessage}
+        <p class="bot-review-error" role="alert">{reviewMessage}</p>
+      {/if}
+    </section>
+  {/if}
+
   {#if data.isOwnProfile && pendingFollowRequests.length > 0}
     <section id="follow-requests" class="requests-card">
       <h2>Follow requests</h2>
@@ -574,7 +664,7 @@
   {#if data.trust}
     <PeopleSheet
       description={data.trust.standingNextStep ??
-        `${standingLabel(data.trust.standing)}. ${standingHint(data.trust.standing)} Vouches and bot marks count only from full members.`}
+        `${standingLabel(data.trust.standing)}. ${standingHint(data.trust.standing)} Only full members can vouch. Three bot marks from full members open a public review; marks alone never pause anyone.`}
       open={trustOpen}
       sectionLayout="tabs"
       sections={[
@@ -671,6 +761,81 @@
 </section>
 
 <style>
+  .bot-review-card {
+    display: grid;
+    gap: 10px;
+    margin: 0 0 12px;
+    padding: 14px 16px;
+    border: 1px solid color-mix(in srgb, var(--status-yellow) 55%, var(--panel-border));
+    border-radius: var(--radius-sm, 10px);
+    background: var(--status-yellow-soft);
+  }
+
+  .bot-review-card.upheld {
+    border-color: color-mix(in srgb, var(--need-strong) 50%, var(--panel-border));
+    background: var(--need-soft);
+  }
+
+  .bot-review-copy {
+    display: grid;
+    gap: 4px;
+  }
+
+  .bot-review-copy p {
+    margin: 0;
+    color: var(--text-main);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .bot-review-copy .bot-review-tally {
+    color: var(--text-soft);
+    font-size: 13px;
+  }
+
+  .bot-review-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .bot-review-actions button,
+  .re-review {
+    flex: 1 1 0;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--text-main);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .re-review {
+    justify-self: start;
+    flex: 0 0 auto;
+    margin-top: 6px;
+  }
+
+  .bot-review-actions button.chosen {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .bot-review-actions button.bot.chosen {
+    border-color: var(--need-strong);
+    background: var(--need-soft);
+    color: var(--need-strong);
+  }
+
+  .bot-review-error {
+    margin: 0;
+    color: var(--danger);
+    font-size: 13px;
+  }
+
   .page,
   .feed-stack,
   .people-list {

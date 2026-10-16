@@ -191,6 +191,7 @@
         editedAt: message.editedAt ?? null,
         replyAuthor: message.replyAuthor ?? null,
         replyPreview: message.replyPreview ?? null,
+        replyToId: message.replyToId ?? null,
         kind: message.kind ?? 'text',
         callOutcome: message.callOutcome ?? null,
         callDurationSeconds: message.callDurationSeconds ?? null,
@@ -1015,6 +1016,7 @@
         ? (conversationMessagesById[conversationId] ?? []).find((item) => item.id === options.replyToId)
             ?.sender.username ?? null
         : null,
+      replyToId: options?.replyToId ?? null,
       replyPreview: options?.replyToId
         ? (conversationMessagesById[conversationId] ?? []).find((item) => item.id === options.replyToId)
             ?.body.slice(0, 140) ?? null
