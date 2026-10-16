@@ -1,5 +1,6 @@
 export { createFastApiClient } from './client';
 
+import { fastapiScopeSettings } from './domains/scopeSettings';
 import type { AppAdapter } from '$lib/services/adapters/types';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
 import { clearAuthenticatedSession } from './auth';
@@ -714,6 +715,8 @@ export function createFastApiDriver(): AppAdapter {
     async markConversationRead(id) {
       return fetchMarkConversationRead(id);
     },
+
+    scopeSettings: fastapiScopeSettings,
 
     async logCall(id, input) {
       return fetchLogCall(id, input);

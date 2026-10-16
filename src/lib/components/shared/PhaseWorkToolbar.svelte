@@ -62,11 +62,23 @@
         cell.classList.remove('phase-pack-cell', 'row-start', 'wrapped');
         cell.style.flex = '';
         cell.style.maxWidth = '';
+        cell.style.order = '';
       }
     });
+    // Menus (Settings, Repository, Phase) go on the bottom row, actions above them.
+    const isMenu = (cell: HTMLElement) =>
+      Boolean(
+        cell.querySelector('.phase-menu-trigger, [data-participation-action="service-settings"]') ||
+          cell.matches('.phase-menu-trigger, [data-participation-action="service-settings"]')
+      );
+    cells.sort((a, b) => Number(isMenu(a)) - Number(isMenu(b)));
     const width = node.clientWidth || MIN_CELL_WIDTH;
-    const perRow = Math.max(1, Math.floor(width / MIN_CELL_WIDTH));
+    const maxPerRow = Math.max(1, Math.floor(width / MIN_CELL_WIDTH));
+    // Balance rows: four buttons become 2 + 2, not 3 + 1.
+    const rows = Math.ceil(cells.length / maxPerRow);
+    const perRow = Math.max(1, Math.ceil(cells.length / Math.max(rows, 1)));
     cells.forEach((cell, index) => {
+      cell.style.order = String(index);
       const rowStart = Math.floor(index / perRow) * perRow;
       const rowCount = Math.min(perRow, cells.length - rowStart);
       const share = 100 / rowCount;

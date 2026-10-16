@@ -8,6 +8,7 @@
 
   let name = '';
   let openness: 'open' | 'invite_only' = 'open';
+  let governance: 'collaborative' | 'organizer' = 'collaborative';
   let description = '';
   let statusMessage = '';
   let isSubmitting = false;
@@ -34,6 +35,7 @@
         name: handleCheck.display,
         description,
         joinPolicy: openness,
+        governance: openness === 'invite_only' ? governance : 'collaborative',
         slug: handleCheck.canonical
       });
 
@@ -81,6 +83,21 @@
             <option value="invite_only">Private</option>
           </select>
         </label>
+
+        {#if openness === 'invite_only'}
+          <label>
+            <span class="field-label">Who decides</span>
+            <select bind:value={governance}>
+              <option value="collaborative">Collaborative: all members vote on changes</option>
+              <option value="organizer">Organizer controlled: you and organizers you choose</option>
+            </select>
+            <span class="helper-text">
+              {governance === 'organizer'
+                ? 'Organizers edit settings directly. Switching to collaborative later needs 66% of organizers.'
+                : 'Members vote on name, picture, description, removing members and handing control to organizers.'}
+            </span>
+          </label>
+        {/if}
 
         <label>
           <RequiredFieldLabel>Description</RequiredFieldLabel>

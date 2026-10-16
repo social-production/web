@@ -5,6 +5,8 @@
   export let ariaLabel = 'Add item';
   export let participationAction: string | undefined = undefined;
   export let action: (event?: MouseEvent) => unknown = () => {};
+  /** Leading symbol; '' hides it (e.g. Settings isn't an "add" action). */
+  export let glyph = '+';
 
   $: resolvedAriaLabel = label || ariaLabel;
 </script>
@@ -20,7 +22,9 @@
   type="button"
   on:click={(event) => action(event)}
 >
-  <span aria-hidden="true" class="plus-glyph">+</span>
+  {#if glyph}
+    <span aria-hidden="true" class="plus-glyph">{glyph}</span>
+  {/if}
   {#if label}
     <span class="plus-label">{label}</span>
   {/if}

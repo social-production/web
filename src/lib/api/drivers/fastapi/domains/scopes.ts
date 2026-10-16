@@ -1,4 +1,4 @@
-import { apiClient, extractErrorMessage } from '../client';
+import { apiAssetUrl, apiClient, extractErrorMessage } from '../client';
 import { fetchScopeFeed } from './feeds';
 import { parseInviteToken } from '$lib/utils/invite-token';
 import { validateHandle } from '$lib/utils/handles';
@@ -44,10 +44,12 @@ interface BackendChannel {
   slug: string;
   name: string;
   description: string;
+  image_url?: string | null;
 }
 
 interface BackendCommunity extends BackendChannel {
   join_policy: string;
+  governance?: string;
 }
 
 interface BackendTaggableScopeItem {
@@ -161,6 +163,7 @@ export async function fetchChannel(slug: string): Promise<ScopePageData | null> 
       channel: BackendChannel;
       member_count: number;
       viewer_is_member: boolean;
+      open_votes?: number;
     }>(`/scopes/channels/${slug}`);
 
     if (res.viewer_is_member) setScopeMembershipCache('channel', slug, true);
@@ -171,6 +174,8 @@ export async function fetchChannel(slug: string): Promise<ScopePageData | null> 
       slug: res.channel.slug,
       title: res.channel.name,
       description: res.channel.description,
+      imageUrl: res.channel.image_url ? apiAssetUrl(res.channel.image_url) : null,
+      openVotes: res.open_votes ?? 0,
       badges: [],
       emptyFeedText: 'No tagged posts, help, or events in this channel yet. Tag content with this channel to show it here.',
       membership: {
@@ -195,6 +200,7 @@ export async function fetchCommunity(slug: string): Promise<ScopePageData | null
       community: BackendCommunity;
       member_count: number;
       viewer_is_member: boolean;
+      open_votes?: number;
     }>(`/scopes/communities/${slug}`);
 
     if (res.viewer_is_member) membershipCache.add(cacheKey('community', slug));
@@ -207,6 +213,9 @@ export async function fetchCommunity(slug: string): Promise<ScopePageData | null
       slug: res.community.slug,
       title: res.community.name,
       description: res.community.description,
+      imageUrl: res.community.image_url ? apiAssetUrl(res.community.image_url) : null,
+      openVotes: res.open_votes ?? 0,
+      governance: res.community.governance === 'organizer' ? 'organizer' : 'collaborative',
       badges: isPrivate ? ['Private'] : [],
       emptyFeedText: 'No tagged posts, help, or events in this community yet. Tag content with this community to show it here.',
       membership: {
@@ -403,7 +412,8 @@ export async function fetchCreateCommunity(input: CreateCommunityInput): Promise
       slug: handle.canonical,
       name: handle.display,
       description: input.description,
-      join_policy: input.joinPolicy === 'invite_only' ? 'closed' : 'open'
+      join_policy: input.joinPolicy === 'invite_only' ? 'closed' : 'open',
+      governance: input.governance ?? 'collaborative'
     });
     return { ok: true, slug: res.community.slug };
   } catch (err) {

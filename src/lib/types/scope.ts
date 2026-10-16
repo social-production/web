@@ -51,6 +51,11 @@ export interface ScopePageData {
   slug: string;
   title: string;
   description: string;
+  /** Uploaded picture; null keeps the default channel/community icon. */
+  imageUrl?: string | null;
+  /** Open settings votes the viewer hasn't voted on yet. */
+  openVotes?: number;
+  governance?: 'collaborative' | 'organizer';
   note?: string;
   badges: string[];
   moderatorNote?: string;

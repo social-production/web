@@ -186,21 +186,27 @@
 
 {#if governance}
   <section id="software-governance-panel" class="software-panel">
-    <div class="repo-row">
-      <a class="repo-link" href={normalizeExternalUrl(governance.repositoryUrl)} rel="noreferrer" target="_blank">
-        {governance.repositoryUrl.replace(/^https?:\/\//, '')}
-      </a>
-      <span class="repo-sep" aria-hidden="true">·</span>
-      <span class="mergers-label">Mergers</span>
-      {#if governance.mergeCapabilityMembers.length > 0}
-        {#each governance.mergeCapabilityMembers as member, index (member.id)}
-          <a class="merger" href={`/profile/${member.username}`} title={`Open ${member.username}'s profile`}
-            >{member.username}</a
-          >{#if index < governance.mergeCapabilityMembers.length - 1}<span class="repo-comma">,</span>{/if}
-        {/each}
-      {:else}
-        <span class="merger-empty">none yet</span>
-      {/if}
+    <div class="repo-card">
+      <div class="repo-cell">
+        <span class="repo-title">Repository</span>
+        <a class="repo-value" href={normalizeExternalUrl(governance.repositoryUrl)} rel="noreferrer" target="_blank">
+          {governance.repositoryUrl.replace(/^https?:\/\//, '')}
+        </a>
+      </div>
+      <div class="repo-cell">
+        <span class="repo-title">Mergers</span>
+        {#if governance.mergeCapabilityMembers.length > 0}
+          <span class="merger-names">
+            {#each governance.mergeCapabilityMembers as member, index (member.id)}
+              <a class="repo-value" href={`/profile/${member.username}`} title={`Open ${member.username}'s profile`}
+                >{member.username}</a
+              >{#if index < governance.mergeCapabilityMembers.length - 1}<span class="repo-comma">, </span>{/if}
+            {/each}
+          </span>
+        {:else}
+          <span class="merger-empty">No one yet</span>
+        {/if}
+      </div>
     </div>
 
     {#if inProgressPullRequests.length > 0}
@@ -413,37 +419,59 @@
     color: var(--text-soft);
   }
 
-  /* One quiet line: repository link, then who can merge. */
-  .repo-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 4px 6px;
-    padding: 8px 12px;
+  /* Two labelled cells: repository link, then who can merge. */
+  .repo-card {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
-    font-size: 13px;
   }
 
-  .repo-row .repo-link,
-  .merger {
+  .repo-cell {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding: 10px 14px;
+  }
+
+  .repo-cell + .repo-cell {
+    border-left: 1px solid var(--panel-border);
+  }
+
+  .repo-title {
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .repo-value {
     color: var(--brand-strong);
+    font-size: 14px;
     font-weight: 700;
     text-decoration: underline;
-    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
     overflow-wrap: anywhere;
   }
 
-  .repo-sep,
   .repo-comma,
-  .mergers-label,
   .merger-empty {
     color: var(--text-soft);
+    font-size: 14px;
   }
 
-  .mergers-label {
-    font-weight: 600;
+  @media (max-width: 420px) {
+    .repo-card {
+      grid-template-columns: 1fr;
+    }
+
+    .repo-cell + .repo-cell {
+      border-top: 1px solid var(--panel-border);
+      border-left: 0;
+    }
   }
 
   .detail-card {

@@ -660,6 +660,8 @@ export interface AppAdapter {
   markNotificationRead(notificationId: string): Promise<void>;
   markAllNotificationsRead(): Promise<void>;
   markConversationRead(conversationId: string): Promise<void>;
+  /** Channel/community settings, pictures and member votes. */
+  scopeSettings?: import('$lib/types/scopeSettings').ScopeSettingsApi;
   /** Add a finished voice call to the chat ("Voice call · 4:12" / "Missed call"). Idempotent per call. */
   logCall?(
     conversationId: string,

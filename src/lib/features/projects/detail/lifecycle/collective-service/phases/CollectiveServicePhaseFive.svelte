@@ -801,6 +801,7 @@
     {#if data.lifecycle.requestSystem && (sortedRequests.length > 0 || (data.lifecycle.requestSystem.enabled && data.lifecycle.requestSystem.viewerCanReviewRequests))}
       <RoundPlusButton
         label="Requests"
+        glyph=""
         ariaLabel="Show service requests"
         participationAction="review-requests"
         action={() => (showRequestsSheet = true)}
@@ -808,7 +809,8 @@
     {/if}
     {#if canRequestSettings || canReplaceRepository || canChangeMergeCapability}
       <RoundPlusButton
-        label="Settings"
+        label="Settings ▾"
+        glyph=""
         ariaLabel="Service settings"
         participationAction="service-settings"
         action={() => (showServiceSettingsMenu = true)}

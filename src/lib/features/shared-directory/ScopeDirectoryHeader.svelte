@@ -2,7 +2,9 @@
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import IconPopoverMenu from '$lib/components/shared/IconPopoverMenu.svelte';
   import CommunityInvitePanel from '$lib/features/communities/CommunityInvitePanel.svelte';
-  import ScopeCreateMenu from '$lib/features/shared-directory/ScopeCreateMenu.svelte';
+  import ScopeAvatar from '$lib/features/shared-directory/ScopeAvatar.svelte';
+  import ScopeSettingsSheet from '$lib/features/shared-directory/ScopeSettingsSheet.svelte';
+  import ScopeVoteSheet from '$lib/features/shared-directory/ScopeVoteSheet.svelte';
   import type { ScopePageData } from '$lib/types/scope';
 
   export let pageData: ScopePageData;
@@ -19,6 +21,11 @@
   export let onToggleBoardPanel: () => void = () => {};
 
   $: showRolePanel = pageData.kind === 'platform';
+  // The Platform page is the "platform" channel underneath.
+  $: settingsKind = (pageData.kind === 'community' ? 'community' : 'channel') as 'channel' | 'community';
+  $: settingsSlug = pageData.kind === 'platform' ? 'platform' : pageData.slug;
+  let showSettings = false;
+  let showVotes = false;
   $: isInviteOnly = pageData.membership.joinPolicy === 'invite_only';
   $: isMember = pageData.membership.viewerIsMember;
   $: membershipDisabled =
@@ -28,13 +35,22 @@
 <section class="scope-header">
   <div class="title-row">
     <div class="title-block">
+      <ScopeAvatar imageUrl={pageData.imageUrl} kind={settingsKind} size={40} />
       <h1>{pageData.title}</h1>
+      {#each pageData.badges as badge}
+        {#if badge === 'Private'}
+          <span class="private-mark" title="Private: members only" aria-label="Private">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14">
+              <path d="M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+            </svg>
+          </span>
+        {:else}
+          <span class="scope-badge">{badge}</span>
+        {/if}
+      {/each}
     </div>
 
     <div class="action-row">
-      {#each pageData.badges as badge}
-        <span class="scope-badge">{badge}</span>
-      {/each}
 
       {#if isInviteOnly}
         {#if !isMember}
@@ -112,7 +128,21 @@
         </button>
       {/if}
 
-      <ScopeCreateMenu {pageData} title={pageData.title} />
+      <button
+        aria-label="Settings"
+        title="Settings"
+        class="icon-action"
+        class:menu-active={showSettings}
+        type="button"
+        on:click={() => (showSettings = true)}
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18">
+          <path
+            d="M10.3 2h3.4l.5 2.4c.5.2 1 .4 1.5.6l2.1-1.2 2.4 2.4-1.2 2.1c.2.5.4 1 .6 1.5L22 10.3v3.4l-2.4.5c-.2.5-.4 1-.6 1.5l1.2 2.1-2.4 2.4-2.1-1.2c-.5.2-1 .4-1.5.6L13.7 22h-3.4l-.5-2.4c-.5-.2-1-.4-1.5-.6l-2.1 1.2-2.4-2.4 1.2-2.1c-.2-.5-.4-1-.6-1.5L2 13.7v-3.4l2.4-.5c.2-.5.4-1 .6-1.5L3.8 6.2l2.4-2.4 2.1 1.2c.5-.2 1-.4 1.5-.6L10.3 2Zm1.7 6.2A3.8 3.8 0 1 0 12 15.8 3.8 3.8 0 0 0 12 8.2Z"
+            fill="currentColor"
+          ></path>
+        </svg>
+      </button>
 
       {#if showRolePanel}
         <button
@@ -133,6 +163,17 @@
     <p>{pageData.description}</p>
   </div>
 </section>
+
+<ScopeSettingsSheet bind:open={showSettings} kind={settingsKind} slug={settingsSlug} />
+<ScopeVoteSheet bind:open={showVotes} kind={settingsKind} slug={settingsSlug} />
+
+{#if (pageData.openVotes ?? 0) > 0}
+  <!-- Sits just left of the + button while a settings vote is waiting for this viewer. -->
+  <button class="vote-fab" type="button" aria-label={`Vote (${pageData.openVotes} open)`} on:click={() => (showVotes = true)}>
+    Vote
+    <span class="vote-fab-count">{pageData.openVotes}</span>
+  </button>
+{/if}
 
 <style>
   .scope-header {
@@ -155,8 +196,50 @@
   }
 
   .title-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     min-width: 0;
     flex: 1 1 auto;
+  }
+
+  .vote-fab {
+    position: fixed;
+    right: calc(var(--right-width, 0px) + 12px + 52px + 10px);
+    bottom: calc(var(--shell-bottom-nav-offset, 0px) + 12px);
+    z-index: 56;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 52px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--brand);
+    color: var(--on-brand, #fff);
+    font: inherit;
+    font-weight: 800;
+    box-shadow: 0 8px 20px color-mix(in srgb, black 24%, transparent);
+    cursor: pointer;
+  }
+
+  .vote-fab-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, white 85%, transparent);
+    color: var(--brand-strong);
+    font-size: 12px;
+  }
+
+  .private-mark {
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    color: var(--text-soft);
   }
 
   .scope-badge {
@@ -290,14 +373,11 @@
   @media (max-width: 760px) {
     h1 {
       font-size: clamp(15px, 4.2vw, 18px);
-      white-space: normal;
-      overflow: visible;
-      text-overflow: unset;
-      overflow-wrap: break-word;
     }
 
     .action-row {
-      max-width: 62%;
+      max-width: none;
+      flex: 0 0 auto;
     }
   }
 </style>

@@ -434,14 +434,15 @@
     background: transparent;
   }
 
+  /* Time | title + place | status. The time column sizes to its text, so times never clip. */
   .agenda-row {
     width: 100%;
-    height: 60px;
+    min-height: 64px;
     display: grid;
-    grid-template-columns: 70px minmax(0, 1fr) auto;
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
     align-items: center;
-    gap: 12px;
-    padding: 0 12px;
+    gap: 14px;
+    padding: 10px 14px 10px 16px;
     border: 0;
     background: transparent;
     color: inherit;
@@ -471,11 +472,19 @@
 
   .agenda-time {
     display: grid;
+    gap: 2px;
+    min-width: 64px;
+    padding-right: 14px;
+    border-right: 1px solid var(--panel-border);
     white-space: nowrap;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 800;
     font-variant-numeric: tabular-nums;
-    line-height: 1.25;
+    line-height: 1.2;
+  }
+
+  .agenda-time .agenda-end {
+    font-size: 12px;
   }
 
   .agenda-end,
@@ -486,23 +495,27 @@
 
   .agenda-main {
     display: grid;
+    gap: 2px;
     min-width: 0;
     line-height: 1.3;
   }
 
-  .agenda-main strong,
+  /* Titles get two lines before shortening; the place line stays on one. */
+  .agenda-main strong {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 15px;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+  }
+
   .agenda-main span {
     overflow: hidden;
+    font-size: 13px;
     white-space: nowrap;
     text-overflow: ellipsis;
-  }
-
-  .agenda-main strong {
-    font-size: 15px;
-  }
-
-  .agenda-main span {
-    font-size: 13px;
   }
 
   .agenda-chip {

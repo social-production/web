@@ -116,6 +116,8 @@ export interface CreateCommunityInput {
   name: string;
   description: string;
   joinPolicy: 'open' | 'invite_only';
+  /** Private communities only: who decides on settings. */
+  governance?: 'collaborative' | 'organizer';
   slug?: string;
 }
 

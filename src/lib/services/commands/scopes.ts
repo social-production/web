@@ -28,3 +28,8 @@ export function removeVolunteer() {
 export function castModeratorVote(targetUserId: string, vote: string) {
   return currentAdapter.castModeratorVote(targetUserId, vote);
 }
+
+/** Settings, pictures and votes for a channel or community; undefined on drivers without it. */
+export function scopeSettingsApi() {
+  return currentAdapter.scopeSettings;
+}
