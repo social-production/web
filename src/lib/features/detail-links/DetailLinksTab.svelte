@@ -8,6 +8,8 @@
 
   export let frame: DetailLinksFrameData;
   export let highlightedRequestId: string | null = null;
+  /** Outside links such as the repository and the venue map. */
+  export let externalLinks: Array<{ label: string; href: string; detail: string }> = [];
 
   // Conversion links are shown in the conversion lineage section; keep them out of
   // the generic Active/Historical lists so the same record does not render twice.
@@ -23,6 +25,17 @@
       <p>{frame.conversionNote}</p>
     {/if}
   </header>
+
+  {#if externalLinks.length > 0}
+    <section class="external-links">
+      {#each externalLinks as link (link.href)}
+        <a class="external-link" href={link.href} target="_blank" rel="noopener noreferrer">
+          <strong>{link.label}</strong>
+          <span>{link.detail}</span>
+        </a>
+      {/each}
+    </section>
+  {/if}
 
   {#if frame.conversionLineage}
     <ProjectConversionLineageSection lineage={frame.conversionLineage} />
@@ -88,5 +101,27 @@
   p {
     color: var(--text-soft);
     line-height: 1.55;
+  }
+
+  .external-links {
+    display: grid;
+    gap: 8px;
+  }
+
+  .external-link {
+    display: grid;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+    color: var(--text-main);
+    text-decoration: none;
+  }
+
+  .external-link span {
+    color: var(--brand-strong);
+    font-size: 13px;
+    overflow-wrap: anywhere;
   }
 </style>

@@ -552,14 +552,6 @@ p {
   filter: none;
 }
 
-.detail-surface-tab.participation-tab:not(.active-tab):not(.active),
-.detail-surface-tab.participation-tab:hover:not(:disabled):not(.active-tab):not(.active) {
-  border-color: var(--brand);
-  background: var(--brand);
-  color: var(--page-bg);
-  filter: none;
-}
-
 .helper-text {
   color: var(--text-soft);
   font-size: 12px;

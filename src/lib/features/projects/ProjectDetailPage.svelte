@@ -414,6 +414,28 @@
   }
 
   $: dockVotes = collectProjectPendingVotes(pageData);
+  $: repositoryUrl = pageData.lifecycle.phaseFive.softwareGovernance?.repositoryUrl?.trim() ?? '';
+  $: venueLabel = pageData.locationLabel?.trim() ?? '';
+  $: externalLinks = [
+    ...(repositoryUrl
+      ? [
+          {
+            label: 'Repository',
+            href: /^https?:\/\//i.test(repositoryUrl) ? repositoryUrl : `https://${repositoryUrl}`,
+            detail: repositoryUrl
+          }
+        ]
+      : []),
+    ...(venueLabel && venueLabel.toLowerCase() !== 'online'
+      ? [
+          {
+            label: 'Venue',
+            href: `https://www.openstreetmap.org/search?query=${encodeURIComponent(venueLabel)}`,
+            detail: venueLabel
+          }
+        ]
+      : [])
+  ];
   $: detailVotes = dockVotes.filter((item) => item.voteKind === 'edit' || item.voteKind === 'update');
   $: phaseChangeVotes = dockVotes.filter((item) => item.voteKind === 'phase_change');
   $: participationVotes = dockVotes.filter(
@@ -681,6 +703,7 @@
         <svelte:component
           this={LinksTab}
           frame={linksFrame}
+          {externalLinks}
           highlightedRequestId={highlightedLinkRequestId}
         />
       </div>

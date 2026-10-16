@@ -165,7 +165,7 @@
 <div class="report-menu-shell">
   <button
     aria-expanded={interactive ? menuOpen : undefined}
-    aria-label={triggerLabel}
+    aria-label={triggerLabel} title={triggerLabel}
     class:active-report={!!report || !!statusLabel}
     class:under-review={statusLabel === 'Under review'}
     class:hidden-state={statusLabel === 'Hidden'}

@@ -4,6 +4,7 @@
   import brandIcon from '$lib/assets/brand/app-icon-no-background-full-white.png';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import AuthActionNotice from '$lib/components/shared/AuthActionNotice.svelte';
+  import ToastHost from '$lib/components/shared/ToastHost.svelte';
   import LeftRailPanel from '$lib/features/left-rail/LeftRailPanel.svelte';
   import RightRailPanel from '$lib/features/right-rail/RightRailPanel.svelte';
   import MobileBottomNav from '$lib/app/shell/MobileBottomNav.svelte';
@@ -39,6 +40,7 @@
     isFeedDiscoveryPath,
   } from '$lib/stores/createReturnState';
   import { chatImmersive } from '$lib/stores/chatChrome';
+  import { installBannerHeight } from '$lib/stores/installBanner';
   import { feedReturnHref, rememberFeedReturnState } from '$lib/stores/feedReturnState';
 
   export let bootstrap: BootstrapPayload;
@@ -104,7 +106,7 @@
   // The visible inset follows the footer so fixed composers sit on the real
   // bottom edge. The scroll pad stays put, so hiding the footer does not
   // change the page height and yank the scroll position.
-  $: shellBottomNavOffset =
+  $: baseBottomNavOffset =
     isCompact &&
     !isAuthSurface &&
     !keyboardOpen &&
@@ -112,11 +114,17 @@
     !(feedChromeActive && feedChromeHidden && !mapSurfaceActive)
       ? 'var(--shell-bottom-nav-height)'
       : '0px';
-  $: shellScrollPad =
+  $: baseScrollPad =
     isCompact && !isAuthSurface && !keyboardOpen && !immersiveChat
       ? 'var(--shell-bottom-nav-height)'
       : '0px';
-  $: shellDockSafeBottom = shellBottomNavOffset === '0px' ? 'var(--shell-safe-bottom)' : '0px';
+  // The install banner sits just above the footer, so its height is reserved like the footer's.
+  $: installBannerOffset = `${$installBannerHeight}px`;
+  $: shellBottomNavOffset =
+    $installBannerHeight > 0 ? `calc(${baseBottomNavOffset} + ${installBannerOffset})` : baseBottomNavOffset;
+  $: shellScrollPad =
+    $installBannerHeight > 0 ? `calc(${baseScrollPad} + ${installBannerOffset})` : baseScrollPad;
+  $: shellDockSafeBottom = baseBottomNavOffset === '0px' ? 'var(--shell-safe-bottom)' : '0px';
   $: shellTopbarHeight = immersiveChat ? 0 : topbarHeight;
   $: topbarCollapsed =
     immersiveChat ||
@@ -687,7 +695,7 @@
   class:shell-map-page={dedicatedMapPage}
   class:feed-chrome-collapsed={topbarCollapsed}
   class:shell-auth={isAuthSurface}
-  style={`--left-width: ${leftRailOpen && !isCompact && !isAuthSurface ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact && !isAuthSurface ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --shell-scroll-pad: ${shellScrollPad}; --shell-dock-safe-bottom: ${shellDockSafeBottom}; --main-frame-max-width: none;`}
+  style={`--left-width: ${leftRailOpen && !isCompact && !isAuthSurface ? '262px' : '0px'}; --right-width: ${rightRailOpen && !isCompact && !isAuthSurface ? '292px' : '0px'}; --topbar-height: ${shellTopbarHeight}px; --topbar-natural-height: ${topbarHeight}px; --compact-content-offset: ${compactContentOffset}px; --shell-bottom-nav-offset: ${shellBottomNavOffset}; --install-banner-offset: ${installBannerOffset}; --shell-scroll-pad: ${shellScrollPad}; --shell-dock-safe-bottom: ${shellDockSafeBottom}; --main-frame-max-width: none;`}
 >
   {#if mapSurfaceActive}
     <div class="topbar-flow-spacer" style={`height: ${topbarHeight}px`} aria-hidden="true"></div>
@@ -707,7 +715,7 @@
         on:submit={submitToolbarSearch}
       >
         <button
-          aria-label="Close search"
+          aria-label="Close search" title="Close search"
           class="search-close-button"
           type="button"
           on:click={closeSearch}
@@ -764,6 +772,7 @@
       <div class="panel-controls">
         <button
           aria-label="Open networks"
+          title="Networks"
           aria-expanded={leftRailOpen}
           class="panel-toggle"
           data-active={leftRailOpen}
@@ -774,6 +783,7 @@
         </button>
         <button
           aria-label="Open map"
+          title="Map"
           aria-expanded={mapPanelOpen}
           class="panel-toggle panel-toggle-map"
           data-active={mapPanelOpen}
@@ -799,6 +809,7 @@
         </button>
         <button
           aria-label="Open activity"
+          title="Activity"
           aria-expanded={rightRailOpen}
           class="panel-toggle panel-toggle-right"
           data-active={rightRailOpen}
@@ -851,7 +862,7 @@
       <div class="toolbar-center">
         {#if isCompact}
           <button
-            aria-label="Open search"
+            aria-label="Open search" title="Open search"
             class="search-open-button"
             type="button"
             on:click={openSearch}
@@ -913,6 +924,7 @@
             {/if}
             <a
               aria-label={m.shell_nav_notifications()}
+              title={m.shell_nav_notifications()}
               class:active-link={isActive('/notifications')}
               class="nav-link nav-link-icon"
               href={bootstrap.viewer ? '/notifications' : '/onboarding'}
@@ -924,6 +936,7 @@
             </a>
             <a
               aria-label={m.shell_nav_messages()}
+              title={m.shell_nav_messages()}
               class:active-link={isActive('/messages')}
               class="nav-link nav-link-icon"
               href={bootstrap.viewer ? '/messages' : '/onboarding'}
@@ -959,6 +972,7 @@
             <div class="settings-wrap">
               <a
                 aria-label="Settings"
+                title="Settings"
                 class:active-link={isActive('/settings')}
                 class="gear-button"
                 href="/settings"
@@ -986,7 +1000,7 @@
   </header>
 
   {#if isCompact && (leftRailOpen || rightRailOpen)}
-    <button aria-label="Close side panels" class="rail-backdrop" on:click={closeCompactPanels}
+    <button aria-label="Close side panels" title="Close side panels" class="rail-backdrop" on:click={closeCompactPanels}
     ></button>
   {/if}
 
@@ -1073,6 +1087,7 @@
 {/if}
 
 <AuthActionNotice />
+<ToastHost />
 
 <style>
   .shell {
@@ -1593,7 +1608,7 @@
     overflow-x: clip;
     overflow-y: clip;
     overflow-anchor: none;
-    padding: 8px 8px 16px;
+    padding: 8px 8px calc(16px + var(--install-banner-offset, 0px));
     background: var(--page-background);
   }
 

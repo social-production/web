@@ -16,6 +16,7 @@
     { value: 'project', label: 'Projects', icon: 'project' },
     { value: 'thread', label: 'Threads', icon: 'thread' },
     { value: 'event', label: 'Events', icon: 'event' },
+    { value: 'activity', label: 'Activities', icon: 'event' },
     { value: 'help_request', label: 'Help requests', icon: 'help-request' },
     { value: 'post', label: 'Posts', icon: 'post' },
     { value: 'channel', label: 'Channels', icon: 'channel' },

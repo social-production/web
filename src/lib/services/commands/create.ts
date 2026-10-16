@@ -1,5 +1,5 @@
 import { currentAdapter } from '$lib/services/adapters';
-import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
+import { confirmed } from '$lib/services/commands/confirm';
 import type {
   CreateChannelInput,
   CreateCommunityInput,
@@ -7,27 +7,23 @@ import type {
   CreateHelpRequestInput,
   CreatePostInput,
   CreateProjectInput,
-  CreateThreadInput
+  CreateThreadInput,
 } from '$lib/types/feed';
 
 export function createProject(input: CreateProjectInput) {
-  return currentAdapter.createProject(input);
+  return confirmed(currentAdapter.createProject(input), 'Project created', false);
 }
 
 export function createThread(input: CreateThreadInput) {
-  return currentAdapter.createThread(input);
+  return confirmed(currentAdapter.createThread(input), 'Thread posted', false);
 }
 
-export async function createEvent(input: CreateEventInput) {
-  const result = await currentAdapter.createEvent(input);
-  if (result.ok) {
-    requestActivityRailRefresh();
-  }
-  return result;
+export function createEvent(input: CreateEventInput) {
+  return confirmed(currentAdapter.createEvent(input), 'Event created');
 }
 
 export function createPost(input: CreatePostInput) {
-  return currentAdapter.createPost(input);
+  return confirmed(currentAdapter.createPost(input), 'Post published', false);
 }
 
 export function sharePostWithUser(postId: string, username: string) {
@@ -43,17 +39,13 @@ export function shareHelpRequestWithUser(helpRequestId: string, username: string
 }
 
 export function createChannel(input: CreateChannelInput) {
-  return currentAdapter.createChannel(input);
+  return confirmed(currentAdapter.createChannel(input), 'Channel created', false);
 }
 
 export function createCommunity(input: CreateCommunityInput) {
-  return currentAdapter.createCommunity(input);
+  return confirmed(currentAdapter.createCommunity(input), 'Community created', false);
 }
 
-export async function createHelpRequest(input: CreateHelpRequestInput) {
-  const result = await currentAdapter.createHelpRequest(input);
-  if (result.ok) {
-    requestActivityRailRefresh();
-  }
-  return result;
+export function createHelpRequest(input: CreateHelpRequestInput) {
+  return confirmed(currentAdapter.createHelpRequest(input), 'Help request posted');
 }

@@ -76,7 +76,7 @@
     <div class="engagement-row feed-corner-actions">
       <VoteStrip corner activeVote={item.activeVote} count={item.voteCount} syncKey={item.id} onvote={handleVote} />
       <a class="comment-link" href={`${item.href}?tab=chat`}>
-        <CountPill label={`${item.commentCount} comments`} />
+        <CountPill label={`${item.commentCount} ${item.commentCount === 1 ? 'comment' : 'comments'}`} />
       </a>
     </div>
     <div class="footer-meta">

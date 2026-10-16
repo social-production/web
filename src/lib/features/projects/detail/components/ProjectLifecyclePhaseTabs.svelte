@@ -13,8 +13,10 @@
   export let activePhaseId: ProjectLifecyclePhaseId;
   export let selectPhase: (phase: ProjectLifecyclePhase) => void = () => {};
 
+  export let note = '';
+
   function compactTitle(title: string) {
-    return title.replace(/\s+Plan$/i, '').trim() || title;
+    return title;
   }
 
   function selectStep(id: string) {
@@ -36,3 +38,15 @@
     isFuture: tab.isFuture,
   }))}
 />
+{#if note}
+  <p class="phase-note">{note}</p>
+{/if}
+
+<style>
+  .phase-note {
+    margin: 8px 0 0;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+</style>

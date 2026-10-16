@@ -103,7 +103,7 @@
 
 {#if open}
   <div class="overlay-root" class:elevated role="presentation" use:portal={'body'}>
-    <button aria-label="Close" class="overlay-scrim" type="button" on:click={close}></button>
+    <button aria-label="Close" title="Close" class="overlay-scrim" type="button" on:click={close}></button>
     <div
       aria-labelledby={labelledById}
       aria-modal="true"

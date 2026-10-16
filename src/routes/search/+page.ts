@@ -10,13 +10,14 @@ const SEARCH_TYPES = new Set<SearchEntityType>([
   'community',
   'user',
   'help_request',
-  'post'
+  'post',
+  'activity'
 ]);
 
 export const load = (async ({ url }) => {
   const query = url.searchParams.get('q') ?? '';
   const requested = url.searchParams.get('type') ?? 'all';
-  const entityType = SEARCH_TYPES.has(requested as SearchEntityType)
+  const entityType: SearchEntityType | 'all' = SEARCH_TYPES.has(requested as SearchEntityType)
     ? (requested as SearchEntityType)
     : 'all';
   const search = await getSearch(

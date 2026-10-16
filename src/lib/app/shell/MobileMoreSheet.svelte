@@ -33,7 +33,7 @@
 </script>
 
 {#if open}
-  <button aria-label="Close menu" class="sheet-backdrop" type="button" on:click={close}></button>
+  <button aria-label="Close menu" title="Close menu" class="sheet-backdrop" type="button" on:click={close}></button>
 
   <div class="more-sheet" role="dialog" aria-modal="true" aria-label="More menu">
     <button aria-label="Close" class="sheet-x" type="button" on:click={close}>×</button>

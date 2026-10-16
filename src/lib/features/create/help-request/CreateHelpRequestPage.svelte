@@ -41,6 +41,7 @@
   let neededAt = defaultNeededAt();
   let endsAt = defaultEndsAt(neededAt);
   let roles: RoleDraft[] = [{ roleLabel: '', description: '', slots: 1 }];
+  $: namedRoleCount = roles.filter((role) => role.roleLabel.trim()).length;
   let selectedChannelIds: string[] = [];
   let selectedCommunityIds: string[] = [];
   let primaryTagType: 'channel' | 'community' = 'channel';
@@ -642,13 +643,13 @@
               <button class="overview-row" type="button" on:click={() => (stepIndex = 3)}>
                 <strong>Scope</strong>
                 <span>
-                  {selectedChannelIds.length} channels · {selectedCommunityIds.length} communities
+                  {selectedChannelIds.length} {selectedChannelIds.length === 1 ? 'channel' : 'channels'} · {selectedCommunityIds.length} {selectedCommunityIds.length === 1 ? 'community' : 'communities'}
                 </span>
               </button>
               <button class="overview-row" type="button" on:click={() => (stepIndex = 4)}>
                 <strong>Roles</strong>
                 <span>
-                  {roles.filter((role) => role.roleLabel.trim()).length || 0} roles
+                  {namedRoleCount} {namedRoleCount === 1 ? 'role' : 'roles'}
                 </span>
               </button>
               {#if validationMessages.length > 0}

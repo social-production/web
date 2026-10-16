@@ -20,6 +20,7 @@
       <button
         id="participation-join"
         aria-label={joinAriaLabel}
+        title={joinAriaLabel}
         aria-pressed={joined}
         class="membership-join"
         class:joined
@@ -35,7 +36,7 @@
     {#if canOpenMembers}
       <button
         aria-expanded={membersOpen}
-        aria-label={membersAriaLabel}
+        aria-label={membersAriaLabel} title={membersAriaLabel}
         class="membership-count"
         class:solo={!canToggle}
         type="button"

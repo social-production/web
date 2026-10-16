@@ -51,7 +51,8 @@
   export let updateRequestStatus: (
     requestId: string,
     status: ProjectServiceRequestStatus,
-    holdSlot?: boolean
+    holdSlot?: boolean,
+    reason?: string | null
   ) => void | Promise<void> = () => {};
   export let createAvailabilityRule: (input: {
     weekday: number;

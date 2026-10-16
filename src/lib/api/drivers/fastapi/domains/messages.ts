@@ -87,6 +87,7 @@ interface BackendConversationMessagesResponse {
   items: BackendMessage[];
   pins?: BackendPin[];
   can_pin?: boolean;
+  peer_read_at?: string | null;
 }
 
 interface BackendLinkedChat {
@@ -238,7 +239,7 @@ export async function fetchLinkedChats(): Promise<MessageLinkedChat[]> {
       meta:
         chat.kind === 'project'
           ? `${chat.member_count ?? 0} ${chat.member_count === 1 ? 'member' : 'members'}`
-          : `${chat.comment_count} comments`,
+          : `${chat.comment_count} ${chat.comment_count === 1 ? 'comment' : 'comments'}`,
       memberCount: chat.member_count ?? 0,
       members: chat.members ?? [],
       preview: chat.preview,
@@ -267,7 +268,8 @@ export async function fetchConversationMessages(
   return {
     messages: res.items.map((message) => mapMessage(message, viewerId, participants)),
     pins: (res.pins ?? []).map(mapPin),
-    canPin: Boolean(res.can_pin)
+    canPin: Boolean(res.can_pin),
+    peerReadAt: res.peer_read_at ?? null
   };
 }
 

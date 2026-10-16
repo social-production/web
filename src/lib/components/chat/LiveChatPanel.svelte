@@ -52,6 +52,7 @@
   export let embedded = false;
   export let fitViewport = false;
   export let variant: 'chat' | 'message' = 'chat';
+  export let peerReadAt: string | null = null;
   export let reportTargetType: ReportTargetType | undefined = undefined;
   export let onSubmitMessage:
     | ((
@@ -280,6 +281,13 @@
 
       rememberAttachment(file);
     }
+  }
+
+  function messageIsRead(createdAt: string) {
+    if (!peerReadAt) return false;
+    const readAt = new Date(peerReadAt).getTime();
+    const sentAt = new Date(createdAt).getTime();
+    return !Number.isNaN(readAt) && !Number.isNaN(sentAt) && readAt >= sentAt;
   }
 
   function formatMessageTime(value: string) {
@@ -911,6 +919,9 @@
                       {#if !caption && photos.length === 0 && fileIndex === files.length - 1}
                         <span class="message-footer">
                           <span class="message-time">{formatMessageTime(message.createdAt)}</span>
+                          {#if message.isOwn}
+                            <span class="receipt" aria-label={messageIsRead(message.createdAt) ? 'Read' : 'Delivered'}>{messageIsRead(message.createdAt) ? '✓✓' : '✓'}</span>
+                          {/if}
                           {#if message.editedAt}
                             <span class="edited-mark">edited</span>
                           {/if}
@@ -933,6 +944,9 @@
                       {#if photos.length === 0}
                       <span class="message-footer">
                         <span class="message-time">{formatMessageTime(message.createdAt)}</span>
+                        {#if message.isOwn}
+                          <span class="receipt" aria-label={messageIsRead(message.createdAt) ? 'Read' : 'Delivered'}>{messageIsRead(message.createdAt) ? '✓✓' : '✓'}</span>
+                        {/if}
                         {#if message.editedAt}
                           <span class="edited-mark">edited</span>
                         {/if}
@@ -946,6 +960,9 @@
               {#if photos.length > 0 || (!caption && files.length === 0)}
                 <div class="message-footer photo-footer">
                   <span class="message-time">{formatMessageTime(message.createdAt)}</span>
+                  {#if message.isOwn}
+                    <span class="receipt" aria-label={messageIsRead(message.createdAt) ? 'Read' : 'Delivered'}>{messageIsRead(message.createdAt) ? '✓✓' : '✓'}</span>
+                  {/if}
                   {#if message.editedAt}
                     <span class="edited-mark">edited</span>
                   {/if}
@@ -1618,14 +1635,22 @@
   }
 
   .message-footer {
-    display: inline-flex;
+    display: flex;
     justify-content: flex-end;
-    width: max-content;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
     max-width: 100%;
-    margin-left: 8px;
+    margin-left: 0;
+    margin-top: 0.5em;
     min-width: 0;
-    vertical-align: baseline;
     white-space: nowrap;
+  }
+
+  .receipt {
+    color: var(--text-soft);
+    font-size: 11px;
+    letter-spacing: -0.08em;
   }
 
   .message-footer.photo-footer {

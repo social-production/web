@@ -361,6 +361,18 @@
             ? canContinuePlan
             : true;
 
+  $: missingFields =
+    wizardSteps[stepIndex]?.id === 'basics'
+      ? [...(title.trim() ? [] : ['Title']), ...(description.trim() ? [] : ['Description'])]
+      : wizardSteps[stepIndex]?.id === 'location' && !canContinueLocation
+        ? ['Location']
+        : [];
+
+  let showMoreScopes = false;
+  $: if (audience === 'public' && selectedCommunityItems.length > 0) {
+    showMoreScopes = true;
+  }
+
   async function handleCreate() {
     isSubmitting = true;
     statusMessage = '';
@@ -543,6 +555,7 @@
         {canContinue}
         {canSubmit}
         {isSubmitting}
+        missing={missingFields}
         submitLabel="Create Event"
         on:submit={handleCreate}
       >
@@ -590,16 +603,22 @@
                   onRemove={removeChannelTag}
                   onCommitSingleSuggestion={commitSingleSuggestion}
                 />
-                <CreateScopeTagSelector
-                  label="Community tags"
-                  bind:query={communityQuery}
-                  placeholder="Type to add a community tag"
-                  selectedItems={selectedCommunityItems}
-                  suggestionItems={communitySuggestionItems}
-                  onAdd={addCommunityTag}
-                  onRemove={removeCommunityTag}
-                  onCommitSingleSuggestion={commitSingleSuggestion}
-                />
+                <label class="scope-more-toggle">
+                  <input bind:checked={showMoreScopes} type="checkbox" />
+                  <span>Add communities</span>
+                </label>
+                {#if showMoreScopes}
+                  <CreateScopeTagSelector
+                    label="Community tags"
+                    bind:query={communityQuery}
+                    placeholder="Type to add a community tag"
+                    selectedItems={selectedCommunityItems}
+                    suggestionItems={communitySuggestionItems}
+                    onAdd={addCommunityTag}
+                    onRemove={removeCommunityTag}
+                    onCommitSingleSuggestion={commitSingleSuggestion}
+                  />
+                {/if}
                 {#if publicEventNeedsTag}
                   <p class="status-note">Public events need at least one channel or community tag.</p>
                 {/if}
@@ -767,7 +786,7 @@
                 <strong>{audience === 'public' ? 'Tags' : 'Who'}</strong>
                 <span>
                   {#if audience === 'public'}
-                    {selectedChannelIds.length} channels · {selectedCommunityIds.length} communities
+                    {selectedChannelIds.length} {selectedChannelIds.length === 1 ? 'channel' : 'channels'} · {selectedCommunityIds.length} {selectedCommunityIds.length === 1 ? 'community' : 'communities'}
                   {:else if audience === 'private_community'}
                     {privateCommunity?.label ?? 'No community'}{#if isPrivate && editorUsernames.length}
                       · {editorUsernames.length} organizers{/if}
@@ -957,5 +976,13 @@
 
   .validation-list {
     padding-left: 18px;
+  }
+
+  .scope-more-toggle {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    color: var(--text-main);
+    font-size: 14px;
   }
 </style>

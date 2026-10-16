@@ -59,6 +59,7 @@ export interface ConversationMessagesResult {
   messages: DirectMessage[];
   pins: ConversationPin[];
   canPin: boolean;
+  peerReadAt?: string | null;
 }
 
 export interface MessageConversationResult {

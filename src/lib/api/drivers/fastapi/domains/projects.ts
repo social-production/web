@@ -21,6 +21,7 @@ import type {
   PlanCriterionRating,
   GovernanceSignalType,
   ShareTargetResult,
+  ProjectLocationEdit,
 } from '$lib/types/detail';
 import type { CreateProjectInput, CreateResult, SignalToggleResult } from '$lib/types/feed';
 
@@ -263,6 +264,7 @@ export async function fetchAddProjectDistributionPlan(
         distributionSummary: input.distributionSummary ?? '',
         accessSummary: input.accessSummary ?? '',
         reserveSummary: input.reserveSummary ?? '',
+        recipients: input.recipients?.trim() ?? '',
         requestSystemEnabled: input.requestSystemEnabled ?? false,
         requestMode: input.requestMode ?? 'direct',
         allowOffScheduleRequests: input.allowOffScheduleRequests ?? false,
@@ -278,10 +280,12 @@ export async function fetchSetProjectPlanOverallVote(
   projectSlug: string,
   _phaseId: string,
   planId: string,
-  vote: ProjectApprovalVote | null
+  vote: ProjectApprovalVote | null,
+  comment?: string | null
 ): Promise<void> {
   await apiClient.post(`/projects/${projectSlug}/plans/${planId}/vote`, {
-    vote: vote ?? 'neutral'
+    vote: vote ?? 'neutral',
+    ...(comment != null ? { comment: comment.trim() } : {})
   });
 }
 
@@ -323,6 +327,7 @@ export async function fetchAddProjectActivity(
     is_online: input.isOnline ?? false,
     location_label: input.locationLabel,
     location_id: input.locationId ?? null,
+    meeting_url: input.isOnline ? input.meetingUrl?.trim() || null : null,
     note: input.note,
     role_requirements: input.roleRequirements.map(r => ({
       label: r.label,
@@ -469,11 +474,13 @@ export async function fetchSetProjectServiceRequestStatus(
   projectSlug: string,
   requestId: string,
   status: ProjectServiceRequestStatus,
-  holdSlot = false
+  holdSlot = false,
+  reason?: string | null
 ): Promise<void> {
   await apiClient.patch(`/projects/${projectSlug}/service-requests/${requestId}`, {
     status,
-    hold_slot: holdSlot
+    hold_slot: holdSlot,
+    reason: reason?.trim() || null
   });
 }
 
@@ -628,20 +635,40 @@ export async function fetchSetProjectUpdateVote(
   await apiClient.post(`/projects/${projectSlug}/update-requests/${requestId}/vote`, { vote: vote ?? 'neutral' });
 }
 
+function locationEditPayload(location?: ProjectLocationEdit | null) {
+  return location?.locationLabel.trim()
+    ? {
+        location_label: location.locationLabel.trim(),
+        location_id: location.locationId ?? null,
+        is_online: location.isOnline ?? false
+      }
+    : {};
+}
+
 export async function fetchUpdateProjectDetails(
   projectSlug: string,
   title: string,
-  description: string
+  description: string,
+  location?: ProjectLocationEdit | null
 ): Promise<void> {
-  await apiClient.patch(`/projects/${projectSlug}/details`, { title, description });
+  await apiClient.patch(`/projects/${projectSlug}/details`, {
+    title,
+    description,
+    ...locationEditPayload(location)
+  });
 }
 
 export async function fetchRequestProjectEdit(
   projectSlug: string,
   title: string,
-  description: string
+  description: string,
+  location?: ProjectLocationEdit | null
 ): Promise<void> {
-  await apiClient.post(`/projects/${projectSlug}/edit-requests`, { title, description });
+  await apiClient.post(`/projects/${projectSlug}/edit-requests`, {
+    title,
+    description,
+    ...locationEditPayload(location)
+  });
 }
 
 export async function fetchSetProjectEditVote(

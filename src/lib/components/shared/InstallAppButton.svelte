@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
+  import { installBannerHeight } from '$lib/stores/installBanner';
   import { PWA_ENABLED } from '$lib/config/env';
   import { detectShellMode } from '$lib/platform/shellMode';
 
@@ -8,10 +9,31 @@
     userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
   };
 
+  const DISMISS_KEY = 'sp_install_dismissed';
+
   let promptEvent: BeforeInstallPromptEvent | null = null;
   let dismissed = false;
+  let barHeight = 0;
+
+  $: visible = PWA_ENABLED && Boolean(promptEvent) && !dismissed;
+  $: installBannerHeight.set(visible ? barHeight : 0);
+  onDestroy(() => installBannerHeight.set(0));
+
+  function dismiss() {
+    dismissed = true;
+    try {
+      sessionStorage.setItem(DISMISS_KEY, '1');
+    } catch {
+      // Private mode: the dismissal still holds for this page view.
+    }
+  }
 
   onMount(() => {
+    try {
+      dismissed = sessionStorage.getItem(DISMISS_KEY) === '1';
+    } catch {
+      dismissed = false;
+    }
     if (!PWA_ENABLED || detectShellMode() === 'app') return;
 
     const onPrompt = (event: Event) => {
@@ -37,12 +59,12 @@
   }
 </script>
 
-{#if PWA_ENABLED && promptEvent && !dismissed}
-  <div class="install-bar">
+{#if visible}
+  <div class="install-bar" bind:clientHeight={barHeight}>
     <p>Install Social Production on this device.</p>
     <div class="actions">
       <button class="install" type="button" on:click={install}>Install app</button>
-      <button class="dismiss" type="button" on:click={() => (dismissed = true)}>Not now</button>
+      <button class="dismiss" type="button" on:click={dismiss}>Not now</button>
     </div>
   </div>
 {/if}
@@ -51,16 +73,17 @@
   .install-bar {
     position: fixed;
     z-index: 40;
-    right: 16px;
-    bottom: calc(var(--shell-bottom-nav-offset, 0px) + 12px);
-    display: grid;
-    gap: 10px;
-    width: min(320px, calc(100vw - 32px));
-    padding: 14px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
+    left: 0;
+    right: 0;
+    bottom: calc(var(--shell-bottom-nav-offset, 0px) - var(--install-banner-offset, 0px));
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    padding: 8px 16px;
+    border-top: 1px solid var(--panel-border);
     background: var(--panel);
-    box-shadow: 0 12px 32px color-mix(in srgb, var(--page-background) 55%, transparent);
   }
 
   p {

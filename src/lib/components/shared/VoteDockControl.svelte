@@ -1,5 +1,7 @@
 <script lang="ts">
   import { afterUpdate } from 'svelte';
+  import { browser } from '$app/environment';
+  import { goto } from '$app/navigation';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import VoteChoiceBar from '$lib/components/shared/VoteChoiceBar.svelte';
@@ -37,6 +39,27 @@
     open = true;
     revealed = revealKey;
   }
+  const VOTE_LINK_PARAMS = ['open', 'voteKind', 'voteTarget', 'assess', 'criterionId'];
+  let wasOpen = false;
+
+  /** A vote opened from a link drops that link once it closes, so other tabs stop reopening it. */
+  function clearVoteLink() {
+    if (!browser) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('open') !== 'vote') return;
+    for (const key of VOTE_LINK_PARAMS) url.searchParams.delete(key);
+    void goto(`${url.pathname}${url.search}${url.hash}`, {
+      replaceState: true,
+      noScroll: true,
+      keepFocus: true
+    });
+  }
+
+  $: {
+    if (wasOpen && !open && revealed) clearVoteLink();
+    wasOpen = open;
+  }
+
   $: if (items.length > 0 && index >= items.length) {
     index = 0;
   }

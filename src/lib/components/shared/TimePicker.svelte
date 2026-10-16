@@ -124,7 +124,7 @@
   />
   <button
     aria-expanded={open}
-    aria-label="Open clock"
+    aria-label="Open clock" title="Open clock"
     class="clock-button"
     disabled={disabled}
     type="button"

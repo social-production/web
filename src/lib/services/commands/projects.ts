@@ -1,5 +1,5 @@
 import { currentAdapter } from '$lib/services/adapters';
-import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
+import { confirmed } from '$lib/services/commands/confirm';
 import { invalidateFeedEngagementCache } from '$lib/utils/feedSignals';
 import type {
   EventLifecyclePhaseId,
@@ -21,6 +21,7 @@ import type {
   ProjectSoftwarePullRequestInput,
   ProjectSoftwareRepositoryReplacementInput,
   ProjectServiceRequestStatus,
+  ProjectLocationEdit,
 } from '$lib/types/detail';
 
 export function toggleProjectMembership(projectSlug: string) {
@@ -32,7 +33,7 @@ export function toggleProjectDemandSignal(projectSlug: string) {
 }
 
 export function setProjectSignal(projectSlug: string, signal: GovernanceSignalType) {
-  return currentAdapter.setProjectSignal(projectSlug, signal);
+  return confirmed(currentAdapter.setProjectSignal(projectSlug, signal), 'Signal saved');
 }
 
 export function addProjectValue(projectSlug: string, label: string) {
@@ -44,7 +45,10 @@ export function setProjectValueImportance(
   valueId: string,
   importance: ProjectImportanceVoteValue
 ) {
-  return currentAdapter.setProjectValueImportance(projectSlug, valueId, importance);
+  return confirmed(
+    currentAdapter.setProjectValueImportance(projectSlug, valueId, importance),
+    'Vote recorded'
+  );
 }
 
 export function addProjectProductionPlan(
@@ -52,7 +56,10 @@ export function addProjectProductionPlan(
   input: ProjectProductionPlanInput,
   projectMode?: string
 ) {
-  return currentAdapter.addProjectProductionPlan(projectSlug, input, projectMode);
+  return confirmed(
+    currentAdapter.addProjectProductionPlan(projectSlug, input, projectMode),
+    'Plan submitted'
+  );
 }
 
 export function updateProjectProductionPlan(
@@ -68,7 +75,10 @@ export function addProjectDistributionPlan(
   input: ProjectDistributionPlanInput,
   projectMode?: string
 ) {
-  return currentAdapter.addProjectDistributionPlan(projectSlug, input, projectMode);
+  return confirmed(
+    currentAdapter.addProjectDistributionPlan(projectSlug, input, projectMode),
+    'Plan submitted'
+  );
 }
 
 export function addProjectPullRequest(projectSlug: string, input: ProjectSoftwarePullRequestInput) {
@@ -96,7 +106,10 @@ export function setProjectPlanValueVote(
   valueId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setProjectPlanValueVote(projectSlug, phaseId, planId, valueId, vote);
+  return confirmed(
+    currentAdapter.setProjectPlanValueVote(projectSlug, phaseId, planId, valueId, vote),
+    'Assessment saved'
+  );
 }
 
 export function setProjectPlanCriterionRating(
@@ -105,36 +118,38 @@ export function setProjectPlanCriterionRating(
   criterionId: string,
   rating: import('$lib/types/detail').PlanCriterionRating | null
 ) {
-  return currentAdapter.setProjectPlanCriterionRating(projectSlug, planId, criterionId, rating);
+  return confirmed(
+    currentAdapter.setProjectPlanCriterionRating(projectSlug, planId, criterionId, rating),
+    'Rating saved'
+  );
 }
 
 export function setProjectPlanOverallVote(
   projectSlug: string,
   phaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>,
   planId: string,
-  vote: ProjectApprovalVote | null
+  vote: ProjectApprovalVote | null,
+  comment?: string | null
 ) {
-  return currentAdapter.setProjectPlanOverallVote(projectSlug, phaseId, planId, vote);
+  return confirmed(
+    currentAdapter.setProjectPlanOverallVote(projectSlug, phaseId, planId, vote, comment),
+    comment != null ? 'Assessment saved' : 'Vote recorded'
+  );
 }
 
-export async function addProjectActivity(projectSlug: string, input: ProjectActivityInput) {
-  const result = await currentAdapter.addProjectActivity(projectSlug, input);
-  requestActivityRailRefresh();
-  return result;
+export function addProjectActivity(projectSlug: string, input: ProjectActivityInput) {
+  return confirmed(currentAdapter.addProjectActivity(projectSlug, input), 'Activity created');
 }
 
-export async function setProjectActivityCommitment(
+export function setProjectActivityCommitment(
   projectSlug: string,
   activityId: string,
   roleLabel: string | null
 ) {
-  const result = await currentAdapter.setProjectActivityCommitment(
-    projectSlug,
-    activityId,
-    roleLabel
+  return confirmed(
+    currentAdapter.setProjectActivityCommitment(projectSlug, activityId, roleLabel),
+    roleLabel ? `You took ${roleLabel}` : 'You left the role'
   );
-  requestActivityRailRefresh();
-  return result;
 }
 
 export function setProjectActivityRating(
@@ -143,7 +158,10 @@ export function setProjectActivityRating(
   rating: number,
   comment: string | null
 ) {
-  return currentAdapter.setProjectActivityRating(projectSlug, activityId, rating, comment);
+  return confirmed(
+    currentAdapter.setProjectActivityRating(projectSlug, activityId, rating, comment),
+    'Rating saved'
+  );
 }
 
 export function deleteProjectActivityRating(projectSlug: string, activityId: string) {
@@ -151,7 +169,7 @@ export function deleteProjectActivityRating(projectSlug: string, activityId: str
 }
 
 export function addProjectServiceRequest(projectSlug: string, input: ProjectServiceRequestInput) {
-  return currentAdapter.addProjectServiceRequest(projectSlug, input);
+  return confirmed(currentAdapter.addProjectServiceRequest(projectSlug, input), 'Request sent');
 }
 
 export function createProjectManualLinkRequest(
@@ -175,7 +193,10 @@ export function setProjectManualLinkVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setProjectManualLinkVote(projectSlug, requestId, vote);
+  return confirmed(
+    currentAdapter.setProjectManualLinkVote(projectSlug, requestId, vote),
+    'Vote recorded'
+  );
 }
 
 export function createProjectManualLinkSeverRequest(
@@ -198,9 +219,18 @@ export function setProjectServiceRequestStatus(
   projectSlug: string,
   requestId: string,
   status: ProjectServiceRequestStatus,
-  holdSlot = false
+  holdSlot = false,
+  reason?: string | null
 ) {
-  return currentAdapter.setProjectServiceRequestStatus(projectSlug, requestId, status, holdSlot);
+  const labels: Partial<Record<ProjectServiceRequestStatus, string>> = {
+    accepted: 'Request accepted',
+    declined: 'Request declined',
+    cancelled: 'Request cancelled',
+  };
+  return confirmed(
+    currentAdapter.setProjectServiceRequestStatus(projectSlug, requestId, status, holdSlot, reason),
+    labels[status] ?? 'Request updated'
+  );
 }
 
 export function createProjectAvailabilityRule(
@@ -220,7 +250,12 @@ export function suggestProjectActivityRole(
   roleId: string,
   suggestedUserId: string
 ) {
-  return currentAdapter.suggestProjectActivityRole(projectSlug, activityId, roleId, suggestedUserId);
+  return currentAdapter.suggestProjectActivityRole(
+    projectSlug,
+    activityId,
+    roleId,
+    suggestedUserId
+  );
 }
 
 export function declineProjectActivityRoleSuggestion(
@@ -235,7 +270,10 @@ export function requestProjectServiceRequestSettingsChange(
   projectSlug: string,
   input: ProjectServiceRequestSettingsChangeInput
 ) {
-  return currentAdapter.requestProjectServiceRequestSettingsChange(projectSlug, input);
+  return confirmed(
+    currentAdapter.requestProjectServiceRequestSettingsChange(projectSlug, input),
+    'Settings saved'
+  );
 }
 
 export function setProjectServiceRequestSettingsChangeVote(
@@ -243,7 +281,10 @@ export function setProjectServiceRequestSettingsChangeVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setProjectServiceRequestSettingsChangeVote(projectSlug, requestId, vote);
+  return confirmed(
+    currentAdapter.setProjectServiceRequestSettingsChangeVote(projectSlug, requestId, vote),
+    'Vote recorded'
+  );
 }
 
 export function toggleProjectServiceHistoryCompletion(
@@ -266,7 +307,10 @@ export function requestProjectPhaseChange(
   reason: string,
   options?: ProjectPhaseChangeRequestOptions
 ) {
-  return currentAdapter.requestProjectPhaseChange(projectSlug, targetPhaseId, reason, options);
+  return confirmed(
+    currentAdapter.requestProjectPhaseChange(projectSlug, targetPhaseId, reason, options),
+    'Advance proposed. Your Yes is counted.'
+  );
 }
 
 export function setProjectPhaseChangeVote(
@@ -274,7 +318,10 @@ export function setProjectPhaseChangeVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setProjectPhaseChangeVote(projectSlug, requestId, vote);
+  return confirmed(
+    currentAdapter.setProjectPhaseChangeVote(projectSlug, requestId, vote),
+    'Vote recorded'
+  );
 }
 
 export function requestProjectUpdate(projectSlug: string, body: string) {
@@ -289,26 +336,45 @@ export function setProjectUpdateVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setProjectUpdateVote(projectSlug, requestId, vote).then(async (result) => {
-    void invalidateFeedEngagementCache();
-    return result;
-  });
-}
-
-export function updateProjectDetails(projectSlug: string, title: string, description: string) {
-  return currentAdapter
-    .updateProjectDetails(projectSlug, title, description)
-    .then(async (result) => {
+  return confirmed(
+    currentAdapter.setProjectUpdateVote(projectSlug, requestId, vote).then(async (result) => {
       void invalidateFeedEngagementCache();
       return result;
-    });
+    }),
+    'Vote recorded'
+  );
 }
 
-export function requestProjectEdit(projectSlug: string, title: string, description: string) {
-  return currentAdapter.requestProjectEdit(projectSlug, title, description).then(async (result) => {
-    void invalidateFeedEngagementCache();
-    return result;
-  });
+export function updateProjectDetails(
+  projectSlug: string,
+  title: string,
+  description: string,
+  location?: ProjectLocationEdit | null
+) {
+  return confirmed(
+    currentAdapter
+      .updateProjectDetails(projectSlug, title, description, location)
+      .then(async (result) => {
+        void invalidateFeedEngagementCache();
+        return result;
+      }),
+    'Details saved'
+  );
+}
+
+export function requestProjectEdit(
+  projectSlug: string,
+  title: string,
+  description: string,
+  location?: ProjectLocationEdit | null
+) {
+  return confirmed(
+    currentAdapter.requestProjectEdit(projectSlug, title, description, location).then(async (result) => {
+      void invalidateFeedEngagementCache();
+      return result;
+    }),
+    'Edit proposed'
+  );
 }
 
 export function setProjectEditVote(
@@ -316,10 +382,13 @@ export function setProjectEditVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setProjectEditVote(projectSlug, requestId, vote).then(async (result) => {
-    void invalidateFeedEngagementCache();
-    return result;
-  });
+  return confirmed(
+    currentAdapter.setProjectEditVote(projectSlug, requestId, vote).then(async (result) => {
+      void invalidateFeedEngagementCache();
+      return result;
+    }),
+    'Vote recorded'
+  );
 }
 
 export function setProjectPullRequestVote(

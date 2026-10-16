@@ -47,12 +47,48 @@ export function parseLocalDateTimeValue(value: string | null | undefined) {
 }
 
 /** Convert a datetime-local input value to UTC ISO for API submission. */
-export function localDateTimeInputToIso(value: string): string {
+export function localDateTimeInputToIso(value: string, timeZone?: string | null): string {
+  const zone = timeZone?.trim();
+  if (zone) {
+    const zoned = zonedDateTimeInputToIso(value, zone);
+    if (zoned) return zoned;
+  }
   const parsed = parseLocalDateTimeValue(value);
   if (!parsed) {
     throw new Error('Invalid datetime-local value');
   }
   return parsed.toISOString();
+}
+
+/** Interpret a datetime-local value as wall time in `timeZone` and return a UTC instant. */
+export function zonedDateTimeInputToIso(value: string, timeZone: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value.trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date(utcGuess));
+  const bag: Record<string, string> = {};
+  for (const part of parts) bag[part.type] = part.value;
+  const asUtc = Date.UTC(
+    Number(bag.year),
+    Number(bag.month) - 1,
+    Number(bag.day),
+    Number(bag.hour),
+    Number(bag.minute)
+  );
+  return new Date(utcGuess - (asUtc - utcGuess)).toISOString();
 }
 
 /** UTC ISO for the plan schedule start, when date + start time are known. */

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { page } from '$app/stores';
   import CollapsibleServiceRequestCard from '$lib/components/cards/project-detail/CollapsibleServiceRequestCard.svelte';
   import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
@@ -9,6 +10,7 @@
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import ActivityHistorySection from '$lib/features/projects/detail/components/ActivityHistorySection.svelte';
   import { focusEndedActivityCard } from '$lib/features/projects/detail/lifecycle/projectLifecycleNavigation';
+  import { getDisplayTimezone, listDisplayTimezones } from '$lib/stores/timezoneStore';
   import type {
     ProjectActivityRoleInput,
     ProjectApprovalVote,
@@ -28,6 +30,7 @@
     roleRequirements: ProjectActivityRoleInput[];
     linkedPlanPhaseId: string | null;
     note: string;
+    inputTimeZone?: string;
   };
 
   type RequestSettingsForm = {
@@ -53,7 +56,12 @@
   export let serviceRequestComposerElement: HTMLElement | null = null;
   export let activityStartInputElement: HTMLInputElement | null = null;
   export let activityEndInputElement: HTMLInputElement | null = null;
-  export let updateRequestStatus: (requestId: string, status: ProjectServiceRequestStatus, holdSlot?: boolean) => void | Promise<void> = () => {};
+  export let updateRequestStatus: (
+    requestId: string,
+    status: ProjectServiceRequestStatus,
+    holdSlot?: boolean,
+    reason?: string | null
+  ) => void | Promise<void> = () => {};
   export let createAvailabilityRule: (input: {
     weekday: number;
     startTime: string;
@@ -89,15 +97,28 @@
 
   let historyOpen = false;
 
-  function localDateTimeValue(value: string) {
-    const date = new Date(value);
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    const hours = `${date.getHours()}`.padStart(2, '0');
-    const minutes = `${date.getMinutes()}`.padStart(2, '0');
+  /** Wall time of an instant in `timeZone`, in datetime-local form, so a locked slot submits the same instant. */
+  function zonedDateTimeValue(value: string, timeZone: string) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23'
+    }).formatToParts(new Date(value));
+    const bag: Record<string, string> = {};
+    for (const part of parts) bag[part.type] = part.value;
+    return `${bag.year}-${bag.month}-${bag.day}T${bag.hour}:${bag.minute}`;
+  }
 
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  function prefillRequestFromSlot(slot: { id: string; startAt: string; endAt: string }) {
+    const zone = getDisplayTimezone();
+    selectedActivityId = slot.id;
+    serviceRequestForm.inputTimeZone = zone;
+    serviceRequestForm.scheduledAt = zonedDateTimeValue(slot.startAt, zone);
+    serviceRequestForm.endsAt = zonedDateTimeValue(slot.endAt, zone);
   }
 
   const WEEKDAYS = [
@@ -229,9 +250,7 @@
       return;
     }
 
-    selectedActivityId = slot.id;
-    serviceRequestForm.scheduledAt = localDateTimeValue(slot.startAt);
-    serviceRequestForm.endsAt = localDateTimeValue(slot.endAt);
+    prefillRequestFromSlot(slot);
 
     await openPersonalServiceRequestComposerForDay(isoDay);
   }
@@ -255,9 +274,7 @@
       return;
     }
 
-    selectedActivityId = slot.id;
-    serviceRequestForm.scheduledAt = localDateTimeValue(slot.startAt);
-    serviceRequestForm.endsAt = localDateTimeValue(slot.endAt);
+    prefillRequestFromSlot(slot);
 
     activeTab = 'live';
     await openPersonalServiceRequestComposer();
@@ -273,8 +290,7 @@
       return;
     }
 
-    const timezone =
-      typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
+    const timezone = weeklyTimezone || getDisplayTimezone();
 
     await createAvailabilityRule({
       weekday: weeklyWeekday,
@@ -327,9 +343,7 @@
       return;
     }
 
-    selectedActivityId = slot.id;
-    serviceRequestForm.scheduledAt = localDateTimeValue(slot.startAt);
-    serviceRequestForm.endsAt = localDateTimeValue(slot.endAt);
+    prefillRequestFromSlot(slot);
     await openPersonalServiceRequestComposerForDay(isoDay);
   }
 
@@ -387,10 +401,28 @@
   let availabilityKind: 'one-off' | 'weekly' = 'one-off';
   let weeklyWeekday = 1;
   let weeklyStart = '09:00';
+  let weeklyTimezone = getDisplayTimezone();
   let weeklyEnd = '12:00';
   let weeklyNote = '';
   let previewDayIso = '';
   let showRequestsSheet = false;
+  let decliningRequestId = '';
+  let declineReason = '';
+
+  function startDecline(requestId: string) {
+    decliningRequestId = requestId;
+    declineReason = '';
+  }
+
+  async function confirmDecline(requestId: string) {
+    await updateRequestStatus(requestId, 'declined', false, declineReason);
+    decliningRequestId = '';
+    declineReason = '';
+  }
+
+  function isPending(status: ProjectServiceRequestStatus) {
+    return status === 'open' || status === 'planned';
+  }
 
   $: usesCalendar = data.lifecycle.personalService?.usesCalendar ?? true;
   $: personalRequestMode = data.lifecycle.personalService?.requestMode ?? 'calendar';
@@ -421,11 +453,13 @@
   $: selfPlannedHistory = data.lifecycle.phaseFive.history.filter(
     (item) => item.source === 'self-planned'
   );
-  $: calendarActivities = (data.lifecycle.personalService?.availabilitySlots ?? [])
-    .filter((slot) => data.lifecycle.phaseFive.viewerCanCreateActivities || !slot.held)
-    .map((slot) => ({
+  $: calendarActivities = (data.lifecycle.personalService?.availabilitySlots ?? []).map((slot) => ({
     id: slot.id,
-    title: slot.held ? `${slot.title} (taken)` : slot.title,
+    title: slot.held
+      ? data.lifecycle.phaseFive.viewerCanCreateActivities
+        ? `${slot.title} (taken)`
+        : 'Taken'
+      : slot.title,
     authorUsername: data.authorUsername,
     scheduledAt: slot.scheduledAt,
     startAt: slot.startAt,
@@ -441,6 +475,16 @@
     note: slot.bookings.map((booking) => `@${booking.requesterUsername}`).join(', '),
     isActive: !slot.held
   }));
+  $: requestsOff = Boolean(data.lifecycle.requestSystem) && !data.lifecycle.requestSystem?.enabled;
+  $: viewerReviewsRequests = data.lifecycle.requestSystem?.viewerCanReviewRequests ?? false;
+  $: futureOpenSlotCount = (data.lifecycle.personalService?.availabilitySlots ?? []).filter(
+    (slot) => !slot.held && slot.source !== 'request' && new Date(slot.endAt).getTime() > Date.now()
+  ).length;
+  $: acceptedRequestCount = sortedRequests.filter(
+    (request) =>
+      request.status === 'accepted' &&
+      (!request.endsAt || new Date(request.endsAt).getTime() > Date.now())
+  ).length;
   $: currentRequestSettings = resolveRequestSettings(data.lifecycle.requestSystem?.settings);
   $: draftRequestSettings = resolveRequestSettings(requestSettingsForm);
   $: requestSettingsChanged = !requestSettingsMatch(currentRequestSettings, draftRequestSettings);
@@ -451,6 +495,13 @@
   $: if (!showRequestSettingsComposer) {
     requestSettingsForm = createRequestSettingsForm();
   }
+  let composeHandled = '';
+  $: composeKey = $page.url.searchParams.get('compose') === 'request' ? $page.url.search : '';
+  $: if (composeKey && composeKey !== composeHandled && showServiceRequestAction) {
+    composeHandled = composeKey;
+    void openDockedServiceRequest();
+  }
+
   $: if (highlightedActivityId || highlightedRequestId) {
     activeTab = 'live';
     if (highlightedRequestId) {
@@ -460,6 +511,9 @@
 </script>
 
 <section class="phase-surface">
+  {#if requestsOff}
+    <div class="requests-off-banner" role="status">Not taking requests.</div>
+  {/if}
   {#if usesCalendar}
     <ProjectActivityCalendarCard
       activities={calendarActivities}
@@ -519,62 +573,71 @@
     {#if data.lifecycle.requestSystem}
       <OverlaySheet bind:open={showRequestsSheet} title="Requests" labelledById="personal-requests-sheet">
       <section class="card-rail-section">
-        <div class="section-head">
-          <div class="section-copy">
-            <h3>Requests</h3>
-            <p>{data.lifecycle.requestSystem.settings.summary}</p>
-          </div>
-        </div>
+        <p class="field-help">{data.lifecycle.requestSystem.settings.summary}</p>
 
-        {#if data.lifecycle.requestSystem.viewerCanReviewRequests}
-          {#if !data.lifecycle.requestSystem.enabled && sortedRequests.length === 0}
-            <div class="empty-card">Requests are currently turned off.</div>
-          {:else if sortedRequests.length === 0}
-            <div class="empty-card">No open requests right now.</div>
-          {:else}
-            <div class="card-rail">
-              {#each sortedRequests as request}
-                <div id={`request-card-${request.id}`} class="rail-card">
-                  <CollapsibleServiceRequestCard
-                    request={request}
-                    expanded={highlightedRequestId === request.id}
-                    highlighted={highlightedRequestId === request.id}
-                  >
-                    {#if request.status === 'open'}
+        {#if sortedRequests.length === 0}
+          <div class="empty-card">
+            {#if requestsOff}
+              Not taking requests.
+            {:else if viewerReviewsRequests}
+              No requests yet.
+            {:else}
+              You have not requested this service yet.
+            {/if}
+          </div>
+        {:else}
+          <div class="card-rail">
+            {#each sortedRequests as request (request.id)}
+              <div id={`request-card-${request.id}`} class="rail-card">
+                <CollapsibleServiceRequestCard
+                  request={request}
+                  expanded={highlightedRequestId === request.id}
+                  highlighted={highlightedRequestId === request.id}
+                >
+                  {#if isPending(request.status) && viewerReviewsRequests}
+                    {#if decliningRequestId === request.id}
+                      <textarea
+                        bind:value={declineReason}
+                        rows="2"
+                        maxlength="500"
+                        placeholder="Reason (optional)"
+                      ></textarea>
+                      <div class="binary-row review-actions">
+                        <button class="vote-chip" type="button" on:click={() => (decliningRequestId = '')}>
+                          Back
+                        </button>
+                        <button class="vote-chip negative" type="button" on:click={() => confirmDecline(request.id)}>
+                          Decline request
+                        </button>
+                      </div>
+                    {:else}
                       <div class="binary-row review-actions">
                         <button class="vote-chip" type="button" on:click={() => updateRequestStatus(request.id, 'accepted')}>
                           Accept
                         </button>
-                        {#if request.scheduledAt && request.endsAt}
-                          <button
-                            class="vote-chip"
-                            type="button"
-                            on:click={() => updateRequestStatus(request.id, 'accepted', true)}
-                          >
-                            Accept and mark slot taken
-                          </button>
-                        {/if}
-                        <button
-                          class="vote-chip negative"
-                          type="button"
-                          on:click={() => updateRequestStatus(request.id, 'declined')}
-                        >
+                        <button class="vote-chip negative" type="button" on:click={() => startDecline(request.id)}>
                           Decline
                         </button>
                       </div>
                     {/if}
-                    {#if request.conversationId}
-                      <a class="conversation-link" href={`/messages?conversation=${request.conversationId}`}>Open conversation</a>
-                    {/if}
-                  </CollapsibleServiceRequestCard>
-                </div>
-              {/each}
-            </div>
-          {/if}
-        {:else if data.lifecycle.requestSystem.enabled}
-          <div class="empty-card">Requests stay private between each requester and the service creator.</div>
-        {:else}
-          <div class="empty-card">Requests are currently turned off.</div>
+                  {:else if isPending(request.status)}
+                    <div class="binary-row review-actions">
+                      <button
+                        class="vote-chip negative"
+                        type="button"
+                        on:click={() => updateRequestStatus(request.id, 'cancelled')}
+                      >
+                        Cancel request
+                      </button>
+                    </div>
+                  {/if}
+                  {#if request.conversationId}
+                    <a class="conversation-link" href={`/messages?conversation=${request.conversationId}`}>Open conversation</a>
+                  {/if}
+                </CollapsibleServiceRequestCard>
+              </div>
+            {/each}
+          </div>
         {/if}
       </section>
       </OverlaySheet>
@@ -590,7 +653,6 @@
           <DirectUsePolicyNotice variant="request" context="service" />
           <div class="request-header-row">
             <div>
-              <h3>Request service</h3>
               <p>
                 Sending a request opens a one-to-one chat with the creator in Messages.
                 {#if showRequestScheduleFields}
@@ -603,14 +665,28 @@
           </div>
           <input bind:value={serviceRequestForm.title} maxlength="120" placeholder="Request title" />
           {#if showRequestScheduleFields}
+            <label>
+              <span class="field-inline-label">Timezone</span>
+              <select
+                bind:value={serviceRequestForm.inputTimeZone}
+                disabled={Boolean(selectedActivityId)}
+                on:focus={() => {
+                  if (!serviceRequestForm.inputTimeZone) serviceRequestForm.inputTimeZone = getDisplayTimezone();
+                }}
+              >
+                {#each listDisplayTimezones() as zone}
+                  <option value={zone}>{zone}</option>
+                {/each}
+              </select>
+            </label>
             <div class="number-grid">
               <label>
                 <span class="field-inline-label">Start time</span>
-                <input bind:value={serviceRequestForm.scheduledAt} type="datetime-local" />
+                <input bind:value={serviceRequestForm.scheduledAt} disabled={Boolean(selectedActivityId)} type="datetime-local" />
               </label>
               <label>
                 <span class="field-inline-label">Finish time</span>
-                <input bind:value={serviceRequestForm.endsAt} type="datetime-local" />
+                <input bind:value={serviceRequestForm.endsAt} disabled={Boolean(selectedActivityId)} type="datetime-local" />
               </label>
             </div>
           {/if}
@@ -641,7 +717,6 @@
           <div bind:this={requestSettingsComposerElement} class="composer-card">
             <div class="request-header-row">
               <div>
-                <h3>Request settings</h3>
                 <p>These settings apply immediately because the project creator is the only person running this service.</p>
               </div>
             </div>
@@ -666,11 +741,12 @@
                   <span>Allow off-schedule requests</span>
                 </label>
               {/if}
-              <p class="field-help">Scheduled slots start from listed times. Message requests let people write in without choosing a listed slot. Off-schedule requests can ask for a time that is not already listed.</p>
-            {/if}
-
-            {#if !requestSettingsChanged}
-              <p class="field-help">Choose a different request setup before saving.</p>
+              <p class="field-help">
+                Scheduled slots start from listed times. Message requests let people write in without choosing a listed slot.
+                {#if requestSettingsForm.requestMode !== 'direct'}
+                  Off-schedule requests can ask for a time that is not already listed.
+                {/if}
+              </p>
             {/if}
           </div>
           <svelte:fragment slot="footer">
@@ -695,7 +771,11 @@
         <div class="section-copy">
           <h3>Activity</h3>
           <p>
-            {data.lifecycle.phaseFive.activities.length} future activity card{data.lifecycle.phaseFive.activities.length === 1 ? '' : 's'}
+            {#if usesCalendar}
+              {futureOpenSlotCount} open slot{futureOpenSlotCount === 1 ? '' : 's'} · {acceptedRequestCount} accepted request{acceptedRequestCount === 1 ? '' : 's'}
+            {:else}
+              {data.lifecycle.phaseFive.activities.length} future activit{data.lifecycle.phaseFive.activities.length === 1 ? 'y' : 'ies'}
+            {/if}
           </p>
         </div>
       </div>
@@ -712,7 +792,6 @@
           <DirectUsePolicyNotice variant="request" context="service" />
           <div class="request-header-row">
             <div>
-              <h3>Add availability</h3>
               <p>One-off slots and weekly hours are what other people can request.</p>
             </div>
           </div>
@@ -735,6 +814,14 @@
             </button>
           </div>
           {#if availabilityKind === 'one-off'}
+            <label>
+              <span class="field-inline-label">Timezone</span>
+              <select bind:value={activityForm.inputTimeZone}>
+                {#each listDisplayTimezones() as zone}
+                  <option value={zone}>{zone}</option>
+                {/each}
+              </select>
+            </label>
             <div class="number-grid">
               <label>
                 <span class="field-inline-label">Start time</span>
@@ -746,6 +833,14 @@
               </label>
             </div>
           {:else}
+            <label>
+              <span class="field-inline-label">Timezone</span>
+              <select bind:value={weeklyTimezone}>
+                {#each listDisplayTimezones() as zone}
+                  <option value={zone}>{zone}</option>
+                {/each}
+              </select>
+            </label>
             <label>
               <span class="field-inline-label">Weekday</span>
               <select bind:value={weeklyWeekday}>
@@ -795,13 +890,11 @@
       {/if}
 
       {#if data.lifecycle.phaseFive.activities.length === 0}
-        <div class="empty-card">
-          {#if usesCalendar}
-            No future availability or accepted request activity is scheduled yet.
-          {:else}
-            This service is currently running without listed activity slots.
-          {/if}
-        </div>
+        {#if !usesCalendar}
+          <div class="empty-card">This service is currently running without listed activity slots.</div>
+        {:else if futureOpenSlotCount + acceptedRequestCount === 0}
+          <div class="empty-card">No future availability or accepted request activity is scheduled yet.</div>
+        {/if}
       {:else}
         <div class="card-rail">
           {#each data.lifecycle.phaseFive.activities as activity (activity.id)}
@@ -1089,5 +1182,15 @@
     .number-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  .requests-off-banner {
+    padding: 10px 14px;
+    border: 1px solid var(--status-yellow);
+    border-radius: var(--radius-sm);
+    background: var(--status-yellow-soft);
+    color: var(--status-yellow-strong);
+    font-size: 13px;
+    font-weight: 700;
   }
 </style>

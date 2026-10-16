@@ -572,6 +572,15 @@
               on:change={handleDistributionLocationChange}
             />
           {/if}
+          <label class="recipients-field">
+            <span>Recipients</span>
+            <textarea
+              bind:value={form.recipients}
+              rows="2"
+              maxlength="500"
+              placeholder="Who receives what this project makes?"
+            ></textarea>
+          </label>
         </div>
       {:else if currentStep.type === 'subtype'}
         <select bind:value={form.projectSubtype}>
@@ -632,6 +641,18 @@
               </div>
               <input bind:value={phase.title} maxlength="120" placeholder="Stage title" />
               <textarea bind:value={phase.details} rows="3" placeholder="What happens in this stage?"></textarea>
+              {#if context === 'project'}
+                <div class="stage-dates">
+                  <label>
+                    <span>Start date</span>
+                    <input bind:value={phase.startDate} type="date" />
+                  </label>
+                  <label>
+                    <span>End date</span>
+                    <input bind:value={phase.endDate} min={phase.startDate || undefined} type="date" />
+                  </label>
+                </div>
+              {/if}
               {#if currentStep.includeMaterials}
                 <div class="materials-stack">
                   {#each materialsForPhase(stageIndex) as material, materialIndex}
@@ -995,5 +1016,19 @@
     .field-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  .stage-dates {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .recipients-field,
+  .stage-dates label {
+    display: grid;
+    gap: 4px;
+    color: var(--text-soft);
+    font-size: 12px;
   }
 </style>

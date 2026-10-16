@@ -63,7 +63,7 @@
           </IconPopoverMenu>
         {:else}
           <button
-            aria-label={`Leave ${pageData.title}, ${pageData.membership.memberCount} members`}
+            aria-label={`Leave ${pageData.title}, ${pageData.membership.memberCount} members`} title={`Leave ${pageData.title}, ${pageData.membership.memberCount} members`}
             class="member-chip"
             class:menu-active={isMember}
             disabled={membershipPending}
@@ -98,6 +98,8 @@
         <button
           aria-label={isMember
             ? `Leave ${pageData.title}, ${pageData.membership.memberCount} members`
+            : `Join ${pageData.title}, ${pageData.membership.memberCount} members`} title={isMember
+            ? `Leave ${pageData.title}, ${pageData.membership.memberCount} members`
             : `Join ${pageData.title}, ${pageData.membership.memberCount} members`}
           class="member-chip"
           class:menu-active={isMember}
@@ -115,7 +117,7 @@
       {#if showRolePanel}
         <button
           aria-expanded={showBoardPanel}
-          aria-label="Moderators"
+          aria-label="Moderators" title="Moderators"
           class="icon-action"
           class:menu-active={showBoardPanel}
           type="button"

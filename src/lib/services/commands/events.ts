@@ -1,5 +1,5 @@
 import { currentAdapter } from '$lib/services/adapters';
-import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
+import { confirmed } from '$lib/services/commands/confirm';
 import { invalidateFeedEngagementCache } from '$lib/utils/feedSignals';
 import type {
   EventLifecyclePhaseId,
@@ -28,7 +28,7 @@ export function toggleEventMembership(eventSlug: string) {
 }
 
 export function setEventSignal(eventSlug: string, signal: GovernanceSignalType) {
-  return currentAdapter.setEventSignal(eventSlug, signal);
+  return confirmed(currentAdapter.setEventSignal(eventSlug, signal), 'Signal saved');
 }
 
 export function addEventValue(eventSlug: string, label: string) {
@@ -40,11 +40,14 @@ export function setEventValueImportance(
   valueId: string,
   importance: ProjectImportanceVoteValue
 ) {
-  return currentAdapter.setEventValueImportance(eventSlug, valueId, importance);
+  return confirmed(
+    currentAdapter.setEventValueImportance(eventSlug, valueId, importance),
+    'Vote recorded'
+  );
 }
 
 export function addEventPlan(eventSlug: string, input: EventPlanInput) {
-  return currentAdapter.addEventPlan(eventSlug, input);
+  return confirmed(currentAdapter.addEventPlan(eventSlug, input), 'Plan submitted');
 }
 
 export function setEventPlanValueVote(
@@ -53,7 +56,10 @@ export function setEventPlanValueVote(
   valueId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setEventPlanValueVote(eventSlug, planId, valueId, vote);
+  return confirmed(
+    currentAdapter.setEventPlanValueVote(eventSlug, planId, valueId, vote),
+    'Assessment saved'
+  );
 }
 
 export function setEventPlanCriterionRating(
@@ -62,7 +68,10 @@ export function setEventPlanCriterionRating(
   criterionId: string,
   rating: import('$lib/types/detail').PlanCriterionRating | null
 ) {
-  return currentAdapter.setEventPlanCriterionRating(eventSlug, planId, criterionId, rating);
+  return confirmed(
+    currentAdapter.setEventPlanCriterionRating(eventSlug, planId, criterionId, rating),
+    'Rating saved'
+  );
 }
 
 export function setEventPlanOverallVote(
@@ -70,23 +79,25 @@ export function setEventPlanOverallVote(
   planId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setEventPlanOverallVote(eventSlug, planId, vote);
+  return confirmed(
+    currentAdapter.setEventPlanOverallVote(eventSlug, planId, vote),
+    'Vote recorded'
+  );
 }
 
-export async function addEventActivity(eventSlug: string, input: ProjectActivityInput) {
-  const result = await currentAdapter.addEventActivity(eventSlug, input);
-  requestActivityRailRefresh();
-  return result;
+export function addEventActivity(eventSlug: string, input: ProjectActivityInput) {
+  return confirmed(currentAdapter.addEventActivity(eventSlug, input), 'Activity created');
 }
 
-export async function setEventActivityCommitment(
+export function setEventActivityCommitment(
   eventSlug: string,
   activityId: string,
   roleLabel: string | null
 ) {
-  const result = await currentAdapter.setEventActivityCommitment(eventSlug, activityId, roleLabel);
-  requestActivityRailRefresh();
-  return result;
+  return confirmed(
+    currentAdapter.setEventActivityCommitment(eventSlug, activityId, roleLabel),
+    roleLabel ? `You took ${roleLabel}` : 'You left the role'
+  );
 }
 
 export function setEventActivityRating(
@@ -95,7 +106,10 @@ export function setEventActivityRating(
   rating: number,
   comment: string | null
 ) {
-  return currentAdapter.setEventActivityRating(eventSlug, activityId, rating, comment);
+  return confirmed(
+    currentAdapter.setEventActivityRating(eventSlug, activityId, rating, comment),
+    'Rating saved'
+  );
 }
 
 export function deleteEventActivityRating(eventSlug: string, activityId: string) {
@@ -116,7 +130,10 @@ export function requestEventPhaseChange(
   targetPhaseId: EventLifecyclePhaseId,
   reason: string
 ) {
-  return currentAdapter.requestEventPhaseChange(eventSlug, targetPhaseId, reason);
+  return confirmed(
+    currentAdapter.requestEventPhaseChange(eventSlug, targetPhaseId, reason),
+    'Advance proposed. Your Yes is counted.'
+  );
 }
 
 export function setEventPhaseChangeVote(
@@ -124,7 +141,10 @@ export function setEventPhaseChangeVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setEventPhaseChangeVote(eventSlug, requestId, vote);
+  return confirmed(
+    currentAdapter.setEventPhaseChangeVote(eventSlug, requestId, vote),
+    'Vote recorded'
+  );
 }
 
 export function requestEventUpdate(eventSlug: string, body: string) {
@@ -139,17 +159,23 @@ export function setEventUpdateVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setEventUpdateVote(eventSlug, requestId, vote).then(async (result) => {
-    void invalidateFeedEngagementCache();
-    return result;
-  });
+  return confirmed(
+    currentAdapter.setEventUpdateVote(eventSlug, requestId, vote).then(async (result) => {
+      void invalidateFeedEngagementCache();
+      return result;
+    }),
+    'Vote recorded'
+  );
 }
 
 export function requestEventEdit(eventSlug: string, title: string, description: string) {
-  return currentAdapter.requestEventEdit(eventSlug, title, description).then(async (result) => {
-    void invalidateFeedEngagementCache();
-    return result;
-  });
+  return confirmed(
+    currentAdapter.requestEventEdit(eventSlug, title, description).then(async (result) => {
+      void invalidateFeedEngagementCache();
+      return result;
+    }),
+    'Edit proposed'
+  );
 }
 
 export function setEventEditVote(
@@ -157,10 +183,13 @@ export function setEventEditVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setEventEditVote(eventSlug, requestId, vote).then(async (result) => {
-    void invalidateFeedEngagementCache();
-    return result;
-  });
+  return confirmed(
+    currentAdapter.setEventEditVote(eventSlug, requestId, vote).then(async (result) => {
+      void invalidateFeedEngagementCache();
+      return result;
+    }),
+    'Vote recorded'
+  );
 }
 
 export function createEventManualLinkRequest(
@@ -184,7 +213,10 @@ export function setEventManualLinkVote(
   requestId: string,
   vote: ProjectApprovalVote | null
 ) {
-  return currentAdapter.setEventManualLinkVote(eventSlug, requestId, vote);
+  return confirmed(
+    currentAdapter.setEventManualLinkVote(eventSlug, requestId, vote),
+    'Vote recorded'
+  );
 }
 
 export function createEventManualLinkSeverRequest(

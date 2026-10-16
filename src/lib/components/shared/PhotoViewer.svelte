@@ -142,7 +142,7 @@
 
 {#if url}
   <div class="photo-viewer" role="presentation" use:portal={'body'}>
-    <button class="scrim" type="button" aria-label="Close photo" on:click={close}></button>
+    <button class="scrim" type="button" aria-label="Close photo" title="Close photo" on:click={close}></button>
     <div
       aria-label={alt}
       aria-modal="true"

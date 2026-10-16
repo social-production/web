@@ -125,7 +125,13 @@
     }
 
     if (plan.leaderStatus === 'leading') {
-      return 'Leading';
+      const approval = plan.overallApproval;
+      const passed = Boolean(
+        approval &&
+          approval.yesCount > approval.noCount &&
+          (approval.meetsQuorum || approval.approvalPercent === 100)
+      );
+      return passed ? 'Approved' : 'Leading';
     }
 
     if (plan.leaderStatus === 'tied') {

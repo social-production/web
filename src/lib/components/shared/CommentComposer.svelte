@@ -139,7 +139,7 @@
     </button>
   {/if}
   {#if signedIn && canSubmit}
-    <button aria-label={submitLabel} class="composer-send" type="button" on:click={submit}>
+    <button aria-label={submitLabel} title={submitLabel} class="composer-send" type="button" on:click={submit}>
       <svg aria-hidden="true" viewBox="0 0 24 24">
         <path
           d="M5 12.5 18.5 6 12 19.5V12.5H5Z"

@@ -51,7 +51,7 @@
   </div>
 {:else if viewerLoggedIn}
   {#if open}
-    <button aria-label="Close create menu" class="fab-backdrop" type="button" on:click={handleBackdropClick}></button>
+    <button aria-label="Close create menu" title="Close create menu" class="fab-backdrop" type="button" on:click={handleBackdropClick}></button>
   {/if}
 
   <div class="create-fab-shell" class:menu-open={open}>
@@ -87,7 +87,7 @@
     <button
       aria-expanded={open}
       aria-haspopup="menu"
-      aria-label={open ? 'Close create menu' : 'Create'}
+      aria-label={open ? 'Close create menu' : 'Create'} title={open ? 'Close create menu' : 'Create'}
       class="fab-button"
       class:fab-button-open={open}
       type="button"

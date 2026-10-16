@@ -1100,7 +1100,7 @@
               on:change={handleRadiusChange}
             />
             <button
-              aria-label="Upcoming only"
+              aria-label="Upcoming only" title="Upcoming only"
               aria-pressed={upcomingOnly}
               class="icon-button filter-icon-button"
               class:active={upcomingOnly}
@@ -1152,7 +1152,7 @@
               <FeedToolbarIcon name="filter" />
             </IconMenuButton>
             <button
-              aria-label="Open as list"
+              aria-label="Open as list" title="Open as list"
               class="icon-button filter-icon-button"
               disabled={!hasCenter}
               type="button"
@@ -1200,7 +1200,7 @@
             on:change={handleRadiusChange}
           />
           <button
-            aria-label="Upcoming only"
+            aria-label="Upcoming only" title="Upcoming only"
             aria-pressed={upcomingOnly}
             class="icon-button filter-icon-button"
             class:active={upcomingOnly}
@@ -1252,7 +1252,7 @@
             <FeedToolbarIcon name="filter" />
           </IconMenuButton>
           <button
-            aria-label="Open as list"
+            aria-label="Open as list" title="Open as list"
             class="icon-button filter-icon-button"
             disabled={!hasCenter}
             type="button"

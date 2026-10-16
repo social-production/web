@@ -4,6 +4,7 @@ export interface ActivityCreationForm {
   title: string;
   scheduledAt: string;
   endsAt: string;
+  inputTimeZone?: string;
   isOnline: boolean;
   locationLabel: string;
   locationId?: string | null;
@@ -11,6 +12,7 @@ export interface ActivityCreationForm {
   roleRequirements: ProjectActivityRoleInput[];
   linkedPlanPhaseId: string | null;
   note: string;
+  meetingUrl?: string;
 }
 
 export type ActivityCreationStepType =

@@ -1,4 +1,9 @@
 <script lang="ts">
+  import {
+    emptyLocationPickerValue,
+    onlineLocationPickerValue,
+    type LocationPickerValue
+  } from '$lib/types/locationPicker';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
@@ -81,6 +86,13 @@
         : null
   );
   const showMembershipButton = $derived(!isPersonalServiceProject(data.projectMode));
+  const requestSystem = $derived(
+    data.projectMode !== 'productive' ? (data.lifecycle.requestSystem ?? null) : null
+  );
+  const requestsOff = $derived(Boolean(requestSystem) && !requestSystem?.enabled);
+  const canRequestService = $derived(
+    Boolean(requestSystem?.enabled && requestSystem?.viewerCanSubmitRequests)
+  );
   const canProposeEdit = $derived(data.viewerCanRequestEdit);
   const canProposeUpdate = $derived(data.viewerCanRequestUpdate);
   const updateActionLabel = $derived(isPersonalServiceProject(data.projectMode) ? 'Post' : 'Propose');
@@ -89,6 +101,7 @@
 
   let draftEditTitle = $state('');
   let draftEditDescription = $state('');
+  let draftEditLocation = $state<LocationPickerValue | null>(null);
   let showEditComposer = $state(false);
   let editPending = $state(false);
   let editMessage = $state('');
@@ -158,6 +171,14 @@
       editMessage = '';
       draftEditTitle = data.title;
       draftEditDescription = data.description;
+      draftEditLocation =
+        data.locationLabel === 'Online'
+          ? onlineLocationPickerValue()
+          : {
+              ...emptyLocationPickerValue(),
+              displayLabel: data.locationLabel ?? '',
+              locationId: data.locationId ?? null
+            };
       showUpdateComposer = false;
     }
   }
@@ -210,10 +231,17 @@
     editMessage = '';
 
     try {
+      const location = draftEditLocation?.displayLabel.trim()
+        ? {
+            locationLabel: draftEditLocation.displayLabel.trim(),
+            locationId: draftEditLocation.locationId,
+            isOnline: draftEditLocation.isOnline
+          }
+        : null;
       if (isPersonalServiceProject(data.projectMode)) {
-        await updateProjectDetails(data.slug, draftEditTitle, description);
+        await updateProjectDetails(data.slug, draftEditTitle, description, location);
       } else {
-        await requestProjectEdit(data.slug, draftEditTitle, description);
+        await requestProjectEdit(data.slug, draftEditTitle, description, location);
       }
 
       showEditComposer = false;
@@ -253,6 +281,9 @@
           <p class="live-fact">{liveFact}</p>
         {/if}
         <p class="overview-copy">{data.description}</p>
+        {#if requestsOff}
+          <p class="requests-off-note">Not taking requests.</p>
+        {/if}
         {#if latestUpdate}
           <p class="overview-update">Update: {latestUpdate.body}</p>
         {/if}
@@ -330,6 +361,12 @@
         />
       {/if}
 
+      {#if canRequestService}
+        <a class="quiet-control" href={`/projects/${data.slug}?tab=participation&compose=request`}>
+          Request service
+        </a>
+      {/if}
+
       {#if canProposeEdit}
         <button
           type="button"
@@ -360,6 +397,7 @@
   bind:open={showEditComposer}
   bind:title={draftEditTitle}
   bind:description={draftEditDescription}
+  bind:location={draftEditLocation}
   message={editMessage}
   pending={editPending}
   sheetTitle={editActionLabel}
@@ -509,6 +547,7 @@
     color: var(--text-main);
     font-size: 13px;
     font-weight: 700;
+    text-decoration: none;
     cursor: pointer;
   }
 
@@ -769,4 +808,11 @@
     scroll-margin-top: 120px;
   }
 
+
+  .requests-off-note {
+    margin: 0;
+    color: var(--status-yellow-strong);
+    font-size: 13px;
+    font-weight: 700;
+  }
 </style>

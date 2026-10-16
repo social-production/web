@@ -136,6 +136,11 @@ async function keepSessionFresh(): Promise<void> {
   }
 }
 
+function isCsrfFailure(body: unknown) {
+  if (!body || typeof body !== 'object') return false;
+  return (body as { detail?: unknown }).detail === 'CSRF validation failed';
+}
+
 async function request<T>(method: HttpMethod, path: string, body?: unknown, allowRefresh = true): Promise<T> {
   const isBrowser = typeof window !== 'undefined';
   if (allowRefresh && isBrowser && path !== '/auth/refresh') {
@@ -169,6 +174,24 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown, allo
     } catch (err) {
       throw err;
     }
+  }
+
+  if (response.status === 403 && allowRefresh && isBrowser && path !== '/auth/refresh') {
+    const failureBody = await readResponseBody(response);
+    if (isCsrfFailure(failureBody) && shouldAttemptSessionRefresh()) {
+      try {
+        const refreshed = await refreshSession();
+        if (refreshed) {
+          return request<T>(method, path, body, false);
+        }
+      } catch (err) {
+        throw err;
+      }
+      clearAuthenticatedSession();
+      clearBootstrapCache();
+      throw { status: 403, body: { detail: 'Your session expired. Log in again.' } };
+    }
+    throw { status: 403, body: failureBody };
   }
 
   if (!response.ok) {
@@ -244,6 +267,24 @@ async function requestForm<T>(path: string, form: FormData, allowRefresh = true)
     } catch (err) {
       throw err;
     }
+  }
+
+  if (response.status === 403 && allowRefresh && isBrowser && path !== '/auth/refresh') {
+    const failureBody = await readResponseBody(response);
+    if (isCsrfFailure(failureBody) && shouldAttemptSessionRefresh()) {
+      try {
+        const refreshed = await refreshSession();
+        if (refreshed) {
+          return requestForm<T>(path, form, false);
+        }
+      } catch (err) {
+        throw err;
+      }
+      clearAuthenticatedSession();
+      clearBootstrapCache();
+      throw { status: 403, body: { detail: 'Your session expired. Log in again.' } };
+    }
+    throw { status: 403, body: failureBody };
   }
 
   if (!response.ok) {

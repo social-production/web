@@ -79,7 +79,7 @@
         onsignal={handleSignal}
       />
       <a class="comment-link" href={`${item.href}?tab=chat`}>
-        <CountPill label={`${item.commentCount} comments`} />
+        <CountPill label={`${item.commentCount} ${item.commentCount === 1 ? 'comment' : 'comments'}`} />
       </a>
     </div>
     <div class="footer-meta">

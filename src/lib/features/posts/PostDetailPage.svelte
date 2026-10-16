@@ -110,7 +110,7 @@
       <div class="engagement-row feed-corner-actions">
         <VoteStrip corner activeVote={localActiveVote} count={localVoteCount} syncKey={data.id} onvote={handleVote} />
         <span class="comment-link">
-          <CountPill label={`${data.commentCount} comments`} />
+          <CountPill label={`${data.commentCount} ${data.commentCount === 1 ? 'comment' : 'comments'}`} />
         </span>
         {#if $page.data.bootstrap?.viewer}
           <span class="detail-tool">

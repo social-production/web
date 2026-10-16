@@ -31,7 +31,13 @@ export type PlanCreationForm = {
   demandConsiderationNote: string;
   valuesNote?: string;
   valueConsiderationNotes?: Record<string, string>;
-  planPhases: Array<{ title: string; details: string; materials?: string[] }>;
+  planPhases: Array<{
+    title: string;
+    details: string;
+    materials?: string[];
+    startDate?: string;
+    endDate?: string;
+  }>;
   validationMessages?: string[];
   projectSubtype?: string;
   repositoryUrl?: string;
@@ -54,6 +60,7 @@ export type PlanCreationForm = {
   requestSystemEnabled?: boolean;
   requestMode?: 'calendar' | 'direct' | 'both';
   allowOffScheduleRequests?: boolean;
+  recipients?: string;
 };
 
 export const PLAN_RATING_OPTIONS: Array<{ value: PlanCriterionRating; label: string }> = [
@@ -328,7 +335,7 @@ export function buildProjectProductionCreationSteps(
 
   steps.push(demandNoteStep());
   steps.push(...valuesNoteStep(prominentValues));
-  steps.push(stagesStep(true));
+  steps.push(stagesStep(false));
   steps.push({
     id: 'review',
     question: 'Review your plan before submitting',

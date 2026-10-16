@@ -6,7 +6,6 @@
   import { portal } from '$lib/utils/portal';
   import {
     isProductiveProject,
-    isCollectiveServiceProject,
     isPersonalServiceProject,
     projectSubjectLabel,
     projectSubtypeLabel
@@ -68,6 +67,7 @@
     !personalDirectPhaseChange &&
     !hasOpenPhaseChangeVotes &&
     data.lifecycle.viewerCanRequestPhaseChanges &&
+    phaseGatePasses &&
     !!data.lifecycle.nextPhaseId;
 
   $: if (
@@ -178,19 +178,7 @@
   function revertTargetLabel(
     phaseId: Extract<ProjectLifecyclePhaseId, 'phase-1' | 'phase-2' | 'phase-3'>
   ) {
-    if (phaseId === 'phase-1') {
-      return 'Phase 1 / Active service';
-    }
-
-    if (phaseId === 'phase-2') {
-      return isCollectiveServiceProject(data.projectMode)
-        ? 'Phase 2 / Operations Plan'
-        : 'Phase 2 / Production Plan';
-    }
-
-    return isCollectiveServiceProject(data.projectMode)
-      ? 'Phase 3 / Access Plan'
-      : 'Phase 3 / Distribution Plan';
+    return phaseShortLabel(phaseId);
   }
 
   function phaseShortLabel(phaseId: ProjectLifecyclePhaseId) {
@@ -210,7 +198,8 @@
       return personalDirectPhaseChange ? 'Close service' : 'Close';
     }
 
-    return personalDirectPhaseChange ? 'Advance project' : 'Advance';
+    const target = data.lifecycle.nextPhaseLabel;
+    return personalDirectPhaseChange ? `Advance to ${target}` : `Advance to ${target}`;
   }
 
   function revertActionLabel() {
@@ -401,6 +390,15 @@
 
 {#if currentPhaseVisible && (data.lifecycle.phaseChangeRequests.length > 0 || data.lifecycle.viewerCanRequestPhaseChanges || data.lifecycle.viewerCanAdvancePhase || data.lifecycle.viewerCanRevertPhase)}
   <div id="participation-phase-change" class="phase-change-stack">
+    {#if currentPhaseVisible && data.lifecycle.nextPhaseId && data.lifecycle.viewerCanRequestPhaseChanges && !phaseGatePasses}
+      <p class="phase-gate-note">
+        {#if !signalGatePasses}
+          Advance unlocks after this project gets a Support signal.
+        {:else}
+          {planGateMessage}
+        {/if}
+      </p>
+    {/if}
     {#if showReturnActions || showNextActions}
       {#if embedInToolbar}
         {#if personalDirectPhaseChange ? canDirectReturn : canProposeReturn}
@@ -559,6 +557,12 @@
 {/if}
 
 <style>
+  .phase-gate-note {
+    margin: 0 0 8px;
+    color: var(--text-main);
+    font-size: 13px;
+  }
+
   .phase-change-stack,
   .sheet-form {
     display: grid;

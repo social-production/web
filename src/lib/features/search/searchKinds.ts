@@ -8,5 +8,6 @@ export const searchKindLabels: Record<SearchResultKind, string> = {
   community: 'Community',
   profile: 'Profile',
   'help-request': 'Help request',
-  post: 'Post'
+  post: 'Post',
+  activity: 'Activity'
 };

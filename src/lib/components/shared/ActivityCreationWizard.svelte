@@ -16,6 +16,7 @@
   } from '$lib/utils/activityCreationSteps';
   import { formatScheduleLabel } from '$lib/utils/time';
   import { localDateTimeInputToIso } from '$lib/utils/eventSchedule';
+  import { getDisplayTimezone, listDisplayTimezones } from '$lib/stores/timezoneStore';
   import {
     emptyLocationPickerValue,
     onlineLocationPickerValue,
@@ -68,6 +69,7 @@
 
   $: if (open && !wizardWasOpen) {
     locationValue = locationValueFromForm(form);
+    if (!form.inputTimeZone) form.inputTimeZone = getDisplayTimezone();
   }
   $: wizardWasOpen = open;
 
@@ -113,8 +115,8 @@
     }
 
     try {
-      const start = formatScheduleLabel(localDateTimeInputToIso(form.scheduledAt));
-      const end = formatScheduleLabel(localDateTimeInputToIso(form.endsAt));
+      const start = formatScheduleLabel(localDateTimeInputToIso(form.scheduledAt, form.inputTimeZone));
+      const end = formatScheduleLabel(localDateTimeInputToIso(form.endsAt, form.inputTimeZone));
       return `${start} – ${end}`;
     } catch {
       return '—';
@@ -179,6 +181,14 @@
       {#if currentStep.type === 'title'}
         <input bind:value={form.title} maxlength="120" placeholder="Activity title" />
       {:else if currentStep.type === 'schedule'}
+        <label>
+          <span>Timezone</span>
+          <select bind:value={form.inputTimeZone}>
+            {#each listDisplayTimezones() as zone}
+              <option value={zone}>{zone}</option>
+            {/each}
+          </select>
+        </label>
         <div class="field-grid">
           <label>
             <span>Start time</span>
@@ -210,6 +220,19 @@
           quickPicks={locationQuickPicks}
           on:change={handleLocationChange}
         />
+        {#if form.isOnline}
+          <label>
+            <span>Meeting link</span>
+            <input
+              bind:value={form.meetingUrl}
+              type="url"
+              inputmode="url"
+              maxlength="500"
+              placeholder="https://"
+            />
+          </label>
+          <p class="helper-copy">Members use this link to join.</p>
+        {/if}
       {:else if currentStep.type === 'plan-stage'}
         <select bind:value={form.linkedPlanPhaseId}>
           <option value="" disabled>Choose stage</option>

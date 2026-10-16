@@ -46,6 +46,8 @@ export type EventActivityForm = {
   roleRequirements: ProjectActivityRoleInput[];
   linkedPlanPhaseId: string | null;
   note: string;
+  inputTimeZone?: string;
+  meetingUrl?: string;
 };
 
 export type EventLifecycleTabItem = {

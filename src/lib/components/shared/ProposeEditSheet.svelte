@@ -1,5 +1,7 @@
 <script lang="ts">
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
+  import LocationPicker from '$lib/components/shared/LocationPicker.svelte';
+  import type { LocationPickerValue } from '$lib/types/locationPicker';
 
   export let open = false;
   export let title = '';
@@ -10,6 +12,8 @@
   export let submitLabel = 'Propose Edit';
   export let titlePlaceholder = 'Title';
   export let descriptionPlaceholder = 'Describe the change...';
+  /** When set, the sheet also edits the location. */
+  export let location: LocationPickerValue | null = null;
   export let labelledById = 'propose-edit-sheet';
   export let onSubmit: () => void | Promise<void> = () => {};
 
@@ -20,7 +24,7 @@
 
 <OverlaySheet bind:open title={sheetTitle} {labelledById}>
   <p slot="subtitle" class="sheet-lead">
-    Change the title and description. Others can review this before it applies.
+    Change the title, description{location ? ', or location' : ''}. Others can review this before it applies.
   </p>
   <form id={labelledById + '-form'} class="edit-form" on:submit|preventDefault={handleSubmit}>
     {#if message}
@@ -34,6 +38,12 @@
       <span class="field-label">Description</span>
       <textarea bind:value={description} rows="6" placeholder={descriptionPlaceholder}></textarea>
     </label>
+    {#if location}
+      <div class="field">
+        <span class="field-label">Location</span>
+        <LocationPicker bind:value={location} portaled elevated modes={['physical', 'online']} />
+      </div>
+    {/if}
   </form>
   <div slot="footer" class="sheet-actions">
     <button class="sheet-cancel" type="button" on:click={() => (open = false)}>Cancel</button>

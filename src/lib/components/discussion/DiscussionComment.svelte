@@ -363,7 +363,6 @@
     color: var(--text-main);
   }
 
-  .body,
   .topline span {
     color: var(--text-soft);
     line-height: 1.5;
@@ -371,6 +370,8 @@
 
   .body {
     margin: 0;
+    color: var(--text-main);
+    line-height: 1.5;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     word-break: break-word;

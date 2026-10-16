@@ -7,6 +7,7 @@
     type CreateSheetChromeStore,
     type CreateSheetFooterStore
   } from './createSheetContext';
+  import { requireFields } from '$lib/stores/toast';
 
   export let steps: Array<{ id: string; title: string }> = [];
   export let stepIndex = 0;
@@ -15,6 +16,8 @@
   export let isSubmitting = false;
   export let submitLabel = 'Create';
   export let submittingLabel = 'Creating...';
+  /** Empty required fields on this step. When set, the button names them instead of staying disabled. */
+  export let missing: string[] = [];
 
   const dispatch = createEventDispatcher<{
     submit: void;
@@ -56,7 +59,11 @@
   $: footer?.set({
     leftLabel: safeIndex === 0 ? 'Cancel' : 'Back',
     rightLabel: isOverview ? (isSubmitting ? submittingLabel : submitLabel) : 'Continue',
-    rightDisabled: isOverview ? !canSubmit || isSubmitting : !canContinue,
+    rightDisabled: missing.length
+      ? isSubmitting
+      : isOverview
+        ? !canSubmit || isSubmitting
+        : !canContinue,
     onLeft: () => {
       if (safeIndex === 0) {
         closeSheet?.();
@@ -65,6 +72,9 @@
       back();
     },
     onRight: () => {
+      if (missing.length && !requireFields(Object.fromEntries(missing.map((label) => [label, ''])))) {
+        return;
+      }
       if (isOverview) {
         dispatch('submit');
         return;

@@ -24,7 +24,8 @@ const KIND_MAP: Record<string, SearchResultKind> = {
   community: 'community',
   user: 'profile',
   help_request: 'help-request',
-  post: 'post'
+  post: 'post',
+  activity: 'activity'
 };
 
 const DEFAULT_SUGGESTED_QUERIES = ['platform', 'community', 'project', 'event'];

@@ -255,6 +255,7 @@ export async function fetchAddEventActivity(
     is_online: input.isOnline ?? false,
     location_label: input.locationLabel,
     location_id: input.locationId ?? null,
+    meeting_url: input.isOnline ? input.meetingUrl?.trim() || null : null,
     note: input.note,
     role_requirements: input.roleRequirements.map(r => ({
       label: r.label,

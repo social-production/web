@@ -67,7 +67,7 @@
   {/each}
 
   <button
-    aria-label="More"
+    aria-label="More" title="More"
     class="bottom-nav-item"
     class:active-link={moreActive}
     aria-expanded={moreActive}

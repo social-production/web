@@ -4,6 +4,8 @@
   import type { ProjectActivityItem, ProjectActivityRole } from '$lib/types/detail';
   import { formatLocalDateTimeRange } from '$lib/utils/time';
   import { searchPeopleSuggestions } from '$lib/services/queries/account';
+  import { showToast } from '$lib/stores/toast';
+  import { buildShareUrl } from '$lib/utils/sharePrefill';
 
   export let activity: ProjectActivityItem;
   export let expanded = false;
@@ -80,6 +82,20 @@
         : 'Online';
     }
     return activity.locationLabel || '';
+  }
+
+  function mapHref() {
+    return `https://www.openstreetmap.org/search?query=${encodeURIComponent(activity.locationLabel)}`;
+  }
+
+  async function shareActivity() {
+    const url = buildShareUrl(`${window.location.pathname}?activity=${activity.id}`);
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Activity link copied');
+    } catch {
+      showToast('Could not copy the link', 'error');
+    }
   }
 
   function roleHasOpenCapacity(role: ProjectActivityRole) {
@@ -195,7 +211,20 @@
     {#if sheetOpen}
       <div class="activity-body">
         {#if placeLabel()}
-          <p class="sheet-place">{placeLabel()}</p>
+          {#if !activity.isOnline && activity.locationLabel}
+            <a class="sheet-place map-link" href={mapHref()} target="_blank" rel="noopener noreferrer">
+              {placeLabel()}
+            </a>
+          {:else}
+            <p class="sheet-place">{placeLabel()}</p>
+          {/if}
+        {/if}
+        {#if activity.isOnline && activity.meetingUrl}
+          <a class="meeting-link" href={activity.meetingUrl} target="_blank" rel="noopener noreferrer">
+            Join meeting
+          </a>
+        {:else if activity.isOnline && activity.hasMeetingUrl}
+          <p class="activity-stage">Members see the meeting link.</p>
         {/if}
         {#if dateLine()}
           <p class="sheet-when">{dateLine()}</p>
@@ -272,6 +301,13 @@
                   </div>
                   {#if !historyMode && !readOnly && activity.rolesLocked}
                     <span class="roles-locked-copy">Locked</span>
+                  {:else if !historyMode && !readOnly && role.isViewerAssigned}
+                    <div class="assigned-stack">
+                      <span class="signup selected">Your role</span>
+                      <button class="text-button" type="button" on:click={() => changecommitment(activity.id, null)}>
+                        Leave role
+                      </button>
+                    </div>
                   {:else if !historyMode && !readOnly}
                     <button
                       class:selected={activity.viewerAssignedRoleLabel === role.label}
@@ -293,6 +329,9 @@
             </div>
           </section>
         {/if}
+        <button class="text-button share-activity" type="button" title="Copy a link to this activity" on:click={shareActivity}>
+          Share activity
+        </button>
         <slot />
       </div>
     {/if}
@@ -484,9 +523,11 @@
   .signup {
     display: grid;
     place-items: center;
-    flex: 0 0 56px;
-    width: 56px;
-    height: 56px;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 96px;
+    height: auto;
+    min-height: 40px;
     padding: 4px;
     border: 0;
     border-radius: 12px;
@@ -520,7 +561,9 @@
   }
 
   .signup:disabled {
-    opacity: 0.55;
+    opacity: 1;
+    color: var(--text-main);
+    background: var(--panel-strong);
     cursor: not-allowed;
   }
 
@@ -602,5 +645,28 @@
     color: var(--text-soft);
     font-size: 11px;
     font-weight: 600;
+  }
+
+  .map-link,
+  .meeting-link {
+    color: var(--brand-strong);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .meeting-link {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .assigned-stack {
+    display: grid;
+    flex: 0 0 auto;
+    justify-items: center;
+    gap: 8px;
+  }
+
+  .assigned-stack .signup {
+    cursor: default;
   }
 </style>

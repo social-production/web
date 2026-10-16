@@ -1,52 +1,28 @@
 <script lang="ts">
   import type { ProjectServiceRequestItem, ProjectServiceRequestStatus } from '$lib/types/detail';
-  import { formatRelativeTime } from '$lib/utils/time';
+  import { formatLocalDateTimeRange, formatRelativeTime } from '$lib/utils/time';
 
   export let request: ProjectServiceRequestItem;
   export let expanded = false;
   export let highlighted = false;
 
-  function sameCalendarDay(left: Date, right: Date) {
-    return (
-      left.getFullYear() === right.getFullYear() &&
-      left.getMonth() === right.getMonth() &&
-      left.getDate() === right.getDate()
-    );
-  }
-
-  function formatDayDate(value: Date) {
-    return value.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-  }
-
-  function formatTime(value: Date) {
-    return value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-
   function timeLabel() {
     if (!request.scheduledAt || !request.endsAt) {
-      return 'Requested time pending';
+      return 'No time requested';
     }
-
-    const start = new Date(request.scheduledAt);
-    const end = new Date(request.endsAt);
-
-    if (sameCalendarDay(start, end)) {
-      return `${formatDayDate(start)}, ${formatTime(start)} - ${formatTime(end)}`;
-    }
-
-    return `${formatDayDate(start)}, ${formatTime(start)} - ${formatDayDate(end)}, ${formatTime(end)}`;
+    return formatLocalDateTimeRange(request.scheduledAt, request.endsAt);
   }
 
   function statusLabel(status: ProjectServiceRequestStatus) {
     switch (status) {
-      case 'planned':
-        return 'Scheduled';
       case 'accepted':
         return 'Accepted';
       case 'declined':
         return 'Declined';
+      case 'cancelled':
+        return 'Cancelled';
       default:
-        return 'Open';
+        return 'Pending';
     }
   }
 
@@ -59,7 +35,7 @@
       return 'current';
     }
 
-    if (status === 'declined') {
+    if (status === 'declined' || status === 'cancelled') {
       return 'locked';
     }
 
@@ -91,13 +67,16 @@
       </span>
     </div>
     <div class="request-footer">
-      <span class="request-meta">{request.requesterUsername} · {formatRelativeTime(request.createdAt)}</span>
+      <span class="request-meta">Requested by {request.requesterUsername} · {formatRelativeTime(request.createdAt)}</span>
     </div>
   </summary>
 
   {#if open}
     <div class="request-body">
       <p>{request.body}</p>
+      {#if request.status === 'declined' && request.declineReason}
+        <p class="decline-reason">Reason: {request.declineReason}</p>
+      {/if}
       <slot />
     </div>
   {/if}
@@ -174,6 +153,10 @@
   .request-body p {
     margin: 0;
     line-height: 1.45;
+  }
+
+  .request-body .decline-reason {
+    color: var(--text-main);
   }
 
   .phase-badge {

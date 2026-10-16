@@ -371,7 +371,8 @@ export interface AppAdapter {
     projectSlug: string,
     phaseId: Extract<ProjectLifecyclePhaseId, 'phase-2' | 'phase-3'>,
     planId: string,
-    vote: ProjectApprovalVote | null
+    vote: ProjectApprovalVote | null,
+    comment?: string | null
   ): Promise<void>;
   addProjectActivity(projectSlug: string, input: ProjectActivityInput): Promise<void>;
   setProjectActivityCommitment(
@@ -433,7 +434,8 @@ export interface AppAdapter {
     projectSlug: string,
     requestId: string,
     status: ProjectServiceRequestStatus,
-    holdSlot?: boolean
+    holdSlot?: boolean,
+    reason?: string | null
   ): Promise<void>;
   createProjectAvailabilityRule(
     projectSlug: string,
@@ -501,8 +503,18 @@ export interface AppAdapter {
     requestId: string,
     vote: ProjectApprovalVote | null
   ): Promise<void>;
-  updateProjectDetails(projectSlug: string, title: string, description: string): Promise<void>;
-  requestProjectEdit(projectSlug: string, title: string, description: string): Promise<void>;
+  updateProjectDetails(
+    projectSlug: string,
+    title: string,
+    description: string,
+    location?: import('$lib/types/detail').ProjectLocationEdit | null
+  ): Promise<void>;
+  requestProjectEdit(
+    projectSlug: string,
+    title: string,
+    description: string,
+    location?: import('$lib/types/detail').ProjectLocationEdit | null
+  ): Promise<void>;
   setProjectEditVote(
     projectSlug: string,
     requestId: string,

@@ -107,7 +107,7 @@
     class="icon-popover-trigger"
     class:menu-open={open}
     class:menu-active={active}
-    aria-label={ariaLabel}
+    aria-label={ariaLabel} title={ariaLabel}
     aria-expanded={open}
     aria-haspopup="menu"
     {disabled}

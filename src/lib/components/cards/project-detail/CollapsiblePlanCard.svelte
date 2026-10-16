@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { showToast } from '$lib/stores/toast';
+  import { buildShareUrl } from '$lib/utils/sharePrefill';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import PlanCriterionRatingRow from '$lib/components/shared/PlanCriterionRatingRow.svelte';
   import type {
@@ -19,7 +21,11 @@
   export let autoOpenAssessment = false;
   export let autoAssessCriterionId: string | null = null;
   export let onEdit: () => void = () => {};
-  export let overallvote: (planId: string, vote: 'yes' | 'no' | null) => void = () => {};
+  export let overallvote: (
+    planId: string,
+    vote: 'yes' | 'no' | null,
+    comment?: string | null
+  ) => void | Promise<void> = () => {};
   export let criterionvote: (
     planId: string,
     criterionId: string,
@@ -83,9 +89,59 @@
       : assessedCriteria.length > 0
         ? assessedCriteria.reduce((sum, entry) => sum + entry.averageRating, 0) / assessedCriteria.length
         : null;
+  $: licenseLabel = 'licenseLabel' in plan ? plan.licenseLabel ?? null : null;
+  $: recipients = 'recipients' in plan ? plan.recipients?.trim() ?? '' : '';
+  $: raterCount = Math.max(
+    plan.overallApproval.totalVotes ?? 0,
+    ...criteria.map((entry) => entry.ratingCount ?? 0)
+  );
+  let assessmentComment = '';
+  let assessmentCommentPlanId = '';
+  $: if (plan.id !== assessmentCommentPlanId) {
+    assessmentCommentPlanId = plan.id;
+    assessmentComment = 'viewerAssessmentComment' in plan ? plan.viewerAssessmentComment ?? '' : '';
+  }
+
+  function formatStageDate(value: string | null | undefined) {
+    if (!value) return '';
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime())
+      ? value
+      : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function stageDates(phase: { startDate?: string | null; endDate?: string | null }) {
+    const start = formatStageDate(phase.startDate);
+    const end = formatStageDate(phase.endDate);
+    if (start && end) return `${start} – ${end}`;
+    return start || end;
+  }
+
+  $: canShareLink = typeof window !== 'undefined' && window.location.pathname.startsWith('/projects/');
+
+  async function copyPlanLink() {
+    const url = buildShareUrl(`${window.location.pathname}?plan=${plan.id}`);
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Plan link copied');
+    } catch {
+      showToast('Could not copy the link', 'error');
+    }
+  }
+
+  async function saveAssessmentComment() {
+    if (!effectiveOverallVote) return;
+    await overallvote(plan.id, effectiveOverallVote, assessmentComment);
+  }
+
   $: leading = plan.isLeading || plan.leaderStatus === 'leading';
   $: tied = plan.leaderStatus === 'tied';
-  $: compactChip = statusLabel || (leading ? 'Leading' : tied ? 'Tied' : null);
+  $: planPassed = Boolean(
+    plan.overallApproval &&
+      plan.overallApproval.yesCount > plan.overallApproval.noCount &&
+      (plan.overallApproval.meetsQuorum || plan.overallApproval.approvalPercent === 100)
+  );
+  $: compactChip = statusLabel || (leading && planPassed ? 'Approved' : leading ? 'Leading' : tied ? 'Tied' : null);
   $: needsAssessment = canVote && criteria.some((entry) => entry.activeRating == null);
   $: needsOverallVote = canVote && allCriteriaComplete && effectiveOverallVote == null;
   $: actionChip = needsAssessment ? 'Assess' : needsOverallVote ? 'Vote' : null;
@@ -96,7 +152,8 @@
   $: allowEdit = canEdit && !hasAnyVotes;
   $: outputSummary = 'outputSummary' in plan ? plan.outputSummary?.trim() ?? '' : '';
   $: materialsSummary = 'materialsSummary' in plan ? plan.materialsSummary?.trim() ?? '' : '';
-  $: totalCostLabel = 'totalCostLabel' in plan ? plan.totalCostLabel?.trim() ?? '' : '';
+  $: rawTotalCostLabel = 'totalCostLabel' in plan ? plan.totalCostLabel?.trim() ?? '' : '';
+  $: totalCostLabel = rawTotalCostLabel === 'Resources listed by stage' ? '' : rawTotalCostLabel;
   $: acquisitionsSummary =
     'acquisitionsSummary' in plan ? plan.acquisitionsSummary?.trim() ?? '' : '';
 
@@ -188,6 +245,13 @@
   {#if plan.description}
     <span class="plan-lede collapsed-copy">{plan.description}</span>
   {/if}
+  {#if plan.planPhases.length > 0}
+    <span class="plan-stage-list">
+      {#each plan.planPhases as phase, index}
+        <span>{index + 1}. {phase.title}</span>
+      {/each}
+    </span>
+  {/if}
   <span class="plan-footer-meta">
     <span>
       {plan.overallApproval.approvalPercent}% approved{#if planAverageRating != null}
@@ -205,6 +269,11 @@
     <p class="sheet-author">{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</p>
   </div>
   <div slot="header-actions">
+    {#if canShareLink}
+      <button class="text-button" type="button" title="Copy a link to this plan" on:click={copyPlanLink}>
+        Copy link
+      </button>
+    {/if}
     {#if allowEdit}
       <button class="text-button" type="button" on:click={handleEdit}>Edit</button>
     {/if}
@@ -218,7 +287,7 @@
       </section>
     {/if}
 
-    {#if 'projectSubtypeLabel' in plan || 'schedule' in plan || ('repositoryUrl' in plan && plan.repositoryUrl) || (showRequestSystem && 'requestSystemEnabled' in plan && plan.requestSystemEnabled) || outputSummary || materialsSummary || totalCostLabel || acquisitionsSummary}
+    {#if 'projectSubtypeLabel' in plan || 'schedule' in plan || licenseLabel || recipients || ('repositoryUrl' in plan && plan.repositoryUrl) || (showRequestSystem && 'requestSystemEnabled' in plan && plan.requestSystemEnabled) || outputSummary || materialsSummary || totalCostLabel || acquisitionsSummary}
       <section class="plan-section">
         <h3>Details</h3>
         <dl class="plan-facts">
@@ -244,6 +313,20 @@
             <div class="fact">
               <dt>Location</dt>
               <dd>{plan.locationLabel}</dd>
+            </div>
+          {/if}
+
+          {#if licenseLabel}
+            <div class="fact">
+              <dt>Licence</dt>
+              <dd>{licenseLabel}</dd>
+            </div>
+          {/if}
+
+          {#if recipients}
+            <div class="fact">
+              <dt>Recipients</dt>
+              <dd>{recipients}</dd>
             </div>
           {/if}
 
@@ -328,13 +411,16 @@
               <span class="stage-num">{index + 1}</span>
               <div class="stage-copy">
                 <strong>{phase.title}</strong>
+                {#if 'startDate' in phase && stageDates(phase)}
+                  <span class="stage-meta">{stageDates(phase)}</span>
+                {/if}
                 {#if phase.details}
                   <p>{phase.details}</p>
                 {/if}
                 {#if 'materialsLabel' in phase && phase.materialsLabel}
                   <span class="stage-meta">Materials · {phase.materialsLabel}</span>
                 {/if}
-                {#if 'costLabel' in phase && phase.costLabel}
+                {#if 'costLabel' in phase && phase.costLabel && phase.costLabel !== 'Resources listed by stage'}
                   <span class="stage-meta">Cost · {phase.costLabel}</span>
                 {/if}
               </div>
@@ -348,11 +434,12 @@
       <div class="assess-heading">
         <h3>Assess</h3>
         <span class="approval-summary">
-          {plan.overallApproval.approvalPercent}% approved{#if planAverageRating != null}
+          {plan.overallApproval.approvalPercent}% approved · {raterCount}
+          {raterCount === 1 ? 'person' : 'people'} rated{#if planAverageRating != null}
             · Avg {planAverageRating.toFixed(1)}{/if}
         </span>
       </div>
-      <p class="assess-helper">1 strongly oppose · 5 strongly support. Community averages stay visible while you rate.</p>
+      <p class="assess-helper">Rate each criterion from 1 (strongly oppose) to 5 (strongly support). Community averages stay visible while you rate.</p>
 
       {#if criteria.length > 0}
         <div class="criterion-stack">
@@ -397,6 +484,17 @@
         </div>
         {#if canVote && !allCriteriaComplete}
           <p class="rating-progress">Rate every criterion before the final vote.</p>
+        {/if}
+        {#if canVote && effectiveOverallVote}
+          <label class="assessment-comment">
+            <span class="meta-label">
+              {effectiveOverallVote === 'no' ? 'What is missing?' : 'Comment'} (optional)
+            </span>
+            <textarea bind:value={assessmentComment} maxlength="2000" rows="3"></textarea>
+          </label>
+          <button class="vote-chip save-comment" type="button" on:click={saveAssessmentComment}>
+            Save comment
+          </button>
         {/if}
       </div>
     </section>
@@ -494,11 +592,19 @@
 
   .collapsed-copy {
     display: -webkit-box;
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
     overflow-wrap: anywhere;
+  }
+
+  .plan-stage-list {
+    display: grid;
+    gap: 2px;
+    color: var(--text-main);
+    font-size: 13px;
+    line-height: 1.4;
   }
 
   .phase-badge,
@@ -781,5 +887,20 @@
     font-weight: 700;
     cursor: pointer;
     padding: 0;
+  }
+
+  .assessment-comment {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .assessment-comment textarea {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .save-comment {
+    justify-self: start;
   }
 </style>

@@ -1,3 +1,7 @@
+import { formatLocalDateTime } from '$lib/utils/time';
+
+const ISO_INSTANT = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})/g;
+
 const LINK_PATTERN =
   /(https?:\/\/[^\s<]+|www\.[^\s<]+|\/(?:projects|events|threads|messages|posts|profile)(?:\/[^\s<]+)?(?:\?[^\s<]+)?)/gi;
 
@@ -49,5 +53,6 @@ function linkMentions(value: string) {
 }
 
 export function linkifyMessageBody(body: string): string {
-  return linkMentions(linkUrls(escapeHtml(body)));
+  const withTimes = body.replace(ISO_INSTANT, (instant) => formatLocalDateTime(instant) || instant);
+  return linkMentions(linkUrls(escapeHtml(withTimes)));
 }

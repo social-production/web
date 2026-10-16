@@ -568,14 +568,15 @@
 
     await addEventActivity(data.slug, {
       title: activityForm.title,
-      scheduledAt: localDateTimeInputToIso(activityForm.scheduledAt),
-      endsAt: localDateTimeInputToIso(activityForm.endsAt),
+      scheduledAt: localDateTimeInputToIso(activityForm.scheduledAt, activityForm.inputTimeZone),
+      endsAt: localDateTimeInputToIso(activityForm.endsAt, activityForm.inputTimeZone),
       isOnline: activityForm.isOnline,
       locationLabel,
       locationId: activityForm.locationId,
       roleRequirements,
       linkedPlanPhaseId: activityForm.linkedPlanPhaseId,
-      note: activityForm.note
+      note: activityForm.note,
+      meetingUrl: activityForm.meetingUrl
     });
     resetActivityForm();
     showActivityComposer = false;

@@ -29,6 +29,7 @@
       role="tab"
       type="button"
       aria-label={tab.label}
+      title={tab.label}
       aria-selected={activeTab === tab.id}
       on:pointerdown={() => prefetchTab(tab.id)}
       on:click={() => selectTab(tab.id)}

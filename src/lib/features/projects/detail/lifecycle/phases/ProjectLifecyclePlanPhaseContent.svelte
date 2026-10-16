@@ -67,7 +67,13 @@
     }
 
     if (plan.leaderStatus === 'leading') {
-      return 'Leading';
+      const approval = plan.overallApproval;
+      const passed = Boolean(
+        approval &&
+          approval.yesCount > approval.noCount &&
+          (approval.meetsQuorum || approval.approvalPercent === 100)
+      );
+      return passed ? 'Approved' : 'Leading';
     }
 
     if (plan.leaderStatus === 'tied') {
@@ -115,7 +121,7 @@
         {#if !isPhaseTwo && collectiveService}
           <label class="checkbox-row">
             <input bind:checked={form.requestSystemEnabled} type="checkbox" />
-            <span>Allow users to request the service in Phase 5</span>
+            <span>Allow users to request the service in Activity</span>
           </label>
           {#if form.requestSystemEnabled}
             <label>

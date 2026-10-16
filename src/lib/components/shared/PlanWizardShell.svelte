@@ -279,12 +279,6 @@
     padding: 12px;
   }
 
-  @media (min-width: 900px) {
-    .wizard-body {
-      max-height: min(70dvh, 640px);
-    }
-  }
-
   .wizard-footer {
     display: flex;
     align-items: stretch;

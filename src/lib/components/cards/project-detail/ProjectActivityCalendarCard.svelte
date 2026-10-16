@@ -307,13 +307,13 @@
 
 <div class="calendar-shell surface-card">
   <div class="calendar-toolbar">
-    <button aria-label="Previous month" class="month-button" type="button" on:click={() => shiftVisibleMonth(-1)}>
+    <button aria-label="Previous month" title="Previous month" class="month-button" type="button" on:click={() => shiftVisibleMonth(-1)}>
       <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
         <path d="M14.5 6.5 9 12l5.5 5.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
       </svg>
     </button>
     <strong class="month-label">{visibleMonthLabel}</strong>
-    <button aria-label="Next month" class="month-button" type="button" on:click={() => shiftVisibleMonth(1)}>
+    <button aria-label="Next month" title="Next month" class="month-button" type="button" on:click={() => shiftVisibleMonth(1)}>
       <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
         <path d="m9.5 6.5 5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
       </svg>
@@ -375,6 +375,7 @@
               style={`top:${item.topPercent}%;height:${item.heightPercent}%;left:${item.leftPercent}%;width:${item.widthPercent}%;`}
               type="button"
               aria-label={`${item.title}, ${item.startTimeLabel} to ${item.endTimeLabel}`}
+              title={`${item.title}, ${item.startTimeLabel} to ${item.endTimeLabel}`}
               on:mouseenter={() => (hoveredActivityId = item.id)}
               on:mouseleave={() => (hoveredActivityId = '')}
               on:focus={() => (hoveredActivityId = item.id)}

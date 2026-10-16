@@ -41,7 +41,9 @@ const KIND_MAP: Record<string, NotificationsPageData['items'][number]['kind']> =
   'evt-phase-done': 'event',
   'prj-phase-done': 'project',
   'prj-role-suggest': 'project',
-  'evt-role-suggest': 'event'
+  'evt-role-suggest': 'event',
+  'prj-activity': 'project',
+  'prj-removed': 'project'
 };
 
 function mapKind(k: string): NotificationsPageData['items'][number]['kind'] {

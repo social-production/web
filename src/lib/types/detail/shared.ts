@@ -120,7 +120,7 @@ export type ProjectLifecycleProgressState = 'complete' | 'current' | 'upcoming' 
 
 export type ProjectImportanceVoteValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export type ProjectApprovalVote = 'yes' | 'no';
-export type ProjectServiceRequestStatus = 'open' | 'planned' | 'accepted' | 'declined';
+export type ProjectServiceRequestStatus = 'open' | 'planned' | 'accepted' | 'declined' | 'cancelled';
 export type ProjectServiceRequestMode = 'calendar' | 'direct' | 'both';
 export type ProjectServiceHistorySource = 'request' | 'self-planned';
 export type ProjectServiceHistoryCompletionRole = 'requester' | 'participants';
@@ -143,6 +143,8 @@ export interface ProjectPlanPhaseInput {
   details: string;
   materialsLabel: string;
   costLabel: string;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 export interface ProjectPlanPhaseItem extends ProjectPlanPhaseInput {
@@ -283,6 +285,7 @@ export interface ProjectDistributionPlanInput {
   distributionSummary?: string;
   accessSummary?: string;
   reserveSummary?: string;
+  recipients?: string;
   requestSystemEnabled?: boolean;
   requestMode?: ProjectServiceRequestMode;
   allowOffScheduleRequests?: boolean;
@@ -335,6 +338,8 @@ export interface ProjectProductionPlan {
   viewerCanEdit: boolean;
   locationId?: string | null;
   locationLabel?: string;
+  licenseLabel?: string | null;
+  viewerAssessmentComment?: string;
 }
 
 export interface ProjectAcquisitionPlanBundle {
@@ -385,6 +390,8 @@ export interface ProjectDistributionPlan {
   locationLabel?: string;
   projectLocationId?: string | null;
   projectLocationLabel?: string;
+  recipients?: string;
+  viewerAssessmentComment?: string;
 }
 
 export interface EventPlan {
@@ -418,6 +425,7 @@ export interface ProjectActivityInput {
   roleRequirements: ProjectActivityRoleInput[];
   linkedPlanPhaseId?: string | null;
   note: string;
+  meetingUrl?: string | null;
 }
 
 export interface ProjectActivityAssignee {
@@ -447,6 +455,8 @@ export interface ProjectActivityItem {
   endAt: string;
   isOnline: boolean;
   locationLabel: string;
+  meetingUrl?: string | null;
+  hasMeetingUrl?: boolean;
   minimumParticipants: number;
   maximumParticipants?: number;
   committedCount: number;
@@ -635,6 +645,7 @@ export interface ProjectServiceRequestInput {
   body: string;
   scheduledAt?: string;
   endsAt?: string;
+  inputTimeZone?: string;
 }
 
 export interface ProjectServiceRequestPlanInput {
@@ -666,6 +677,7 @@ export interface ProjectServiceRequestItem {
   requesterUsername: string;
   createdAt: string;
   status: ProjectServiceRequestStatus;
+  declineReason?: string | null;
   scheduledAt?: string;
   endsAt?: string;
   linkedActivityId?: string | null;
@@ -1300,7 +1312,7 @@ export interface PersonalServiceAvailabilityRule {
 
 export interface PersonalServiceAvailabilitySlot {
   id: string;
-  source: 'rule' | 'activity';
+  source: 'rule' | 'activity' | 'request';
   title: string;
   startAt: string;
   endAt: string;
@@ -1367,4 +1379,10 @@ export interface ProjectLifecycleData {
   phaseThree: ProjectPhaseThreeData;
   phaseFour: ProjectPhaseFourData | null;
   phaseFive: ProjectPhaseFiveData;
+}
+
+export interface ProjectLocationEdit {
+  locationLabel: string;
+  locationId?: string | null;
+  isOnline?: boolean;
 }

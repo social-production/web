@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import { extractErrorMessage } from '$lib/services/errors';
+  import { showToast } from '$lib/stores/toast';
   import { getFollowRequests, getSettings } from '$lib/services/queries/account';
   import {
     acceptFollowRequest,
@@ -161,6 +162,7 @@
       if (key === 'bio') {
         bioSavedFlash = true;
       }
+      showToast('Settings saved');
     } catch (err) {
       if (key === 'profile-image') {
         profilePreviewUrl = '';
@@ -527,14 +529,18 @@
     void applySettings('text-size', { textSize: value });
   }
 
+  let signOutError = '';
+
   async function handleSignOut() {
     pendingKey = 'sign-out';
+    signOutError = '';
 
     try {
       await signOut();
       await invalidateAll();
       await goto('/onboarding');
-    } finally {
+    } catch (err) {
+      signOutError = extractErrorMessage(err, 'Could not sign out. Your session is still active.');
       pendingKey = '';
     }
   }
@@ -621,6 +627,9 @@
           {pendingKey === 'sign-out' ? m.settings_signing_out() : m.settings_sign_out()}
         </button>
       </div>
+      {#if signOutError}
+        <p class="profile-image-error">{signOutError}</p>
+      {/if}
     </div>
   </section>
 

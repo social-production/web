@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { invalidateProjectDetail } from '$lib/utils/detailInvalidation';
   import { localDateTimeInputToIso } from '$lib/utils/eventSchedule';
+  import { getDisplayTimezone } from '$lib/stores/timezoneStore';
   import { onDestroy, onMount, tick } from 'svelte';
   import { preserveScrollDuring } from '$lib/utils/time';
   import {
@@ -135,6 +136,8 @@
     title: string;
     details: string;
     materials: string[];
+    startDate?: string;
+    endDate?: string;
   };
 
   type DraftProductionForm = {
@@ -167,6 +170,7 @@
     sameAsProductionLocation?: boolean;
     projectLocationId?: string | null;
     projectLocationLabel?: string;
+    recipients?: string;
     requestSystemEnabled: boolean;
     requestMode: 'calendar' | 'direct' | 'both';
     allowOffScheduleRequests: boolean;
@@ -384,6 +388,7 @@
     title: '',
     scheduledAt: '',
     endsAt: '',
+    inputTimeZone: getDisplayTimezone(),
     isOnline: false,
     locationLabel: '',
     locationId: null as string | null,
@@ -391,12 +396,14 @@
     roleRequirements: [createDraftActivityRole()],
     linkedPlanPhaseId: '' as string | null,
     note: '',
+    meetingUrl: '',
   };
   let serviceRequestForm = {
     title: '',
     body: '',
     scheduledAt: '',
     endsAt: '',
+    inputTimeZone: getDisplayTimezone(),
   };
   let showPhaseTwoComposer = false;
   let showPhaseThreeComposer = false;
@@ -614,6 +621,17 @@
     }
   }
 
+  let lastPlanTargetId: string | null = null;
+  $: {
+    const planTargetId = $page.url.searchParams.get('plan');
+    if (!planTargetId) {
+      lastPlanTargetId = null;
+    } else if (planTargetId !== lastPlanTargetId && phaseContainingPlan(planTargetId)) {
+      lastPlanTargetId = planTargetId;
+      void focusVoteCard('plan', planTargetId);
+    }
+  }
+
   $: {
     const requestTargetId = readRequestTargetFromUrl($page.url);
 
@@ -725,9 +743,13 @@
     );
   }
 
-  function handlePhaseTwoPlanOverallVote(planId: string, vote: ProjectApprovalVote | null) {
+  function handlePhaseTwoPlanOverallVote(
+    planId: string,
+    vote: ProjectApprovalVote | null,
+    comment?: string | null
+  ) {
     return preserveScrollDuring(() =>
-      refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-2', planId, vote))
+      refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-2', planId, vote, comment))
     );
   }
 
@@ -741,9 +763,13 @@
     );
   }
 
-  function handlePhaseThreePlanOverallVote(planId: string, vote: ProjectApprovalVote | null) {
+  function handlePhaseThreePlanOverallVote(
+    planId: string,
+    vote: ProjectApprovalVote | null,
+    comment?: string | null
+  ) {
     return preserveScrollDuring(() =>
-      refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-3', planId, vote))
+      refreshAfter(() => setProjectPlanOverallVote(data.slug, 'phase-3', planId, vote, comment))
     );
   }
 
@@ -780,7 +806,9 @@
         title: phase.title,
         details: phase.details,
         materialsLabel: materialListLabel(phase),
-        costLabel: 'Resources listed by stage',
+        costLabel: '',
+        startDate: phase.startDate || null,
+        endDate: phase.endDate || null,
       }));
     const input = {
       title: productionForm.title,
@@ -794,7 +822,7 @@
           : undefined,
       demandConsiderationNote: productionForm.demandConsiderationNote,
       valueConsiderationNotes: productionForm.valueConsiderationNotes,
-      totalCostLabel: 'Resources listed by stage',
+      totalCostLabel: '',
       locationId: productionForm.locationId ?? null,
       locationLabel: productionForm.locationLabel,
       planPhases,
@@ -845,7 +873,9 @@
         title: phase.title,
         details: phase.details,
         materialsLabel: materialListLabel(phase),
-        costLabel: 'Resources listed by stage',
+        costLabel: '',
+        startDate: phase.startDate || null,
+        endDate: phase.endDate || null,
       }));
     const created = await addProjectDistributionPlan(
       data.slug,
@@ -854,13 +884,14 @@
         description: distributionForm.description,
         demandConsiderationNote: distributionForm.demandConsiderationNote,
         valueConsiderationNotes: distributionForm.valueConsiderationNotes,
-        totalCostLabel: 'Resources listed by stage',
+        totalCostLabel: '',
         locationId: distributionForm.distributionLocationId ?? distributionForm.locationId ?? null,
         locationLabel: distributionForm.distributionLocationLabel ?? distributionForm.locationLabel,
         projectLocationId: distributionForm.projectLocationId ?? null,
         projectLocationLabel: distributionForm.projectLocationLabel,
         sameAsProductionLocation: distributionForm.sameAsProductionLocation ?? false,
         planPhases,
+        recipients: distributionForm.recipients ?? '',
         requestSystemEnabled: distributionForm.requestSystemEnabled,
         requestMode: distributionForm.requestMode,
         allowOffScheduleRequests: distributionForm.allowOffScheduleRequests,
@@ -902,8 +933,8 @@
       await refreshAfter(() =>
         addProjectActivity(data.slug, {
           title: 'Available',
-          scheduledAt: localDateTimeInputToIso(scheduledAtValue),
-          endsAt: localDateTimeInputToIso(endsAtValue),
+          scheduledAt: localDateTimeInputToIso(scheduledAtValue, activityForm.inputTimeZone),
+          endsAt: localDateTimeInputToIso(endsAtValue, activityForm.inputTimeZone),
           locationLabel: data.locationLabel,
           roleRequirements: [{ label: 'Service lead', requiredCount: 1 }],
           linkedPlanPhaseId: null,
@@ -914,6 +945,7 @@
         title: '',
         scheduledAt: '',
         endsAt: '',
+        inputTimeZone: getDisplayTimezone(),
         isOnline: false,
         locationLabel: '',
         locationId: null,
@@ -921,6 +953,7 @@
         roleRequirements: [createDraftActivityRole()],
         linkedPlanPhaseId: '',
         note: '',
+        meetingUrl: '',
       };
       showPersonalActivityComposer = false;
       return;
@@ -947,20 +980,22 @@
     await refreshAfter(() =>
       addProjectActivity(data.slug, {
         title: activityForm.title,
-        scheduledAt: localDateTimeInputToIso(scheduledAtValue),
-        endsAt: localDateTimeInputToIso(endsAtValue),
+        scheduledAt: localDateTimeInputToIso(scheduledAtValue, activityForm.inputTimeZone),
+        endsAt: localDateTimeInputToIso(endsAtValue, activityForm.inputTimeZone),
         isOnline: activityForm.isOnline,
         locationLabel,
         locationId: activityForm.locationId,
         roleRequirements,
         linkedPlanPhaseId: activityForm.linkedPlanPhaseId || null,
         note: activityForm.note,
+        meetingUrl: activityForm.meetingUrl,
       })
     );
     activityForm = {
       title: '',
       scheduledAt: '',
       endsAt: '',
+      inputTimeZone: getDisplayTimezone(),
       isOnline: false,
       locationLabel: '',
       locationId: null,
@@ -968,6 +1003,7 @@
       roleRequirements: [createDraftActivityRole()],
       linkedPlanPhaseId: '',
       note: '',
+      meetingUrl: '',
     };
     showPersonalActivityComposer = false;
     showPhaseFiveComposer = false;
@@ -1004,8 +1040,8 @@
       await addProjectServiceRequest(data.slug, {
         title: serviceRequestForm.title,
         body: serviceRequestForm.body,
-        scheduledAt: scheduledAtValue ? localDateTimeInputToIso(scheduledAtValue) : undefined,
-        endsAt: endsAtValue ? localDateTimeInputToIso(endsAtValue) : undefined,
+        scheduledAt: scheduledAtValue ? localDateTimeInputToIso(scheduledAtValue, serviceRequestForm.inputTimeZone) : undefined,
+        endsAt: endsAtValue ? localDateTimeInputToIso(endsAtValue, serviceRequestForm.inputTimeZone) : undefined,
       });
     });
     resetServiceRequestForm();
@@ -1018,9 +1054,12 @@
   async function updateRequestStatus(
     requestId: string,
     status: ProjectServiceRequestStatus,
-    holdSlot = false
+    holdSlot = false,
+    reason: string | null = null
   ) {
-    await refreshAfter(() => setProjectServiceRequestStatus(data.slug, requestId, status, holdSlot));
+    await refreshAfter(() =>
+      setProjectServiceRequestStatus(data.slug, requestId, status, holdSlot, reason)
+    );
   }
 
   async function createAvailabilityRule(input: {
@@ -1265,6 +1304,7 @@
       body: '',
       scheduledAt: '',
       endsAt: '',
+      inputTimeZone: getDisplayTimezone(),
     };
   }
 
@@ -1536,7 +1576,14 @@
 </script>
 
 <section class="lifecycle-shell">
-  <ProjectLifecyclePhaseTabs tabs={phaseTabs} {activePhaseId} {selectPhase} />
+  <ProjectLifecyclePhaseTabs
+    tabs={phaseTabs}
+    {activePhaseId}
+    {selectPhase}
+    note={data.projectSubtype === 'software' || data.lifecycle.currentSubtype === 'software'
+      ? 'Software projects skip Distribution.'
+      : ''}
+  />
 
   {#if activePhase}
     <DetailPhaseContext

@@ -6,7 +6,8 @@ export type SearchEntityType =
   | 'community'
   | 'user'
   | 'help_request'
-  | 'post';
+  | 'post'
+  | 'activity';
 
 export type SearchResultKind =
   | 'project'
@@ -16,7 +17,8 @@ export type SearchResultKind =
   | 'community'
   | 'profile'
   | 'help-request'
-  | 'post';
+  | 'post'
+  | 'activity';
 
 export interface SearchResultItem {
   id: string;

@@ -512,8 +512,8 @@ export function createFastApiDriver(): AppAdapter {
     async addProjectDistributionPlan(slug, input, projectMode) {
       return fetchAddProjectDistributionPlan(slug, input, projectMode);
     },
-    async setProjectPlanOverallVote(slug, phaseId, planId, vote) {
-      return fetchSetProjectPlanOverallVote(slug, phaseId, planId, vote);
+    async setProjectPlanOverallVote(slug, phaseId, planId, vote, comment) {
+      return fetchSetProjectPlanOverallVote(slug, phaseId, planId, vote, comment);
     },
     async setProjectPlanValueVote(slug, phaseId, planId, valueId, vote) {
       return fetchSetProjectPlanValueVote(slug, phaseId, planId, valueId, vote);
@@ -557,8 +557,8 @@ export function createFastApiDriver(): AppAdapter {
     async addProjectServiceRequest(slug, input) {
       return fetchAddProjectServiceRequest(slug, input);
     },
-    async setProjectServiceRequestStatus(slug, requestId, status, holdSlot) {
-      return fetchSetProjectServiceRequestStatus(slug, requestId, status, holdSlot);
+    async setProjectServiceRequestStatus(slug, requestId, status, holdSlot, reason) {
+      return fetchSetProjectServiceRequestStatus(slug, requestId, status, holdSlot, reason);
     },
     async createProjectAvailabilityRule(slug, input) {
       return fetchCreateProjectAvailabilityRule(slug, input);
@@ -602,11 +602,11 @@ export function createFastApiDriver(): AppAdapter {
     async setProjectUpdateVote(slug, requestId, vote) {
       return fetchSetProjectUpdateVote(slug, requestId, vote);
     },
-    async updateProjectDetails(slug, title, description) {
-      return fetchUpdateProjectDetails(slug, title, description);
+    async updateProjectDetails(slug, title, description, location) {
+      return fetchUpdateProjectDetails(slug, title, description, location);
     },
-    async requestProjectEdit(slug, title, description) {
-      return fetchRequestProjectEdit(slug, title, description);
+    async requestProjectEdit(slug, title, description, location) {
+      return fetchRequestProjectEdit(slug, title, description, location);
     },
     async setProjectEditVote(slug, requestId, vote) {
       return fetchSetProjectEditVote(slug, requestId, vote);

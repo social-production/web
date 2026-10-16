@@ -101,6 +101,7 @@
   let linkedChatOptimisticComments: DetailComment[] = [];
   let linkedChatDiscussion: DetailComment[] = [];
   let conversationMessagesById: Record<string, DirectMessage[]> = {};
+  let peerReadAtByConversationId: Record<string, string | null> = {};
   let pinsByConversationId: Record<string, ConversationPin[]> = {};
   let canPinByConversationId: Record<string, boolean> = {};
   let highlightedMessageId: string | null = null;
@@ -530,6 +531,10 @@
       conversationMessagesById = {
         ...conversationMessagesById,
         [conversationId]: thread.messages,
+      };
+      peerReadAtByConversationId = {
+        ...peerReadAtByConversationId,
+        [conversationId]: thread.peerReadAt ?? null,
       };
       pinsByConversationId = {
         ...pinsByConversationId,
@@ -1450,7 +1455,7 @@
             <button
               class="call-button"
               type="button"
-              aria-label={`Call ${conversationDisplayTitle(activeConversation)}`}
+              aria-label={`Call ${conversationDisplayTitle(activeConversation)}`} title={`Call ${conversationDisplayTitle(activeConversation)}`}
               on:click={startDirectCall}
             >
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1499,7 +1504,7 @@
                 </p>
               </div>
 
-              <button class="avatar-hit" type="button" aria-label="Chat options" on:click={openHeaderMenu}>
+              <button class="avatar-hit" type="button" aria-label="Chat options" title="Chat options" on:click={openHeaderMenu}>
                 <AvatarBadge size="md" username={activeLinkedChat.title} />
               </button>
             </div>
@@ -1668,6 +1673,9 @@
           subjectId={activeConversation.id}
           submitLabel="Send"
           variant="message"
+          peerReadAt={activeConversation.kind === 'direct' && activeConversationId
+            ? (peerReadAtByConversationId[activeConversationId] ?? null)
+            : null}
         />
       {:else if activeLinkedChat}
         <LiveChatPanel
@@ -1844,7 +1852,7 @@
         {/if}
       </div>
 
-      <button class="message-fab" type="button" aria-label="New message" on:click={handleComposeTrigger}>
+      <button class="message-fab" type="button" aria-label="New message" title="New message" on:click={handleComposeTrigger}>
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
         </svg>

@@ -208,6 +208,23 @@
           ? canContinueScope
           : true;
 
+  $: missingBasics = [
+    ...(title.trim() ? [] : ['Title']),
+    ...(description.trim() ? [] : ['Description'])
+  ];
+  $: missingLocation = canContinueLocation ? [] : ['Location'];
+  $: missingScope = canContinueScope ? [] : ['Channel'];
+  $: missingFields =
+    wizardSteps[stepIndex]?.id === 'basics'
+      ? missingBasics
+      : wizardSteps[stepIndex]?.id === 'location'
+        ? missingLocation
+        : wizardSteps[stepIndex]?.id === 'scope'
+          ? missingScope
+          : stepIndex === wizardSteps.length - 1
+            ? [...missingBasics, ...missingLocation, ...missingScope]
+            : [];
+
   $: canSubmit =
     title.trim().length > 0 &&
     description.trim().length > 0 &&
@@ -301,6 +318,11 @@
     selectedCommunityIds = selectedCommunityIds.filter((value) => value !== slug);
   }
 
+  let showMoreScopes = false;
+  $: if (additionalChannelItems.length > 0 || selectedCommunityItems.length > 0) {
+    showMoreScopes = true;
+  }
+
   async function handleCreate() {
     isSubmitting = true;
     statusMessage = '';
@@ -354,6 +376,7 @@
         {canContinue}
         {canSubmit}
         {isSubmitting}
+        missing={missingFields}
         submitLabel="Create Project"
         on:submit={handleCreate}
       >
@@ -404,6 +427,11 @@
                 onRemove={removePrimaryChannelTag}
                 onCommitSingleSuggestion={commitSingleSuggestion}
               />
+              <label class="scope-more-toggle">
+                <input bind:checked={showMoreScopes} type="checkbox" />
+                <span>Add more channels or communities</span>
+              </label>
+              {#if showMoreScopes}
               <CreateScopeTagSelector
                 label="Additional channel tags"
                 placeholder="Optional"
@@ -424,6 +452,10 @@
                 onRemove={removeCommunityTag}
                 onCommitSingleSuggestion={commitSingleSuggestion}
               />
+              {/if}
+              {#if personalServiceUsesPlatformTag}
+                <p class="status-note">A personal service cannot use the Platform channel. Choose another channel.</p>
+              {/if}
             </div>
           {:else}
             <div class="form-stack overview">
@@ -453,9 +485,12 @@
               <button class="overview-row" type="button" on:click={() => (stepIndex = 3)}>
                 <strong>Scope</strong>
                 <span>
-                  {selectedChannelIds.length} channels · {selectedCommunityIds.length} communities
+                  {selectedChannelIds.length} {selectedChannelIds.length === 1 ? 'channel' : 'channels'} · {selectedCommunityIds.length} {selectedCommunityIds.length === 1 ? 'community' : 'communities'}
                 </span>
               </button>
+              {#if personalServiceUsesPlatformTag}
+                <p class="status-note">A personal service cannot use the Platform channel. Choose another channel.</p>
+              {/if}
               {#if statusMessage}
                 <p class="status-note">{statusMessage}</p>
               {/if}
@@ -494,5 +529,13 @@
   .status-note {
     margin: 0;
     color: var(--danger, #c0392b);
+  }
+
+  .scope-more-toggle {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    color: var(--text-main);
+    font-size: 14px;
   }
 </style>

@@ -102,7 +102,7 @@
 <style>
   .linked-body {
     margin: 0;
-    color: var(--text-soft);
+    color: var(--text-main);
     white-space: pre-wrap;
     word-break: break-word;
   }
