@@ -47,10 +47,11 @@ describe('activity and chat presentation', () => {
     expect(roles).toContain('docked');
   });
 
-  it('compacts the composer and colors chat usernames separately', () => {
+  it('keeps the composer on one row and colors chat usernames separately', () => {
     const chat = source('src/lib/components/chat/LiveChatPanel.svelte');
     expect(chat).toContain('color: var(--brand-strong)');
-    expect(chat).toContain('width="14"');
+    expect(chat).toContain('class="composer-row"');
+    expect(chat).toContain('class="send-button"');
     expect(chat).toContain('border: 0');
     expect(chat).toContain('focus-visible');
   });

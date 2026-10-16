@@ -1,7 +1,7 @@
 <script lang="ts">
   import { afterUpdate, tick } from 'svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
-  import PhaseShiftButton from '$lib/components/shared/PhaseShiftButton.svelte';
+  import PhaseMenu, { type PhaseMenuItem } from '$lib/components/shared/PhaseMenu.svelte';
   import QuorumSentence from '$lib/features/detail/QuorumSentence.svelte';
   import { portal } from '$lib/utils/portal';
   import {
@@ -185,14 +185,17 @@
     return data.lifecycle.phases.find((phase) => phase.id === phaseId)?.title ?? phaseId;
   }
 
-  function nextPhaseActionLabel() {
+  // Re-run when the close/convert choice or the project changes.
+  $: nextActionLabel = nextPhaseActionLabel(nextPhaseCloseOutcome, data, canOfferConversionOnClose);
+
+  function nextPhaseActionLabel(..._dependencies: unknown[]) {
     if (!data.lifecycle.nextPhaseId || !data.lifecycle.nextPhaseLabel) {
       return null;
     }
 
     if (isClosingTransition()) {
-      if (canOfferConversionOnClose) {
-        return 'Close or convert';
+        if (canOfferConversionOnClose) {
+        return nextPhaseCloseOutcome === 'convert' ? 'Convert into collective service' : 'Close project';
       }
 
       return personalDirectPhaseChange ? 'Close service' : 'Close';
@@ -347,6 +350,111 @@
     expandedVoteGroup = null;
   }
 
+  function openNextPhaseComposer(outcome: 'close' | 'convert' = 'close') {
+    if (!showNextPhaseComposer) {
+      toggleNextPhaseComposer();
+    }
+    nextPhaseCloseOutcome = outcome;
+  }
+
+  function phaseLockReason() {
+    if (!personalDirectPhaseChange && hasOpenPhaseChangeVotes) {
+      return 'A phase vote is already open. Vote on it in Pending votes first.';
+    }
+    if (!signalGatePasses) {
+      return 'Unlocks after this project gets a Support signal.';
+    }
+    return planGateMessage || '';
+  }
+
+  // The arguments list what the menu depends on, so the reactive statement re-runs when any gate changes.
+  $: menuItems = phaseMenuItems(
+    data,
+    hasOpenPhaseChangeVotes,
+    phaseGatePasses,
+    canProposeAdvance,
+    canProposeReturn,
+    canDirectReturn,
+    canOfferConversionOnClose
+  );
+
+  function phaseMenuItems(..._dependencies: unknown[]): PhaseMenuItem[] {
+    const items: PhaseMenuItem[] = [];
+    const lifecycle = data.lifecycle;
+    const advanceAllowed = Boolean(
+      (personalDirectPhaseChange ? lifecycle.viewerCanAdvancePhase && phaseGatePasses : canProposeAdvance) &&
+        lifecycle.nextPhaseId
+    );
+    const advanceVisible =
+      Boolean(lifecycle.nextPhaseId) &&
+      (personalDirectPhaseChange ? lifecycle.viewerCanAdvancePhase : lifecycle.viewerCanRequestPhaseChanges);
+    const locked = advanceAllowed ? '' : phaseLockReason();
+    const viaVote = !personalDirectPhaseChange;
+
+    if (advanceVisible && isClosingTransition() && canOfferConversionOnClose) {
+      items.push({
+        id: 'close',
+        glyph: '×',
+        label: 'Close project',
+        detail: locked || 'Members vote to finish the project. Proposing counts as your Yes.',
+        disabled: !advanceAllowed,
+        onSelect: () => openNextPhaseComposer('close')
+      });
+      items.push({
+        id: 'convert',
+        glyph: '⇄',
+        label: 'Convert into collective service',
+        detail: locked || 'Members vote to close this and reopen it as an ongoing service.',
+        disabled: !advanceAllowed,
+        onSelect: () => openNextPhaseComposer('convert')
+      });
+    } else if (advanceVisible && isClosingTransition()) {
+      items.push({
+        id: 'close',
+        glyph: '×',
+        label: personalDirectPhaseChange ? 'Close service' : 'Close project',
+        detail:
+          locked ||
+          (viaVote
+            ? 'Members vote to finish the project. Proposing counts as your Yes.'
+            : 'Stop offering this service now. You can reopen it later.'),
+        disabled: !advanceAllowed,
+        onSelect: () => openNextPhaseComposer('close')
+      });
+    } else if (advanceVisible) {
+      items.push({
+        id: 'advance',
+        glyph: '›',
+        label: `Advance to ${lifecycle.nextPhaseLabel ?? 'the next phase'}`,
+        detail:
+          locked ||
+          (viaVote ? 'Members vote to move on. Proposing counts as your Yes.' : 'Takes effect right away.'),
+        disabled: !advanceAllowed,
+        onSelect: () => openNextPhaseComposer('close')
+      });
+    }
+
+    const returnAllowed = personalDirectPhaseChange ? canDirectReturn : canProposeReturn;
+    const returnVisible = personalDirectPhaseChange
+      ? canDirectReturn
+      : lifecycle.viewerCanRequestPhaseChanges && lifecycle.revertablePhaseIds.length > 0;
+    if (returnVisible) {
+      items.push({
+        id: 'return',
+        glyph: '‹',
+        label: personalDirectPhaseChange ? 'Return to active' : 'Return to an earlier phase',
+        detail: returnAllowed
+          ? viaVote
+            ? 'Members vote to go back and rework the plans.'
+            : 'Reopen the service right away.'
+          : phaseLockReason(),
+        disabled: !returnAllowed,
+        onSelect: toggleRevertComposer
+      });
+    }
+    return items;
+  }
+
   function toggleRevertComposer() {
     const willOpen = !showRevertComposer;
 
@@ -401,52 +509,13 @@
     {/if}
     {#if showReturnActions || showNextActions}
       {#if embedInToolbar}
-        {#if personalDirectPhaseChange ? canDirectReturn : canProposeReturn}
-          <div class="phase-nav-side" use:portal={startHost ?? false}>
-            <PhaseShiftButton
-              active={showRevertComposer}
-              glyph="‹"
-              label={revertActionLabel()}
-              participationAction="propose-return"
-              onPress={toggleRevertComposer}
-            />
-          </div>
-        {/if}
-        {#if (personalDirectPhaseChange ? data.lifecycle.viewerCanAdvancePhase : canProposeAdvance) && data.lifecycle.nextPhaseId}
-          <div class="phase-nav-side end" use:portal={endHost ?? false}>
-            <PhaseShiftButton
-              active={showNextPhaseComposer}
-              glyph={isClosingTransition() ? '×' : '›'}
-              label={nextPhaseActionLabel() ?? 'Advance'}
-              participationAction="propose-advance"
-              onPress={toggleNextPhaseComposer}
-            />
-          </div>
-        {/if}
+        <div class="phase-nav-side end" use:portal={endHost ?? false}>
+          <PhaseMenu items={menuItems} currentPhaseLabel={phaseShortLabel(data.lifecycle.currentPhaseId)} labelledById="project-phase-menu" />
+        </div>
       {:else}
         <div class="change-action-row">
-          <div class="action-group action-group-left">
-            {#if personalDirectPhaseChange ? canDirectReturn : canProposeReturn}
-              <PhaseShiftButton
-                active={showRevertComposer}
-                glyph="‹"
-                label={revertActionLabel()}
-                participationAction="propose-return"
-                onPress={toggleRevertComposer}
-              />
-            {/if}
-          </div>
-
           <div class="action-group action-group-right">
-            {#if (personalDirectPhaseChange ? data.lifecycle.viewerCanAdvancePhase : canProposeAdvance) && data.lifecycle.nextPhaseId}
-              <PhaseShiftButton
-                active={showNextPhaseComposer}
-                glyph={isClosingTransition() ? '×' : '›'}
-                label={nextPhaseActionLabel() ?? 'Advance'}
-                participationAction="propose-advance"
-                onPress={toggleNextPhaseComposer}
-              />
-            {/if}
+            <PhaseMenu items={menuItems} currentPhaseLabel={phaseShortLabel(data.lifecycle.currentPhaseId)} labelledById="project-phase-menu" />
           </div>
         </div>
       {/if}
@@ -498,7 +567,7 @@
       <OverlaySheet
         bind:open={showNextPhaseComposer}
         hideClose
-        title={nextPhaseActionLabel() ?? 'Advance'}
+        title={nextActionLabel ?? 'Advance'}
         labelledById="project-advance-phase-sheet"
         on:close={closeNextPhaseComposer}
       >
@@ -547,7 +616,7 @@
           <div class="sheet-actions">
             <button class="sheet-cancel" type="button" on:click={closeNextPhaseComposer}>Cancel</button>
             <button class="sheet-submit" form="project-advance-phase-form" type="submit">
-              {nextPhaseActionLabel()}
+              {nextActionLabel}
             </button>
           </div>
         </svelte:fragment>
@@ -592,10 +661,6 @@
     gap: 12px;
     align-items: center;
     flex-wrap: wrap;
-  }
-
-  .action-group-left {
-    justify-content: flex-start;
   }
 
   .action-group-right {

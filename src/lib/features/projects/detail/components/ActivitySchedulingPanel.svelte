@@ -1,6 +1,6 @@
 <script lang="ts">
   import ActivityCreationWizard from '$lib/components/shared/ActivityCreationWizard.svelte';
-  import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
+  import ActivityAgendaList from '$lib/components/cards/project-detail/ActivityAgendaList.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import DecisionHistoryCard from '$lib/components/shared/DecisionHistoryCard.svelte';
   import ActivityHistorySection from '$lib/features/projects/detail/components/ActivityHistorySection.svelte';
@@ -244,21 +244,14 @@
     {#if liveActivities.length === 0}
       <div class="empty-card">{emptyLiveMessage}</div>
     {:else}
-      <div class="card-rail">
-        {#each liveActivities as activity (activity.id)}
-          <div id={`activity-card-${activity.id}`} class="rail-card">
-            <CollapsibleActivityCard
-              activity={activity}
-              expanded={highlightedActivityId === activity.id}
-              highlighted={highlightedActivityId === activity.id}
-              {changecommitment}
-              {viewerCanSuggest}
-              {onSuggestRole}
-              {onDeclineRoleSuggestion}
-            />
-          </div>
-        {/each}
-      </div>
+      <ActivityAgendaList
+        activities={liveActivities}
+        {highlightedActivityId}
+        {changecommitment}
+        {viewerCanSuggest}
+        {onSuggestRole}
+        {onDeclineRoleSuggestion}
+      />
     {/if}
   </section>
 
@@ -315,16 +308,11 @@
 <style>
   .scheduling-panel,
   .card-rail-section,
-  .card-rail,
   .unified-history,
   .software-action-picker,
   .software-action-grid {
     display: grid;
     gap: 12px;
-  }
-
-  .card-rail:has(:global(.activity-card-shell)) {
-    gap: 0;
   }
 
   .software-action-picker {
@@ -427,7 +415,7 @@
     font-weight: 700;
   }
 
-  [id^='activity-card-'] {
+  .scheduling-panel :global([id^='activity-card-']) {
     scroll-margin-top: 92px;
   }
 </style>

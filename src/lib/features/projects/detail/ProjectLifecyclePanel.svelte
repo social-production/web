@@ -1580,9 +1580,6 @@
     tabs={phaseTabs}
     {activePhaseId}
     {selectPhase}
-    note={data.projectSubtype === 'software' || data.lifecycle.currentSubtype === 'software'
-      ? 'Software projects skip Distribution.'
-      : ''}
   />
 
   {#if activePhase}

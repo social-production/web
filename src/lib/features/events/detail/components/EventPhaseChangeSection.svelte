@@ -1,7 +1,7 @@
 <script lang="ts">
   import { afterUpdate, tick } from 'svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
-  import PhaseShiftButton from '$lib/components/shared/PhaseShiftButton.svelte';
+  import PhaseMenu, { type PhaseMenuItem } from '$lib/components/shared/PhaseMenu.svelte';
   import QuorumSentence from '$lib/features/detail/QuorumSentence.svelte';
   import { portal } from '$lib/utils/portal';
   import {
@@ -141,6 +141,42 @@
     }
 
     return isOrganizerControlled ? 'Move to next phase' : 'Advance';
+  }
+
+  // The arguments list what the menu depends on, so the reactive statement re-runs when any gate changes.
+  $: menuItems = phaseMenuItems(data, hasOpenPhaseChangeVotes, canProposeAdvance, canProposeReturn, isOrganizerControlled);
+
+  function phaseMenuItems(..._dependencies: unknown[]): PhaseMenuItem[] {
+    const lifecycle = data.lifecycle;
+    const items: PhaseMenuItem[] = [];
+    const voteOpen = hasOpenPhaseChangeVotes
+      ? 'A phase vote is already open. Vote on it in Pending votes first.'
+      : '';
+    const how = isOrganizerControlled
+      ? 'Organizers decide; members are notified.'
+      : 'Members vote. Proposing counts as your Yes.';
+    if (lifecycle.nextPhaseId && lifecycle.viewerCanRequestPhaseChanges) {
+      const closing = lifecycle.nextPhaseId === 'closed';
+      items.push({
+        id: closing ? 'close' : 'advance',
+        glyph: closing ? '×' : '›',
+        label: closing ? 'Close event' : `Advance to ${phaseShortLabel(lifecycle.nextPhaseId)}`,
+        detail: voteOpen || (closing ? `Ends the event and keeps its record. ${how}` : how),
+        disabled: !canProposeAdvance,
+        onSelect: toggleNextPhaseComposer
+      });
+    }
+    if (lifecycle.viewerCanRequestPhaseChanges && lifecycle.revertablePhaseIds.length > 0) {
+      items.push({
+        id: 'return',
+        glyph: '‹',
+        label: 'Return to an earlier phase',
+        detail: voteOpen || `Go back and rework the plan. ${how}`,
+        disabled: !canProposeReturn,
+        onSelect: toggleRevertComposer
+      });
+    }
+    return items;
   }
 
   function revertActionLabel() {
@@ -298,52 +334,13 @@
   <div id="participation-phase-change" class="phase-change-stack">
     {#if showReturnActions || showNextActions}
       {#if embedInToolbar}
-        {#if canProposeReturn}
-          <div class="phase-nav-side" use:portal={startHost ?? false}>
-            <PhaseShiftButton
-              active={showRevertComposer}
-              glyph="‹"
-              label={revertActionLabel()}
-              participationAction="propose-return"
-              onPress={toggleRevertComposer}
-            />
-          </div>
-        {/if}
-        {#if canProposeAdvance && data.lifecycle.nextPhaseId}
-          <div class="phase-nav-side end" use:portal={endHost ?? false}>
-            <PhaseShiftButton
-              active={showNextPhaseComposer}
-              glyph={data.lifecycle.nextPhaseId === 'closed' ? '×' : '›'}
-              label={nextPhaseActionLabel() ?? 'Advance'}
-              participationAction="propose-advance"
-              onPress={toggleNextPhaseComposer}
-            />
-          </div>
-        {/if}
+        <div class="phase-nav-side end" use:portal={endHost ?? false}>
+          <PhaseMenu items={menuItems} currentPhaseLabel={phaseShortLabel(data.lifecycle.currentPhaseId)} labelledById="event-phase-menu" />
+        </div>
       {:else}
         <div class="change-action-row">
-          <div class="action-group action-group-left">
-            {#if canProposeReturn}
-              <PhaseShiftButton
-                active={showRevertComposer}
-                glyph="‹"
-                label={revertActionLabel()}
-                participationAction="propose-return"
-                onPress={toggleRevertComposer}
-              />
-            {/if}
-          </div>
-
           <div class="action-group action-group-right">
-            {#if canProposeAdvance && data.lifecycle.nextPhaseId}
-              <PhaseShiftButton
-                active={showNextPhaseComposer}
-                glyph={data.lifecycle.nextPhaseId === 'closed' ? '×' : '›'}
-                label={nextPhaseActionLabel() ?? 'Advance'}
-                participationAction="propose-advance"
-                onPress={toggleNextPhaseComposer}
-              />
-            {/if}
+            <PhaseMenu items={menuItems} currentPhaseLabel={phaseShortLabel(data.lifecycle.currentPhaseId)} labelledById="event-phase-menu" />
           </div>
         </div>
       {/if}
@@ -470,10 +467,6 @@
     gap: 12px;
     align-items: center;
     flex-wrap: wrap;
-  }
-
-  .action-group-left {
-    justify-content: flex-start;
   }
 
   .action-group-right {

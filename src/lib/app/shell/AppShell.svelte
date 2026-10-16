@@ -16,6 +16,7 @@
   import { createLiveSearchScheduler } from '$lib/features/search/liveSearch';
   import SearchSuggestionsList from '$lib/features/search/SearchSuggestionsList.svelte';
   import { unreadCounts } from '$lib/stores/unreadCounts';
+  import { mapFocusRequest } from '$lib/stores/mapFocus';
   import { refreshUnreadCounts, syncUnreadCountsFromBootstrap } from '$lib/services/commands/inbox';
   import * as m from '$lib/paraglide/messages';
   import { onMount, tick } from 'svelte';
@@ -266,6 +267,10 @@
     if (isCompact) {
       searchExpanded = false;
       moreSheetOpen = false;
+      if (fromPath !== toPath) {
+        leftRailOpen = false;
+        rightRailOpen = false;
+      }
     }
     feedChromeHidden = false;
     lastFeedScrollY = feedScrollY();
@@ -593,6 +598,15 @@
       leftRailOpen = railsBeforeMap.left;
       rightRailOpen = railsBeforeMap.right;
     }
+  }
+
+  // A "show on map" link elsewhere opens the map panel; MapPanel then centres on the place.
+  let mapFocusOpening = false;
+  $: if ($mapFocusRequest && !mapPanelOpen && !dedicatedMapPage && !mapFocusOpening) {
+    mapFocusOpening = true;
+    void toggleMapPanel().finally(() => {
+      mapFocusOpening = false;
+    });
   }
 
   function closeMapPanel() {
@@ -1072,6 +1086,10 @@
       collapsed={topbarCollapsed}
       {isActive}
       onMore={toggleMoreSheet}
+      onNavigate={() => {
+        closeCompactPanels();
+        moreSheetOpen = false;
+      }}
     />
     <MobileMoreSheet
       {bootstrap}

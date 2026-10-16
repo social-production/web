@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import CollapsibleServiceRequestCard from '$lib/components/cards/project-detail/CollapsibleServiceRequestCard.svelte';
   import ActivityCreationWizard from '$lib/components/shared/ActivityCreationWizard.svelte';
-  import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
+  import ActivityAgendaList from '$lib/components/cards/project-detail/ActivityAgendaList.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
@@ -1187,21 +1187,14 @@
       {#if data.lifecycle.phaseFive.activities.length === 0}
         <div class="empty-card">No activities scheduled yet.</div>
       {:else}
-        <div class="card-rail">
-          {#each data.lifecycle.phaseFive.activities as activity (activity.id)}
-            <div id={`activity-card-${activity.id}`} class="rail-card">
-              <CollapsibleActivityCard
-                activity={activity}
-                expanded={highlightedActivityId === activity.id}
-                highlighted={highlightedActivityId === activity.id}
-                changecommitment={changecommitment}
-                viewerCanSuggest={data.viewerIsMember}
-                onSuggestRole={suggestRole}
-                onDeclineRoleSuggestion={declineRoleSuggestion}
-              />
-            </div>
-          {/each}
-        </div>
+        <ActivityAgendaList
+          activities={data.lifecycle.phaseFive.activities}
+          {highlightedActivityId}
+          {changecommitment}
+          viewerCanSuggest={data.viewerIsMember}
+          onSuggestRole={suggestRole}
+          onDeclineRoleSuggestion={declineRoleSuggestion}
+        />
       {/if}
     </section>
   {#if calendarHistoryCount > 0}

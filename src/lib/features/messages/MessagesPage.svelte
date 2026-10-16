@@ -102,6 +102,7 @@
   let linkedChatDiscussion: DetailComment[] = [];
   let conversationMessagesById: Record<string, DirectMessage[]> = {};
   let peerReadAtByConversationId: Record<string, string | null> = {};
+  let lastMarkedIncomingAt: Record<string, number> = {};
   let pinsByConversationId: Record<string, ConversationPin[]> = {};
   let canPinByConversationId: Record<string, boolean> = {};
   let highlightedMessageId: string | null = null;
@@ -177,7 +178,7 @@
         isOwn: message.isOwn,
         report: message.report ?? null,
         moderationState: message.moderationState,
-        showAuthor: !message.isOwn,
+        showAuthor: !message.isOwn && activeConversation?.kind !== 'direct',
         attachments: message.attachments ?? [],
         pinned: activePins.some((pin) => pin.messageId === message.id),
         editedAt: message.editedAt ?? null,
@@ -505,6 +506,31 @@
     };
   });
 
+  // Mark the open thread read whenever a newer incoming message shows up, so the sender's ✓✓ appears.
+  async function markIncomingRead(conversationId: string, items: DirectMessage[]) {
+    if (!browser || document.visibilityState !== 'visible' || conversationId !== activeConversationId) {
+      return;
+    }
+    const latest = items.reduce(
+      (max, item) => (item.isOwn ? max : Math.max(max, new Date(item.createdAt).getTime() || 0)),
+      0
+    );
+    if (!latest || latest <= (lastMarkedIncomingAt[conversationId] ?? 0)) {
+      return;
+    }
+    lastMarkedIncomingAt = { ...lastMarkedIncomingAt, [conversationId]: latest };
+    const unread = conversations.find((item) => item.id === conversationId)?.unreadCount ?? 0;
+    try {
+      await markConversationRead(conversationId, unread);
+    } catch (error) {
+      console.error('Could not mark conversation read', error);
+      return;
+    }
+    if (unread > 0) {
+      void refreshMessagesInbox({ force: true });
+    }
+  }
+
   async function loadConversationMessages(
     conversationId: string,
     options: { silent?: boolean } = {}
@@ -545,6 +571,7 @@
         [conversationId]: thread.canPin,
       };
       conversationLoadError = '';
+      void markIncomingRead(conversationId, thread.messages);
       return true;
     } catch (error) {
       console.error('Could not load conversation messages', error);
@@ -800,11 +827,6 @@
       });
     }
 
-    if (loaded && unreadCount > 0) {
-      await markConversationRead(conversationId, unreadCount);
-      await refreshMessagesInbox();
-      await loadConversationMessages(conversationId, { silent: true });
-    }
 
     await focusConversationShell();
     return loaded;
@@ -1404,7 +1426,11 @@
   >
     {#if activeConversation || activeLinkedChat}
       <header class="chat-header" class:with-call={activeConversation?.kind === 'direct'}>
-        <button class="back-button" type="button" on:click={closeActiveChat}>Back</button>
+        <button class="back-button" type="button" aria-label="Back to chats" title="Back to chats" on:click={closeActiveChat}>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22">
+            <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
 
         {#if activeConversation}
           <div class="chat-identity">
@@ -2507,6 +2533,17 @@
     font-weight: 700;
   }
 
+  .back-button {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+  }
+
   .back-button:hover,
   .secondary-button:hover {
     border-color: var(--brand);
@@ -2530,10 +2567,7 @@
     }
 
     .back-button {
-      width: auto;
       flex-shrink: 0;
-      padding: 6px 10px;
-      font-size: 11px;
     }
 
     .conversation-row {

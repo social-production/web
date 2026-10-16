@@ -11,6 +11,7 @@
   export let collapsed = false;
   export let isActive: (href: string) => boolean = () => false;
   export let onMore: () => void = () => {};
+  export let onNavigate: () => void = () => {};
 
   $: tabs = [
     combineFeeds
@@ -56,6 +57,7 @@
       class:active-link={isActive(tab.href)}
       class="bottom-nav-item"
       href={tab.href}
+      on:click={onNavigate}
     >
       <span class="bottom-nav-icon" aria-hidden="true">
         <FeedToolbarIcon name={tab.icon} />

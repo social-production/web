@@ -9,7 +9,13 @@
   export let frame: DetailLinksFrameData;
   export let highlightedRequestId: string | null = null;
   /** Outside links such as the repository and the venue map. */
-  export let externalLinks: Array<{ label: string; href: string; detail: string }> = [];
+  export let externalLinks: Array<{ label: string; href: string; detail: string; onOpen?: () => void }> = [];
+
+  function openLink(event: MouseEvent, link: (typeof externalLinks)[number]) {
+    if (!link.onOpen || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    event.preventDefault();
+    link.onOpen();
+  }
 
   // Conversion links are shown in the conversion lineage section; keep them out of
   // the generic Active/Historical lists so the same record does not render twice.
@@ -29,7 +35,13 @@
   {#if externalLinks.length > 0}
     <section class="external-links">
       {#each externalLinks as link (link.href)}
-        <a class="external-link" href={link.href} target="_blank" rel="noopener noreferrer">
+        <a
+          class="external-link"
+          href={link.href}
+          target={link.onOpen ? undefined : '_blank'}
+          rel="noopener noreferrer"
+          on:click={(event) => openLink(event, link)}
+        >
           <strong>{link.label}</strong>
           <span>{link.detail}</span>
         </a>

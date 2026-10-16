@@ -25,7 +25,10 @@
     shouldAdoptViewportRadius
   } from '$lib/location/radius';
   import { hydrateDefaultLocationFromServer } from '$lib/location/sync';
-  import { getIpLocationHint } from '$lib/services/queries/locations';
+  import { getIpLocationHint, getLocation, searchLocations } from '$lib/services/queries/locations';
+  import type { LocationRecord } from '$lib/types/location';
+  import { clearMapFocusRequest, mapFocusRequest, type MapFocusRequest } from '$lib/stores/mapFocus';
+  import { showToast } from '$lib/stores/toast';
   import { createMapAdapter } from '$lib/maps/adapter';
   import type { MapAdapter, MapMarker } from '$lib/maps/types';
   import type { ProjectMode } from '$lib/types/feed';
@@ -142,6 +145,7 @@
   let listScrollTop = 0;
   let markerLoadToken = 0;
   let highlightedMarkerId: string | null = null;
+  let initialLoadDone = false;
 
   $: centerLat = locationValue.latitude;
   $: centerLon = locationValue.longitude;
@@ -696,11 +700,12 @@
    */
   async function applyAnchor(
     next: LocationPickerValue,
-    options?: { deviceGeolocationEnabled?: boolean; broadenEmpty?: boolean }
+    options?: { deviceGeolocationEnabled?: boolean; broadenEmpty?: boolean; persist?: boolean }
   ) {
+    const persist = options?.persist !== false;
     if (next.latitude == null || next.longitude == null) {
       locationValue = next;
-      persistCenter(options);
+      if (persist) persistCenter(options);
       return;
     }
 
@@ -708,7 +713,7 @@
     const lon = next.longitude;
     locationValue = next;
     resetViewportQuery();
-    persistCenter(options);
+    if (persist) persistCenter(options);
     fullscreenSearchOpen = false;
 
     await mountMapIfNeeded({ lat, lon });
@@ -727,6 +732,50 @@
     } else {
       await loadMarkers({ lat, lon });
     }
+  }
+
+  $: if (initialLoadDone && $mapFocusRequest) {
+    void focusRequestedPlace($mapFocusRequest);
+  }
+
+  // Centre on a place another screen asked for (an activity venue, say) without changing the saved home area.
+  async function focusRequestedPlace(request: MapFocusRequest) {
+    clearMapFocusRequest();
+    let record: LocationRecord | null = null;
+    try {
+      if (request.locationId) {
+        record = await getLocation(request.locationId);
+      }
+      if (!record || record.latitude == null || record.longitude == null) {
+        record = (await searchLocations(request.label, 1))[0] ?? null;
+      }
+    } catch {
+      record = null;
+    }
+    if (!record || record.latitude == null || record.longitude == null) {
+      showToast(`Could not find ${request.label} on the map`, 'error');
+      return;
+    }
+    // A global radius would leave the camera on the whole world; look around the place instead.
+    if (radiusKm === GLOBAL_RADIUS_VALUE) {
+      radiusKm = '10';
+    }
+    await applyAnchor(
+      {
+        ...emptyLocationPickerValue(),
+        mode: 'physical',
+        displayLabel: request.label,
+        locationId: record.id ?? request.locationId,
+        providerPlaceId: record.providerPlaceId,
+        latitude: record.latitude,
+        longitude: record.longitude,
+        region: record.region,
+        country: record.country,
+        precision: record.precision,
+        isOnline: false
+      },
+      { persist: false }
+    );
   }
 
   function handleLocationChange(event: CustomEvent<LocationPickerValue>) {
@@ -954,6 +1003,7 @@
       updateMapStageHeight();
       await tick();
       adapter?.resize?.();
+      initialLoadDone = true;
     })();
 
     return () => {

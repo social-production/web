@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import { page } from '$app/stores';
   import CollapsibleServiceRequestCard from '$lib/components/cards/project-detail/CollapsibleServiceRequestCard.svelte';
-  import CollapsibleActivityCard from '$lib/components/cards/project-detail/CollapsibleActivityCard.svelte';
+  import ActivityAgendaList from '$lib/components/cards/project-detail/ActivityAgendaList.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
@@ -896,17 +896,10 @@
           <div class="empty-card">No future availability or accepted request activity is scheduled yet.</div>
         {/if}
       {:else}
-        <div class="card-rail">
-          {#each data.lifecycle.phaseFive.activities as activity (activity.id)}
-            <div id={`activity-card-${activity.id}`} class="rail-card">
-              <CollapsibleActivityCard
-                activity={activity}
-                expanded={highlightedActivityId === activity.id}
-                highlighted={highlightedActivityId === activity.id}
-              />
-            </div>
-          {/each}
-        </div>
+        <ActivityAgendaList
+          activities={data.lifecycle.phaseFive.activities}
+          {highlightedActivityId}
+        />
       {/if}
     </section>
   {#if data.lifecycle.phaseFive.history.length > 0}

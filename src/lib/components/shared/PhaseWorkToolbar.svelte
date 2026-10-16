@@ -50,7 +50,8 @@
     for (const root of [
       node.querySelector(':scope > .adds'),
       node.querySelector(':scope > .governance-row'),
-      node.querySelector(':scope > #phase-nav-vote')
+      node.querySelector(':scope > #phase-nav-vote'),
+      node.querySelector(':scope > .phase-nav-bar')
     ]) {
       if (root) {
         collectCells(root, cells);
@@ -145,15 +146,24 @@
     display: none;
   }
 
+  /* The phase menu packs into the same row as the work action. */
   .phase-nav-bar {
-    display: flex;
-    flex: 1 1 100%;
-    width: 100%;
-    min-width: 0;
-    border-top: 1px solid var(--panel-border);
+    display: contents;
   }
 
-  .phase-nav-bar:not(:has(:global(button))) {
+  .phase-action-group :global(.phase-menu-trigger.phase-menu-trigger) {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    min-height: 44px;
+    margin: 0;
+    border-width: 0;
+    border-radius: 0;
+  }
+
+  .phase-nav-bar:not(:has(:global(button))),
+  .phase-nav-bar .phase-action-slot:not(:has(:global(button))) {
     display: none;
   }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openPlaceOnMap } from '$lib/stores/mapFocus';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
@@ -431,7 +432,8 @@
           {
             label: 'Venue',
             href: `https://www.openstreetmap.org/search?query=${encodeURIComponent(venueLabel)}`,
-            detail: venueLabel
+            detail: venueLabel,
+            onOpen: () => openPlaceOnMap(venueLabel)
           }
         ]
       : [])

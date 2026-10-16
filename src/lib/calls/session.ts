@@ -15,7 +15,14 @@ export type CallView = {
   muted: boolean;
   connectedAt: number | null;
   notice: string | null;
+  /** True between Accept and audio flowing. */
+  connecting: boolean;
+  /** Length of the call that just ended, for the "Call ended" line. */
+  lastDurationMs: number | null;
 };
+
+/** Ring this long before the caller gives up, as phone apps do. */
+const NO_ANSWER_MS = 45_000;
 
 const idleView: CallView = {
   phase: 'idle',
@@ -25,6 +32,8 @@ const idleView: CallView = {
   muted: false,
   connectedAt: null,
   notice: null,
+  connecting: false,
+  lastDurationMs: null,
 };
 
 export const callView = writable<CallView>(idleView);
@@ -34,6 +43,14 @@ let media: CallMedia | null = null;
 let role: 'caller' | 'callee' | null = null;
 let view: CallView = idleView;
 let attempt = 0;
+let noAnswerTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearNoAnswerTimer() {
+  if (noAnswerTimer) {
+    clearTimeout(noAnswerTimer);
+    noAnswerTimer = null;
+  }
+}
 
 callView.subscribe((next) => {
   view = next;
@@ -45,10 +62,12 @@ function patch(next: Partial<CallView>) {
 
 function reset(phase: CallPhase = 'idle', notice: string | null = null) {
   attempt += 1;
+  clearNoAnswerTimer();
   media?.stop();
   media = null;
   role = null;
-  callView.set({ ...idleView, phase, peerName: view.peerName, notice });
+  const lastDurationMs = view.connectedAt ? Date.now() - view.connectedAt : null;
+  callView.set({ ...idleView, phase, peerName: view.peerName, notice, lastDurationMs });
 }
 
 function send(type: CallEnvelope['type'], payload?: Record<string, unknown> | null) {
@@ -118,6 +137,8 @@ function handleEnvelope(envelope: CallEnvelope) {
       muted: false,
       connectedAt: null,
       notice: null,
+      connecting: false,
+      lastDurationMs: null,
     });
     return;
   }
@@ -147,6 +168,8 @@ function handleEnvelope(envelope: CallEnvelope) {
     return;
   }
   if (envelope.type === 'accept' && role === 'caller') {
+    clearNoAnswerTimer();
+    patch({ connecting: true });
     void (async () => {
       try {
         const current = await ensureMedia();
@@ -169,7 +192,7 @@ function handleEnvelope(envelope: CallEnvelope) {
         }
         const answer = await current.acceptOffer(offer);
         send('answer', { type: answer.type, sdp: answer.sdp });
-        patch({ phase: 'active', connectedAt: Date.now() });
+        patch({ phase: 'active', connectedAt: Date.now(), connecting: false });
       } catch {
         send('hangup');
         reset('ended');
@@ -185,7 +208,7 @@ function handleEnvelope(envelope: CallEnvelope) {
       }
       try {
         await media.acceptAnswer(answer);
-        patch({ phase: 'active', connectedAt: Date.now() });
+        patch({ phase: 'active', connectedAt: Date.now(), connecting: false });
       } catch {
         send('hangup');
         reset('ended');
@@ -212,6 +235,7 @@ export function connectCallSignaling() {
 
 export function disconnectCallSignaling() {
   attempt += 1;
+  clearNoAnswerTimer();
   if (view.phase === 'calling' || view.phase === 'ringing' || view.phase === 'active') {
     send('hangup');
   }
@@ -241,6 +265,8 @@ export async function placeDirectCall(conversationId: string, peerName: string) 
     muted: false,
     connectedAt: null,
     notice: null,
+    connecting: false,
+    lastDurationMs: null,
   });
   try {
     await ensureMedia();
@@ -252,6 +278,13 @@ export async function placeDirectCall(conversationId: string, peerName: string) 
     return;
   }
   send('invite', {});
+  clearNoAnswerTimer();
+  noAnswerTimer = setTimeout(() => {
+    if (view.callId === callId && view.phase === 'calling') {
+      send('hangup');
+      reset('ended', 'No answer');
+    }
+  }, NO_ANSWER_MS);
 }
 
 export async function acceptCall() {
@@ -265,6 +298,7 @@ export async function acceptCall() {
     reset('ended', 'Microphone unavailable');
     return;
   }
+  patch({ connecting: true });
   send('accept', {});
 }
 
@@ -280,12 +314,13 @@ export function hangUpCall() {
   if (view.phase !== 'calling' && view.phase !== 'ringing' && view.phase !== 'active') {
     return;
   }
+  const wasActive = view.phase === 'active';
   send('hangup');
-  reset('idle');
+  reset(wasActive ? 'ended' : 'idle');
 }
 
 export function toggleCallMute() {
-  if (!media || view.phase !== 'active') {
+  if (!media || (view.phase !== 'active' && view.phase !== 'calling')) {
     return;
   }
   const muted = !view.muted;

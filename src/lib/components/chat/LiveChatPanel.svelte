@@ -290,37 +290,43 @@
     return !Number.isNaN(readAt) && !Number.isNaN(sentAt) && readAt >= sentAt;
   }
 
+  // Clock time in the bubble; the day goes in a divider above, as in other messaging apps.
   function formatMessageTime(value: string) {
     const date = new Date(value);
-    const deltaMs = Date.now() - date.getTime();
-
     if (Number.isNaN(date.getTime())) {
       return value;
     }
+    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
 
-    const minutes = Math.max(Math.round(deltaMs / 60000), 1);
+  function messageDayKey(value: string) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toDateString();
+  }
 
-    if (minutes < 60) {
-      return `${minutes}m`;
-    }
+  function messageDayLabel(value: string) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    const sameYear = date.getFullYear() === today.getFullYear();
+    return date.toLocaleDateString(undefined, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      ...(sameYear ? {} : { year: 'numeric' })
+    });
+  }
 
-    const hours = Math.round(minutes / 60);
-
-    if (hours < 24) {
-      return `${hours}h`;
-    }
-
-    const days = Math.round(hours / 24);
-
-    if (days < 7) {
-      return `${days}d`;
-    }
-
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    const year = `${date.getFullYear()}`;
-
-    return `${month}/${day}/${year}`;
+  // Name once per run of messages from the same person, like a group chat elsewhere.
+  function showsAuthor(message: ChatMessage, previous: ChatMessage | undefined) {
+    if (!(message.showAuthor ?? true)) return false;
+    if (!previous || previous.authorUsername !== message.authorUsername) return true;
+    if (messageDayKey(previous.createdAt) !== messageDayKey(message.createdAt)) return true;
+    return new Date(message.createdAt).getTime() - new Date(previous.createdAt).getTime() > 5 * 60_000;
   }
 
   function openReportComposer(message: ChatMessage) {
@@ -766,10 +772,28 @@
         void chooseMention(mentionResults[0].username);
         return;
       }
+      // On phones Enter adds a line, as in other messaging apps; the send button sends.
+      if (window.matchMedia('(pointer: coarse)').matches) {
+        return;
+      }
       event.preventDefault();
       void submitMessage();
     }
   }
+
+  const COMPOSER_MAX_HEIGHT = 132;
+
+  function growComposer() {
+    if (!composerElement) return;
+    composerElement.style.height = 'auto';
+    composerElement.style.height = `${Math.min(composerElement.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
+  }
+
+  $: if (composerElement && draftMessage === '') {
+    composerElement.style.height = '';
+  }
+
+  $: canSend = Boolean(draftMessage.trim()) || pendingAttachments.length > 0;
 
   function registerMessageElement(node: HTMLElement, messageId: string) {
     messageElements.set(messageId, node);
@@ -845,10 +869,14 @@
       {#if visibleMessages.length === 0}
         <div class="empty-state">{emptyCopy}</div>
       {:else}
-        {#each visibleMessages as message (message.id)}
+        {#each visibleMessages as message, messageIndex (message.id)}
+          {@const previousMessage = messageIndex > 0 ? visibleMessages[messageIndex - 1] : undefined}
           {@const photos = (message.attachments ?? []).filter((item) => item.kind === 'image' && item.url)}
           {@const files = (message.attachments ?? []).filter((item) => item.kind !== 'image')}
           {@const caption = !messageBodyIsHidden(message) && Boolean(message.body.trim())}
+          {#if !previousMessage || messageDayKey(previousMessage.createdAt) !== messageDayKey(message.createdAt)}
+            <div class="day-divider" role="separator"><span>{messageDayLabel(message.createdAt)}</span></div>
+          {/if}
           <article
             id={`comment-${message.id}`}
             class:highlighted={highlightedCommentId === message.id}
@@ -864,7 +892,7 @@
               class:photo-stack={photos.length > 0}
               class:multi-photo={photos.length > 1}
             >
-              {#if message.showAuthor ?? true}
+              {#if showsAuthor(message, previousMessage)}
                 <a class="author-link" href={`/profile/${message.authorUsername}`}>{message.authorUsername}</a>
               {/if}
               {#if message.replyAuthor || message.replyPreview}
@@ -920,7 +948,7 @@
                         <span class="message-footer">
                           <span class="message-time">{formatMessageTime(message.createdAt)}</span>
                           {#if message.isOwn}
-                            <span class="receipt" aria-label={messageIsRead(message.createdAt) ? 'Read' : 'Delivered'}>{messageIsRead(message.createdAt) ? '✓✓' : '✓'}</span>
+                            <span class="receipt" class:read={messageIsRead(message.createdAt)} aria-label={messageIsRead(message.createdAt) ? 'Read' : 'Delivered'}>{messageIsRead(message.createdAt) ? '✓✓' : '✓'}</span>
                           {/if}
                           {#if message.editedAt}
                             <span class="edited-mark">edited</span>
@@ -945,7 +973,7 @@
                       <span class="message-footer">
                         <span class="message-time">{formatMessageTime(message.createdAt)}</span>
                         {#if message.isOwn}
-                          <span class="receipt" aria-label={messageIsRead(message.createdAt) ? 'Read' : 'Delivered'}>{messageIsRead(message.createdAt) ? '✓✓' : '✓'}</span>
+                          <span class="receipt" class:read={messageIsRead(message.createdAt)} aria-label={messageIsRead(message.createdAt) ? 'Read' : 'Delivered'}>{messageIsRead(message.createdAt) ? '✓✓' : '✓'}</span>
                         {/if}
                         {#if message.editedAt}
                           <span class="edited-mark">edited</span>
@@ -961,7 +989,7 @@
                 <div class="message-footer photo-footer">
                   <span class="message-time">{formatMessageTime(message.createdAt)}</span>
                   {#if message.isOwn}
-                    <span class="receipt" aria-label={messageIsRead(message.createdAt) ? 'Read' : 'Delivered'}>{messageIsRead(message.createdAt) ? '✓✓' : '✓'}</span>
+                    <span class="receipt" class:read={messageIsRead(message.createdAt)} aria-label={messageIsRead(message.createdAt) ? 'Read' : 'Delivered'}>{messageIsRead(message.createdAt) ? '✓✓' : '✓'}</span>
                   {/if}
                   {#if message.editedAt}
                     <span class="edited-mark">edited</span>
@@ -1065,25 +1093,8 @@
         >
       </div>
     {/if}
-    {#if allowAttachments && viewerSignedIn}
-      <div class="attach-row">
-        <button aria-label="Add a photo" class="attach-button" type="button" on:click={() => photoInput?.click()}>
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14">
-            <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-            <circle cx="8.5" cy="10" r="1.5" fill="currentColor" />
-            <path d="M21 16l-5-5-8 8" fill="none" stroke="currentColor" stroke-width="2" />
-          </svg>
-        </button>
-        <button aria-label="Add a file" class="attach-button" type="button" on:click={() => fileInput?.click()}>
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14">
-            <path
-              d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.82-2.83l8.48-8.48"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            />
-          </svg>
-        </button>
+    {#if allowAttachments && viewerSignedIn && pendingAttachments.length > 0}
+      <div class="attach-previews">
         {#each pendingAttachments as item (item.id)}
           <div class="attach-preview">
             {#if item.previewUrl}
@@ -1097,6 +1108,67 @@
           </div>
         {/each}
       </div>
+    {/if}
+    {#if attachmentError}
+      <p class="attach-error" role="alert">{attachmentError}</p>
+    {/if}
+    <div class="composer-row">
+      {#if allowAttachments && viewerSignedIn}
+        <button aria-label="Add a photo" title="Add a photo" class="attach-button" type="button" on:click={() => photoInput?.click()}>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
+            <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+            <circle cx="8.5" cy="10" r="1.5" fill="currentColor" />
+            <path d="M21 16l-5-5-8 8" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+        </button>
+        <button aria-label="Add a file" title="Add a file" class="attach-button" type="button" on:click={() => fileInput?.click()}>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
+            <path
+              d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.82-2.83l8.48-8.48"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+          </svg>
+        </button>
+      {/if}
+      <div class="composer-input-shell">
+        <MentionMenu results={mentionResults} onSelect={chooseMention} />
+        <textarea
+          bind:this={composerElement}
+          bind:value={draftMessage}
+          on:focus={syncPanelHeight}
+          on:input={(event) => {
+            syncMentions(event);
+            growComposer();
+          }}
+          on:keydown={handleComposerKeydown}
+          placeholder={placeholder}
+          rows="1"
+        ></textarea>
+      </div>
+      {#if viewerSignedIn}
+        {#if editingMessage}
+          <button class="send-button save" disabled={submitPending || !canSend} type="button" on:click={submitMessage}>Save</button>
+        {:else}
+          <button
+            class="send-button"
+            aria-label={submitLabel}
+            title={submitLabel}
+            disabled={submitPending || !canSend}
+            type="button"
+            on:click={submitMessage}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
+              <path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z" fill="currentColor" />
+            </svg>
+          </button>
+        {/if}
+      {:else}
+        <button class="primary-button" type="button" on:click={promptChatSignIn}>Sign in</button>
+      {/if}
+    </div>
+    {#if allowAttachments && viewerSignedIn}
       <input
         bind:this={photoInput}
         accept="image/jpeg,image/png,image/webp"
@@ -1117,28 +1189,6 @@
         on:change={chooseFile}
       />
     {/if}
-    {#if attachmentError}
-      <p class="attach-error" role="alert">{attachmentError}</p>
-    {/if}
-    <div class="composer-input-shell">
-      <MentionMenu results={mentionResults} onSelect={chooseMention} />
-      <textarea
-        bind:this={composerElement}
-        bind:value={draftMessage}
-        on:focus={syncPanelHeight}
-        on:input={syncMentions}
-        on:keydown={handleComposerKeydown}
-        placeholder={placeholder}
-        rows="3"
-      ></textarea>
-      {#if viewerSignedIn}
-        <button class="primary-button" disabled={submitPending} type="button" on:click={submitMessage}
-          >{editingMessage ? 'Save' : submitLabel}</button
-        >
-      {:else}
-        <button class="primary-button" type="button" on:click={promptChatSignIn}>Sign in</button>
-      {/if}
-    </div>
   </div>
 </section>
 
@@ -1539,21 +1589,27 @@
     font-weight: 600;
   }
 
-  .attach-row {
+  .attach-previews {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 2px;
-    min-height: 36px;
-    padding: 4px 8px;
-    border-bottom: 1px solid var(--panel-border);
+    gap: 8px;
+    padding: 8px 12px 0;
+  }
+
+  .composer-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 8px 8px 0;
   }
 
   .attach-button {
     display: inline-grid;
+    flex: 0 0 auto;
     place-items: center;
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 40px;
     padding: 0;
     border: 0;
     border-radius: 999px;
@@ -1653,6 +1709,26 @@
     letter-spacing: -0.08em;
   }
 
+  .receipt.read {
+    color: #2b8cd6;
+    font-weight: 700;
+  }
+
+  .day-divider {
+    display: flex;
+    justify-content: center;
+    margin: 10px 0 6px;
+  }
+
+  .day-divider span {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--panel-strong);
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
   .message-footer.photo-footer {
     display: flex;
     width: 100%;
@@ -1713,30 +1789,64 @@
   }
 
   textarea {
+    display: block;
     width: 100%;
-    min-height: 72px;
-    padding: 8px 84px 8px 4px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
+    min-height: 40px;
+    max-height: 132px;
+    padding: 9px 14px;
+    border: 1px solid var(--panel-border);
+    border-radius: 20px;
+    background: var(--panel-strong);
     color: var(--text-main);
+    font: inherit;
+    font-size: 16px;
+    line-height: 1.35;
     resize: none;
+    overflow-y: auto;
   }
 
   textarea:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--brand) 55%, transparent);
-    outline-offset: 2px;
+    outline: none;
+    border-color: color-mix(in srgb, var(--brand) 55%, var(--panel-border));
   }
 
   .composer-input-shell {
     position: relative;
-    padding: 0 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .send-button {
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: var(--brand);
+    color: var(--page-bg);
+    cursor: pointer;
+  }
+
+  .send-button.save {
+    width: auto;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .send-button:disabled {
+    background: var(--panel-strong);
+    color: var(--text-soft);
+    cursor: default;
   }
 
   .primary-button {
-    position: absolute;
-    right: 10px;
-    bottom: 10px;
+    flex: 0 0 auto;
+    height: 40px;
     padding: 8px 12px;
     border-radius: var(--radius-sm);
     background: var(--brand);
@@ -1747,12 +1857,7 @@
 
   @media (max-width: 760px) {
     .chat-panel.keyboard-open .composer-card {
-      padding: 8px 12px;
-    }
-
-    .chat-panel.keyboard-open textarea {
-      min-height: 64px;
-      padding: 10px 88px 10px 10px;
+      padding-bottom: 8px;
     }
   }
 

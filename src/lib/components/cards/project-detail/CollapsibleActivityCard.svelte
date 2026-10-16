@@ -5,6 +5,7 @@
   import { formatLocalDateTimeRange } from '$lib/utils/time';
   import { searchPeopleSuggestions } from '$lib/services/queries/account';
   import { showToast } from '$lib/stores/toast';
+  import { openPlaceOnMap } from '$lib/stores/mapFocus';
   import { buildShareUrl } from '$lib/utils/sharePrefill';
 
   export let activity: ProjectActivityItem;
@@ -12,6 +13,8 @@
   export let highlighted = false;
   export let readOnly = false;
   export let historyMode = false;
+  /** Agenda row under the calendar: fixed two-line row with time, title, place and a fill chip. */
+  export let agenda = false;
   export let badgeLabel: string | null = null;
   export let badgeClass: 'complete' | 'upcoming' | 'current' | 'locked' | null = null;
   export let historyRatingSummary: string | null = null;
@@ -63,6 +66,12 @@
     return `${startDate}, ${startTime} – ${endDate}, ${endTime}`;
   }
 
+  function clockTime(value: string | null | undefined) {
+    const date = value?.trim() ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
   function factLine() {
     return [placeLabel(), dateLine()].filter(Boolean).join(' · ');
   }
@@ -86,6 +95,13 @@
 
   function mapHref() {
     return `https://www.openstreetmap.org/search?query=${encodeURIComponent(activity.locationLabel)}`;
+  }
+
+  function showOnMap(event: MouseEvent) {
+    if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+    event.preventDefault();
+    sheetOpen = false;
+    openPlaceOnMap(activity.locationLabel);
   }
 
   async function shareActivity() {
@@ -154,6 +170,13 @@
       : activity.committedCount >= activity.minimumParticipants
         ? 'met'
         : 'partial';
+  $: fillChipLabel = activity.rolesLocked
+    ? 'Ended'
+    : activity.isActive
+      ? 'Live'
+      : neededParticipants > 0
+        ? `Need ${neededParticipants}`
+        : `${activity.committedCount}/${activity.minimumParticipants}`;
   $: noteText = activity.note.trim();
   $: showNote = Boolean(noteText);
   $: hasOpenRolesForViewer =
@@ -187,9 +210,29 @@
   class:expanded={sheetOpen}
   class:highlighted
   class:history-mode={historyMode}
+  class:agenda
   class={`activity-card-shell signup-${signupTone}`}
   data-participation-target={hasOpenRolesForViewer ? 'activity-signup' : undefined}
 >
+  {#if agenda}
+    <button
+      id={`activity-${activity.id}`}
+      class="agenda-row"
+      type="button"
+      title={activity.title}
+      on:click={openActivitySheet}
+    >
+      <span class="agenda-time">
+        <span>{clockTime(activity.startAt)}</span>
+        <span class="agenda-end">{clockTime(activity.endAt)}</span>
+      </span>
+      <span class="agenda-main">
+        <strong>{activity.title}</strong>
+        <span>{placeLabel() || 'Place to be confirmed'}</span>
+      </span>
+      <span class={`agenda-chip ${activity.rolesLocked ? 'locked' : signupTone}`}>{fillChipLabel}</span>
+    </button>
+  {:else}
   <button id={`activity-${activity.id}`} class="collapse-toggle" type="button" on:click={openActivitySheet}>
     <span class="activity-head">
       <strong>{activity.title}</strong>
@@ -206,13 +249,14 @@
       <span class="creator-tag">{activity.authorUsername}</span>
     </span>
   </button>
+  {/if}
 
   <OverlaySheet activity bind:open={sheetOpen} elevated title={activity.title}>
     {#if sheetOpen}
       <div class="activity-body">
         {#if placeLabel()}
           {#if !activity.isOnline && activity.locationLabel}
-            <a class="sheet-place map-link" href={mapHref()} target="_blank" rel="noopener noreferrer">
+            <a class="sheet-place map-link" href={mapHref()} title="Show on map" on:click={showOnMap}>
               {placeLabel()}
             </a>
           {:else}
@@ -345,6 +389,95 @@
     border-radius: 0;
     background: var(--panel-strong);
     overflow: hidden;
+  }
+
+  .activity-card-shell.agenda {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .agenda-row {
+    width: 100%;
+    height: 60px;
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 0 12px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .agenda-row:hover,
+  .agenda-row:focus-visible,
+  .activity-card-shell.agenda.highlighted .agenda-row {
+    background: var(--brand-soft);
+  }
+
+  .agenda-time {
+    display: grid;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+  }
+
+  .agenda-end,
+  .agenda-main span {
+    color: var(--text-muted, var(--text-main));
+    font-weight: 500;
+  }
+
+  .agenda-main {
+    display: grid;
+    min-width: 0;
+    line-height: 1.3;
+  }
+
+  .agenda-main strong,
+  .agenda-main span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .agenda-main strong {
+    font-size: 15px;
+  }
+
+  .agenda-main span {
+    font-size: 13px;
+  }
+
+  .agenda-chip {
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    background: color-mix(in srgb, var(--brand) 16%, transparent);
+    color: var(--brand-strong);
+  }
+
+  .agenda-chip.empty {
+    background: color-mix(in srgb, #ef4444 14%, transparent);
+    color: #b91c1c;
+  }
+
+  .agenda-chip.partial {
+    background: color-mix(in srgb, var(--status-yellow) 26%, transparent);
+    color: color-mix(in srgb, var(--status-yellow) 40%, black);
+  }
+
+  .agenda-chip.locked {
+    background: var(--panel-strong);
+    color: var(--text-muted, var(--text-main));
   }
 
   .activity-card-shell.signup-empty {
