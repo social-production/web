@@ -206,6 +206,9 @@
     if (!onDeleteMessage) {
       return;
     }
+    if (!window.confirm('Delete this message for everyone? Photos and files in it are removed too.')) {
+      return;
+    }
     await onDeleteMessage(message.id);
   }
 
@@ -1077,7 +1080,7 @@
       {#if conversationActions && menuOwn && onEditMessage}
         <button type="button" role="menuitem" on:click={() => beginEdit(menuMessage)}>Edit</button>
       {/if}
-      {#if conversationActions && menuOwn && onDeleteMessage}
+      {#if menuOwn && onDeleteMessage}
         <button type="button" role="menuitem" on:click={() => runMessageDelete(menuMessage)}>Delete</button>
       {/if}
       {#if !menuOwn && subjectId}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { showToast } from '$lib/stores/toast';
   import { buildShareUrl } from '$lib/utils/sharePrefill';
+  import { shareLink } from '$lib/utils/share';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import PlanCriterionRatingRow from '$lib/components/shared/PlanCriterionRatingRow.svelte';
   import type {
@@ -120,13 +121,10 @@
   $: canShareLink = typeof window !== 'undefined' && window.location.pathname.startsWith('/projects/');
 
   async function copyPlanLink() {
-    const url = buildShareUrl(`${window.location.pathname}?plan=${plan.id}`);
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('Plan link copied');
-    } catch {
-      showToast('Could not copy the link', 'error');
-    }
+    await shareLink({
+      url: buildShareUrl(`${window.location.pathname}?plan=${plan.id}`),
+      title: plan.title
+    });
   }
 
   async function saveAssessmentComment() {
@@ -270,8 +268,8 @@
   </div>
   <div slot="header-actions">
     {#if canShareLink}
-      <button class="text-button" type="button" title="Copy a link to this plan" on:click={copyPlanLink}>
-        Copy link
+      <button class="text-button" type="button" title="Share this plan" on:click={copyPlanLink}>
+        Share
       </button>
     {/if}
     {#if allowEdit}

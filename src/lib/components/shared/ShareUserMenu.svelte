@@ -3,6 +3,17 @@
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import PlatformMark from '$lib/components/shared/PlatformMark.svelte';
   import type { DetailMember, ShareTargetResult } from '$lib/types/detail';
+  import { canUseNativeShare, shareLink, shareTargets } from '$lib/utils/share';
+  import { onMount } from 'svelte';
+
+  let nativeShare = false;
+  onMount(() => {
+    nativeShare = canUseNativeShare();
+  });
+
+  function outsideTitle() {
+    return shareTitle ?? (typeof document !== 'undefined' ? document.title : '');
+  }
 
   export let buttonLabel = 'Share +';
   export let menuTitle = 'Share';
@@ -11,6 +22,8 @@
   export let createPostLabel = 'Create post';
   export let createPost: (() => void | Promise<void>) | null = null;
   export let copyLinkUrl: string | null = null;
+  /** Title passed to the device share sheet and share links; defaults to the page title. */
+  export let shareTitle: string | null = null;
   export let contacts: DetailMember[] = [];
   export let searchContacts: ((query: string) => Promise<DetailMember[]>) | null = null;
   export let submitShare: (username: string) => Promise<ShareTargetResult> = async () => ({
@@ -142,6 +155,28 @@
 
   <OverlaySheet {open} labelledById="share-sheet-title" title={menuTitle} on:close={handleClose}>
     <svelte:fragment slot="toolbar">
+    {#if copyLinkUrl}
+        <section class="share-out" aria-label="Share outside the app">
+          <span class="share-out-label">Share outside the app</span>
+          <div class="share-out-row">
+            {#if nativeShare}
+              <button
+                class="share-out-target primary"
+                type="button"
+                on:click={() => void shareLink({ url: copyLinkUrl ?? '', title: outsideTitle() })}
+              >
+                Share…
+              </button>
+            {/if}
+            {#each shareTargets({ url: copyLinkUrl, title: outsideTitle() }) as target (target.id)}
+              <a class="share-out-target" href={target.href} target="_blank" rel="noopener noreferrer">
+                {target.label}
+              </a>
+            {/each}
+          </div>
+        </section>
+      {/if}
+      <span class="share-out-label people-label">Send to someone on Social Production</span>
       <div class="share-search">
         <label class="sr-only" for="share-people-search">{menuTitle}</label>
         <input
@@ -155,6 +190,7 @@
         />
       </div>
     </svelte:fragment>
+
 
     {#if selected.length > 0}
       <div class="selected-row" aria-label="Selected recipients">
@@ -214,6 +250,59 @@
 </div>
 
 <style>
+  .share-out {
+    display: grid;
+    gap: 8px;
+    padding: 4px 16px 14px;
+  }
+
+  .people-label {
+    display: block;
+    padding: 0 16px 6px;
+  }
+
+  .share-out-label {
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .share-out-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .share-out-target {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel-strong);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .share-out-target.primary {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: var(--on-brand, #fff);
+  }
+
+  .share-out-target:hover:not(.primary),
+  .share-out-target:focus-visible {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+  }
+
   .share-shell {
     display: flex;
     min-width: 0;

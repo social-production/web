@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { deleteOwnComment } from '$lib/services/commands/shared';
+  import { showToast } from '$lib/stores/toast';
   import { onMount } from 'svelte';
   import { invalidate } from '$app/navigation';
   import { page } from '$app/stores';
@@ -92,6 +94,16 @@
 
     await refreshDiscussion();
   }
+
+  async function deleteOwnChatComment(commentId: string) {
+    try {
+      await deleteOwnComment(commentId);
+      showToast('Message deleted');
+    } catch {
+      showToast('Could not delete that message', 'error');
+    }
+    await refreshDiscussion();
+  }
 </script>
 
 <section class="chat-shell" class:chat-shell-fullscreen={fullscreen}>
@@ -107,6 +119,7 @@
       await refreshDiscussion();
     }}
     onSubmitMessage={submitEventMessage}
+    onDeleteMessage={deleteOwnChatComment}
     placeholder="Message members..."
     reportTargetType="comment"
     showHeader={true}

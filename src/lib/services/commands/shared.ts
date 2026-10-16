@@ -8,6 +8,10 @@ import { applyVoteTarget, invalidateFeedEngagementCache } from '$lib/utils/feedS
 import type { VoteEngagement } from '$lib/utils/feedSignals';
 import { measureAsync } from '$lib/utils/performanceDebug';
 
+export async function deleteOwnComment(commentId: string) {
+  await currentAdapter.deleteComment?.(commentId);
+}
+
 export function addComment(
   subject: CommentSubjectRef,
   body: string,

@@ -358,6 +358,7 @@
           createPost={handleCreatePostFromProject}
           createPostLabel="Create post"
           copyLinkUrl={buildShareUrl(`/projects/${data.slug}`)}
+          shareTitle={data.title}
         />
       {/if}
 

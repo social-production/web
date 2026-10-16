@@ -205,6 +205,10 @@ export async function fetchSetVote(
 
 export type CommentSubjectType = import('$lib/types/governance').CommentSubjectType;
 
+export async function fetchDeleteComment(commentId: string): Promise<void> {
+  await apiClient.delete(`/governance/comments/${commentId}`);
+}
+
 export async function fetchAddComment(
   subject: { id: string; type: CommentSubjectType },
   body: string,

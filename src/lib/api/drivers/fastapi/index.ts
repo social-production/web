@@ -54,6 +54,7 @@ import {
   fetchSetVote,
   fetchComments,
   fetchAddComment,
+  fetchDeleteComment,
   fetchSubmitReport,
   fetchSetReportVote,
   fetchSharePostWithUser,
@@ -321,6 +322,10 @@ export function createFastApiDriver(): AppAdapter {
 
     async addComment(subject, body, parentId, file) {
       return fetchAddComment(subject, body, parentId, file);
+    },
+
+    async deleteComment(commentId) {
+      return fetchDeleteComment(commentId);
     },
 
     async submitReport(subjectId, target, reason, details) {

@@ -80,9 +80,37 @@
 
   afterUpdate(placeButton);
 
+  // Keep showing the chosen next vote even if the list reorders after a vote lands.
+  let followKey: string | null = null;
+  $: if (followKey) {
+    const at = items.findIndex((item) => keyOf(item) === followKey);
+    if (at >= 0) index = at;
+  }
+  $: if (!open) followKey = null;
+
+  // Votes cast since the sheet opened; voting moves on to the next one until all are done.
+  let votedThisRound = new Set<string>();
+  const keyOf = (item: PendingVoteItem) => `${item.voteKind}:${item.id}`;
+
   function openVotes() {
-    index = 0;
+    votedThisRound = new Set();
+    const firstUnvoted = items.findIndex((item) => !item.voteSummary.activeVote);
+    index = firstUnvoted >= 0 ? firstUnvoted : 0;
     open = true;
+  }
+
+  function advanceAfterVote(from: PendingVoteItem) {
+    votedThisRound = new Set([...votedThisRound, keyOf(from)]);
+    const start = items.findIndex((item) => keyOf(item) === keyOf(from));
+    for (let step = 1; step <= items.length; step += 1) {
+      const candidate = items[(Math.max(start, 0) + step) % items.length];
+      if (candidate && !votedThisRound.has(keyOf(candidate))) {
+        index = items.indexOf(candidate);
+        followKey = keyOf(candidate);
+        return;
+      }
+    }
+    open = false;
   }
 
   function showNext() {
@@ -90,13 +118,16 @@
       return;
     }
     index = (index + 1) % items.length;
+    followKey = null;
   }
 
   function cast(item: PendingVoteItem, vote: ProjectApprovalVote) {
     const next = item.voteSummary.activeVote === vote ? null : vote;
-    open = false;
+    advanceAfterVote(item);
     void onVote(item, next);
   }
+
+  $: remaining = items.filter((item) => !votedThisRound.has(keyOf(item))).length;
 </script>
 
 {#if items.length > 0}
@@ -139,6 +170,7 @@
         {#if items.length > 1}
           <button class="vote-next" type="button" on:click={showNext}>
             <span>Next</span>
+            <span class="vote-progress">· {remaining} left</span>
             <svg aria-hidden="true" viewBox="0 0 24 24">
               <path
                 d="M9 6.5 14.5 12 9 17.5"
@@ -193,6 +225,13 @@
   .vote-footer {
     display: grid;
     width: 100%;
+  }
+
+  .vote-progress {
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
   }
 
   .vote-next {

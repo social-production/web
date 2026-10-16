@@ -317,6 +317,7 @@
           createPost={data.isPrivate ? null : handleCreatePostFromEvent}
           createPostLabel="Create post"
           copyLinkUrl={buildShareUrl(`/events/${data.slug}`)}
+          shareTitle={data.title}
         />
       {/if}
 

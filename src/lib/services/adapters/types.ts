@@ -565,6 +565,8 @@ export interface AppAdapter {
     subjectType: CommentSubjectType | string,
     subjectId: string
   ): Promise<DetailComment[]>;
+  /** Authors can take back their own chat comment, photos included. */
+  deleteComment?(commentId: string): Promise<void>;
   addComment(
     subject: CommentSubjectRef,
     body: string,

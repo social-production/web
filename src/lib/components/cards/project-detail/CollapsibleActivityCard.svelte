@@ -7,6 +7,7 @@
   import { showToast } from '$lib/stores/toast';
   import { openPlaceOnMap } from '$lib/stores/mapFocus';
   import { buildShareUrl } from '$lib/utils/sharePrefill';
+  import { shareLink } from '$lib/utils/share';
 
   export let activity: ProjectActivityItem;
   export let expanded = false;
@@ -120,13 +121,10 @@
   }
 
   async function shareActivity() {
-    const url = buildShareUrl(`${window.location.pathname}?activity=${activity.id}`);
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('Activity link copied');
-    } catch {
-      showToast('Could not copy the link', 'error');
-    }
+    await shareLink({
+      url: buildShareUrl(`${window.location.pathname}?activity=${activity.id}`),
+      title: activity.title
+    });
   }
 
   function roleHasOpenCapacity(role: ProjectActivityRole) {
@@ -256,9 +254,7 @@
           <span>{shortDay(activity.startAt)}</span>
         {/if}
         <span>{clockTime(activity.startAt)}</span>
-        {#if multiDayEnd(activity.startAt, activity.endAt)}
-          <span class="agenda-end">→ {multiDayEnd(activity.startAt, activity.endAt)}</span>
-        {:else if !historyMode}
+        {#if !historyMode}
           <span class="agenda-end">{clockTime(activity.endAt)}</span>
         {/if}
       </span>
@@ -266,7 +262,7 @@
         <strong>{activity.title}</strong>
         <span>
           {#if multiDayEnd(activity.startAt, activity.endAt)}
-            Until {multiDayEnd(activity.startAt, activity.endAt)}, {clockTime(activity.endAt)} ·
+            Until {multiDayEnd(activity.startAt, activity.endAt)} ·
           {/if}
           {placeLabel() || 'Place to be confirmed'}
           {#if historyMode && historyRatingSummary}
@@ -452,6 +448,19 @@
     font: inherit;
     text-align: left;
     cursor: pointer;
+  }
+
+  /* Status stripe: red nobody yet, yellow below the minimum, green minimum met or full. */
+  .activity-card-shell.agenda:not(.history-mode).signup-empty .agenda-row {
+    box-shadow: inset 3px 0 0 #ef4444;
+  }
+
+  .activity-card-shell.agenda:not(.history-mode).signup-partial .agenda-row {
+    box-shadow: inset 3px 0 0 var(--status-yellow);
+  }
+
+  .activity-card-shell.agenda:not(.history-mode).signup-met .agenda-row {
+    box-shadow: inset 3px 0 0 var(--brand);
   }
 
   .agenda-row:hover,

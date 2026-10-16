@@ -1,7 +1,6 @@
 <script lang="ts">
   import SoftwareGovernanceWizard from '$lib/features/projects/detail/components/SoftwareGovernanceWizard.svelte';
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
-  import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import type {
     ProjectApprovalVote,
     ProjectSoftwareGovernanceData,
@@ -187,24 +186,20 @@
 
 {#if governance}
   <section id="software-governance-panel" class="software-panel">
-    <a class="repo-card" href={normalizeExternalUrl(governance.repositoryUrl)} rel="noreferrer" target="_blank">
-      <strong>Repository</strong>
-      <span>{governance.repositoryUrl}</span>
-    </a>
-
-    <div class="mergers">
-      <strong>Mergers</strong>
+    <div class="repo-row">
+      <a class="repo-link" href={normalizeExternalUrl(governance.repositoryUrl)} rel="noreferrer" target="_blank">
+        {governance.repositoryUrl.replace(/^https?:\/\//, '')}
+      </a>
+      <span class="repo-sep" aria-hidden="true">·</span>
+      <span class="mergers-label">Mergers</span>
       {#if governance.mergeCapabilityMembers.length > 0}
-        <div class="merger-list">
-          {#each governance.mergeCapabilityMembers as member (member.id)}
-            <a class="merger" href={`/profile/${member.username}`} title={`Open ${member.username}'s profile`}>
-              <AvatarBadge size="sm" username={member.username} imageUrl={member.profileImageUrl ?? null} />
-              <span>{member.username}</span>
-            </a>
-          {/each}
-        </div>
+        {#each governance.mergeCapabilityMembers as member, index (member.id)}
+          <a class="merger" href={`/profile/${member.username}`} title={`Open ${member.username}'s profile`}
+            >{member.username}</a
+          >{#if index < governance.mergeCapabilityMembers.length - 1}<span class="repo-comma">,</span>{/if}
+        {/each}
       {:else}
-        <span class="merger-empty">No one can merge yet.</span>
+        <span class="merger-empty">none yet</span>
       {/if}
     </div>
 
@@ -418,62 +413,37 @@
     color: var(--text-soft);
   }
 
-  /* Same look as the repository link on the Links tab. */
-  .repo-card {
-    display: grid;
-    gap: 2px;
-    padding: 10px 12px;
+  /* One quiet line: repository link, then who can merge. */
+  .repo-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 6px;
+    padding: 8px 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-strong);
-    color: var(--text-main);
-    text-decoration: none;
+    font-size: 13px;
   }
 
-  .repo-card span {
+  .repo-row .repo-link,
+  .merger {
     color: var(--brand-strong);
-    font-size: 13px;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
     overflow-wrap: anywhere;
   }
 
-  .mergers {
-    display: grid;
-    gap: 6px;
-    padding: 10px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-strong);
-  }
-
-  .merger-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .merger {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px 3px 3px;
-    border: 1px solid var(--panel-border);
-    border-radius: 999px;
-    background: var(--panel);
-    color: var(--brand-strong);
-    font-size: 13px;
-    font-weight: 700;
-    text-decoration: none;
-  }
-
-  .merger:hover,
-  .merger:focus-visible {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-  }
-
+  .repo-sep,
+  .repo-comma,
+  .mergers-label,
   .merger-empty {
     color: var(--text-soft);
-    font-size: 13px;
+  }
+
+  .mergers-label {
+    font-weight: 600;
   }
 
   .detail-card {
