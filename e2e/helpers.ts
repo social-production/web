@@ -39,13 +39,13 @@ async function clickWizardContinue(page: Page) {
 
 export async function createProjectViaUi(
   page: Page,
-  opts: { title: string; description: string; modeLabel?: RegExp }
+  opts: { title: string; description: string; modeLabel?: RegExp; channel?: string }
 ) {
   await page.goto('/create/project', { waitUntil: 'networkidle' });
   await expect(page.getByRole('heading', { name: 'Create project' })).toBeVisible();
 
   if (opts.modeLabel) {
-    const modeOption = page.locator('main').getByText(opts.modeLabel).first();
+    const modeOption = page.getByRole('dialog').getByText(opts.modeLabel).first();
     if (await modeOption.isVisible().catch(() => false)) {
       await modeOption.click();
     }
@@ -53,11 +53,9 @@ export async function createProjectViaUi(
   await clickWizardContinue(page);
 
   // Basics
-  await page.locator('main label').filter({ hasText: /^Title/ }).locator('input').fill(opts.title);
+  await page.getByRole('textbox', { name: /^Title/ }).fill(opts.title);
   await page
-    .locator('main label')
-    .filter({ hasText: /Proposal description|Description/i })
-    .locator('textarea')
+    .getByRole('textbox', { name: /Proposal description|Description/i })
     .fill(opts.description);
   await clickWizardContinue(page);
 
@@ -69,12 +67,10 @@ export async function createProjectViaUi(
   await clickWizardContinue(page);
 
   // Scope — tag Platform channel
-  const channelInput = page
-    .locator('main')
-    .getByPlaceholder(/search channels|Type to search channels/i)
-    .first();
-  await channelInput.fill('platform');
-  const suggestion = page.locator('main').getByRole('option', { name: /^Platform$/i }).first();
+  const channelInput = page.getByPlaceholder(/search channels|Type to search channels/i).first();
+  const channel = opts.channel ?? 'platform';
+  await channelInput.fill(channel);
+  const suggestion = page.getByRole('option', { name: new RegExp(`^${channel}$`, 'i') }).first();
   await expect(suggestion).toBeVisible({ timeout: 10_000 });
   await suggestion.click();
   await expect(channelInput).toHaveValue('');
