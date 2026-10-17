@@ -6,11 +6,11 @@
   export let expanded = false;
   export let highlighted = false;
 
-  function timeLabel() {
-    if (!request.scheduledAt || !request.endsAt) {
+  function timeLabel(current: ProjectServiceRequestItem) {
+    if (!current.scheduledAt || !current.endsAt) {
       return 'No time requested';
     }
-    return formatLocalDateTimeRange(request.scheduledAt, request.endsAt);
+    return formatLocalDateTimeRange(current.scheduledAt, current.endsAt);
   }
 
   function statusLabel(status: ProjectServiceRequestStatus) {
@@ -60,7 +60,7 @@
     <div class="request-header">
       <div class="request-copy">
         <strong>{request.title}</strong>
-        <span>{timeLabel()}</span>
+        <span>{timeLabel(request)}</span>
       </div>
       <span class={`phase-badge ${statusTone(request.status)}`}>
         {statusLabel(request.status)}

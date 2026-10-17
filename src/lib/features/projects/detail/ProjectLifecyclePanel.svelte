@@ -1386,8 +1386,8 @@
     scrollElementIntoComfortView(activityComposerElement);
   }
 
-  async function openPersonalServiceRequestComposerForDay(isoDay: string) {
-    setDefaultServiceRequestTimes(isoDay);
+  async function openPersonalServiceRequestComposerForDay(_isoDay: string) {
+    // The caller has already filled the slot's times; resetting them here saved requests with no time.
     showPersonalServiceRequestComposer = true;
     await tick();
     scrollElementIntoComfortView(serviceRequestComposerElement);

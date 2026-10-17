@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
   import CollapsibleServiceRequestCard from '$lib/components/cards/project-detail/CollapsibleServiceRequestCard.svelte';
   import ActivityAgendaList from '$lib/components/cards/project-detail/ActivityAgendaList.svelte';
   import ProjectActivityCalendarCard from '$lib/components/cards/project-detail/ProjectActivityCalendarCard.svelte';
@@ -306,6 +307,28 @@
   function closePersonalServiceRequestComposer() {
     selectedActivityId = '';
     showPersonalServiceRequestComposer = false;
+    clearComposeParam();
+  }
+
+  /** Drop `compose=request` so a reload or back doesn't reopen the form. */
+  function clearComposeParam() {
+    const url = new URL($page.url);
+    if (!url.searchParams.has('compose')) return;
+    url.searchParams.delete('compose');
+    void goto(`${url.pathname}${url.search}${url.hash}`, {
+      replaceState: true,
+      noScroll: true,
+      keepFocus: true
+    });
+  }
+
+  function addPreferredTime() {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isoDay = `${tomorrow.getFullYear()}-${`${tomorrow.getMonth() + 1}`.padStart(2, '0')}-${`${tomorrow.getDate()}`.padStart(2, '0')}`;
+    serviceRequestForm.inputTimeZone = serviceRequestForm.inputTimeZone || getDisplayTimezone();
+    serviceRequestForm.scheduledAt = `${isoDay}T18:00`;
+    serviceRequestForm.endsAt = `${isoDay}T19:00`;
   }
 
   async function openDirectRequestComposer() {
@@ -689,6 +712,10 @@
                 <input bind:value={serviceRequestForm.endsAt} disabled={Boolean(selectedActivityId)} type="datetime-local" />
               </label>
             </div>
+          {:else}
+            <button class="text-button add-time" type="button" on:click={addPreferredTime}>
+              + Add a preferred time (optional)
+            </button>
           {/if}
           <textarea
             bind:value={serviceRequestForm.body}
@@ -1161,6 +1188,10 @@
   }
 
   .conversation-link,
+  .add-time {
+    justify-self: start;
+  }
+
   .text-button {
     color: var(--brand-strong);
     font-size: 12px;
