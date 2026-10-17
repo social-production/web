@@ -3,7 +3,7 @@
 
   /** A channel/community picture, falling back to the standard icon. */
   export let imageUrl: string | null | undefined = null;
-  export let kind: 'channel' | 'community' = 'channel';
+  export let kind: 'channel' | 'community' | 'platform' = 'channel';
   export let size = 40;
   export let label = '';
 </script>
@@ -17,7 +17,7 @@
     <img src={imageUrl} alt={label} />
   {:else}
     <SurfaceIcon
-      icon={kind === 'community' ? 'community' : 'channel'}
+      icon={kind}
       size={size >= 40 ? 'md' : 'sm'}
     />
   {/if}

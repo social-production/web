@@ -4,6 +4,7 @@
   import ScopeAvatar from './ScopeAvatar.svelte';
   import { scopeSettingsApi } from '$lib/services/commands/scopes';
   import { showToast } from '$lib/stores/toast';
+  import { validateHandle } from '$lib/utils/handles';
   import type { ScopeSettings, ScopeSettingsKind } from '$lib/types/scopeSettings';
 
   /** Gear sheet: picture, name, description, and (private communities) who decides. */
@@ -70,6 +71,10 @@
   function save() {
     const api = scopeSettingsApi();
     if (!api || !settings) return;
+    if (nameError) {
+      showToast(nameError, 'error');
+      return;
+    }
     const input = {
       name: name.trim() !== settings.name ? name.trim() : undefined,
       description: description.trim() !== settings.description ? description.trim() : undefined,
@@ -83,6 +88,11 @@
     void run(() => api.edit(kind, slug, input), 'Saved');
   }
 
+  $: nameLabel = kind === 'community' ? 'Community name' : 'Channel name';
+  $: nameCheck = validateHandle(name, nameLabel);
+  $: nameError =
+    settings && name.trim() !== settings.name && !nameCheck.ok ? nameCheck.error : '';
+
   $: changed = Boolean(
     settings &&
     (pendingImage || name.trim() !== settings.name || description.trim() !== settings.description)
@@ -95,7 +105,11 @@
       <p class="error">{loadError}</p>
     {:else if settings}
       <section class="picture-row">
-        <ScopeAvatar imageUrl={pendingImage?.preview ?? settings.imageUrl} {kind} size={64} />
+        <ScopeAvatar
+          imageUrl={pendingImage?.preview ?? settings.imageUrl}
+          kind={slug === 'platform' ? 'platform' : kind}
+          size={64}
+        />
         <div class="picture-copy">
           <button
             class="text-button"
@@ -118,7 +132,16 @@
 
       <label class="field">
         <span>Name</span>
-        <input bind:value={name} maxlength="32" disabled={!settings.viewerIsMember} />
+        <input
+          bind:value={name}
+          maxlength="32"
+          aria-invalid={nameError ? 'true' : undefined}
+          aria-describedby="scope-name-hint"
+          disabled={!settings.viewerIsMember}
+        />
+        <span id="scope-name-hint" class="hint" class:name-error={Boolean(nameError)}>
+          {nameError || 'No spaces. Letters, numbers, hyphens or underscores.'}
+        </span>
       </label>
       <label class="field">
         <span>Description</span>
@@ -141,7 +164,7 @@
       </p>
 
       {#if settings.viewerIsMember && (settings.governance === 'collaborative' || settings.viewerEditsDirectly)}
-        <button class="primary" type="button" disabled={busy || !changed} on:click={save}>
+        <button class="primary" type="button" disabled={busy || !changed || Boolean(nameError)} on:click={save}>
           {settings.viewerEditsDirectly ? 'Save' : 'Propose change'}
         </button>
       {/if}
@@ -337,6 +360,10 @@
   .inline-field {
     display: flex;
     gap: 8px;
+  }
+
+  .hint.name-error {
+    color: var(--danger, #c0392b);
   }
 
   .error {

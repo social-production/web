@@ -80,7 +80,7 @@
         <p class="meta">Proposed by {current.proposer}</p>
       {/if}
       {#if current.payload.imageUrl}
-        <ScopeAvatar imageUrl={current.payload.imageUrl} {kind} size={72} />
+        <ScopeAvatar imageUrl={current.payload.imageUrl} kind={slug === 'platform' ? 'platform' : kind} size={72} />
       {/if}
       {#if current.payload.description}
         <blockquote>{current.payload.description}</blockquote>

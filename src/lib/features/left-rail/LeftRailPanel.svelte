@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { page } from '$app/stores';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
   import RailLinkRow from '$lib/components/shared/RailLinkRow.svelte';
   import ScopeDiscoverSheet from '$lib/components/shared/ScopeDiscoverSheet.svelte';
@@ -8,7 +7,6 @@
   import type { BootstrapPayload } from '$lib/types/bootstrap';
 
   export let bootstrap: BootstrapPayload;
-  export let isActive: (href: string) => boolean;
   export let closePanels: () => void;
 
   type RailSection = 'collective' | 'channels' | 'communities';
@@ -74,14 +72,13 @@
     </summary>
     <div class="stack-links">
       <RailLinkRow
-        active={$page.url.pathname === collectiveLink.href && !$page.url.searchParams.has('board')}
         href={collectiveLink.href}
         icon="platform"
+        imageUrl={collectiveLink.imageUrl}
         label={collectiveLink.label}
         on:click={closePanels}
       />
       <RailLinkRow
-        active={$page.url.pathname === '/platform' && $page.url.searchParams.get('board') === '1'}
         href="/platform?board=1"
         icon="shield"
         label="Moderators"
@@ -89,7 +86,6 @@
       />
       {#if isAssetsSurfaceEnabled(bootstrap.featureFlags)}
         <RailLinkRow
-          active={$page.url.pathname === '/platform/assets' || $page.url.pathname.startsWith('/platform/assets/')}
           href="/platform/assets"
           icon="project"
           label="Assets"
@@ -112,7 +108,7 @@
     </summary>
     <div class="stack-links">
       {#each nonPlatformChannels as link}
-        <RailLinkRow active={isActive(link.href)} href={link.href} icon="channel" label={link.label} on:click={closePanels} />
+        <RailLinkRow href={link.href} icon="channel" imageUrl={link.imageUrl} label={link.label} on:click={closePanels} />
       {:else}
         <p class="empty-hint">Join channels to see them here.</p>
       {/each}
@@ -130,7 +126,7 @@
     </summary>
     <div class="stack-links">
       {#each bootstrap.directory.communities as link}
-        <RailLinkRow active={isActive(link.href)} href={link.href} icon="community" label={link.label} on:click={closePanels} />
+        <RailLinkRow href={link.href} icon="community" imageUrl={link.imageUrl} label={link.label} on:click={closePanels} />
       {:else}
         <p class="empty-hint">Join communities to see them here.</p>
       {/each}

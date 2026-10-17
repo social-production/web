@@ -4,7 +4,7 @@
 
 <script lang="ts">
   import ScopeChip from '$lib/components/cards/shared/ScopeChip.svelte';
-  import SurfaceIcon from '$lib/components/cards/shared/SurfaceIcon.svelte';
+  import ScopeGlyph from '$lib/components/cards/shared/ScopeGlyph.svelte';
   import ScopeSheet from '$lib/components/shared/ScopeSheet.svelte';
   import type { SurfaceIconId } from '$lib/utils/surfaceType';
   import type { TagRef } from '$lib/types/feed';
@@ -59,11 +59,11 @@
           <span class="tag-sep" aria-hidden="true">,</span>
         {/if}
         <a class="tag-plain" data-sveltekit-preload-data="hover" href={hrefFor(tag)}>
-          <SurfaceIcon icon={iconFor(tag)} size="sm" />
+          <ScopeGlyph icon={iconFor(tag)} imageUrl={tag.imageUrl} />
           <span>{tag.label}</span>
         </a>
       {:else}
-        <ScopeChip href={hrefFor(tag)} icon={iconFor(tag)} label={tag.label} />
+        <ScopeChip href={hrefFor(tag)} icon={iconFor(tag)} imageUrl={tag.imageUrl} label={tag.label} />
       {/if}
     {/each}
     {#if maxVisible != null && hiddenCount > 0}

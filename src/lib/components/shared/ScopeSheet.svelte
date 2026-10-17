@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { page } from '$app/stores';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
-  import SurfaceIcon from '$lib/components/cards/shared/SurfaceIcon.svelte';
+  import ScopeGlyph from '$lib/components/cards/shared/ScopeGlyph.svelte';
   import type { TagRef } from '$lib/types/feed';
   import type { SurfaceIconId } from '$lib/utils/surfaceType';
 
@@ -80,7 +80,7 @@
           on:click={handleClose}
         >
           <span class="scope-icon">
-            <SurfaceIcon icon={iconFor(tag)} size="md" />
+            <ScopeGlyph icon={iconFor(tag)} imageUrl={tag.imageUrl} size="md" />
           </span>
           <span class="scope-copy">
             <strong>{tag.label}</strong>

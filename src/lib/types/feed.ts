@@ -43,6 +43,7 @@ export interface TagRef {
   slug: string;
   label: string;
   kind: TagKind;
+  imageUrl?: string | null;
 }
 
 export interface CreateResult {
@@ -312,6 +313,11 @@ export interface PersonalActivityItem extends FeedModerationFields {
   createdAt: string;
   latestUpdateAt?: string;
   activityKind?: 'created' | 'updated';
+  latestUpdateBody?: string;
+  isPrivate?: boolean;
+  scheduledAt?: string;
+  timeLabel?: string;
+  locationLabel?: string;
   channelTags: TagRef[];
   communityTags: TagRef[];
   subjectFundProgress?: ProjectFundProgress;

@@ -1051,7 +1051,7 @@
   >
     <aside class="rail left-rail" data-open={leftRailOpen && !isAuthSurface}>
       {#if !isAuthSurface}
-        <LeftRailPanel {bootstrap} {isActive} closePanels={closeCompactPanels} />
+        <LeftRailPanel {bootstrap} closePanels={closeCompactPanels} />
       {/if}
     </aside>
 

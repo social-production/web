@@ -1,4 +1,4 @@
-import { apiClient } from '../client';
+import { apiAssetUrl, apiClient } from '../client';
 import { registerEntityType } from '../typeRegistry';
 import {
   DEFAULT_FEED_PAGE_SIZE,
@@ -12,6 +12,7 @@ import type {
   PersonalFeedItem,
   PublicFeedItem,
   SubjectKind,
+  TagRef,
   VoteDirection
 } from '$lib/types/feed';
 
@@ -21,6 +22,16 @@ interface BackendTagRef {
   slug: string;
   label: string;
   kind: 'channel' | 'community';
+  image_url?: string | null;
+}
+
+function mapTags(tags: BackendTagRef[] | undefined): TagRef[] {
+  return (tags ?? []).map((tag) => ({
+    slug: tag.slug,
+    label: tag.label,
+    kind: tag.kind,
+    imageUrl: tag.image_url ? apiAssetUrl(tag.image_url) : null
+  }));
 }
 
 interface BackendHelpRequestRole {
@@ -231,8 +242,8 @@ function buildCommentActivityHref(item: BackendFeedItem): string {
 }
 
 export function mapPublicItem(item: BackendFeedItem): PublicFeedItem | null {
-  const channelTags = item.channel_tags ?? [];
-  const communityTags = item.community_tags ?? [];
+  const channelTags = mapTags(item.channel_tags);
+  const communityTags = mapTags(item.community_tags);
   const moderation = feedModerationFields(item);
 
   if (item.entity_type === 'help_request') {
@@ -376,8 +387,8 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
     username: item.author_username ?? '',
     profileImageUrl: item.author_profile_image_url ?? undefined
   };
-  const channelTags = item.channel_tags ?? [];
-  const communityTags = item.community_tags ?? [];
+  const channelTags = mapTags(item.channel_tags);
+  const communityTags = mapTags(item.community_tags);
   const source = feedSource(item);
   const moderation = feedModerationFields(item);
 
@@ -493,6 +504,11 @@ export function mapPersonalItem(item: BackendFeedItem): PersonalFeedItem | null 
     createdAt: item.created_at,
     latestUpdateAt,
     activityKind,
+    latestUpdateBody: item.latest_update_body ?? undefined,
+    isPrivate: Boolean(item.is_private),
+    scheduledAt: item.scheduled_at ?? undefined,
+    timeLabel: item.time_label ?? undefined,
+    locationLabel: item.location_label ?? undefined,
     channelTags,
     communityTags,
     subjectSlug: item.slug,

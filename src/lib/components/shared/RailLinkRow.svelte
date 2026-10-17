@@ -1,15 +1,16 @@
 <script lang="ts">
-  import SurfaceIcon from '$lib/components/cards/shared/SurfaceIcon.svelte';
+  import ScopeGlyph from '$lib/components/cards/shared/ScopeGlyph.svelte';
   import type { SurfaceIconId } from '$lib/utils/surfaceType';
 
   export let href: string;
   export let icon: SurfaceIconId;
   export let label: string;
   export let active = false;
+  export let imageUrl: string | null | undefined = null;
 </script>
 
 <a class="rail-link-row" class:active {href} on:click>
-  <SurfaceIcon {icon} size="sm" />
+  <ScopeGlyph {icon} {imageUrl} />
   <span class="label">{label}</span>
   <span class="trailing"><slot name="trailing" /></span>
 </a>

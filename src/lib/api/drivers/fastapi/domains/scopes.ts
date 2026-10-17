@@ -248,6 +248,8 @@ export async function fetchPlatform(): Promise<ScopePageData | null> {
 
     let memberCount = 0;
     let viewerIsMember = false;
+    let imageUrl: string | null = null;
+    let openVotes = 0;
     const channelSlug = res.channel?.slug ?? 'platform';
 
     if (res.channel) {
@@ -255,10 +257,13 @@ export async function fetchPlatform(): Promise<ScopePageData | null> {
         channel: BackendChannel;
         member_count: number;
         viewer_is_member: boolean;
+        open_votes?: number;
       }>(`/scopes/channels/${channelSlug}`);
 
       memberCount = channelRes.member_count;
       viewerIsMember = channelRes.viewer_is_member;
+      imageUrl = channelRes.channel.image_url ? apiAssetUrl(channelRes.channel.image_url) : null;
+      openVotes = channelRes.open_votes ?? 0;
 
       if (viewerIsMember) {
         setScopeMembershipCache('platform', channelSlug, true);
@@ -274,6 +279,8 @@ export async function fetchPlatform(): Promise<ScopePageData | null> {
       description:
         res.channel?.description?.trim() ||
         'The channel for the whole network. Follow it to see platform-wide projects, events, and governance.',
+      imageUrl,
+      openVotes,
       badges: [],
       emptyFeedText: 'No platform activity yet.',
       membership: {

@@ -35,7 +35,11 @@
 <section class="scope-header">
   <div class="title-row">
     <div class="title-block">
-      <ScopeAvatar imageUrl={pageData.imageUrl} kind={settingsKind} size={40} />
+      <ScopeAvatar
+        imageUrl={pageData.imageUrl}
+        kind={pageData.kind === 'platform' ? 'platform' : settingsKind}
+        size={40}
+      />
       <h1>{pageData.title}</h1>
       {#each pageData.badges as badge}
         {#if badge === 'Private'}

@@ -26,6 +26,7 @@ export interface ScopeDirectoryItem {
   href: string;
   visibility?: 'public' | 'private';
   viewerIsMember?: boolean;
+  imageUrl?: string | null;
 }
 
 export interface DiscoverScopeItem {

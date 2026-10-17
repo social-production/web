@@ -1,20 +1,21 @@
 <script lang="ts">
-  import SurfaceIcon from '$lib/components/cards/shared/SurfaceIcon.svelte';
+  import ScopeGlyph from '$lib/components/cards/shared/ScopeGlyph.svelte';
   import type { SurfaceIconId } from '$lib/utils/surfaceType';
 
   export let label: string;
   export let icon: SurfaceIconId = 'channel';
   export let href: string | null = null;
+  export let imageUrl: string | null | undefined = null;
 </script>
 
 {#if href}
   <a class="scope-chip" {href} title={label} aria-label={label}>
-    <SurfaceIcon {icon} size="sm" />
+    <ScopeGlyph {icon} {imageUrl} />
     <span>{label}</span>
   </a>
 {:else}
   <span class="scope-chip" title={label} aria-label={label}>
-    <SurfaceIcon {icon} size="sm" />
+    <ScopeGlyph {icon} {imageUrl} />
     <span>{label}</span>
   </span>
 {/if}
