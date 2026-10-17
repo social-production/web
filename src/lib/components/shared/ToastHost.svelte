@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { portal } from '$lib/utils/portal';
   import { dismissToast, toasts } from '$lib/stores/toast';
 </script>
 
-<div class="toast-host" aria-live="polite">
+<div class="toast-host" aria-live="polite" use:portal={'body'}>
   {#each $toasts as toast (toast.id)}
     <button
       class="toast"
@@ -24,7 +25,7 @@
     position: fixed;
     left: 50%;
     bottom: calc(16px + var(--shell-bottom-nav-offset, 0px));
-    z-index: 85;
+    z-index: var(--z-toast);
     display: grid;
     gap: 6px;
     justify-items: center;
@@ -70,6 +71,7 @@
   .toast-icon {
     display: inline-grid;
     place-items: center;
+    flex: 0 0 18px;
     width: 18px;
     height: 18px;
     border-radius: 999px;
