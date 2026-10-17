@@ -1,6 +1,7 @@
 export { createFastApiClient } from './client';
 
 import { fastapiScopeSettings } from './domains/scopeSettings';
+import { fetchAnswerInvite, fetchPendingInvites } from './domains/invites';
 import type { AppAdapter } from '$lib/services/adapters/types';
 import type { BootstrapPayload } from '$lib/types/bootstrap';
 import { clearAuthenticatedSession } from './auth';
@@ -389,6 +390,12 @@ export function createFastApiDriver(): AppAdapter {
     },
     async getDiscoverScopes(kind, query) {
       return fetchDiscoverScopes(kind, query);
+    },
+    async getPendingInvites() {
+      return fetchPendingInvites();
+    },
+    async answerInvite(id, accept) {
+      return fetchAnswerInvite(id, accept);
     },
 
     async getEvent(slug) {

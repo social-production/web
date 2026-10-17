@@ -309,6 +309,9 @@ export interface AppAdapter {
     limit?: number
   ): Promise<{ channels: ScopeDirectoryItem[]; communities: ScopeDirectoryItem[] }>;
   getDiscoverScopes(kind: 'channel' | 'community', query?: string): Promise<DiscoverScopeItem[]>;
+  /** Direct invites waiting for the viewer to accept or decline. */
+  getPendingInvites?(): Promise<import('$lib/types/invites').PendingInvite[]>;
+  answerInvite?(id: string, accept: boolean): Promise<import('$lib/types/invites').InviteAnswer>;
   getPost(id: string): Promise<PostPageData | null>;
   getHelpRequest(id: string): Promise<HelpRequestPageData | null>;
   commitHelpRequestRole(

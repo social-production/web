@@ -5,6 +5,7 @@
   import ScopeDiscoverSheet from '$lib/components/shared/ScopeDiscoverSheet.svelte';
   import { isAssetsSurfaceEnabled } from '$lib/config/features/phaseScope';
   import type { BootstrapPayload } from '$lib/types/bootstrap';
+  import { unreadCounts } from '$lib/stores/unreadCounts';
 
   export let bootstrap: BootstrapPayload;
   export let closePanels: () => void;
@@ -125,6 +126,12 @@
       </span>
     </summary>
     <div class="stack-links">
+      {#if ($unreadCounts?.invites ?? 0) > 0}
+        <!-- Invites to private communities and events wait here until answered. -->
+        <RailLinkRow href="/invites" icon="community" label="Invites" on:click={closePanels}>
+          <span slot="trailing" class="invite-count">{$unreadCounts?.invites}</span>
+        </RailLinkRow>
+      {/if}
       {#each bootstrap.directory.communities as link}
         <RailLinkRow href={link.href} icon="community" imageUrl={link.imageUrl} label={link.label} on:click={closePanels} />
       {:else}
@@ -155,6 +162,17 @@
 />
 
 <style>
+  .invite-count {
+    min-width: 20px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--brand);
+    color: var(--on-brand, #fff);
+    font-size: 12px;
+    font-weight: 800;
+    text-align: center;
+  }
+
   .rail-panel {
     padding: 0 0 12px;
     border-bottom: 1px solid var(--panel-border);

@@ -145,7 +145,7 @@
       inviteUsername = '';
       inviteFeedback = result.alreadyMember
         ? `@${result.username} is already in this community.`
-        : `Invite sent to @${result.username}.`;
+        : `Invite sent to @${result.username}. They join once they accept.`;
       inviteFeedbackTone = 'soft';
     } catch {
       inviteFeedback = 'That user could not be invited. Check the username and try again.';

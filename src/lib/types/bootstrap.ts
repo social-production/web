@@ -20,6 +20,8 @@ export interface FeatureFlags {
 export interface UnreadCounts {
   notifications: number;
   messages: number;
+  /** Direct invites waiting for an answer. */
+  invites?: number;
 }
 
 export interface ScopeDirectoryItem {

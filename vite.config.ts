@@ -15,7 +15,8 @@ const htmlBypassPaths = new Set([
   '/messages',
   '/notifications',
   '/search',
-  '/onboarding'
+  '/onboarding',
+  '/invites'
 ]);
 
 function bypassHtmlNavigation(req: {

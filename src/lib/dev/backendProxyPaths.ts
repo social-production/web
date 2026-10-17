@@ -18,5 +18,6 @@ export const backendProxyPaths = [
   '/board',
   '/healthz',
   '/readyz',
-  '/locations'
+  '/locations',
+  '/invites'
 ] as const;
