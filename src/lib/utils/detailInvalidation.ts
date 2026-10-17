@@ -1,9 +1,10 @@
 import { invalidate } from '$app/navigation';
+import { refreshBootstrap } from '$lib/services/queries/bootstrap';
 
 export function invalidateProjectDetail(slug: string, includeBootstrap = false) {
   const refreshes: Promise<void>[] = [invalidate(`app:project:${slug}`)];
   if (includeBootstrap) {
-    refreshes.push(invalidate('app:bootstrap'));
+    refreshes.push(refreshBootstrap());
   }
   return Promise.all(refreshes);
 }
@@ -11,7 +12,7 @@ export function invalidateProjectDetail(slug: string, includeBootstrap = false) 
 export function invalidateEventDetail(slug: string, includeBootstrap = false) {
   const refreshes: Promise<void>[] = [invalidate(`app:event:${slug}`)];
   if (includeBootstrap) {
-    refreshes.push(invalidate('app:bootstrap'));
+    refreshes.push(refreshBootstrap());
   }
   return Promise.all(refreshes);
 }

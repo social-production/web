@@ -6,6 +6,7 @@ import {
   clearBootstrapCache,
   isBootstrapCacheConsistentWithAuth,
   isBootstrapCacheUsable,
+  consumeFreshBootstrapRequest,
   readBootstrapCacheRecord,
   readPublicBootstrapCache,
   writeBootstrapCache
@@ -114,7 +115,8 @@ export const load = (async ({ url, depends }) => {
   }
 
   const rememberedAuth = browser && hasRememberedAuthCookie();
-  const cachedRecord = browser ? readBootstrapCacheRecord() : null;
+  const cachedRecord =
+    browser && !consumeFreshBootstrapRequest() ? readBootstrapCacheRecord() : null;
   const canServeStale =
     browser &&
     Boolean(cachedRecord) &&

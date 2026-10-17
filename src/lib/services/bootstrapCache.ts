@@ -235,6 +235,19 @@ export function endBootstrapBackgroundRefresh(): void {
   backgroundRefreshInFlight = false;
 }
 
+let freshBootstrapRequested = false;
+
+/** The next layout load fetches bootstrap instead of serving the cache (after a change the rail shows). */
+export function requestFreshBootstrap(): void {
+  freshBootstrapRequested = true;
+}
+
+export function consumeFreshBootstrapRequest(): boolean {
+  const requested = freshBootstrapRequested;
+  freshBootstrapRequested = false;
+  return requested;
+}
+
 /** @deprecated Cache is now reused on every navigation; kept for tests. */
 export function consumeStaleBootstrapServe(): boolean {
   return true;

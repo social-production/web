@@ -67,7 +67,10 @@
 
       const previousViewerId = data.bootstrap.viewer?.id ?? null;
       const nextViewerId = bootstrap.viewer?.id ?? null;
-      if (previousViewerId !== nextViewerId) {
+      // Reload from the now-fresh cache when the viewer or the rail lists changed.
+      const directoryChanged =
+        JSON.stringify(bootstrap.directory) !== JSON.stringify(data.bootstrap.directory);
+      if (previousViewerId !== nextViewerId || directoryChanged) {
         void invalidate('app:bootstrap');
       }
     } catch {

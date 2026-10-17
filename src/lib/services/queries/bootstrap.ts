@@ -1,6 +1,7 @@
 import { invalidate } from '$app/navigation';
 import { writable } from 'svelte/store';
 import { currentAdapter } from '$lib/services/adapters';
+import { requestFreshBootstrap } from '$lib/services/bootstrapCache';
 import type { RightRailActivityItem } from '$lib/types/bootstrap';
 
 export function getBootstrap() {
@@ -44,5 +45,6 @@ export function requestActivityRailRefresh() {
 }
 
 export async function refreshBootstrap() {
+  requestFreshBootstrap();
   await invalidate('app:bootstrap');
 }
