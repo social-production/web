@@ -20,6 +20,18 @@ async function proxyApi(event: Parameters<Handle>[0]['event']): Promise<Response
   const headers = new Headers(event.request.headers);
   headers.delete('host');
   headers.delete('content-length');
+  // The API's own edge replaces X-Forwarded-For with this server's address, so pass the
+  // browser's address separately (used for the map's approximate location and rate limits).
+  const clientIp =
+    event.request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    (() => {
+      try {
+        return event.getClientAddress();
+      } catch {
+        return '';
+      }
+    })();
+  if (clientIp) headers.set('x-client-ip', clientIp);
 
   const init: RequestInit & { duplex?: 'half' } = {
     method: event.request.method,
