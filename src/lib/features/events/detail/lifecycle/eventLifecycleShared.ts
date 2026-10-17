@@ -168,7 +168,8 @@ export function createEventActivityForm(
     onlineDetail: '',
     roleRequirements: [createDraftActivityRole()],
     linkedPlanPhaseId,
-    note: ''
+    note: '',
+    inputTimeZone: getDisplayTimezone()
   };
 }
 

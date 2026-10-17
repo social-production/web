@@ -267,9 +267,7 @@ export function formatScheduleLabel(value: string): string {
   });
 
   const timezone = formatLocalTimezoneAbbreviation(date, timeZone);
-  const withAt = formatted.replace(',', ' at').replace(' at ', ' at ');
-
-  return timezone ? `${withAt} ${timezone}` : withAt;
+  return timezone ? `${formatted} ${timezone}` : formatted;
 }
 
 function formatWallClockLabel(value: string | null | undefined) {
@@ -334,9 +332,13 @@ export function formatEventPlanSchedule(
   if (schedule.mode === 'range' && schedule.startDate && schedule.endDate) {
     const start = formatShortDateLabel(schedule.startDate, timeZone);
     const end = formatShortDateLabel(schedule.endDate, timeZone);
-    const dateLabel =
-      schedule.startDate === schedule.endDate ? start : `${start} – ${end}`;
-    return [dateLabel, timeRange, timezone].filter(Boolean).join(' · ');
+    if (schedule.startDate === schedule.endDate) {
+      return [start, timeRange, timezone].filter(Boolean).join(' · ');
+    }
+    // One continuous span: tie each time to its own day.
+    const from = startTime ? `${start}, ${startTime}` : start;
+    const to = finishTime ? `${end}, ${finishTime}` : end;
+    return [`${from} – ${to}`, timezone].filter(Boolean).join(' · ');
   }
 
   if (schedule.startDate) {

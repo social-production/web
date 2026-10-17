@@ -211,24 +211,48 @@ export function eventScheduleStartsInFuture(
   return !!bounds.start && bounds.start.getTime() >= now.getTime();
 }
 
+/**
+ * Whether an activity typed in `inputTimeZone` falls inside the plan's schedule. Compares real
+ * instants: the plan's wall times are read in its own `timeZone` (the viewer's zone once loaded),
+ * the activity's in the zone picked in the wizard, so the two zones may differ.
+ */
 export function eventActivityFitsSchedule(
-  schedule: EventScheduleLike | null | undefined,
+  schedule: (EventScheduleLike & { timeZone?: string | null }) | null | undefined,
   scheduledAt: string,
-  endsAt: string
+  endsAt: string,
+  inputTimeZone?: string | null
 ) {
+  return eventActivityScheduleProblem(schedule, scheduledAt, endsAt, inputTimeZone) === null;
+}
+
+/** Why an activity doesn't fit its plan, or null when it does. */
+export function eventActivityScheduleProblem(
+  schedule: (EventScheduleLike & { timeZone?: string | null }) | null | undefined,
+  scheduledAt: string,
+  endsAt: string,
+  inputTimeZone?: string | null
+): string | null {
   const bounds = eventScheduleBounds(schedule);
-  const scheduledStart = parseLocalDateTimeValue(scheduledAt);
-  const scheduledEnd = parseLocalDateTimeValue(endsAt);
-
-  if (!bounds.start || !bounds.end || !scheduledStart || !scheduledEnd) {
-    return false;
+  if (!bounds.startLocal || !bounds.endLocal) return 'The leading plan has no date yet.';
+  const toInstant = (value: string, zone?: string | null) => {
+    try {
+      return new Date(localDateTimeInputToIso(value, zone)).getTime();
+    } catch {
+      return Number.NaN;
+    }
+  };
+  const planStart = toInstant(bounds.startLocal, schedule?.timeZone);
+  const planEnd = toInstant(bounds.endLocal, schedule?.timeZone);
+  const start = toInstant(scheduledAt, inputTimeZone);
+  const end = toInstant(endsAt, inputTimeZone);
+  if ([start, end].some(Number.isNaN)) return 'Pick a start and end time.';
+  if (end <= start) return 'The end time must be after the start time.';
+  if ([planStart, planEnd].some(Number.isNaN)) return null;
+  // Allow the end minute (plans end at e.g. 23:59).
+  if (start < planStart || end > planEnd + 60_000) {
+    return 'The activity must fall within the leading plan\'s dates and times.';
   }
-
-  return (
-    scheduledEnd.getTime() > scheduledStart.getTime() &&
-    scheduledStart.getTime() >= bounds.start.getTime() &&
-    scheduledEnd.getTime() <= bounds.end.getTime()
-  );
+  return null;
 }
 
 export function suggestedEventActivityWindow(

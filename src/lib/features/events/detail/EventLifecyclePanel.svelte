@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { showToast } from '$lib/stores/toast';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import { onDestroy, onMount, tick } from 'svelte';
@@ -30,7 +31,7 @@
     type EventPlanForm
   } from './lifecycle/eventLifecycleShared';
   import {
-    eventActivityFitsSchedule,
+    eventActivityScheduleProblem,
     eventPlanFutureDayIsos,
     eventScheduleBounds,
     eventScheduleIsValid,
@@ -549,20 +550,27 @@
     const locationLabel = composeActivityLocationLabel(activityForm);
     const roleRequirements = normalizedRoleRequirements(activityForm.roleRequirements);
 
-    if (
-      !activityForm.title.trim() ||
-      !activityForm.scheduledAt.trim() ||
-      !activityForm.endsAt.trim() ||
-      !locationLabel ||
-      !activityForm.note.trim() ||
-      roleRequirements.length === 0 ||
-      !selectedPlan ||
-      !eventActivityFitsSchedule(
-        selectedPlan.schedule,
-        activityForm.scheduledAt,
-        activityForm.endsAt
-      )
-    ) {
+    // Say what's wrong instead of doing nothing.
+    const problem = !activityForm.title.trim()
+      ? 'Add a title.'
+      : !activityForm.scheduledAt.trim() || !activityForm.endsAt.trim()
+        ? 'Pick a start and end time.'
+        : !locationLabel
+          ? 'Add a place.'
+          : !activityForm.note.trim()
+            ? 'Add a note for people taking part.'
+            : roleRequirements.length === 0
+              ? 'Add at least one role.'
+              : !selectedPlan
+                ? 'There is no leading plan yet.'
+                : eventActivityScheduleProblem(
+                    selectedPlan.schedule,
+                    activityForm.scheduledAt,
+                    activityForm.endsAt,
+                    activityForm.inputTimeZone
+                  );
+    if (problem || !selectedPlan) {
+      showToast(problem ?? 'There is no leading plan yet.', 'error');
       return;
     }
 

@@ -67,6 +67,9 @@
     syncFormFromLocationValue(locationValue);
   }
 
+  // Never leave the zone empty: an unbound <select> would fall back to its first option.
+  if (!form.inputTimeZone) form.inputTimeZone = getDisplayTimezone();
+
   $: if (open && !wizardWasOpen) {
     locationValue = locationValueFromForm(form);
     if (!form.inputTimeZone) form.inputTimeZone = getDisplayTimezone();

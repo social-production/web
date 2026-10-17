@@ -11,8 +11,10 @@ function eventLoadError(err: unknown, fallback: string): { event: null; loadErro
   };
 }
 
-export const load = (async ({ params, depends }) => {
+export const load = (async ({ params, depends, parent }) => {
   depends(`app:event:${params.slug}`);
+  // Plan times are converted into the viewer's Display timezone, which the layout loads.
+  await parent();
 
   try {
     const event = await getEvent(params.slug);
