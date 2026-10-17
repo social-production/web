@@ -1,3 +1,9 @@
+<script lang="ts" context="module">
+  // Activities whose highlight-opened card was closed. Pages refresh and re-create cards,
+  // which would otherwise pop the card open again while the highlight is still in the URL.
+  const dismissedHighlights = new Set<string>();
+</script>
+
 <script lang="ts">
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
@@ -18,6 +24,8 @@
   export let historyMode = false;
   /** Agenda row under the calendar: fixed two-line row with time, title, place and a fill chip. */
   export let agenda = false;
+  /** When set, tapping the row calls this instead of opening the activity card. */
+  export let onSelect: ((activityId: string) => void) | null = null;
   export let badgeLabel: string | null = null;
   export let badgeClass: 'complete' | 'upcoming' | 'current' | 'locked' | null = null;
   export let historyRatingSummary: string | null = null;
@@ -237,11 +245,19 @@
     );
 
   $: {
-    const shouldOpen = expanded || highlighted;
+    const shouldOpen = (expanded || highlighted) && !dismissedHighlights.has(activity.id);
     if (shouldOpen && !openedFromHighlight) {
       sheetOpen = true;
     }
     openedFromHighlight = shouldOpen;
+  }
+
+  let wasSheetOpen = false;
+  $: {
+    if (wasSheetOpen && !sheetOpen && (expanded || highlighted)) {
+      dismissedHighlights.add(activity.id);
+    }
+    wasSheetOpen = sheetOpen;
   }
 
   function openActivitySheet(event: MouseEvent) {
@@ -249,6 +265,10 @@
       return;
     }
     event.preventDefault();
+    if (onSelect) {
+      onSelect(activity.id);
+      return;
+    }
     sheetOpen = true;
   }
 </script>
@@ -310,7 +330,11 @@
       <span class="live-fact">{factLine()}</span>
     {/if}
     <span class="activity-foot">
-      <span>{activity.committedCount}/{activity.minimumParticipants} committed</span>
+      <span>
+        {activity.committedCount} going{activity.committedCount < activity.minimumParticipants
+          ? ` · needs ${activity.minimumParticipants - activity.committedCount} more`
+          : ''}
+      </span>
       {#if historyMode && historyRatingSummary}
         <span class:history-rating-muted={historyRatingMuted}>{historyRatingSummary}</span>
       {/if}

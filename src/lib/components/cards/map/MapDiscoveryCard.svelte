@@ -53,6 +53,11 @@
   $: accent = surfaceTypeAccent(kind, projectMode ?? 'productive');
   $: scheduleTime = formatMarkerScheduleRange(scheduledAt, endsAt);
   $: isActivity = entityType === 'activity';
+
+  // "N going", plus how many more are needed to reach the minimum ("1/1" read as full).
+  function goingLabel(going: number, minimum: number) {
+    return going < minimum ? `${going} going · needs ${minimum - going} more` : `${going} going`;
+  }
   $: statusLine =
     entityType === 'project' && activitySource == null && subtitle?.trim()
       ? subtitle.trim()
@@ -62,7 +67,7 @@
     entityType === 'help_request' && slotsNeeded != null
       ? `${signupCount ?? 0}/${slotsNeeded} signed up`
       : entityType === 'activity' && minimumParticipants != null
-        ? `${committedCount ?? 0}/${minimumParticipants} committed`
+        ? goingLabel(committedCount ?? 0, minimumParticipants)
         : '';
   $: footerLine = [`${distanceKm.toFixed(1)} km`, signupLine].filter(Boolean).join(' · ');
 </script>

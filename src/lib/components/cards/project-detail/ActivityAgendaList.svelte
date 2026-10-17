@@ -8,6 +8,8 @@
   export let activities: ProjectActivityItem[] = [];
   export let highlightedActivityId: string | null = null;
   export let readOnly = false;
+  /** Tapping a row calls this instead of opening the activity card (e.g. request a service slot). */
+  export let onSelect: ((activityId: string) => void) | null = null;
   export let changecommitment: (activityId: string, roleLabel: string | null) => void = () => {};
   export let viewerCanSuggest = false;
   export let onSuggestRole: (
@@ -73,6 +75,7 @@
               agenda
               {activity}
               {readOnly}
+              {onSelect}
               expanded={highlightedActivityId === activity.id}
               highlighted={highlightedActivityId === activity.id}
               {changecommitment}

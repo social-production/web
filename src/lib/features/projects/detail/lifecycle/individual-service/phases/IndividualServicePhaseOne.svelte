@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { showToast } from '$lib/stores/toast';
   import { tick } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
@@ -279,6 +280,15 @@
 
     activeTab = 'live';
     await openPersonalServiceRequestComposer();
+  }
+
+  // Non-providers tap a slot in the list to request it, as on the calendar.
+  function requestSlotFromList(activityId: string) {
+    if (heldSlotIds.has(activityId)) {
+      showToast('That slot is taken. Pick an open one.', 'error');
+      return;
+    }
+    void openCalendarComposerForActivity(activityId);
   }
 
   function closePersonalActivityComposer() {
@@ -947,6 +957,7 @@
           activities={agendaActivities}
           {highlightedActivityId}
           readOnly={!data.lifecycle.phaseFive.viewerCanCreateActivities}
+          onSelect={data.lifecycle.phaseFive.viewerCanCreateActivities ? null : requestSlotFromList}
         />
       {/if}
     </section>
