@@ -468,6 +468,15 @@
             idleMs: INBOX_REFRESH_MS * 3,
           }
         );
+    // Project, event and help-request chats aren't on the inbox realtime feed, so poll the open one.
+    const stopLinkedChatPolling = startVisibilityPoll(
+      async () => {
+        if (activeLinkedChatId && activeLinkedChat) {
+          await loadLinkedChatComments(activeLinkedChat, { silent: true });
+        }
+      },
+      { activeMs: 8_000, idleMs: 45_000 }
+    );
     const stopRealtime = subscribeToViewerInbox(() => {
       void refreshActiveThread();
       void refreshMessagesInbox({ force: true });
@@ -503,6 +512,7 @@
 
     return () => {
       stopThreadPolling();
+      stopLinkedChatPolling();
       stopInboxPolling();
       stopRealtime();
 

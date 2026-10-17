@@ -1062,16 +1062,16 @@
                   {/if}
                 </div>
               {/if}
+              {#if onSubmitMessage && !(message.isOwn ?? viewerUsername === message.authorUsername)}
+                <button
+                  class="hover-reply"
+                  type="button"
+                  aria-label="Reply"
+                  title="Reply"
+                  on:click|stopPropagation={() => beginReply(message)}
+                >↩</button>
+              {/if}
             </div>
-            {#if onSubmitMessage}
-              <button
-                class="hover-reply"
-                type="button"
-                aria-label="Reply"
-                title="Reply"
-                on:click|stopPropagation={() => beginReply(message)}
-              >↩</button>
-            {/if}
           </article>
           {/if}
         {/each}
@@ -1386,15 +1386,16 @@
   }
 
   /* Desktop: a Reply shortcut shows on hover; tapping a message opens the full menu. */
-  .chat-message {
+  .message-copy {
     position: relative;
   }
 
+  /* Just outside the bubble's right edge (others' messages sit on the left). */
   .hover-reply {
     display: none;
     position: absolute;
     top: 50%;
-    right: 4px;
+    right: -36px;
     width: 28px;
     height: 28px;
     transform: translateY(-50%);
@@ -1404,11 +1405,6 @@
     color: var(--text-soft);
     font-size: 14px;
     cursor: pointer;
-  }
-
-  .chat-message.own .hover-reply {
-    right: auto;
-    left: 4px;
   }
 
   @media (hover: hover) and (pointer: fine) {
