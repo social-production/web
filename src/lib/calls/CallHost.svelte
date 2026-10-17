@@ -81,7 +81,8 @@
       dismissTimer = null;
     }
     if (shouldDismiss) {
-      dismissTimer = setTimeout(dismissCall, ENDED_DISMISS_MS);
+      // A problem notice (e.g. the microphone) stays long enough to read; it can be closed sooner.
+      dismissTimer = setTimeout(dismissCall, view.notice ? ENDED_DISMISS_MS * 3 : ENDED_DISMISS_MS);
     }
   }
 

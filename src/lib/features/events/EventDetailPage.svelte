@@ -321,7 +321,7 @@
           ? 'history'
           : highlightedLinkRequestId
             ? 'links'
-            : requestedTab ?? 'context';
+            : requestedTab ?? ($page.url.searchParams.get('plan') ? 'participation' : 'context');
       if (autoExpandVoteCards && (autoExpandVoteKind === 'edit' || autoExpandVoteKind === 'update')) {
         activeTab = 'context';
       } else if (

@@ -85,8 +85,8 @@ function logFinishedCall(phase: CallPhase) {
     });
 }
 
-function reset(phase: CallPhase = 'idle', notice: string | null = null) {
-  if (view.phase === 'calling' || view.phase === 'ringing' || view.phase === 'active') {
+function reset(phase: CallPhase = 'idle', notice: string | null = null, logLine = true) {
+  if (logLine && (view.phase === 'calling' || view.phase === 'ringing' || view.phase === 'active')) {
     logFinishedCall(phase);
   }
   attempt += 1;
@@ -301,7 +301,8 @@ export async function placeDirectCall(conversationId: string, peerName: string) 
   try {
     await ensureMedia();
   } catch {
-    reset('ended', 'Microphone unavailable');
+    // Nothing rang, so this isn't a missed call; leave no call line in the chat.
+    reset('ended', 'Microphone unavailable. Allow microphone access to call.', false);
     return;
   }
   if (currentAttempt !== attempt) {

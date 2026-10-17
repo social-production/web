@@ -66,3 +66,42 @@ export function formatIsoDayLabel(isoDay: string) {
     day: 'numeric'
   });
 }
+
+/** Calendar day (YYYY-MM-DD) of an instant as seen in `timeZone`. */
+export function isoDayInZone(value: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(value);
+  const bag: Record<string, string> = {};
+  for (const part of parts) bag[part.type] = part.value;
+  return `${bag.year}-${bag.month}-${bag.day}`;
+}
+
+function zoneOffsetMs(instant: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).formatToParts(new Date(instant));
+  const bag: Record<string, number> = {};
+  for (const part of parts) bag[part.type] = Number(part.value);
+  const asUtc = Date.UTC(bag.year, bag.month - 1, bag.day, bag.hour, bag.minute, bag.second);
+  return asUtc - Math.floor(instant / 1000) * 1000;
+}
+
+/** The instant a calendar day starts (midnight) in `timeZone`. */
+export function zonedDayStart(isoDay: string, timeZone: string): Date {
+  const [year, month, day] = isoDay.split('-').map(Number);
+  const guess = Date.UTC(year, month - 1, day);
+  // Two passes settle days where the offset changes (daylight saving).
+  const first = guess - zoneOffsetMs(guess, timeZone);
+  return new Date(guess - zoneOffsetMs(first, timeZone));
+}

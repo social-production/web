@@ -198,7 +198,7 @@
         return nextPhaseCloseOutcome === 'convert' ? 'Convert into collective service' : 'Close project';
       }
 
-      return personalDirectPhaseChange ? 'Close service' : 'Close';
+      return personalDirectPhaseChange ? 'Close service' : 'Close project';
     }
 
     const target = data.lifecycle.nextPhaseLabel;

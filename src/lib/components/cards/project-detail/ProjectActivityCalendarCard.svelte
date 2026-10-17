@@ -2,7 +2,9 @@
   import PhaseWorkToolbar from '$lib/components/shared/PhaseWorkToolbar.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
   import type { ProjectActivityItem } from '$lib/types/detail';
-  import { isoDayFromValue } from '$lib/utils/calendarDay';
+  import { isoDayFromValue, isoDayInZone, zonedDayStart } from '$lib/utils/calendarDay';
+  import { getDisplayTimezone } from '$lib/stores/timezoneStore';
+  import { formatLocalTimezoneAbbreviation } from '$lib/utils/time';
 
   type CalendarInteractionAnchor = {
     clientX: number;
@@ -56,7 +58,11 @@
 
   function formatTimeLabel(value: string | Date) {
     const date = value instanceof Date ? value : new Date(value);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: getDisplayTimezone()
+    });
   }
 
   function dateFromValue(value: string) {
@@ -123,10 +129,13 @@
     return left.startMinutes < right.endMinutes && right.startMinutes < left.endMinutes;
   }
 
+  // Days and bar times follow the Display timezone from Settings, not the browser's.
   function dayRange(isoDay: string) {
-    const start = new Date(`${isoDay}T00:00:00`);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
+    const zone = getDisplayTimezone();
+    const start = zonedDayStart(isoDay, zone);
+    const next = new Date(`${isoDay}T12:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    const end = zonedDayStart(next.toISOString().slice(0, 10), zone);
     return { start, end };
   }
 
@@ -248,7 +257,8 @@
 
   $: plannedDaySet = new Set(plannedDayIsos);
   $: calendarDays = buildCalendarDays(activities, visibleMonthStart, plannedDaySet);
-  $: todayIso = isoDayFromValue(new Date());
+  $: todayIso = isoDayInZone(new Date(), getDisplayTimezone());
+  $: zoneLabel = formatLocalTimezoneAbbreviation(new Date(), getDisplayTimezone());
   $: agendaDayIso =
     isoDayFromValue(selectedDayIso) ||
     (calendarDays.some((day) => day.isoDay === todayIso) ? todayIso : '') ||
@@ -312,7 +322,10 @@
         <path d="M14.5 6.5 9 12l5.5 5.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
       </svg>
     </button>
-    <strong class="month-label">{visibleMonthLabel}</strong>
+    <strong class="month-label"
+      >{visibleMonthLabel}{#if zoneLabel}
+        <span class="zone-label" title="Times are shown in your Display timezone">· {zoneLabel}</span>{/if}</strong
+    >
     <button aria-label="Next month" title="Next month" class="month-button" type="button" on:click={() => shiftVisibleMonth(1)}>
       <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
         <path d="m9.5 6.5 5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
@@ -409,6 +422,12 @@
 {/if}
 
 <style>
+  .zone-label {
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
   .calendar-shell {
     container-type: inline-size;
     padding: 12px;
