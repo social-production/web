@@ -42,6 +42,9 @@ export interface PendingVoteItem {
   description?: string;
   previousTitle?: string;
   previousDescription?: string;
+  /** Edit votes: which fields the edit changes. */
+  changedFields?: Array<'title' | 'description' | 'location'>;
+  proposedLocation?: string;
   criteriaRatedCount?: number;
   criteriaTotalCount?: number;
   planValueId?: string;
@@ -168,6 +171,16 @@ function pushUpdateVotes(
   }
 }
 
+function editChangedFields(
+  request: ProjectEditRequest | EventEditRequest
+): Array<'title' | 'description' | 'location'> {
+  const fields: Array<'title' | 'description' | 'location'> = [];
+  if (request.title) fields.push('title');
+  if (request.description) fields.push('description');
+  if ('locationLabel' in request && request.locationLabel) fields.push('location');
+  return fields;
+}
+
 function pushEditVotes(
   items: PendingVoteItem[],
   requests: ProjectEditRequest[] | EventEditRequest[],
@@ -189,10 +202,13 @@ function pushEditVotes(
       id: request.id,
       voteKind: 'edit',
       label: 'Edit',
-      title: request.title,
-      reason: request.description,
+      title: request.title ?? '',
+      reason: request.description ?? '',
       previousTitle: currentTitle,
       previousDescription: currentDescription,
+      changedFields: editChangedFields(request),
+      proposedLocation:
+        'locationLabel' in request && request.locationLabel ? request.locationLabel : undefined,
       voteSummary: request.voteSummary,
       approvalThresholdPercent: request.approvalThresholdPercent,
       authorUsername: request.authorUsername,

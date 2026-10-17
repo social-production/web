@@ -750,8 +750,10 @@ export interface ProjectUpdateRequest {
 
 export interface ProjectEditRequest {
   id: string;
-  title: string;
-  description: string;
+  /** null when this edit leaves the field unchanged. */
+  title: string | null;
+  description: string | null;
+  locationLabel?: string | null;
   authorUsername: string;
   createdAt: string;
   approvalThresholdPercent: number;
@@ -773,8 +775,9 @@ export interface EventUpdateRequest {
 
 export interface EventEditRequest {
   id: string;
-  title: string;
-  description: string;
+  /** null when this edit leaves the field unchanged. */
+  title: string | null;
+  description: string | null;
   authorUsername: string;
   createdAt: string;
   approvalThresholdPercent: number;

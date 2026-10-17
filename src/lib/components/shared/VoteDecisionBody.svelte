@@ -11,7 +11,11 @@
 
   function outcomeSentence(current: PendingVoteItem) {
     if (current.voteKind === 'edit') {
-      return 'If this passes, the title and description change.';
+      const fields = current.changedFields ?? ['title', 'description'];
+      const names = fields.length ? fields : ['details'];
+      const list =
+        names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
+      return `If this passes, the ${list} ${names.length > 1 ? 'change' : 'changes'}. Everything else stays as it is.`;
     }
     if (current.voteKind === 'update') {
       return 'If this passes, this update is posted.';
@@ -58,32 +62,42 @@
       <p class="proposed-copy">{item.reason || '—'}</p>
     </section>
   {:else if item.voteKind === 'edit'}
-    <section class="change-card">
-      <h3>Title</h3>
-      <div class="pair">
-        <div>
-          <p class="field-kicker">Now</p>
-          <p>{item.previousTitle || '—'}</p>
+    {#if item.title}
+      <section class="change-card">
+        <h3>Title</h3>
+        <div class="pair">
+          <div>
+            <p class="field-kicker">Now</p>
+            <p>{item.previousTitle || '—'}</p>
+          </div>
+          <div class="proposed">
+            <p class="field-kicker">Proposed</p>
+            <p>{item.title}</p>
+          </div>
         </div>
-        <div class="proposed">
-          <p class="field-kicker">Proposed</p>
-          <p>{item.title || '—'}</p>
+      </section>
+    {/if}
+    {#if item.reason}
+      <section class="change-card">
+        <h3>Description</h3>
+        <div class="pair">
+          <div>
+            <p class="field-kicker">Now</p>
+            <p>{item.previousDescription || '—'}</p>
+          </div>
+          <div class="proposed">
+            <p class="field-kicker">Proposed</p>
+            <p>{item.reason}</p>
+          </div>
         </div>
-      </div>
-    </section>
-    <section class="change-card">
-      <h3>Description</h3>
-      <div class="pair">
-        <div>
-          <p class="field-kicker">Now</p>
-          <p>{item.previousDescription || '—'}</p>
-        </div>
-        <div class="proposed">
-          <p class="field-kicker">Proposed</p>
-          <p>{item.reason || '—'}</p>
-        </div>
-      </div>
-    </section>
+      </section>
+    {/if}
+    {#if item.proposedLocation}
+      <section class="change-card">
+        <h3>Location</h3>
+        <p class="proposed-copy">{item.proposedLocation}</p>
+      </section>
+    {/if}
   {:else}
     {#if item.title && item.title !== item.label}
       <section class="change-card">
