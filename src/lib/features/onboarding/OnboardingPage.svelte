@@ -54,6 +54,12 @@
       ? `/profile/${canonicalizeHandle(username)}`
       : '';
 
+  /** Where to go after signing in: `?next=` when it's a path inside the app, else Home. */
+  function returnPath() {
+    const next = $page.url.searchParams.get('next') ?? '';
+    return /^\/(?![\/\\])/.test(next) ? next : '/';
+  }
+
   async function handleSubmit() {
     if (viewer) {
       await goto('/');
@@ -95,7 +101,7 @@
       }
 
       await invalidateAll();
-      await goto('/');
+      await goto(returnPath());
     } finally {
       isSubmitting = false;
     }
