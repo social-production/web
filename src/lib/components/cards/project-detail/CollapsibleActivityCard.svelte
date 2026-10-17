@@ -2,7 +2,9 @@
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import type { ProjectActivityItem, ProjectActivityRole } from '$lib/types/detail';
-  import { formatLocalDateTimeRange } from '$lib/utils/time';
+  import { formatLocalDateTimeRange, formatLocalTimezoneAbbreviation } from '$lib/utils/time';
+  import { getDisplayTimezone } from '$lib/stores/timezoneStore';
+  import { isoDayInZone } from '$lib/utils/calendarDay';
   import { searchPeopleSuggestions } from '$lib/services/queries/account';
   import { showToast } from '$lib/stores/toast';
   import { openPlaceOnMap } from '$lib/stores/mapFocus';
@@ -34,12 +36,10 @@
     return formatLocalDateTimeRange(activity.startAt, activity.endAt);
   }
 
+  // Days and times follow the viewer's Display timezone, not the browser's.
   function sameLocalDay(start: Date, end: Date) {
-    return (
-      start.getFullYear() === end.getFullYear() &&
-      start.getMonth() === end.getMonth() &&
-      start.getDate() === end.getDate()
-    );
+    const zone = getDisplayTimezone();
+    return isoDayInZone(start, zone) === isoDayInZone(end, zone);
   }
 
   function dateLine() {
@@ -48,35 +48,47 @@
     if (!start || Number.isNaN(start.getTime())) {
       return timeLabel();
     }
+    const timeZone = getDisplayTimezone();
     const dateOptions: Intl.DateTimeFormatOptions = {
       weekday: 'short',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone
     };
-    const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+    const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', timeZone };
+    const zone = formatLocalTimezoneAbbreviation(start, timeZone);
     const startDate = start.toLocaleDateString(undefined, dateOptions);
     const startTime = start.toLocaleTimeString(undefined, timeOptions);
+    const suffix = zone ? ` ${zone}` : '';
     if (!end || Number.isNaN(end.getTime())) {
-      return `${startDate} · ${startTime}`;
+      return `${startDate} · ${startTime}${suffix}`;
     }
     const endTime = end.toLocaleTimeString(undefined, timeOptions);
     if (sameLocalDay(start, end)) {
-      return `${startDate} · ${startTime}–${endTime}`;
+      return `${startDate} · ${startTime}–${endTime}${suffix}`;
     }
     const endDate = end.toLocaleDateString(undefined, dateOptions);
-    return `${startDate}, ${startTime} – ${endDate}, ${endTime}`;
+    return `${startDate}, ${startTime} – ${endDate}, ${endTime}${suffix}`;
   }
 
   function clockTime(value: string | null | undefined) {
     const date = value?.trim() ? new Date(value) : null;
     if (!date || Number.isNaN(date.getTime())) return '';
-    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: getDisplayTimezone()
+    });
   }
 
   function shortDay(value: string | null | undefined) {
     const date = value?.trim() ? new Date(value) : null;
     if (!date || Number.isNaN(date.getTime())) return '';
-    return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    return date.toLocaleDateString(undefined, {
+      day: 'numeric',
+      month: 'short',
+      timeZone: getDisplayTimezone()
+    });
   }
 
   // For activities that run past midnight: the end day, e.g. "Sat 18".
@@ -85,7 +97,11 @@
     const end = endValue?.trim() ? new Date(endValue) : null;
     if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '';
     if (sameLocalDay(start, end)) return '';
-    return `${end.toLocaleDateString(undefined, { weekday: 'short' })} ${end.getDate()}`;
+    return end.toLocaleDateString('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      timeZone: getDisplayTimezone()
+    }).replace(',', '');
   }
 
   function factLine() {

@@ -476,6 +476,16 @@
   $: selfPlannedHistory = data.lifecycle.phaseFive.history.filter(
     (item) => item.source === 'self-planned'
   );
+  // Slots are the provider's own; others request them from the calendar, so the list is read-only
+  // for them, and a slot someone has booked says so.
+  $: heldSlotIds = new Set(
+    (data.lifecycle.personalService?.availabilitySlots ?? [])
+      .filter((slot) => slot.held)
+      .map((slot) => slot.id)
+  );
+  $: agendaActivities = data.lifecycle.phaseFive.activities.map((activity) =>
+    heldSlotIds.has(activity.id) ? { ...activity, title: `${activity.title} (taken)` } : activity
+  );
   $: calendarActivities = (data.lifecycle.personalService?.availabilitySlots ?? []).map((slot) => ({
     id: slot.id,
     title: slot.held
@@ -924,8 +934,9 @@
         {/if}
       {:else}
         <ActivityAgendaList
-          activities={data.lifecycle.phaseFive.activities}
+          activities={agendaActivities}
           {highlightedActivityId}
+          readOnly={!data.lifecycle.phaseFive.viewerCanCreateActivities}
         />
       {/if}
     </section>

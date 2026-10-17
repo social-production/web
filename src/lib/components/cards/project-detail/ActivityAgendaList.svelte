@@ -1,6 +1,8 @@
 <script lang="ts">
   import CollapsibleActivityCard from './CollapsibleActivityCard.svelte';
   import type { ProjectActivityItem } from '$lib/types/detail';
+  import { getDisplayTimezone } from '$lib/stores/timezoneStore';
+  import { isoDayInZone } from '$lib/utils/calendarDay';
 
   /** Upcoming activities under a calendar, as fixed-height agenda rows grouped by day. */
   export let activities: ProjectActivityItem[] = [];
@@ -22,17 +24,21 @@
 
   $: days = groupByDay(activities);
 
+  // Group and label days in the viewer's Display timezone.
   function dayHeading(date: Date) {
-    const today = new Date();
-    const tomorrow = new Date();
-    tomorrow.setDate(today.getDate() + 1);
+    const timeZone = getDisplayTimezone();
+    const now = new Date();
+    const today = isoDayInZone(now, timeZone);
+    const tomorrow = isoDayInZone(new Date(now.getTime() + 24 * 60 * 60 * 1000), timeZone);
+    const day = isoDayInZone(date, timeZone);
     const base = date.toLocaleDateString(undefined, {
       weekday: 'short',
       day: 'numeric',
       month: 'short',
+      timeZone,
     });
-    if (date.toDateString() === today.toDateString()) return `Today · ${base}`;
-    if (date.toDateString() === tomorrow.toDateString()) return `Tomorrow · ${base}`;
+    if (day === today) return `Today · ${base}`;
+    if (day === tomorrow) return `Tomorrow · ${base}`;
     return base;
   }
 
@@ -44,7 +50,7 @@
     for (const item of sorted) {
       const start = new Date(item.startAt);
       const valid = !Number.isNaN(start.getTime());
-      const key = valid ? start.toDateString() : 'unscheduled';
+      const key = valid ? isoDayInZone(start, getDisplayTimezone()) : 'unscheduled';
       let day = grouped.find((entry) => entry.key === key);
       if (!day) {
         day = { key, label: valid ? dayHeading(start) : 'Date to be confirmed', items: [] };
