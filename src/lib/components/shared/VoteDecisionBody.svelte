@@ -11,7 +11,13 @@
 
   function outcomeSentence(current: PendingVoteItem) {
     if (current.voteKind === 'edit') {
-      const fields = current.changedFields ?? ['title', 'description'];
+      const fields =
+        current.changedFields ??
+        [
+          current.title ? 'title' : '',
+          current.reason ? 'description' : '',
+          current.proposedLocation ? 'location' : ''
+        ].filter(Boolean);
       const names = fields.length ? fields : ['details'];
       const list =
         names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];

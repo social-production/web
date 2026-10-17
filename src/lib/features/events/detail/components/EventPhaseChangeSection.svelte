@@ -291,6 +291,8 @@
     closeRevertComposer();
   }
 
+  let phaseRequestPending = false;
+
   async function submitNextPhaseRequest() {
     if (!data.lifecycle.nextPhaseId) {
       nextPhaseMessage = 'There is no next phase available from here.';
@@ -309,8 +311,15 @@
 
     nextPhaseMessage = '';
     phaseChangeReason = nextPhaseReason;
-    await requestPhaseChange(data.lifecycle.nextPhaseId, nextPhaseReason);
-    closeNextPhaseComposer();
+    // One request per submit, even on a double tap or Enter plus click.
+    if (phaseRequestPending) return;
+    phaseRequestPending = true;
+    try {
+      await requestPhaseChange(data.lifecycle.nextPhaseId, nextPhaseReason);
+      closeNextPhaseComposer();
+    } finally {
+      phaseRequestPending = false;
+    }
   }
 
   async function submitRevertRequest() {
@@ -325,8 +334,14 @@
 
     revertMessage = '';
     phaseChangeReason = revertReason;
-    await requestPhaseChange(revertTargetPhaseId, revertReason);
-    closeRevertComposer();
+    if (phaseRequestPending) return;
+    phaseRequestPending = true;
+    try {
+      await requestPhaseChange(revertTargetPhaseId, revertReason);
+      closeRevertComposer();
+    } finally {
+      phaseRequestPending = false;
+    }
   }
 </script>
 

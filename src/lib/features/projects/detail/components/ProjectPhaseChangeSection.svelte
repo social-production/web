@@ -264,6 +264,8 @@
     return `${projectSubjectLabel(suggestedConversionTarget.projectMode)} · ${projectSubtypeLabel(suggestedConversionTarget.projectSubtype)}`;
   }
 
+  let phaseRequestPending = false;
+
   async function submitNextPhaseRequest() {
     if (!data.lifecycle.nextPhaseId) {
       nextPhaseMessage = 'There is no next phase available from here.';
@@ -281,6 +283,18 @@
     }
 
     nextPhaseMessage = '';
+    // One request per submit, even on a double tap or Enter plus click.
+    if (phaseRequestPending) return;
+    phaseRequestPending = true;
+    try {
+      await sendNextPhaseRequest();
+    } finally {
+      phaseRequestPending = false;
+    }
+  }
+
+  async function sendNextPhaseRequest() {
+    if (!data.lifecycle.nextPhaseId) return;
     if (personalDirectPhaseChange) {
       await advancePhase(nextPhaseReason);
     } else {

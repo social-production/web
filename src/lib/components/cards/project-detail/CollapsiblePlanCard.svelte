@@ -255,8 +255,7 @@
   {/if}
   <span class="plan-footer-meta">
     <span>
-      {plan.overallApproval.approvalPercent}% approved · {plan.overallApproval.yesCount} yes · {plan.overallApproval.noCount} no{#if planAverageRating != null}
-        · Avg {planAverageRating.toFixed(1)}{/if}
+      {plan.overallApproval.approvalPercent}% approved · {plan.overallApproval.yesCount} yes · {plan.overallApproval.noCount} no{planAverageRating != null ? ` · Avg ${planAverageRating.toFixed(1)}` : ''}
     </span>
     <span>{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</span>
   </span>

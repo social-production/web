@@ -64,7 +64,7 @@
     message={updateMessage}
     pending={updatePending}
     sheetTitle="Post an update"
-    submitLabel="Propose"
+    submitLabel={data.governance === 'organizer_controlled' ? 'Post' : 'Propose'}
     placeholder="Share what changed for this event..."
     labelledById="event-add-update-sheet"
     onSubmit={submitUpdate}

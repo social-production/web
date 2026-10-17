@@ -145,7 +145,8 @@
 
     try {
       await toggleEventMembership(data.slug);
-      void invalidateEventDetail(data.slug);
+      // After leaving a private event it can't be loaded any more, so go home without refreshing it.
+      if (!(wasMember && data.isPrivate)) void invalidateEventDetail(data.slug);
       await finishEventMembershipToggle(data, wasMember);
     } catch {
       onMembershipChange?.({
