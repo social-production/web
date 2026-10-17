@@ -16,6 +16,7 @@ interface BackendProposal {
   votes_required: number;
   viewer_vote: 'yes' | 'no' | null;
   viewer_can_vote: boolean;
+  created_at?: string;
   closes_at: string;
 }
 
@@ -74,6 +75,7 @@ function mapSettings(res: BackendSettings): ScopeSettings {
       votesRequired: item.votes_required,
       viewerVote: item.viewer_vote,
       viewerCanVote: item.viewer_can_vote,
+      createdAt: item.created_at ?? null,
       closesAt: item.closes_at,
     })),
   };

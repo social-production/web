@@ -4,6 +4,7 @@
   import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import ScopeAvatar from './ScopeAvatar.svelte';
+  import { describeScopeProposal } from './scopeProposals';
   import { scopeSettingsApi } from '$lib/services/commands/scopes';
   import { showToast } from '$lib/stores/toast';
   import type { ScopeProposal, ScopeSettings, ScopeSettingsKind } from '$lib/types/scopeSettings';
@@ -18,8 +19,20 @@
   let busy = false;
 
   $: if (open) void load();
+  $: if (!open) settings = null;
   $: votable = settings?.proposals.filter((item) => item.viewerCanVote) ?? [];
   $: current = votable[index] ?? null;
+  $: unvotedCount = votable.filter((item) => !item.viewerVote).length;
+
+  function formatWhen(value: string) {
+    return new Date(value).toLocaleString(undefined, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  }
 
   async function load() {
     const api = scopeSettingsApi();
@@ -29,24 +42,6 @@
       .filter((item) => item.viewerCanVote)
       .findIndex((item) => !item.viewerVote);
     index = Math.max(0, firstUnvoted);
-  }
-
-  function describe(item: ScopeProposal) {
-    switch (item.kind) {
-      case 'edit': {
-        const parts = [];
-        if (item.payload.name) parts.push(`rename to “${item.payload.name}”`);
-        if (item.payload.description) parts.push('new description');
-        if (item.payload.imageUrl) parts.push('new picture');
-        return `Change: ${parts.join(', ') || 'settings'}`;
-      }
-      case 'remove_member':
-        return `Remove ${item.payload.username ?? 'a member'}`;
-      case 'to_collaborative':
-        return 'Let all members decide';
-      case 'to_organizer':
-        return `Hand decisions to organizers: ${(item.payload.organizerUsernames ?? [item.proposer]).join(', ')}`;
-    }
   }
 
   async function cast(item: ScopeProposal, vote: 'yes' | 'no') {
@@ -78,7 +73,7 @@
 <OverlaySheet bind:open title="Vote" labelledById="scope-vote-title">
   <div class="vote-body">
     {#if current}
-      <p class="what">{describe(current)}</p>
+      <p class="what">{describeScopeProposal(current)}</p>
       {#if current.proposer}
         <p class="meta">Proposed by {current.proposer}</p>
       {/if}
@@ -89,17 +84,21 @@
         <blockquote>{current.payload.description}</blockquote>
       {/if}
       <p class="meta">
-        {current.yes} yes · {current.no} no · {current.votesRequired} votes needed · closes
-        {new Date(current.closesAt).toLocaleDateString(undefined, {
-          day: 'numeric',
-          month: 'short',
-        })}
+        {current.yes} yes · {current.no} no · {current.votesRequired} votes needed
       </p>
+      <p class="meta">
+        {#if current.createdAt}Proposed {formatWhen(current.createdAt)} · {/if}Closes
+        {formatWhen(current.closesAt)}
+      </p>
+      {#if current.viewerVote}
+        <p class="voted">You voted {current.viewerVote === 'yes' ? 'Yes' : 'No'}. Tap the other to change it.</p>
+      {/if}
       <div class="choices">
         <button
           class="no"
           type="button"
           class:chosen={current.viewerVote === 'no'}
+          aria-pressed={current.viewerVote === 'no'}
           disabled={busy}
           on:click={() => current && cast(current, 'no')}>No</button
         >
@@ -107,15 +106,21 @@
           class="yes"
           type="button"
           class:chosen={current.viewerVote === 'yes'}
+          aria-pressed={current.viewerVote === 'yes'}
           disabled={busy}
           on:click={() => current && cast(current, 'yes')}>Yes</button
         >
       </div>
       {#if votable.length > 1}
-        <button class="next" type="button" on:click={() => (index = (index + 1) % votable.length)}>
-          Next · {votable.filter((item) => !item.viewerVote).length} left
-        </button>
+        <div class="nav">
+          <span class="meta">{index + 1} of {votable.length} · {unvotedCount} not voted yet</span>
+          <button class="next" type="button" on:click={() => (index = (index + 1) % votable.length)}>
+            Next
+          </button>
+        </div>
       {/if}
+    {:else if !settings}
+      <p class="meta">Loading…</p>
     {:else}
       <p class="meta">No open votes.</p>
     {/if}
@@ -167,15 +172,37 @@
     cursor: pointer;
   }
 
+  /* Outlined until chosen, so it's clear whether you've voted. */
   .choices .yes {
     border-color: var(--brand);
+    color: var(--brand-strong);
+  }
+
+  .choices .yes.chosen {
     background: var(--brand);
     color: var(--on-brand, #fff);
   }
 
-  .choices .no.chosen {
+  .choices .no {
     border-color: var(--danger);
     color: var(--danger);
+  }
+
+  .choices .no.chosen {
+    background: var(--danger);
+    color: #fff;
+  }
+
+  .voted {
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
 
   .next {

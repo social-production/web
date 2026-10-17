@@ -18,6 +18,7 @@ export interface ScopeProposal {
   votesRequired: number;
   viewerVote: 'yes' | 'no' | null;
   viewerCanVote: boolean;
+  createdAt: string | null;
   closesAt: string;
 }
 

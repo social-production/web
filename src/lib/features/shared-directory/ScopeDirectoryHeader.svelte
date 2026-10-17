@@ -173,7 +173,7 @@
 
 {#if (pageData.openVotes ?? 0) > 0}
   <!-- Sits just left of the + button while a settings vote is waiting for this viewer. -->
-  <button class="vote-fab" type="button" aria-label={`Vote (${pageData.openVotes} open)`} on:click={() => (showVotes = true)}>
+  <button class="vote-fab" type="button" aria-label={`Vote: ${pageData.openVotes} waiting for your vote`} on:click={() => (showVotes = true)}>
     Vote
     <span class="vote-fab-count">{pageData.openVotes}</span>
   </button>

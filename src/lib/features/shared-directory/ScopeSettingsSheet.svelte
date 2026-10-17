@@ -8,6 +8,7 @@
   import { showToast } from '$lib/stores/toast';
   import { validateHandle } from '$lib/utils/handles';
   import { askConfirm } from '$lib/stores/confirmDialog';
+  import { describeScopeProposal } from './scopeProposals';
   import type { ScopeSettings, ScopeSettingsKind } from '$lib/types/scopeSettings';
 
   /** Gear sheet: picture, name, description, and (private communities) who decides. */
@@ -48,13 +49,15 @@
       settings = await action();
       const opened = settings.proposals.length > before;
       showToast(opened ? 'Vote started' : done);
-      // The left rail reads names and pictures from bootstrap, which invalidateAll doesn't refetch.
-      await refreshBootstrap();
-      await invalidateAll();
       if (closeAfter) {
         pendingImage = null;
         open = false;
       }
+      busy = false;
+      // Refresh the page and the left rail (which reads names and pictures from bootstrap)
+      // without holding the sheet open.
+      await refreshBootstrap();
+      await invalidateAll();
     } catch (err) {
       showToast(errorMessage(err, 'Something went wrong'), 'error');
     } finally {
@@ -182,6 +185,23 @@
         <button class="primary" type="button" disabled={busy || !changed || Boolean(nameError)} on:click={save}>
           {settings.viewerEditsDirectly ? 'Save' : 'Propose change'}
         </button>
+      {/if}
+
+      {#if settings.proposals.length > 0}
+        <section class="decisions">
+          <h3>Open decisions</h3>
+          <ul>
+            {#each settings.proposals as item (item.id)}
+              <li>
+                <strong>{describeScopeProposal(item)}</strong>
+                <span>
+                  {item.yes} yes · {item.no} no · {item.votesRequired} needed{#if item.viewerVote}
+                    · you voted {item.viewerVote === 'yes' ? 'Yes' : 'No'}{/if}
+                </span>
+              </li>
+            {/each}
+          </ul>
+        </section>
       {/if}
 
       {#if settings.isPrivate}
@@ -325,6 +345,29 @@
     font: inherit;
     font-weight: 400;
     resize: vertical;
+  }
+
+  .decisions h3 {
+    margin: 0 0 6px;
+    font-size: 14px;
+  }
+
+  .decisions ul {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .decisions li {
+    display: grid;
+    gap: 2px;
+    font-size: 13px;
+  }
+
+  .decisions li span {
+    color: var(--text-soft);
   }
 
   /* Read-only for people who can't change settings: plainly not an input to type in. */
