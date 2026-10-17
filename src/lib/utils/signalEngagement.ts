@@ -1,3 +1,5 @@
+import { get } from 'svelte/store';
+import { page } from '$app/stores';
 import { errorMessage } from '$lib/services/errors';
 import type { SignalToggleResult } from '$lib/types/feed';
 import { setEventSignal } from '$lib/services/commands/events';
@@ -33,7 +35,11 @@ export async function runSignalToggle(
 ): Promise<SignalToggleRunResult> {
   const snapshot = current;
   const optimistic = applyOptimisticSignalToggle(snapshot, signal);
-  callbacks.onOptimistic(optimistic);
+  // New and paused accounts are refused, so don't flash a count that snaps back.
+  const standing = get(page).data?.bootstrap?.viewer?.standing;
+  if (standing !== 'new' && standing !== 'paused') {
+    callbacks.onOptimistic(optimistic);
+  }
 
   try {
     const result = await callApi(signal);

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { errorMessage } from '$lib/services/errors';
+  import { askConfirm } from '$lib/stores/confirmDialog';
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
@@ -299,7 +300,22 @@
       void updateStance('clear');
       return;
     }
+    if (next === 'bot') {
+      void confirmBotMark();
+      return;
+    }
     void updateStance(next);
+  }
+
+  async function confirmBotMark() {
+    const ok = await askConfirm({
+      title: `Mark ${data.username} as a possible bot?`,
+      body:
+        'One mark only flags the account. When three full members mark it, a public review opens and full members vote on whether it is a bot. You can clear your mark any time.',
+      confirmLabel: 'Mark as bot',
+      danger: true
+    });
+    if (ok) void updateStance('bot');
   }
 
   function matchesFilter(item: PersonalFeedItem, filter: FeedFilter) {

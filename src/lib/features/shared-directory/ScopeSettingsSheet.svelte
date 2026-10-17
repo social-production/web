@@ -41,7 +41,7 @@
     }
   }
 
-  async function run(action: () => Promise<ScopeSettings>, done: string) {
+  async function run(action: () => Promise<ScopeSettings>, done: string, closeAfter = false) {
     busy = true;
     try {
       const before = settings?.proposals.length ?? 0;
@@ -51,6 +51,10 @@
       // The left rail reads names and pictures from bootstrap, which invalidateAll doesn't refetch.
       await refreshBootstrap();
       await invalidateAll();
+      if (closeAfter) {
+        pendingImage = null;
+        open = false;
+      }
     } catch (err) {
       showToast(errorMessage(err, 'Something went wrong'), 'error');
     } finally {
@@ -90,7 +94,7 @@
       showToast('Nothing has changed', 'error');
       return;
     }
-    void run(() => api.edit(kind, slug, input), 'Saved');
+    void run(() => api.edit(kind, slug, input), 'Saved', true);
   }
 
   // Organizer-controlled: only organizers can change things, so others see a read-only form.
@@ -120,14 +124,16 @@
           size={64}
         />
         <div class="picture-copy">
-          <button
-            class="text-button"
-            type="button"
-            disabled={busy || !canEdit}
-            on:click={() => fileInput?.click()}
-          >
-            {settings.imageUrl || pendingImage ? 'Change picture' : 'Add a picture'}
-          </button>
+          {#if canEdit}
+            <button
+              class="text-button"
+              type="button"
+              disabled={busy}
+              on:click={() => fileInput?.click()}
+            >
+              {settings.imageUrl || pendingImage ? 'Change picture' : 'Add a picture'}
+            </button>
+          {/if}
           <span>Shown on cards and at the top of the page.</span>
         </div>
         <input
@@ -149,7 +155,7 @@
           disabled={!canEdit}
         />
         <span id="scope-name-hint" class="hint" class:name-error={Boolean(nameError)}>
-          {nameError || 'No spaces. Letters, numbers, hyphens or underscores.'}
+          {nameError || 'Shown as one word: letters, numbers, - or _ (no spaces).'}
         </span>
       </label>
       <label class="field">

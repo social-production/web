@@ -1,9 +1,16 @@
 <script lang="ts">
   import { portal } from '$lib/utils/portal';
   import { dismissToast, toasts } from '$lib/stores/toast';
+  import { installBannerHeight } from '$lib/stores/installBanner';
 </script>
 
-<div class="toast-host" aria-live="polite" use:portal={'body'}>
+<!-- Sits above the Install app banner when it shows. -->
+<div
+  class="toast-host"
+  aria-live="polite"
+  style={`--toast-lift: ${$installBannerHeight}px`}
+  use:portal={'body'}
+>
   {#each $toasts as toast (toast.id)}
     <button
       class="toast"
@@ -24,7 +31,7 @@
   .toast-host {
     position: fixed;
     left: 50%;
-    bottom: calc(16px + var(--shell-bottom-nav-offset, 0px));
+    bottom: calc(16px + var(--shell-bottom-nav-offset, 0px) + var(--toast-lift, 0px));
     z-index: var(--z-toast);
     display: grid;
     gap: 6px;
@@ -37,14 +44,14 @@
 
   @media (max-width: 899px) {
     .toast-host {
-      bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+      bottom: calc(76px + env(safe-area-inset-bottom, 0px) + var(--toast-lift, 0px));
     }
   }
 
   @media (min-width: 900px) {
     .toast-host {
       left: 24px;
-      bottom: 24px;
+      bottom: calc(24px + var(--toast-lift, 0px));
       justify-items: start;
       transform: none;
     }
