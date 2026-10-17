@@ -1,6 +1,10 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
+  import {
+    confirmEventMembershipToggle,
+    finishEventMembershipToggle
+  } from '$lib/features/events/detail/eventMembership';
   import { page } from '$app/stores';
   import { onDestroy, onMount, tick } from 'svelte';
   import EventLifecyclePanel from '$lib/features/events/detail/EventLifecyclePanel.svelte';
@@ -378,6 +382,10 @@
       return;
     }
 
+    if (!(await confirmEventMembershipToggle(pageData))) {
+      return;
+    }
+
     const wasMember = pageData.viewerIsMember;
     const previousCount = pageData.memberCount;
     handleMembershipChange({
@@ -388,6 +396,7 @@
     try {
       await toggleEventMembership(pageData.slug);
       void invalidateEventDetail(pageData.slug);
+      await finishEventMembershipToggle(pageData, wasMember);
     } catch {
       handleMembershipChange({
         viewerIsMember: wasMember,

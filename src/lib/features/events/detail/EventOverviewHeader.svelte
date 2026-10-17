@@ -1,5 +1,9 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import {
+    confirmEventMembershipToggle,
+    finishEventMembershipToggle
+  } from '$lib/features/events/detail/eventMembership';
   import { page } from '$app/stores';
   import ShareUserMenu from '$lib/components/shared/ShareUserMenu.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
@@ -126,6 +130,10 @@
       return;
     }
 
+    if (!(await confirmEventMembershipToggle(data))) {
+      return;
+    }
+
     const wasMember = data.viewerIsMember;
     const previousCount = data.memberCount;
     onMembershipChange?.({
@@ -136,6 +144,7 @@
     try {
       await toggleEventMembership(data.slug);
       void invalidateEventDetail(data.slug);
+      await finishEventMembershipToggle(data, wasMember);
     } catch {
       onMembershipChange?.({
         viewerIsMember: wasMember,
