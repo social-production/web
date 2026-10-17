@@ -27,6 +27,8 @@
   let contactSuggestions: ViewerSummary[] = [];
   let contactSearchKey = '';
   let contactSearchRequestId = 0;
+  // While a search is running, say so instead of "No matches."
+  let contactsLoading = false;
   let wasOpen = false;
 
   $: viewerId = $page.data.bootstrap?.viewer?.id ?? null;
@@ -114,6 +116,7 @@
     }
 
     const requestId = ++contactSearchRequestId;
+    contactsLoading = true;
 
     try {
       const results = await getMessageContacts(normalized, 8);
@@ -127,6 +130,8 @@
       if (requestId === contactSearchRequestId) {
         contactSuggestions = [];
       }
+    } finally {
+      if (requestId === contactSearchRequestId) contactsLoading = false;
     }
   }
 
@@ -248,6 +253,9 @@
         on:click={() => {
           composerMode = 'direct';
           composerError = '';
+          if (!selectedDirectRecipient && selectedGroupMembers.length === 1) {
+            selectedDirectRecipient = selectedGroupMembers[0];
+          }
         }}
       >
         Direct
@@ -261,6 +269,10 @@
         on:click={() => {
           composerMode = 'group';
           composerError = '';
+          // Keep the person already chosen when switching to a group.
+          if (selectedDirectRecipient && !selectedGroupMembers.includes(selectedDirectRecipient)) {
+            selectedGroupMembers = [...selectedGroupMembers, selectedDirectRecipient];
+          }
         }}
       >
         Group
@@ -291,6 +303,7 @@
             items={directSuggestionItems}
             query={recipientDraft}
             showAvatars
+            emptyCopy={contactsLoading ? 'Searching…' : 'No matches.'}
             on:select={(event) => chooseDirectRecipient(event.detail.key)}
           />
         {/if}
@@ -326,6 +339,7 @@
           items={groupSuggestionItems}
           query={groupMemberDraft}
           showAvatars
+          emptyCopy={contactsLoading ? 'Searching…' : 'No matches.'}
           on:select={(event) => chooseGroupComposerMember(event.detail.key)}
         />
       </div>
