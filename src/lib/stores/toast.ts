@@ -21,6 +21,13 @@ export function dismissToast(id: number): void {
 export function showToast(message: string, tone: ToastTone = 'success'): void {
   const text = message.trim();
   if (!text) return;
+  // One failure can be reported by both the command layer and the screen; show it once.
+  let alreadyShowing = false;
+  toasts.update((items) => {
+    alreadyShowing = items.some((item) => item.message === text && item.tone === tone);
+    return items;
+  });
+  if (alreadyShowing) return;
   const id = nextId++;
   toasts.update((items) => [...items.slice(-2), { id, message: text, tone }]);
   setTimeout(() => dismissToast(id), TOAST_MS);

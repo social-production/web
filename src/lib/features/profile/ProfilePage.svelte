@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from '$lib/services/errors';
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
@@ -275,6 +276,9 @@
     paused: 'Paused',
   };
 
+  // Accounts found to be bots can't vouch or mark, so they only see the standing label.
+  $: viewerPaused = $page.data.bootstrap?.viewer?.standing === 'paused';
+
   function standingLabel(level: string) {
     return STANDING_LABELS[level] ?? 'Member';
   }
@@ -326,7 +330,7 @@
       showToast(vote === 'bot' ? 'Voted: bot' : 'Voted: real person');
       await invalidateAll();
     } catch (err) {
-      reviewMessage = err instanceof Error ? err.message : 'Could not record that vote.';
+      reviewMessage = errorMessage(err, 'Could not record that vote.');
     } finally {
       reviewPending = false;
     }
@@ -340,7 +344,7 @@
       showToast('Re-review requested');
       await invalidateAll();
     } catch (err) {
-      reviewMessage = err instanceof Error ? err.message : 'Could not ask for a re-review.';
+      reviewMessage = errorMessage(err, 'Could not ask for a re-review.');
     } finally {
       reviewPending = false;
     }
@@ -363,7 +367,7 @@
       );
       await invalidateAll();
     } catch (err) {
-      stanceMessage = err instanceof Error ? err.message : 'Could not update that stance.';
+      stanceMessage = errorMessage(err, 'Could not update that stance.');
     } finally {
       stancePending = false;
     }
@@ -488,12 +492,12 @@
                 <div class="trust-corner">
           <div
             class="trust-split"
-            class:rating-only={data.isOwnProfile}
+            class:rating-only={data.isOwnProfile || viewerPaused}
             class:vouched={!data.isOwnProfile && data.trust.viewerStance === 'vouch'}
             class:marked={!data.isOwnProfile && data.trust.viewerStance === 'bot'}
             class:open={trustOpen}
           >
-            {#if !data.isOwnProfile}
+            {#if !data.isOwnProfile && !viewerPaused}
               <button
                 aria-label={data.trust.viewerStance === 'vouch'
                   ? `Clear vouch for ${data.username}`
@@ -527,7 +531,7 @@
             >
               {standingLabel(data.trust.standing)}
             </button>
-            {#if !data.isOwnProfile}
+            {#if !data.isOwnProfile && !viewerPaused}
               <button
                 aria-label={data.trust.viewerStance === 'bot'
                   ? `Clear bot mark for ${data.username}`

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from '$lib/services/errors';
   import { invalidateAll } from '$app/navigation';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import ScopeAvatar from './ScopeAvatar.svelte';
@@ -36,7 +37,7 @@
       pendingImage = null;
       loadError = '';
     } catch (err) {
-      loadError = err instanceof Error ? err.message : 'Could not load settings.';
+      loadError = errorMessage(err, 'Could not load settings.');
     }
   }
 
@@ -51,7 +52,7 @@
       await refreshBootstrap();
       await invalidateAll();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Something went wrong', 'error');
+      showToast(errorMessage(err, 'Something went wrong'), 'error');
     } finally {
       busy = false;
     }
@@ -66,7 +67,7 @@
       const uploaded = await api.uploadImage(kind, slug, file);
       pendingImage = { ...uploaded, preview: URL.createObjectURL(file) };
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Could not upload that picture.', 'error');
+      showToast(errorMessage(err, 'Could not upload that picture.'), 'error');
     } finally {
       busy = false;
     }
@@ -165,7 +166,7 @@
         {#if settings.viewerEditsDirectly}
           You're an organizer, so changes apply straight away.
         {:else if settings.governance === 'organizer'}
-          Organizers ({settings.organizers.join(', ')}) look after these settings.
+          Read only. Organizers ({settings.organizers.join(', ')}) look after these settings.
         {:else}
           Collaborative: changes go to a member vote (66% yes, with quorum based on {settings.quorumBasis}).
         {/if}
@@ -318,6 +319,16 @@
     font: inherit;
     font-weight: 400;
     resize: vertical;
+  }
+
+  /* Read-only for people who can't change settings: plainly not an input to type in. */
+  .field input:disabled,
+  .field textarea:disabled {
+    border-style: dashed;
+    background: transparent;
+    color: var(--text-soft);
+    cursor: not-allowed;
+    resize: none;
   }
 
   .text-button {

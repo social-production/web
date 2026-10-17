@@ -44,12 +44,12 @@ export function formatProjectVoteRequirement(
   voteSummary: ProjectPlanVoteSummary,
   approvalThresholdPercent: number
 ) {
-  const additionalYesVotesNeeded =
-    minimumAdditionalYesVotesNeeded(voteSummary, approvalThresholdPercent) ?? 0;
-  const requiredLabel = additionalYesVotesNeeded === 1 ? 'vote' : 'votes';
-  const remainingLabel = voteSummary.remainingEligibleVotes === 1 ? 'vote' : 'votes';
+  const needed = minimumAdditionalYesVotesNeeded(voteSummary, approvalThresholdPercent) ?? 0;
+  const left = voteSummary.remainingEligibleVotes;
+  const need = needed > 0 ? `Needs ${needed} more yes` : 'Enough yes votes so far';
+  const waiting = left > 0 ? ` · ${left} ${left === 1 ? 'person has' : 'people have'} not voted` : '';
 
-  return `${approvalThresholdPercent}% approval needed - ${additionalYesVotesNeeded} ${requiredLabel} required with ${voteSummary.remainingEligibleVotes} ${remainingLabel} remaining`;
+  return `${need} (${approvalThresholdPercent}% approval)${waiting}`;
 }
 
 export function formatProjectVoteSummary(voteSummary: ProjectPlanVoteSummary) {

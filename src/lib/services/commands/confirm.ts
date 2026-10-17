@@ -1,4 +1,5 @@
 import { requestActivityRailRefresh } from '$lib/services/queries/bootstrap';
+import { errorMessage } from '$lib/services/errors';
 import { showToast } from '$lib/stores/toast';
 
 function failed(result: unknown) {
@@ -14,7 +15,14 @@ export async function confirmed<T>(
   message: string | null,
   refreshRail = true
 ): Promise<T> {
-  const result = await action;
+  let result: T;
+  try {
+    result = await action;
+  } catch (err) {
+    // Say why it was refused (e.g. "Voting opens after…") instead of failing silently.
+    showToast(errorMessage(err, 'That did not go through. Try again.'), 'error');
+    throw err;
+  }
   if (failed(result)) return result;
   if (refreshRail) requestActivityRailRefresh();
   if (message) showToast(message);

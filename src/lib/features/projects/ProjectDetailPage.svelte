@@ -503,8 +503,14 @@
       return;
     }
 
+    const previousOverlay = assessmentRatingOverlay;
     assessmentRatingOverlay = { ...assessmentRatingOverlay, [criterionId]: rating };
-    await setProjectPlanCriterionRating(data.slug, pendingAssessmentPlanId, criterionId, rating);
+    try {
+      await setProjectPlanCriterionRating(data.slug, pendingAssessmentPlanId, criterionId, rating);
+    } catch (err) {
+      assessmentRatingOverlay = previousOverlay;
+      throw err;
+    }
     void invalidateProjectDetail(data.slug);
   }
 

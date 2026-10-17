@@ -253,7 +253,16 @@
     } else if (nextRating == null) {
       sessionAllRated = false;
     }
-    void onRate(entry.criterionId, nextRating);
+    // A refused rating (e.g. no voting standing yet) is undone and the wizard stays put;
+    // the command layer shows the reason.
+    Promise.resolve(onRate(entry.criterionId, nextRating)).catch(() => {
+      if (autoAdvanceTimer) {
+        clearTimeout(autoAdvanceTimer);
+        autoAdvanceTimer = null;
+      }
+      localRatings = { ...localRatings, [entry.criterionId]: previous };
+      sessionAllRated = ratingsCoverCriteria(localRatings);
+    });
 
     if (nextRating == null || autoAdvanceTimer) {
       if (autoAdvanceTimer && nextRating == null) {
@@ -284,10 +293,19 @@
 
     const nextVote = effectiveOverallVote === vote ? null : vote;
     localOverallVote = nextVote;
-    overallVoteInFlight = Promise.resolve(onOverallVote(nextVote)).finally(() => {
-      overallVoteInFlight = null;
-    });
+    let refused = false;
+    overallVoteInFlight = Promise.resolve(onOverallVote(nextVote))
+      .catch(() => {
+        refused = true;
+      })
+      .finally(() => {
+        overallVoteInFlight = null;
+      });
     await overallVoteInFlight;
+    if (refused) {
+      localOverallVote = undefined;
+      return;
+    }
 
     if (nextVote != null) {
       handleClose();

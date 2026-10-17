@@ -20,7 +20,7 @@ export const load = (async ({ params, depends }) => {
     if (!event) {
       return {
         event: null,
-        loadError: 'This event is no longer available. It may have been removed by community moderation.'
+        loadError: "This event is private or no longer available. If it's private, ask an organizer to invite you."
       };
     }
 
@@ -29,7 +29,7 @@ export const load = (async ({ params, depends }) => {
     if (isApiClientError(err) && err.status === 404) {
       return {
         event: null,
-        loadError: 'This event is no longer available. It may have been removed by community moderation.'
+        loadError: "This event is private or no longer available. If it's private, ask an organizer to invite you."
       };
     }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from '$lib/services/errors';
   import { invalidateAll } from '$app/navigation';
   import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
@@ -67,7 +68,7 @@
       await refreshBootstrap();
       await invalidateAll();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Could not record that vote.', 'error');
+      showToast(errorMessage(err, 'Could not record that vote.'), 'error');
     } finally {
       busy = false;
     }

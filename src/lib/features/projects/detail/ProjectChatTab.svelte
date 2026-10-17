@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from '$lib/services/errors';
   import { deleteOwnComment } from '$lib/services/commands/shared';
   import { showToast } from '$lib/stores/toast';
   import { onMount } from 'svelte';
@@ -110,7 +111,7 @@
       void invalidate('inbox:messages');
     } catch (err) {
       optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
-      throw new ChatSendError(err instanceof Error && err.message ? err.message : undefined);
+      throw new ChatSendError(errorMessage(err, '') || undefined);
     }
 
     await refreshDiscussion();
