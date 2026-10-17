@@ -10,6 +10,7 @@
   import type { ContentReportSummary, DetailComment, ModerationState } from '$lib/types/detail';
   import type { CommentSubjectType, ReportTargetType } from '$lib/types/governance';
   import { linkifyMessageBody } from '$lib/utils/linkifyMessageBody';
+  import { askConfirm } from '$lib/stores/confirmDialog';
   import { moderatedPlaceholder, shouldHideModeratedBody } from '$lib/utils/moderation';
   import { invalidateAfterReport } from '$lib/utils/reportInvalidation';
   import { scrollCenteredInContainer } from '$lib/utils/comment-scroll';
@@ -206,7 +207,13 @@
     if (!onDeleteMessage) {
       return;
     }
-    if (!window.confirm('Delete this message for everyone? Photos and files in it are removed too.')) {
+    const ok = await askConfirm({
+      title: 'Delete this message?',
+      body: 'It is removed for everyone, with any photos and files in it.',
+      confirmLabel: 'Delete',
+      danger: true
+    });
+    if (!ok) {
       return;
     }
     await onDeleteMessage(message.id);
@@ -621,7 +628,7 @@
     panelElement.style.setProperty('--chat-panel-height', `${Math.floor(nextHeight)}px`);
   }
 
-  function flattenComments(items: DetailComment[]): ChatMessage[] {
+  function flattenComments(items: DetailComment[], parent: DetailComment | null = null): ChatMessage[] {
     const flattened: ChatMessage[] = [];
 
     for (const item of items) {
@@ -635,9 +642,13 @@
         attachments: item.attachments?.map((attachment) => ({
           ...attachment,
           url: attachment.url || apiAssetUrl(`/governance/attachments/${attachment.id}`)
-        }))
+        })),
+        // A reply shows its parent as a quote, like direct messages do.
+        replyToId: parent?.id ?? null,
+        replyAuthor: parent?.authorUsername ?? null,
+        replyPreview: parent ? parent.body.slice(0, 120) || 'Photo' : null
       });
-      flattened.push(...flattenComments(item.replies));
+      flattened.push(...flattenComments(item.replies, item));
     }
 
     return flattened;
@@ -652,6 +663,7 @@
       : flattenedComments;
   $: viewerUsername = $page.data.bootstrap?.viewer?.username ?? null;
   $: viewerSignedIn = Boolean($page.data.bootstrap?.viewer);
+  $: viewerPaused = $page.data.bootstrap?.viewer?.standing === 'paused';
 
   $: scrollSubjectKey = `${subjectId || title}`;
   $: autoScrollKey = highlightedCommentId
@@ -875,6 +887,9 @@
 </script>
 
 <svelte:window
+  on:keydown={(event) => {
+    if (event.key === 'Escape' && messageMenu) closeMessageMenu();
+  }}
   on:click={onMessageMenuClick}
   on:pointerdown={onMessageMenuPointerDown}
   on:resize={syncPanelHeight}
@@ -928,6 +943,7 @@
             class="chat-message"
             use:registerMessageElement={message.id}
             on:click={(event) => openMessageMenu(message, event)}
+            on:contextmenu|preventDefault={(event) => openMessageMenu(message, event)}
           >
             <div
               class="message-copy"
@@ -1068,7 +1084,7 @@
           >View profile</a
         >
       {/if}
-      {#if conversationActions && onSubmitMessage}
+      {#if onSubmitMessage && menuMessage.kind !== 'call'}
         <button type="button" role="menuitem" on:click={() => beginReply(menuMessage)}>Reply</button>
       {/if}
       <button type="button" role="menuitem" on:click={() => copyMessage(menuMessage)}>Copy</button>
@@ -1176,6 +1192,11 @@
     {#if attachmentError}
       <p class="attach-error" role="alert">{attachmentError}</p>
     {/if}
+    {#if viewerPaused}
+      <p class="composer-paused" role="status">
+        A community review found this account is a bot, so it can read but not post.
+      </p>
+    {:else}
     <div class="composer-row">
       {#if allowAttachments && viewerSignedIn}
         <button aria-label="Add a photo" title="Add a photo" class="attach-button" type="button" on:click={() => photoInput?.click()}>
@@ -1232,6 +1253,7 @@
         <button class="primary-button" type="button" on:click={promptChatSignIn}>Sign in</button>
       {/if}
     </div>
+    {/if}
     {#if allowAttachments && viewerSignedIn}
       <input
         bind:this={photoInput}
@@ -1704,6 +1726,14 @@
     flex-wrap: wrap;
     gap: 8px;
     padding: 8px 12px 0;
+  }
+
+  .composer-paused {
+    margin: 0;
+    padding: 12px 14px;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.4;
   }
 
   .composer-row {

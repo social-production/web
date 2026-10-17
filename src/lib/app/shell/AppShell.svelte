@@ -5,6 +5,7 @@
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import AuthActionNotice from '$lib/components/shared/AuthActionNotice.svelte';
   import ToastHost from '$lib/components/shared/ToastHost.svelte';
+  import ConfirmHost from '$lib/components/shared/ConfirmHost.svelte';
   import LeftRailPanel from '$lib/features/left-rail/LeftRailPanel.svelte';
   import RightRailPanel from '$lib/features/right-rail/RightRailPanel.svelte';
   import MobileBottomNav from '$lib/app/shell/MobileBottomNav.svelte';
@@ -1120,6 +1121,7 @@
 
 <AuthActionNotice />
 <ToastHost />
+<ConfirmHost />
 
 <style>
   .shell {

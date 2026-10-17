@@ -129,7 +129,11 @@
   const fastapiChat =
     (import.meta.env.VITE_BACKEND ?? '').trim().toLowerCase() === 'fastapi';
 
-  async function submitHelpRequestMessage(body: string, files?: File[]) {
+  async function submitHelpRequestMessage(
+    body: string,
+    files?: File[],
+    options?: { replyToId?: string | null }
+  ) {
     registerEntityType(data.id, 'help_request');
 
     const viewerUsername = $page.data.bootstrap?.viewer?.username ?? 'you';
@@ -137,11 +141,16 @@
     optimisticComments = [...optimisticComments, optimistic];
 
     try {
-      await addComment({ id: data.id, type: 'help_request' }, body, undefined, files);
+      await addComment(
+        { id: data.id, type: 'help_request' },
+        body,
+        options?.replyToId ?? undefined,
+        files
+      );
       void invalidate('inbox:messages');
-    } catch {
+    } catch (err) {
       optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
-      throw new ChatSendError();
+      throw new ChatSendError(err instanceof Error && err.message ? err.message : undefined);
     }
 
     try {

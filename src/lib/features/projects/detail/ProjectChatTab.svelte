@@ -89,7 +89,11 @@
   const fastapiChat =
     (import.meta.env.VITE_BACKEND ?? '').trim().toLowerCase() === 'fastapi';
 
-  async function submitProjectMessage(body: string, files?: File[]) {
+  async function submitProjectMessage(
+    body: string,
+    files?: File[],
+    options?: { replyToId?: string | null }
+  ) {
     registerEntityType(data.id, 'project');
 
     const viewerUsername = $page.data.bootstrap?.viewer?.username ?? 'you';
@@ -97,11 +101,16 @@
     optimisticComments = [...optimisticComments, optimistic];
 
     try {
-      await addComment({ id: data.id, type: 'project' }, body, undefined, files);
+      await addComment(
+        { id: data.id, type: 'project' },
+        body,
+        options?.replyToId ?? undefined,
+        files
+      );
       void invalidate('inbox:messages');
-    } catch {
+    } catch (err) {
       optimisticComments = optimisticComments.filter((comment) => comment.id !== optimistic.id);
-      throw new ChatSendError();
+      throw new ChatSendError(err instanceof Error && err.message ? err.message : undefined);
     }
 
     await refreshDiscussion();

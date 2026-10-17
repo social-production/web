@@ -20,6 +20,12 @@ describe('linkifyMessageBody', () => {
     );
   });
 
+  it('shows a labelled internal link line by its label', () => {
+    expect(linkifyMessageBody('Request accepted\n\nView request: /projects/garden?tab=participation&request=1')).toBe(
+      'Request accepted\n\n<a href="/projects/garden?tab=participation&amp;request=1">View request</a>'
+    );
+  });
+
   it('turns an @username into a profile link', () => {
     expect(linkifyMessageBody('Thanks @abc1 for the notes.')).toBe(
       'Thanks <a class="mention" href="/profile/abc1">@abc1</a> for the notes.'

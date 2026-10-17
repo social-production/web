@@ -23,7 +23,25 @@ function splitTrailing(raw: string): { core: string; trailing: string } {
   return { core, trailing };
 }
 
+// "View request: /projects/x?…" on its own line reads as a "View request" link, not a raw path.
+const LABELLED_INTERNAL_LINE =
+  /^([A-Za-z][A-Za-z ]{1,40}): (\/(?:projects|events|threads|messages|posts|profile|help-requests)\S*)$/gm;
+
+function linkLabelledLines(escaped: string): string {
+  return escaped.replace(LABELLED_INTERNAL_LINE, (_line, label: string, path: string) => {
+    return `<a href="${path}">${label}</a>`;
+  });
+}
+
 function linkUrls(escaped: string): string {
+  // Leave links made by linkLabelledLines alone.
+  return escaped
+    .split(/(<a\b[^>]*>[\s\S]*?<\/a>)/)
+    .map((part) => (part.startsWith('<a') ? part : linkBareUrls(part)))
+    .join('');
+}
+
+function linkBareUrls(escaped: string): string {
   return escaped.replace(LINK_PATTERN, (raw) => {
     const { core, trailing } = splitTrailing(raw);
     if (!core) {
@@ -54,5 +72,5 @@ function linkMentions(value: string) {
 
 export function linkifyMessageBody(body: string): string {
   const withTimes = body.replace(ISO_INSTANT, (instant) => formatLocalDateTime(instant) || instant);
-  return linkMentions(linkUrls(escapeHtml(withTimes)));
+  return linkMentions(linkUrls(linkLabelledLines(escapeHtml(withTimes))));
 }
