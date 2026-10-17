@@ -1,7 +1,9 @@
 import type { ScopeProposal } from '$lib/types/scopeSettings';
 
 /** One line saying what a community or channel decision would change. */
-export function describeScopeProposal(item: ScopeProposal): string {
+export function describeScopeProposal(
+  item: Pick<ScopeProposal, 'kind' | 'payload' | 'proposer'>
+): string {
   switch (item.kind) {
     case 'edit': {
       const parts = [];

@@ -35,6 +35,32 @@ interface BackendSettings {
   viewer_is_organizer: boolean;
   viewer_edits_directly: boolean;
   proposals: BackendProposal[];
+  recent_decisions?: BackendDecision[];
+}
+
+interface BackendDecision {
+  id: string;
+  kind: ScopeProposal['kind'];
+  payload: Record<string, unknown>;
+  proposer: string | null;
+  outcome: string;
+  yes: number;
+  no: number;
+  created_at: string;
+  closed_at: string | null;
+}
+
+function mapPayload(payload: Record<string, unknown>): ScopeProposal['payload'] {
+  return {
+    name: typeof payload.name === 'string' ? payload.name : undefined,
+    description: typeof payload.description === 'string' ? payload.description : undefined,
+    imageUrl: typeof payload.image_url === 'string' ? apiAssetUrl(payload.image_url) : null,
+    removeImage: Boolean(payload.remove_image),
+    username: typeof payload.username === 'string' ? payload.username : undefined,
+    organizerUsernames: Array.isArray(payload.organizer_usernames)
+      ? (payload.organizer_usernames as string[])
+      : undefined,
+  };
 }
 
 const plural = (kind: ScopeSettingsKind) => (kind === 'community' ? 'communities' : 'channels');
@@ -57,18 +83,7 @@ function mapSettings(res: BackendSettings): ScopeSettings {
     proposals: res.proposals.map((item) => ({
       id: item.id,
       kind: item.kind,
-      payload: {
-        name: typeof item.payload.name === 'string' ? item.payload.name : undefined,
-        description:
-          typeof item.payload.description === 'string' ? item.payload.description : undefined,
-        imageUrl:
-          typeof item.payload.image_url === 'string' ? apiAssetUrl(item.payload.image_url) : null,
-        removeImage: Boolean(item.payload.remove_image),
-        username: typeof item.payload.username === 'string' ? item.payload.username : undefined,
-        organizerUsernames: Array.isArray(item.payload.organizer_usernames)
-          ? (item.payload.organizer_usernames as string[])
-          : undefined,
-      },
+      payload: mapPayload(item.payload),
       proposer: item.proposer,
       yes: item.yes,
       no: item.no,
@@ -77,6 +92,17 @@ function mapSettings(res: BackendSettings): ScopeSettings {
       viewerCanVote: item.viewer_can_vote,
       createdAt: item.created_at ?? null,
       closesAt: item.closes_at,
+    })),
+    recentDecisions: (res.recent_decisions ?? []).map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      payload: mapPayload(item.payload),
+      proposer: item.proposer,
+      outcome: item.outcome,
+      yes: item.yes,
+      no: item.no,
+      createdAt: item.created_at,
+      closedAt: item.closed_at,
     })),
   };
 }

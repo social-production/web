@@ -204,6 +204,27 @@
         </section>
       {/if}
 
+      {#if settings.recentDecisions.length > 0}
+        <section class="decisions">
+          <h3>Past decisions</h3>
+          <ul>
+            {#each settings.recentDecisions as item (item.id)}
+              <li>
+                <strong>{describeScopeProposal(item)}</strong>
+                <span>
+                  {item.outcome === 'passed' ? 'Passed' : 'Rejected'} · {item.yes} yes · {item.no} no{#if item.closedAt}
+                    · {new Date(item.closedAt).toLocaleDateString(undefined, {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric'
+                    })}{/if}{#if item.proposer} · proposed by {item.proposer}{/if}
+                </span>
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
+
       {#if settings.isPrivate}
         <section class="governance">
           <h3>Who decides</h3>

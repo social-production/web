@@ -37,6 +37,21 @@ export interface ScopeSettings {
   viewerIsOrganizer: boolean;
   viewerEditsDirectly: boolean;
   proposals: ScopeProposal[];
+  /** Closed decisions with final tallies, newest first. */
+  recentDecisions: ScopeDecision[];
+}
+
+export interface ScopeDecision {
+  id: string;
+  kind: ScopeProposal['kind'];
+  payload: ScopeProposal['payload'];
+  proposer: string | null;
+  /** 'passed' or 'rejected'. */
+  outcome: string;
+  yes: number;
+  no: number;
+  createdAt: string;
+  closedAt: string | null;
 }
 
 export interface ScopeSettingsEdit {
