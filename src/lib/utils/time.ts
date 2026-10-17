@@ -318,8 +318,8 @@ export function formatEventPlanSchedule(
     return '';
   }
 
-  // Plan times are wall-clock times in the zone they were typed in: show them as typed,
-  // labelled with that zone, instead of shifting them by the viewer's offset.
+  // Plan times are stored in UTC and converted into the viewer's zone on load
+  // (eventPlanScheduleInZone), so show them as given, labelled with that zone.
   const timeZone = schedule.timeZone?.trim() || resolvedTimeZone();
   const startTime = formatWallClockLabel(schedule.startTimeLabel);
   const finishTime = formatWallClockLabel(schedule.finishTimeLabel);

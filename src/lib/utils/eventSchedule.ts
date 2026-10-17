@@ -349,3 +349,58 @@ export function canProposeEventActivity(
 
   return eventPlanFutureDayIsos(plan, now).length > 0;
 }
+function wallTimeInZone(instant: Date, timeZone: string) {
+  const bag: Record<string, string> = {};
+  for (const part of new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(instant)) {
+    bag[part.type] = part.value;
+  }
+  return { date: `${bag.year}-${bag.month}-${bag.day}`, time: `${bag.hour}:${bag.minute}` };
+}
+
+/**
+ * Plans are stored with their dates and times in UTC (`timeZone: 'UTC'`, or none for older plans).
+ * Rewrite them as wall time in `timeZone` (the viewer's Display timezone) so every view, and an
+ * edit that resubmits them, works in the viewer's own zone. A date without a time stays as is.
+ */
+export function eventPlanScheduleInZone<T extends EventPlanScheduleInput>(
+  schedule: T,
+  timeZone: string,
+  now = new Date()
+): T {
+  const from = schedule.timeZone?.trim() || 'UTC';
+  if (from === timeZone) return schedule;
+  const today = wallTimeInZone(now, from).date;
+  const next: T = { ...schedule, timeZone };
+
+  const convert = (day: string | null | undefined, time: string | null | undefined) => {
+    const value = buildLocalDateTimeValue(day || today, time, '');
+    if (!value || !/T\d{2}:\d{2}$/.test(value) || !time) return null;
+    const instant = zonedDateTimeInputToIso(value, from);
+    return instant ? wallTimeInZone(new Date(instant), timeZone) : null;
+  };
+
+  const start = convert(schedule.startDate, schedule.startTimeLabel);
+  if (start) {
+    next.startTimeLabel = start.time;
+    if (schedule.startDate) next.startDate = start.date;
+  }
+  const endDay = schedule.endDate || schedule.startDate;
+  const end = convert(endDay, schedule.finishTimeLabel);
+  if (end) {
+    next.finishTimeLabel = end.time;
+    if (endDay) next.endDate = end.date;
+  }
+  // A one-day plan can cross midnight once shifted into another zone.
+  if (next.mode === 'date' && next.endDate && next.startDate && next.endDate !== next.startDate) {
+    next.mode = 'range';
+  }
+  return next;
+}

@@ -15,6 +15,8 @@ import type {
 } from '$lib/types/detail';
 import type { SignalToggleResult } from '$lib/types/feed';
 import type { CreateEventInput, CreateResult } from '$lib/types/feed';
+import { getDisplayTimezone } from '$lib/stores/timezoneStore';
+import { eventPlanScheduleInZone } from '$lib/utils/eventSchedule';
 
 // Membership cache for toggle direction (populated from getEvent viewerIsMember)
 const membershipCache = new Map<string, boolean>();
@@ -76,6 +78,11 @@ export async function fetchEvent(slug: string): Promise<EventPageData | null> {
       viewerCanSubmitPlans: false,
       viewerCanVoteOnPlans: false
     };
+    // Plans arrive in UTC; show them in the viewer's Display timezone.
+    const displayZone = getDisplayTimezone();
+    for (const plan of res.lifecycle.phaseTwo.plans ?? []) {
+      if (plan.schedule) plan.schedule = eventPlanScheduleInZone(plan.schedule, displayZone);
+    }
     res.lifecycle.activity = res.lifecycle.activity ?? {
       activities: [],
       history: [],
