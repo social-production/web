@@ -93,7 +93,7 @@ export function zonedDateTimeInputToIso(value: string, timeZone: string): string
 
 /** UTC ISO for the plan schedule start, when date + start time are known. */
 export function eventPlanScheduleStartIso(
-  schedule: Pick<EventPlanScheduleInput, 'startDate' | 'startTimeLabel'>
+  schedule: Pick<EventPlanScheduleInput, 'startDate' | 'startTimeLabel' | 'timeZone'>
 ): string | null {
   const localValue = buildLocalDateTimeValue(schedule.startDate, schedule.startTimeLabel);
 
@@ -102,7 +102,7 @@ export function eventPlanScheduleStartIso(
   }
 
   try {
-    return localDateTimeInputToIso(localValue);
+    return localDateTimeInputToIso(localValue, schedule.timeZone);
   } catch {
     return null;
   }
@@ -112,7 +112,7 @@ export function eventPlanScheduleStartIso(
 export function eventPlanScheduleEndIso(
   schedule: Pick<
     EventPlanScheduleInput,
-    'mode' | 'startDate' | 'endDate' | 'finishTimeLabel'
+    'mode' | 'startDate' | 'endDate' | 'finishTimeLabel' | 'timeZone'
   >
 ): string | null {
   const endDate =
@@ -126,7 +126,7 @@ export function eventPlanScheduleEndIso(
   }
 
   try {
-    return localDateTimeInputToIso(localValue);
+    return localDateTimeInputToIso(localValue, schedule.timeZone);
   } catch {
     return null;
   }

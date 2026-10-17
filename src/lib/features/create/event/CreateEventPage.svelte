@@ -3,6 +3,7 @@
   import LocaleDateField from '$lib/components/shared/LocaleDateField.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import RequiredFieldLabel from '$lib/components/shared/RequiredFieldLabel.svelte';
+  import TimeZoneNote from '$lib/components/shared/TimeZoneNote.svelte';
   import TimePicker from '$lib/components/shared/TimePicker.svelte';
   import CreateScopeTagSelector from '$lib/features/create/shared/CreateScopeTagSelector.svelte';
   import { commitSingleSuggestion, mergeScopeOptions } from '$lib/features/create/shared/createFormActions';
@@ -734,6 +735,7 @@
                     <TimePicker bind:value={planForm.finishTimeLabel} />
                   </label>
                 </div>
+                <TimeZoneNote />
               </fieldset>
               <div class="stages">
                 <div class="stages-header">

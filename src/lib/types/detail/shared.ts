@@ -172,6 +172,8 @@ export interface EventPlanScheduleInput {
   startAtUtc?: string | null;
   /** UTC ISO derived from submitter-local finish date/time. */
   endAtUtc?: string | null;
+  /** IANA zone the times were typed in (the author's Display timezone). */
+  timeZone?: string | null;
 }
 
 export interface EventPlanSchedule extends EventPlanScheduleInput {

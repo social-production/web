@@ -1,3 +1,4 @@
+import { getDisplayTimezone } from '$lib/stores/timezoneStore';
 import type {
   EventPlan,
   EventLifecyclePhase,
@@ -128,15 +129,19 @@ export function eventPlanScheduleFromForm(form: EventPlanForm): EventPlanSchedul
     };
   }
 
+  // Times are typed in the author's Display timezone; keep it so everyone sees the same moment.
+  schedule = { ...schedule, timeZone: getDisplayTimezone() };
   const startAtUtc = eventPlanScheduleStartIso({
     startDate: schedule.startDate ?? null,
-    startTimeLabel: schedule.startTimeLabel ?? null
+    startTimeLabel: schedule.startTimeLabel ?? null,
+    timeZone: schedule.timeZone
   });
   const endAtUtc = eventPlanScheduleEndIso({
     mode: schedule.mode,
     startDate: schedule.startDate ?? null,
     endDate: schedule.endDate ?? null,
-    finishTimeLabel: schedule.finishTimeLabel ?? null
+    finishTimeLabel: schedule.finishTimeLabel ?? null,
+    timeZone: schedule.timeZone
   });
 
   if (startAtUtc) {

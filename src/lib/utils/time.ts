@@ -272,29 +272,14 @@ export function formatScheduleLabel(value: string): string {
   return timezone ? `${withAt} ${timezone}` : withAt;
 }
 
-function formatClockLabel(value: string | null | undefined, timeZone = resolvedTimeZone()) {
+function formatWallClockLabel(value: string | null | undefined) {
   const trimmed = value?.trim() ?? '';
-
-  if (!trimmed) {
-    return '';
-  }
-
   const match = trimmed.match(/^(\d{1,2}):(\d{2})/);
-
   if (!match) {
     return trimmed;
   }
-
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-
-  return date.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone
-  });
+  const date = new Date(Date.UTC(2000, 0, 1, Number(match[1]), Number(match[2])));
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
 }
 
 function formatShortDateLabel(value: string | null | undefined, timeZone = resolvedTimeZone()) {
@@ -326,19 +311,25 @@ export function formatEventPlanSchedule(
     endDate?: string | null;
     startTimeLabel?: string | null;
     finishTimeLabel?: string | null;
+    timeZone?: string | null;
   } | null | undefined
 ) {
   if (!schedule) {
     return '';
   }
 
-  const timeZone = resolvedTimeZone();
-  const startTime = formatClockLabel(schedule.startTimeLabel, timeZone);
-  const finishTime = formatClockLabel(schedule.finishTimeLabel, timeZone);
+  // Plan times are wall-clock times in the zone they were typed in: show them as typed,
+  // labelled with that zone, instead of shifting them by the viewer's offset.
+  const timeZone = schedule.timeZone?.trim() || resolvedTimeZone();
+  const startTime = formatWallClockLabel(schedule.startTimeLabel);
+  const finishTime = formatWallClockLabel(schedule.finishTimeLabel);
   const timeRange =
     startTime && finishTime ? `${startTime} – ${finishTime}` : startTime || finishTime || '';
 
-  const timezone = formatLocalTimezoneAbbreviation(new Date(), timeZone);
+  const timezone = formatLocalTimezoneAbbreviation(
+    schedule.startDate ? new Date(`${schedule.startDate}T12:00:00Z`) : new Date(),
+    timeZone
+  );
 
   if (schedule.mode === 'range' && schedule.startDate && schedule.endDate) {
     const start = formatShortDateLabel(schedule.startDate, timeZone);

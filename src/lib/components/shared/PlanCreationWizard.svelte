@@ -2,6 +2,7 @@
   import LocaleDateField from '$lib/components/shared/LocaleDateField.svelte';
   import PlanWizardShell from '$lib/components/shared/PlanWizardShell.svelte';
   import LocationPicker from '$lib/components/shared/LocationPicker.svelte';
+  import TimeZoneNote from '$lib/components/shared/TimeZoneNote.svelte';
   import TimePicker from '$lib/components/shared/TimePicker.svelte';
   import DirectUsePolicyNotice from '$lib/components/shared/DirectUsePolicyNotice.svelte';
   import SoftwareLicenseNotice from '$lib/components/shared/SoftwareLicenseNotice.svelte';
@@ -535,6 +536,7 @@
             <TimePicker bind:value={form.finishTimeLabel} />
           </label>
         </div>
+        <TimeZoneNote />
       {:else if currentStep.type === 'location'}
         <div class="location-step">
           <LocationPicker
