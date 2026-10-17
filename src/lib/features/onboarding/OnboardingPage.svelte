@@ -105,7 +105,9 @@
       }
 
       await invalidateAll();
-      await goto(returnPath());
+      // New accounts get a short welcome first, unless they were heading somewhere.
+      const heading = returnPath();
+      await goto(activeModeValue === 'signup' && heading === '/' ? '/welcome' : heading);
     } finally {
       isSubmitting = false;
     }
