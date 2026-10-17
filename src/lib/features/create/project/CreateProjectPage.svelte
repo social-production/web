@@ -538,4 +538,10 @@
     color: var(--text-main);
     font-size: 14px;
   }
+
+  .scope-more-toggle input {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+  }
 </style>

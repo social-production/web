@@ -848,6 +848,7 @@
   .schedule-fieldset {
     display: grid;
     gap: 12px;
+    min-width: 0;
     margin: 0;
     padding: 12px;
     border: 1px solid var(--panel-border);
@@ -888,6 +889,10 @@
   .schedule-fields {
     display: grid;
     gap: 10px;
+  }
+
+  .schedule-fields > label {
+    min-width: 0;
   }
 
   .schedule-fields.is-range {
@@ -984,5 +989,11 @@
     align-items: center;
     color: var(--text-main);
     font-size: 14px;
+  }
+
+  .scope-more-toggle input {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
   }
 </style>

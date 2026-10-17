@@ -39,7 +39,7 @@
 
 <OverlaySheet bind:open {title} labelledById="create-sheet-title" wide on:close={handleClose}>
   <svelte:fragment slot="subtitle">
-    {#if description}
+    {#if description && !($chrome && $chrome.stepIndex > 0)}
       <p class="sheet-description">{description}</p>
     {/if}
   </svelte:fragment>

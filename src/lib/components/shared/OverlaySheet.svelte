@@ -46,7 +46,8 @@
     footerEl = node;
     footerObserver?.disconnect();
     footerObserver = new MutationObserver(syncClosePlacement);
-    footerObserver.observe(node, { childList: true, subtree: true });
+    // Text changes too: wizards relabel "Cancel" to "Back" in place.
+    footerObserver.observe(node, { childList: true, subtree: true, characterData: true });
     syncClosePlacement();
     return {
       destroy() {
@@ -186,6 +187,8 @@
     position: relative;
     z-index: 1;
     display: grid;
+    /* Keeps wide content (step tabs, chip rows) scrolling inside instead of widening the sheet. */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     width: min(520px, 100%);
     max-height: min(720px, calc(100dvh - 48px));
