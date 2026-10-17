@@ -45,10 +45,7 @@
   const WORLD_ZOOM = 2;
   const LOCAL_ZOOM = 11;
   const RADIUS_SYNC_BUFFER_MS = 300;
-  const MAP_HEIGHT_EXPANDED_VH = 0.45;
-  const MAP_HEIGHT_COLLAPSED_VH = 0.02;
-  const MAP_COLLAPSE_SCROLL_THRESHOLD = 8;
-  const MAP_EXPAND_SCROLL_THRESHOLD = 2;
+  const MAP_HEIGHT_MOBILE_VH = 0.45;
 
   const windowOptions = [
     { value: 'today', label: 'Today' },
@@ -123,7 +120,6 @@
   let mapFullscreen = false;
   let isMobile = false;
   let isCompactMap = false;
-  let mapListCollapsed = false;
   let mapStageTransitioning = false;
   let viewportPanActive = false;
   let viewportRadiusKm: number | null = null;
@@ -172,9 +168,7 @@
       mapStageHeightPx = 0;
       return;
     }
-    mapStageHeightPx = mapListCollapsed
-      ? window.innerHeight * MAP_HEIGHT_COLLAPSED_VH
-      : window.innerHeight * MAP_HEIGHT_EXPANDED_VH;
+    mapStageHeightPx = window.innerHeight * MAP_HEIGHT_MOBILE_VH;
   }
 
   async function restoreListScrollAfterLayout() {
@@ -288,33 +282,6 @@
     mapStageTransitioning = false;
     void restoreListScrollAfterLayout();
     scheduleMapResize();
-  }
-
-  function handleListScroll(event: Event) {
-    if (mapStageTransitioning || !isMobile || mapFullscreen) {
-      return;
-    }
-    const el = event.currentTarget as HTMLElement;
-
-    // Collapse as soon as the list is scrolled down a bit.
-    if (!mapListCollapsed && el.scrollTop > MAP_COLLAPSE_SCROLL_THRESHOLD) {
-      mapListCollapsed = true;
-      updateMapStageHeight();
-      pauseViewportLoads(500);
-      scheduleMapResize(120);
-      void restoreListScrollAfterLayout();
-      return;
-    }
-
-    // Expand only when the user scrolls back near the top.
-    // Do not auto-expand just because the taller list no longer overflows.
-    if (mapListCollapsed && el.scrollTop <= MAP_EXPAND_SCROLL_THRESHOLD) {
-      mapListCollapsed = false;
-      updateMapStageHeight();
-      pauseViewportLoads(500);
-      scheduleMapResize(120);
-      void restoreListScrollAfterLayout();
-    }
   }
 
   function sortListItemsBySchedule(items: MapListItem[]): MapListItem[] {
@@ -1319,7 +1286,6 @@
         bind:this={listPanelEl}
         class="list-panel"
         aria-label="Map results list"
-        on:scroll={handleListScroll}
       >
         {#if loading && listItems.length === 0}
           <p class="empty-state">Loading markers…</p>
@@ -1450,6 +1416,9 @@
   .map-surface {
     position: absolute;
     inset: 0;
+    /* Own stacking context so pin z-indexes never rise above the filter bar and buttons. */
+    z-index: 0;
+    isolation: isolate;
   }
 
   .fullscreen-button {
@@ -1711,6 +1680,22 @@
 
     .list-panel {
       border-radius: 10px;
+    }
+
+    /* One scroll for map and list: the map slides away with the list instead of snapping smaller. */
+    .layout:not(.layout-fullscreen) {
+      display: block;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .layout:not(.layout-fullscreen) .map-column {
+      margin-bottom: 8px;
+    }
+
+    .layout:not(.layout-fullscreen) .list-panel {
+      overflow: visible;
     }
 
     .map-panel:not(.embedded) {
