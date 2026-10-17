@@ -46,9 +46,13 @@
       !selectedGroupMembers.includes(contact.username) &&
       (normalizedGroupQuery ? contact.username.toLowerCase().includes(normalizedGroupQuery) : true)
   );
-  // Picture for a chosen username, when it came from the contact suggestions.
-  $: imageFor = (username: string) =>
-    contactSuggestions.find((contact) => contact.username === username)?.profileImageUrl ?? null;
+  // Pictures of chosen people, kept when they're picked: the suggestions reload afterwards.
+  let pickedImages: Record<string, string | null> = {};
+  function rememberPicture(username: string) {
+    const image = contactSuggestions.find((contact) => contact.username === username)?.profileImageUrl;
+    if (image) pickedImages = { ...pickedImages, [username]: image };
+  }
+  $: imageFor = (username: string) => pickedImages[username] ?? null;
   $: directSuggestionItems = directSuggestions.map((contact) => ({
     key: contact.username,
     label: contact.username,
@@ -127,6 +131,7 @@
   }
 
   function chooseDirectRecipient(username: string) {
+    rememberPicture(username);
     selectedDirectRecipient = username;
     recipientDraft = '';
     composerError = '';
@@ -137,6 +142,7 @@
   }
 
   function chooseGroupComposerMember(username: string) {
+    rememberPicture(username);
     if (!selectedGroupMembers.includes(username)) {
       selectedGroupMembers = [...selectedGroupMembers, username];
     }
