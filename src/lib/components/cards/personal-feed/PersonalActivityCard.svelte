@@ -12,6 +12,7 @@
   import { page } from '$app/stores';
   import { requireViewer } from '$lib/utils/requireViewer';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
+  import PrivateMark from '$lib/components/cards/shared/PrivateMark.svelte';
   import PersonalFeedIdentity from '$lib/components/cards/personal-feed/PersonalFeedIdentity.svelte';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
   import { formatLocalDateTime } from '$lib/utils/time';
@@ -91,7 +92,7 @@
   accent={surfaceTypeAccent(item.subjectKind, item.subjectProjectMode ?? 'productive')}
 >
   <div class="card-header">
-    <FeedCardTop {stage} tags={orderedTags} isPrivate={Boolean(item.isPrivate)}>
+    <FeedCardTop {stage} tags={orderedTags}>
       <ReportControl
         hasActiveReport={item.hasActiveReport}
         isUnderReview={item.isUnderReview}
@@ -109,6 +110,9 @@
         username={item.author.username}
         profileImageUrl={item.author.profileImageUrl ?? null}
       />
+      {#if item.isPrivate}
+        <PrivateMark />
+      {/if}
     </div>
   </div>
 
@@ -177,8 +181,8 @@
   .header-row {
     gap: 8px;
     justify-content: space-between;
-    flex-wrap: wrap;
-    align-items: flex-start;
+    flex-wrap: nowrap;
+    align-items: center;
   }
 
   .footer {
