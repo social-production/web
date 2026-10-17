@@ -23,7 +23,11 @@
   ];
 
   const requestedMode = $page.url.searchParams.get('mode');
-  let mode: 'login' | 'signup' = requestedMode === 'login' ? 'login' : 'signup';
+  // Someone sent here to get back to a page (?next=) most likely has an account already.
+  let mode: 'login' | 'signup' =
+    requestedMode === 'login' || (!requestedMode && $page.url.searchParams.has('next'))
+      ? 'login'
+      : 'signup';
   let username = '';
   let password = '';
   let captchaToken = '';
@@ -150,12 +154,15 @@
         <span class="field-label">Username</span>
         <input bind:value={username} autocomplete="username" />
       </label>
-      {#if activeModeValue === 'signup' && username.trim()}
-        {#if handleCheck && !handleCheck.ok}
-          <p class="status-note">{handleCheck.error}</p>
-        {:else if canonicalPreview}
-          <p class="helper-text">Profile URL: <code>{canonicalPreview}</code></p>
-        {/if}
+      {#if activeModeValue === 'signup'}
+        <!-- One reserved line, so typing a name doesn't push the password field down. -->
+        <div class="handle-line">
+          {#if username.trim() && handleCheck && !handleCheck.ok}
+            <p class="status-note">{handleCheck.error}</p>
+          {:else if username.trim() && canonicalPreview}
+            <p class="helper-text">Profile URL: <code>{canonicalPreview}</code></p>
+          {/if}
+        </div>
       {/if}
 
       <label>
@@ -194,6 +201,14 @@
 </section>
 
 <style>
+  .handle-line {
+    min-height: 20px;
+  }
+
+  .handle-line p {
+    margin: 0;
+  }
+
   .page,
   .stack {
     display: grid;

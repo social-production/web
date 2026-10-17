@@ -15,7 +15,7 @@
     <p>{data.loadError ?? 'Could not load this event.'}</p>
     {#if !$page.data.bootstrap?.viewer}
       <!-- A private event's invitee may simply be signed out. -->
-      <a class="sign-in" href={`/onboarding?next=${encodeURIComponent($page.url.pathname)}`}>Sign in</a>
+      <a class="sign-in" href={`/onboarding?mode=login&next=${encodeURIComponent($page.url.pathname)}`}>Sign in</a>
     {/if}
     <button type="button" on:click={reloadPage}>Retry</button>
   </section>

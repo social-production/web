@@ -22,6 +22,9 @@
   export let criteria: PlanCriterionAssessment[] = [];
   export let reviewMode = false;
   export let canVote = false;
+  /** Shown when the viewer can't rate, so disabled buttons don't look broken. */
+  export let blockedReason =
+    'Only members can rate this plan. Join to take part (new accounts can rate after their warm-up).';
   export let includeOverallStep = true;
   export let initialCriterionId: string | null = null;
   export let openAtOverallStep = false;
@@ -406,6 +409,9 @@
           </div>
         </div>
       {:else}
+        {#if !canVote}
+          <p class="blocked-note" role="note">{blockedReason}</p>
+        {/if}
         <div class="rating-row" role="group" aria-label={`Rating scale for ${entry.label}`}>
           {#each PLAN_RATING_OPTIONS as option}
             <button
@@ -432,6 +438,15 @@
 </PlanWizardShell>
 
 <style>
+  .blocked-note {
+    margin: 0 0 8px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm, 8px);
+    background: var(--panel-strong);
+    color: var(--text-soft);
+    font-size: 13px;
+  }
+
   .context-card {
     display: grid;
     gap: 8px;

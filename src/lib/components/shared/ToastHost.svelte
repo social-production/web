@@ -88,9 +88,15 @@
     font-weight: 800;
   }
 
-  .toast.error .toast-icon {
-    background: var(--danger);
+  /* Refusals and failures read as red at a glance. */
+  .toast.error {
+    background: var(--danger, #c0392b);
     color: #fff;
+  }
+
+  .toast.error .toast-icon {
+    background: #fff;
+    color: var(--danger, #c0392b);
   }
 
   @keyframes toast-in {
