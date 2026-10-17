@@ -75,7 +75,10 @@
   }
 
   function handleDocumentClick(event: MouseEvent) {
-    if (open && shell && !shell.contains(event.target as Node)) {
+    const target = event.target as Node | null;
+    // A click that removed its own element (e.g. picking a suggestion) isn't an outside click.
+    if (target && !target.isConnected) return;
+    if (open && shell && !shell.contains(target)) {
       close();
     }
   }

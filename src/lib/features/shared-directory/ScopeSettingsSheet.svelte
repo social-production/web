@@ -5,6 +5,7 @@
   import { scopeSettingsApi } from '$lib/services/commands/scopes';
   import { showToast } from '$lib/stores/toast';
   import { validateHandle } from '$lib/utils/handles';
+  import { askConfirm } from '$lib/stores/confirmDialog';
   import type { ScopeSettings, ScopeSettingsKind } from '$lib/types/scopeSettings';
 
   /** Gear sheet: picture, name, description, and (private communities) who decides. */
@@ -88,6 +89,10 @@
     void run(() => api.edit(kind, slug, input), 'Saved');
   }
 
+  // Organizer-controlled: only organizers can change things, so others see a read-only form.
+  $: canEdit = Boolean(
+    settings?.viewerIsMember && (settings.governance === 'collaborative' || settings.viewerEditsDirectly)
+  );
   $: nameLabel = kind === 'community' ? 'Community name' : 'Channel name';
   $: nameCheck = validateHandle(name, nameLabel);
   $: nameError =
@@ -114,7 +119,7 @@
           <button
             class="text-button"
             type="button"
-            disabled={busy || !settings.viewerIsMember}
+            disabled={busy || !canEdit}
             on:click={() => fileInput?.click()}
           >
             {settings.imageUrl || pendingImage ? 'Change picture' : 'Add a picture'}
@@ -137,7 +142,7 @@
           maxlength="32"
           aria-invalid={nameError ? 'true' : undefined}
           aria-describedby="scope-name-hint"
-          disabled={!settings.viewerIsMember}
+          disabled={!canEdit}
         />
         <span id="scope-name-hint" class="hint" class:name-error={Boolean(nameError)}>
           {nameError || 'No spaces. Letters, numbers, hyphens or underscores.'}
@@ -149,7 +154,7 @@
           bind:value={description}
           rows="4"
           maxlength="2000"
-          disabled={!settings.viewerIsMember}
+          disabled={!canEdit}
         ></textarea>
       </label>
 
@@ -159,7 +164,7 @@
         {:else if settings.governance === 'organizer'}
           Organizers ({settings.organizers.join(', ')}) look after these settings.
         {:else}
-          Changes go to a member vote: 66% yes, with quorum based on {settings.quorumBasis}.
+          Collaborative: changes go to a member vote (66% yes, with quorum based on {settings.quorumBasis}).
         {/if}
       </p>
 
@@ -175,7 +180,7 @@
           <p>
             {settings.governance === 'organizer'
               ? `Organizers: ${settings.organizers.join(', ') || 'none'}`
-              : 'All members vote on changes.'}
+              : 'Collaborative: all members vote on changes.'}
           </p>
 
           {#if settings.viewerEditsDirectly}
@@ -232,13 +237,20 @@
               <button
                 type="button"
                 disabled={busy || !removeDraft.trim()}
-                on:click={() => {
+                on:click={async () => {
                   const api = scopeSettingsApi();
-                  if (api)
-                    void run(
-                      () => api.removeMember(kind, slug, removeDraft.trim()),
-                      'Member removed'
-                    );
+                  const username = removeDraft.trim();
+                  if (!api || !username) return;
+                  if (settings?.viewerEditsDirectly) {
+                    const ok = await askConfirm({
+                      title: `Remove ${username}?`,
+                      body: "They lose access straight away and will need a new invite to come back.",
+                      confirmLabel: 'Remove',
+                      danger: true
+                    });
+                    if (!ok) return;
+                  }
+                  void run(() => api.removeMember(kind, slug, username), 'Member removed');
                   removeDraft = '';
                 }}>{settings.viewerEditsDirectly ? 'Remove' : 'Propose'}</button
               >

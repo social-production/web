@@ -1,3 +1,8 @@
+<script lang="ts" context="module">
+  // One invite per community per visit, so the code doesn't change each time the popover opens.
+  const inviteCache = new Map<string, { path: string; token: string }>();
+</script>
+
 <script lang="ts">
   import { browser } from '$app/environment';
   import CreateScopeTagSelector from '$lib/features/create/shared/CreateScopeTagSelector.svelte';
@@ -65,12 +70,20 @@
       return;
     }
 
+    const cached = inviteCache.get(pageData.slug);
+    if (cached) {
+      invitePath = cached.path;
+      inviteToken = cached.token;
+      return;
+    }
+
     inviteLoadPending = true;
 
     try {
       const result = await createScopeInvite('community', pageData.slug);
       invitePath = result.redeemUrl;
       inviteToken = result.token;
+      inviteCache.set(pageData.slug, { path: result.redeemUrl, token: result.token });
     } catch {
       inviteFeedback = 'Could not create an invite link right now.';
       inviteFeedbackTone = 'warning';
@@ -113,6 +126,8 @@
   function addInviteUsername(username: string) {
     inviteUsername = username;
     contactSuggestions = [];
+    // Picking a name sends the invite, the same as pressing Invite.
+    void handleDirectInvite();
   }
 
   async function handleDirectInvite() {

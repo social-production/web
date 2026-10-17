@@ -13,6 +13,8 @@
     appendUniqueById
   } from '$lib/types/pagination';
   import { refreshBootstrap } from '$lib/services/queries/bootstrap';
+  import { askConfirm } from '$lib/stores/confirmDialog';
+  import { showToast } from '$lib/stores/toast';
   import { getScopeFeedPage } from '$lib/services/queries/feeds';
   import { redeemScopeInvite, toggleScopeMembership, castModeratorVote } from '$lib/services/commands/scopes';
   import { parseInviteToken } from '$lib/utils/invite-token';
@@ -335,16 +337,40 @@
   }
 
   async function handleMembershipToggle() {
+    const leaving = pageData.membership.viewerIsMember;
+    const privateScope = pageData.membership.joinPolicy === 'invite_only';
+    if (leaving) {
+      const ok = await askConfirm({
+        title: `Leave ${pageData.title}?`,
+        body: privateScope
+          ? "It's private, so you'll need a new invite to come back."
+          : 'You can join again any time.',
+        confirmLabel: 'Leave',
+        danger: privateScope
+      });
+      if (!ok) return;
+    }
+
     membershipPending = true;
+    let left = false;
 
     try {
       await toggleScopeMembership(pageData.kind, pageData.slug, pageData.membership.viewerIsMember);
+      left = leaving;
     } catch (err) {
       console.error('Failed to toggle membership:', err);
+      showToast('Could not update your membership.', 'error');
     } finally {
       membershipPending = false;
       await refreshBootstrap();
-      await invalidateAll();
+      if (left && privateScope) {
+        // A private community's page is hidden from non-members, so don't land on a 404.
+        showToast(`You left ${pageData.title}`);
+        await goto('/');
+      } else {
+        if (left) showToast(`You left ${pageData.title}`);
+        await invalidateAll();
+      }
     }
   }
 
