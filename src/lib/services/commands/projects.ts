@@ -120,7 +120,7 @@ export function setProjectPlanCriterionRating(
 ) {
   return confirmed(
     currentAdapter.setProjectPlanCriterionRating(projectSlug, planId, criterionId, rating),
-    'Rating saved'
+    rating === null ? 'Rating removed' : 'Rating saved'
   );
 }
 
@@ -166,7 +166,7 @@ export function setProjectActivityRating(
 }
 
 export function deleteProjectActivityRating(projectSlug: string, activityId: string) {
-  return currentAdapter.deleteProjectActivityRating(projectSlug, activityId);
+  return confirmed(currentAdapter.deleteProjectActivityRating(projectSlug, activityId), 'Rating removed');
 }
 
 export function addProjectServiceRequest(projectSlug: string, input: ProjectServiceRequestInput) {

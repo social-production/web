@@ -10,6 +10,7 @@
   import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
   import PeopleSheet from '$lib/components/shared/PeopleSheet.svelte';
   import PhotoViewer from '$lib/components/shared/PhotoViewer.svelte';
+  import { showToast } from '$lib/stores/toast';
   import ComposeMessageSheet from '$lib/components/shared/ComposeMessageSheet.svelte';
   import { DEFAULT_FEED_PAGE_SIZE, appendUniqueById } from '$lib/types/pagination';
   import { getFollowRequests } from '$lib/services/queries/account';
@@ -322,6 +323,7 @@
     reviewMessage = '';
     try {
       await voteBotReview(data.username, vote);
+      showToast(vote === 'bot' ? 'Voted: bot' : 'Voted: real person');
       await invalidateAll();
     } catch (err) {
       reviewMessage = err instanceof Error ? err.message : 'Could not record that vote.';
@@ -335,6 +337,7 @@
     reviewMessage = '';
     try {
       await requestBotReReview();
+      showToast('Re-review requested');
       await invalidateAll();
     } catch (err) {
       reviewMessage = err instanceof Error ? err.message : 'Could not ask for a re-review.';
@@ -351,6 +354,13 @@
     stanceMessage = '';
     try {
       await setAccountStance(data.username, stance);
+      showToast(
+        stance === 'vouch'
+          ? `You vouched for ${data.username}`
+          : stance === 'bot'
+            ? `Marked ${data.username} as a possible bot`
+            : 'Mark cleared'
+      );
       await invalidateAll();
     } catch (err) {
       stanceMessage = err instanceof Error ? err.message : 'Could not update that stance.';
@@ -463,7 +473,7 @@
               <span>{data.followingCount}</span>
             </button>
 
-            {#if !data.isOwnProfile && $page.data.bootstrap?.viewer}
+            {#if !data.isOwnProfile && $page.data.bootstrap?.viewer && $page.data.bootstrap.viewer.standing !== 'paused'}
               <button
                 aria-label={`Message ${data.username}`}
                 class="icon-action"

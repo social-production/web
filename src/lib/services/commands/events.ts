@@ -70,7 +70,7 @@ export function setEventPlanCriterionRating(
 ) {
   return confirmed(
     currentAdapter.setEventPlanCriterionRating(eventSlug, planId, criterionId, rating),
-    'Rating saved'
+    rating === null ? 'Rating removed' : 'Rating saved'
   );
 }
 
@@ -114,7 +114,7 @@ export function setEventActivityRating(
 }
 
 export function deleteEventActivityRating(eventSlug: string, activityId: string) {
-  return currentAdapter.deleteEventActivityRating(eventSlug, activityId);
+  return confirmed(currentAdapter.deleteEventActivityRating(eventSlug, activityId), 'Rating removed');
 }
 
 export function toggleEventHistoryCompletion(

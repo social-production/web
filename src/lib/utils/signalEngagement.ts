@@ -1,6 +1,7 @@
 import type { SignalToggleResult } from '$lib/types/feed';
 import { setEventSignal } from '$lib/services/commands/events';
 import { setProjectSignal } from '$lib/services/commands/projects';
+import { showToast } from '$lib/stores/toast';
 import {
   applyOptimisticSignalToggle,
   applySignalToggleToEngagement,
@@ -48,6 +49,8 @@ export async function runSignalToggle(
       console.error('Signal toggle API failed', err);
     }
     callbacks.onRevert(snapshot);
+    // Say why (e.g. "Voting opens after 1 day…") instead of silently snapping back.
+    showToast(err instanceof Error && err.message ? err.message : 'Could not record that.', 'error');
     return { engagement: snapshot, apiResult: null };
   }
 }

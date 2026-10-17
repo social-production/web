@@ -7,6 +7,8 @@ export interface ViewerSummary {
   profileImageUrl?: string;
   realR?: number;
   bootstrapFloor?: boolean;
+  /** 'paused' once a bot review is upheld: the account is read-only. */
+  standing?: 'new' | 'warm' | 'full' | 'paused';
 }
 
 export interface FeatureFlags {
