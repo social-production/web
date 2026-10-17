@@ -40,9 +40,13 @@
 
   $: discussion = mergeDiscussion(serverDiscussion, optimisticComments);
 
+  // Until the first load, an empty chat means "still loading", not "no messages".
+  let chatLoaded = false;
+
   async function refreshDiscussion() {
     try {
       const refreshed = await refreshSubjectDiscussion('event', data.id);
+      chatLoaded = true;
       serverDiscussion = refreshed;
       optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
     } catch {
@@ -54,7 +58,7 @@
     if (chatStarted) return;
     chatStarted = true;
     const stopPolling = startVisibilityPoll(refreshDiscussion, {
-      activeMs: 8_000,
+      activeMs: 5_000,
       idleMs: 45_000,
       isActive: () => active,
     });
@@ -122,7 +126,7 @@
     allowAttachments={fastapiChat}
     comments={discussion}
     embedded={fullscreen}
-    emptyCopy="No event chat yet."
+    emptyCopy={chatLoaded ? 'No event chat yet.' : 'Loading chat…'}
     fitViewport={fullscreen}
     {highlightedCommentId}
     onModerated={async () => {

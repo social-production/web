@@ -475,7 +475,7 @@
           await loadLinkedChatComments(activeLinkedChat, { silent: true });
         }
       },
-      { activeMs: 8_000, idleMs: 45_000 }
+      { activeMs: 5_000, idleMs: 45_000 }
     );
     const stopRealtime = subscribeToViewerInbox(() => {
       void refreshActiveThread();
@@ -1861,7 +1861,7 @@
             {/each}
           {/if}
         {:else if publicChats.length === 0}
-          <div class="empty-state">No public chats yet.</div>
+          <div class="empty-state">{linkedChatsHydrated ? 'No public chats yet.' : 'Loading chats…'}</div>
         {:else}
           {#each publicChats as chat}
             <button

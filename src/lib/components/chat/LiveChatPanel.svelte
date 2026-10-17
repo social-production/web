@@ -654,7 +654,27 @@
     return flattened;
   }
 
-  $: flattenedComments = flattenComments(comments).sort(
+  // Replies being sent: their pending copies aren't nested under the parent yet.
+  let pendingReplyQuotes: Array<{ body: string; quoted: ChatMessage }> = [];
+
+  function withPendingQuote(
+    message: ChatMessage,
+    pending: Array<{ body: string; quoted: ChatMessage }>
+  ): ChatMessage {
+    if (message.replyToId || !message.id.startsWith('pending-')) return message;
+    const entry = pending.find((item) => item.body === message.body);
+    if (!entry) return message;
+    return {
+      ...message,
+      replyToId: entry.quoted.id,
+      replyAuthor: entry.quoted.authorUsername,
+      replyPreview: entry.quoted.body.slice(0, 120) || 'Photo'
+    };
+  }
+
+  $: flattenedComments = flattenComments(comments)
+    .map((message) => withPendingQuote(message, pendingReplyQuotes))
+    .sort(
     (left, right) => +new Date(left.createdAt) - +new Date(right.createdAt)
   );
   $: visibleMessages =
@@ -732,10 +752,20 @@
         await onEditMessage(editingMessage.id, body);
         editingMessage = null;
       } else if (onSubmitMessage) {
-        await onSubmitMessage(body, files.length ? files : undefined, {
-          replyToId: replyTarget?.id ?? null
-        });
+        // Show the quote on the pending copy straight away, and clear the reply bar now.
+        const quoted = replyTarget;
+        if (quoted) pendingReplyQuotes = [...pendingReplyQuotes, { body, quoted }];
         replyTarget = null;
+        try {
+          await onSubmitMessage(body, files.length ? files : undefined, {
+            replyToId: quoted?.id ?? null
+          });
+        } catch (err) {
+          replyTarget = quoted;
+          throw err;
+        } finally {
+          pendingReplyQuotes = pendingReplyQuotes.filter((entry) => entry.quoted !== quoted || entry.body !== body);
+        }
       } else if (subjectId && subjectType) {
         await addComment({ id: subjectId, type: subjectType }, body);
         await invalidateAll();

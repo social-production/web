@@ -49,9 +49,13 @@
 
   $: discussion = mergeDiscussion(serverDiscussion, optimisticComments);
 
+  // Until the first load, an empty chat means "still loading", not "no messages".
+  let chatLoaded = false;
+
   async function refreshDiscussion() {
     try {
       const refreshed = await refreshSubjectDiscussion('help_request', data.id);
+      chatLoaded = true;
       serverDiscussion = refreshed;
       optimisticComments = pruneOptimisticComments(refreshed, optimisticComments);
     } catch {
@@ -219,7 +223,7 @@
           allowAttachments={fastapiChat}
           comments={discussion}
           embedded={activeTab === 'chat' && isCompact}
-          emptyCopy="No help request chat yet."
+          emptyCopy={chatLoaded ? 'No help request chat yet.' : 'Loading chat…'}
           fitViewport={activeTab === 'chat' && isCompact}
           {highlightedCommentId}
           onModerated={async () => {
