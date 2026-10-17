@@ -527,7 +527,7 @@
               canOpenMembers
               membersOpen={showMembersPanel}
               joinAriaLabel="Join event"
-              membersAriaLabel={pageData.isPrivate ? 'Members / Editors' : `${pageData.memberCount} members`}
+              membersAriaLabel={`${pageData.memberCount} members`}
               onToggleJoin={handleMembershipToggle}
               onOpenMembers={handleMembersPanelOpen}
             />

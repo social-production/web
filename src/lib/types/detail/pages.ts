@@ -123,6 +123,7 @@ export interface EventPageData {
   governance: 'collaborative' | 'organizer_controlled';
   homeCommunity: { slug: string; name: string } | null;
   scheduledAt?: string;
+  endsAt?: string | null;
   channelTags: TagRef[];
   communityTags: TagRef[];
   createdByUsername: string;

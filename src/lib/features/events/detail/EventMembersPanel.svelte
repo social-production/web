@@ -171,7 +171,7 @@
   {open}
   {description}
   {sections}
-  title={data.isPrivate ? 'People' : 'Event members'}
+  title="Members"
   on:action={handleMemberAction}
   on:close
 >

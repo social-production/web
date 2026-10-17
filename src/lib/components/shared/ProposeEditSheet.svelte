@@ -15,6 +15,8 @@
   /** When set, the sheet also edits the location. */
   export let location: LocationPickerValue | null = null;
   export let labelledById = 'propose-edit-sheet';
+  /** Organizer-controlled: the edit applies on save instead of going to a vote. */
+  export let appliesDirectly = false;
   export let onSubmit: () => void | Promise<void> = () => {};
 
   async function handleSubmit() {
@@ -24,7 +26,8 @@
 
 <OverlaySheet bind:open title={sheetTitle} {labelledById}>
   <p slot="subtitle" class="sheet-lead">
-    Change the title, description{location ? ', or location' : ''}. Others can review this before it applies.
+    Change the title, description{location ? ', or location' : ''}.
+    {appliesDirectly ? 'It applies as soon as you save.' : 'Members vote on it before it applies.'}
   </p>
   <form id={labelledById + '-form'} class="edit-form" on:submit|preventDefault={handleSubmit}>
     {#if message}

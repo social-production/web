@@ -240,6 +240,9 @@
       {/if}
     </span>
   </span>
+  {#if scheduleLabel}
+    <span class="plan-when">{scheduleLabel}</span>
+  {/if}
   {#if plan.description}
     <span class="plan-lede collapsed-copy">{plan.description}</span>
   {/if}
@@ -252,7 +255,7 @@
   {/if}
   <span class="plan-footer-meta">
     <span>
-      {plan.overallApproval.approvalPercent}% approved{#if planAverageRating != null}
+      {plan.overallApproval.approvalPercent}% approved · {plan.overallApproval.yesCount} yes · {plan.overallApproval.noCount} no{#if planAverageRating != null}
         · Avg {planAverageRating.toFixed(1)}{/if}
     </span>
     <span>{plan.authorUsername} · {formatRelativeTime(plan.createdAt)}</span>
@@ -556,6 +559,12 @@
     justify-content: space-between;
     gap: 8px;
     min-width: 0;
+  }
+
+  .plan-when {
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 600;
   }
 
   .plan-title {

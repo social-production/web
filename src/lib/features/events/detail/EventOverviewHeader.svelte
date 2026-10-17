@@ -27,7 +27,7 @@
   import type { PendingVoteItem } from '$lib/utils/pendingVotes';
   import type { SignalToggleResult } from '$lib/types/feed';
   import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
-  import { formatLocalDateTime } from '$lib/utils/time';
+  import { formatLocalDateTime, formatLocalDateTimeRange } from '$lib/utils/time';
   import { requireViewer } from '$lib/utils/requireViewer';
   import { buildSharePrefill, buildShareUrl } from '$lib/utils/sharePrefill';
   import { invalidateEventDetail } from '$lib/utils/detailInvalidation';
@@ -95,7 +95,9 @@
   );
   const timeLabel = $derived(
     data.scheduledAt
-      ? formatLocalDateTime(data.scheduledAt)
+      ? data.endsAt
+        ? formatLocalDateTimeRange(data.scheduledAt, data.endsAt)
+        : formatLocalDateTime(data.scheduledAt)
       : isImplementedScheduleLabel(data.timeLabel)
         ? data.timeLabel.trim()
         : ''
@@ -103,7 +105,7 @@
   const locationLabel = $derived(
     isImplementedScheduleLabel(data.locationLabel) ? data.locationLabel.trim() : ''
   );
-  const memberButtonLabel = $derived(data.isPrivate ? 'Members / Editors' : 'Members');
+  const memberButtonLabel = $derived(`${data.memberCount} members`);
   const stageLabel = $derived(
     (
       {
@@ -267,7 +269,7 @@
   </div>
 
   <div class="context-meta">
-    <ContentMetaRow authorUsername={data.createdByUsername} createdAt={data.createdAt} />
+    <ContentMetaRow authorPrefix="Created by" authorUsername={data.createdByUsername} createdAt={data.createdAt} />
   </div>
 </div>
 
@@ -362,8 +364,9 @@
   bind:description={draftEditDescription}
   message={editMessage}
   pending={editPending}
-  sheetTitle="Propose Edit"
-  submitLabel="Propose Edit"
+  sheetTitle={data.governance === 'organizer_controlled' ? 'Edit event' : 'Propose Edit'}
+  submitLabel={data.governance === 'organizer_controlled' ? 'Save' : 'Propose Edit'}
+  appliesDirectly={data.governance === 'organizer_controlled'}
   titlePlaceholder="Event title"
   descriptionPlaceholder="Describe the event and what members should know..."
   labelledById="event-propose-edit-sheet"
@@ -376,7 +379,7 @@
   message={updateMessage}
   pending={updatePending}
   sheetTitle="Post an update"
-  submitLabel="Propose"
+  submitLabel={data.governance === 'organizer_controlled' ? 'Post' : 'Propose'}
   placeholder="Share what changed for this event..."
   labelledById="event-add-update-sheet"
   onSubmit={submitUpdate}

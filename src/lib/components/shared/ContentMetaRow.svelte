@@ -16,6 +16,8 @@
   export let updatedAt: string | null = null;
   /** When true, only show the clock stamp (no author/members). */
   export let timeOnly = false;
+  /** Words before the author, e.g. "Created by". */
+  export let authorPrefix = '';
 
   $: activityLabel = createdAt ? describeUpdateTime(createdAt, updatedAt) : '';
   $: activityInstant = createdAt ? activityStampInstant(createdAt, updatedAt) : '';
@@ -24,6 +26,9 @@
 </script>
 
 <span class="content-meta-row" class:time-only={timeOnly}>
+  {#if !timeOnly && authorUsername && authorPrefix}
+    <span class="author-prefix">{authorPrefix}</span>
+  {/if}
   {#if !timeOnly && authorUsername && resolvedAuthorHref}
     <a class="inline-link" href={resolvedAuthorHref} title={authorUsername}>{displayUsername(authorUsername)}</a>
   {:else if !timeOnly && authorUsername}
@@ -48,6 +53,10 @@
 </span>
 
 <style>
+  .author-prefix {
+    color: var(--text-soft);
+  }
+
   .content-meta-row {
     display: inline-flex;
     align-items: center;
