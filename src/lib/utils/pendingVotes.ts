@@ -1,3 +1,4 @@
+import { GOVERNANCE_APPROVAL_THRESHOLD_PERCENT } from '$lib/services/governance/rules';
 import type {
   EventLifecyclePhaseChangeRequest,
   EventPageData,
@@ -247,7 +248,8 @@ function pushPlanVotes(
         criteriaTotalCount: criteria.length,
         planPhaseId,
         voteSummary: plan.overallApproval,
-        approvalThresholdPercent: plan.overallApproval.quorumThresholdPercent,
+        // Plans pass at 66% yes like every other vote; quorum is the separate turnout rule.
+        approvalThresholdPercent: GOVERNANCE_APPROVAL_THRESHOLD_PERCENT,
         authorUsername: plan.authorUsername,
         createdAt: plan.createdAt,
         canVote
@@ -266,7 +268,7 @@ function pushPlanVotes(
         planValueId: pendingValue.valueId,
         planPhaseId,
         voteSummary: pendingValue,
-        approvalThresholdPercent: pendingValue.quorumThresholdPercent,
+        approvalThresholdPercent: GOVERNANCE_APPROVAL_THRESHOLD_PERCENT,
         authorUsername: plan.authorUsername,
         createdAt: plan.createdAt,
         canVote
@@ -283,7 +285,7 @@ function pushPlanVotes(
         reason: plan.description,
         planPhaseId,
         voteSummary: plan.overallApproval,
-        approvalThresholdPercent: plan.overallApproval.quorumThresholdPercent,
+        approvalThresholdPercent: GOVERNANCE_APPROVAL_THRESHOLD_PERCENT,
         authorUsername: plan.authorUsername,
         createdAt: plan.createdAt,
         canVote

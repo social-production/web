@@ -49,7 +49,14 @@
     }
 
     if (plan.leaderStatus === 'leading') {
-      return 'Leading';
+      // Same rule as project plans: a leading plan that has passed reads "Approved".
+      const approval = plan.overallApproval;
+      const passed = Boolean(
+        approval &&
+          approval.yesCount > approval.noCount &&
+          (approval.meetsQuorum || approval.approvalPercent === 100)
+      );
+      return passed ? 'Approved' : 'Leading';
     }
 
     if (plan.leaderStatus === 'tied') {
