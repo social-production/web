@@ -9,6 +9,7 @@
   import { validateHandle } from '$lib/utils/handles';
   import { askConfirm } from '$lib/stores/confirmDialog';
   import { describeScopeProposal } from './scopeProposals';
+  import { formatRelativeTime } from '$lib/utils/time';
   import type { ScopeSettings, ScopeSettingsKind } from '$lib/types/scopeSettings';
 
   /** Gear sheet: picture, name, description, and (private communities) who decides. */
@@ -25,6 +26,7 @@
   let organizerDraft = '';
   let removeDraft = '';
   let fileInput: HTMLInputElement | null = null;
+  let tab: 'settings' | 'decisions' = 'settings';
 
   $: if (open) void load();
 
@@ -63,6 +65,11 @@
     } finally {
       busy = false;
     }
+  }
+
+  function castVote(proposalId: string, vote: 'yes' | 'no') {
+    const api = scopeSettingsApi();
+    if (api) void run(() => api.vote(proposalId, vote), 'Vote recorded');
   }
 
   async function chooseImage(event: Event) {
@@ -116,9 +123,118 @@
 </script>
 
 <OverlaySheet bind:open title="Settings" labelledById="scope-settings-title">
+  <svelte:fragment slot="toolbar">
+    <div class="sheet-tabs" role="tablist" aria-label="Settings sections">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={tab === 'settings'}
+        class:active={tab === 'settings'}
+        on:click={() => (tab = 'settings')}>Settings</button
+      >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={tab === 'decisions'}
+        class:active={tab === 'decisions'}
+        on:click={() => (tab = 'decisions')}
+      >
+        Decisions
+        {#if settings?.proposals.length}<span class="tab-count">{settings.proposals.length}</span>{/if}
+      </button>
+    </div>
+  </svelte:fragment>
   <div class="settings-body">
     {#if loadError}
       <p class="error">{loadError}</p>
+    {:else if settings && tab === 'decisions'}
+      <section class="decisions" aria-label="Decisions">
+        <div class="group-head">
+          <h3>Open decisions</h3>
+          <span>{settings.proposals.length}</span>
+        </div>
+        {#if settings.proposals.length === 0}
+          <p class="empty-card">No open decisions.</p>
+        {:else}
+          <div class="decision-list">
+            {#each settings.proposals as item (item.id)}
+              <article class="decision-card open">
+                <div class="decision-row">
+                  <strong>{describeScopeProposal(item)}</strong>
+                  <span>{item.votesRequired} yes needed · 66%</span>
+                </div>
+                <div class="decision-row">
+                  <span>
+                    {item.yes} yes · {item.no} no{#if item.viewerVote}
+                      · you voted {item.viewerVote === 'yes' ? 'Yes' : 'No'}{/if}
+                  </span>
+                  <span>
+                    {[item.proposer ?? 'Someone', item.createdAt ? formatRelativeTime(item.createdAt) : '']
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </div>
+                {#if item.viewerCanVote}
+                  <div class="vote-row">
+                    <button
+                      type="button"
+                      class:chosen={item.viewerVote === 'yes'}
+                      disabled={busy}
+                      on:click={() => castVote(item.id, 'yes')}>Yes</button
+                    >
+                    <button
+                      type="button"
+                      class:chosen={item.viewerVote === 'no'}
+                      disabled={busy}
+                      on:click={() => castVote(item.id, 'no')}>No</button
+                    >
+                  </div>
+                {/if}
+              </article>
+            {/each}
+          </div>
+        {/if}
+
+        <div class="group-head">
+          <h3>Past decisions</h3>
+          <span>{settings.recentDecisions.length}</span>
+        </div>
+        {#if settings.recentDecisions.length === 0}
+          <p class="empty-card">No past decisions yet.</p>
+        {:else}
+          <div class="decision-list">
+            {#each settings.recentDecisions as item (item.id)}
+              <article
+                class="decision-card"
+                class:approved={item.outcome === 'passed'}
+                class:rejected={item.outcome !== 'passed'}
+              >
+                <div class="decision-row">
+                  <strong>{describeScopeProposal(item)}</strong>
+                  <span>{item.outcome === 'passed' ? 'Passed' : 'Rejected'}</span>
+                </div>
+                <div class="decision-row">
+                  <span>{item.yes} yes · {item.no} no</span>
+                  <span>
+                    {[
+                      item.proposer ?? 'Someone',
+                      item.closedAt
+                        ? new Date(item.closedAt).toLocaleDateString(undefined, {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                          })
+                        : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </div>
+              </article>
+            {/each}
+          </div>
+        {/if}
+      </section>
     {:else if settings}
       <section class="picture-row">
         <ScopeAvatar
@@ -185,44 +301,6 @@
         <button class="primary" type="button" disabled={busy || !changed || Boolean(nameError)} on:click={save}>
           {settings.viewerEditsDirectly ? 'Save' : 'Propose change'}
         </button>
-      {/if}
-
-      {#if settings.proposals.length > 0}
-        <section class="decisions">
-          <h3>Open decisions</h3>
-          <ul>
-            {#each settings.proposals as item (item.id)}
-              <li>
-                <strong>{describeScopeProposal(item)}</strong>
-                <span>
-                  {item.yes} yes · {item.no} no · {item.votesRequired} needed{#if item.viewerVote}
-                    · you voted {item.viewerVote === 'yes' ? 'Yes' : 'No'}{/if}
-                </span>
-              </li>
-            {/each}
-          </ul>
-        </section>
-      {/if}
-
-      {#if settings.recentDecisions.length > 0}
-        <section class="decisions">
-          <h3>Past decisions</h3>
-          <ul>
-            {#each settings.recentDecisions as item (item.id)}
-              <li>
-                <strong>{describeScopeProposal(item)}</strong>
-                <span>
-                  {item.outcome === 'passed' ? 'Passed' : 'Rejected'} · {item.yes} yes · {item.no} no{#if item.closedAt}
-                    · {new Date(item.closedAt).toLocaleDateString(undefined, {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric'
-                    })}{/if}{#if item.proposer} · proposed by {item.proposer}{/if}
-                </span>
-              </li>
-            {/each}
-          </ul>
-        </section>
       {/if}
 
       {#if settings.isPrivate}
@@ -368,27 +446,157 @@
     resize: vertical;
   }
 
-  .decisions h3 {
-    margin: 0 0 6px;
+  .sheet-tabs {
+    display: flex;
+    padding: 0 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+  }
+
+  .sheet-tabs button {
+    display: inline-flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 8px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--text-soft);
+    font: inherit;
     font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
   }
 
-  .decisions ul {
+  .sheet-tabs button.active {
+    border-bottom-color: var(--brand);
+    color: var(--text-main);
+  }
+
+  .tab-count {
+    min-width: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #e6b325;
+    color: #1f1600;
+    font-size: 11px;
+    line-height: 18px;
+  }
+
+  .decisions {
     display: grid;
-    gap: 8px;
+    gap: 10px;
+  }
+
+  .group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .group-head h3 {
     margin: 0;
-    padding: 0;
-    list-style: none;
+    font-size: 15px;
   }
 
-  .decisions li {
-    display: grid;
-    gap: 2px;
+  .group-head span {
+    color: var(--text-soft);
+  }
+
+  .empty-card {
+    margin: 0;
+    padding: 14px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+    color: var(--text-soft);
     font-size: 13px;
   }
 
-  .decisions li span {
+  /* Same look as the History tab on projects and events. */
+  .decision-list {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+  }
+
+  .decision-card {
+    display: grid;
+    gap: 6px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--panel-border);
+    border-left: 3px solid transparent;
+  }
+
+  .decision-card:last-child {
+    border-bottom: 0;
+  }
+
+  .decision-card.open {
+    border-left-color: #e6b325;
+  }
+
+  .decision-card.approved {
+    border-left-color: #2f9e44;
+  }
+
+  .decision-card.rejected {
+    border-left-color: #e03131;
+  }
+
+  .decision-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    gap: 12px;
+    align-items: center;
     color: var(--text-soft);
+    font-size: 12px;
+  }
+
+  .decision-row strong {
+    color: var(--text-main);
+    font-size: 14px;
+  }
+
+  .decision-row span:last-child {
+    text-align: right;
+  }
+
+  .vote-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .vote-row button {
+    min-height: 34px;
+    padding: 0 16px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel-strong);
+    color: var(--text-main);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .vote-row button.chosen {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: var(--on-brand, #fff);
+  }
+
+  @media (max-width: 520px) {
+    .decision-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .decision-row span:last-child {
+      text-align: left;
+    }
   }
 
   /* Read-only for people who can't change settings: plainly not an input to type in. */

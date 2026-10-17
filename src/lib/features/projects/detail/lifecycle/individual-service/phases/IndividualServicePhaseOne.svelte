@@ -227,8 +227,17 @@
     previewDayIso = isoDay;
   }
 
+  /** Signed-out visitors go to sign in (and come back here) instead of a form they can't send. */
+  function needsSignIn() {
+    if (viewerSignedIn || data.lifecycle.phaseFive.viewerCanCreateActivities) return false;
+    showToast('Sign in to request a time.');
+    void goto(signInHref);
+    return true;
+  }
+
   async function openCalendarComposerForDay(isoDay: string) {
     activeTab = 'live';
+    if (needsSignIn()) return;
 
     if (data.lifecycle.phaseFive.viewerCanCreateActivities) {
       selectedActivityId = '';
@@ -269,6 +278,7 @@
     if (!usesCalendar || data.lifecycle.phaseFive.viewerCanCreateActivities) {
       return;
     }
+    if (needsSignIn()) return;
 
     const slot = (data.lifecycle.personalService?.availabilitySlots ?? []).find((entry) => entry.id === activityId);
 
@@ -284,6 +294,10 @@
 
   // Non-providers tap a slot in the list to request it, as on the calendar.
   function requestSlotFromList(activityId: string) {
+    if (bookedSlotIds.has(activityId)) {
+      showRequestsSheet = true;
+      return;
+    }
     if (heldSlotIds.has(activityId)) {
       showToast('That slot is taken. Pick an open one.', 'error');
       return;
@@ -491,7 +505,9 @@
     title: slot.held
       ? data.lifecycle.phaseFive.viewerCanCreateActivities
         ? `${slot.title} (taken)`
-        : 'Taken'
+        : slot.viewerBooked
+          ? 'Your booking'
+          : 'Taken'
       : slot.title,
     authorUsername: data.authorUsername,
     scheduledAt: slot.scheduledAt,
@@ -518,9 +534,11 @@
           const held = heldSlotIds.has(slot.id);
           return {
             ...slot,
-            agendaChip: held
-              ? { label: 'Taken', tone: 'full' as const }
-              : { label: 'Open', tone: 'open' as const }
+            agendaChip: bookedSlotIds.has(slot.id)
+              ? { label: 'Yours', tone: 'open' as const }
+              : held
+                ? { label: 'Taken', tone: 'full' as const }
+                : { label: 'Open', tone: 'open' as const }
           };
         });
   $: heldSlotIds = new Set(
@@ -528,10 +546,20 @@
       .filter((slot) => slot.held)
       .map((slot) => slot.id)
   );
+  $: bookedSlotIds = new Set(
+    (data.lifecycle.personalService?.availabilitySlots ?? [])
+      .filter((slot) => slot.viewerBooked)
+      .map((slot) => slot.id)
+  );
+  $: viewerSignedIn = Boolean($page.data.bootstrap?.viewer);
+  $: signInHref = `/onboarding?next=${encodeURIComponent($page.url.pathname)}`;
   $: requestsOff = Boolean(data.lifecycle.requestSystem) && !data.lifecycle.requestSystem?.enabled;
   $: viewerReviewsRequests = data.lifecycle.requestSystem?.viewerCanReviewRequests ?? false;
   $: futureOpenSlotCount = (data.lifecycle.personalService?.availabilitySlots ?? []).filter(
     (slot) => !slot.held && slot.source !== 'request' && new Date(slot.endAt).getTime() > Date.now()
+  ).length;
+  $: futureTakenSlotCount = (data.lifecycle.personalService?.availabilitySlots ?? []).filter(
+    (slot) => slot.held && new Date(slot.endAt).getTime() > Date.now()
   ).length;
   $: acceptedRequestCount = sortedRequests.filter(
     (request) =>
@@ -564,6 +592,17 @@
 </script>
 
 <section class="phase-surface">
+  <p class="owner-note">
+    {#if viewerReviewsRequests}
+      You run this service. Only you and each person asking can see their request.
+    {:else}
+      Offered by <a href={`/profile/${data.authorUsername}`}>{data.authorUsername}</a>. Requests stay
+      private between you and them.
+      {#if !viewerSignedIn && !requestsOff}
+        <a href={signInHref}>Sign in to request a time</a>.
+      {/if}
+    {/if}
+  </p>
   {#if requestsOff}
     <div class="requests-off-banner" role="status">Not taking requests.</div>
   {/if}
@@ -598,7 +637,7 @@
     {/if}
     {#if showRequestsAction}
       <RoundPlusButton
-        label="Requests"
+        label={viewerReviewsRequests ? 'Requests' : 'Your requests'}
         ariaLabel="Open service requests"
         participationAction="review-requests"
         action={() => (showRequestsSheet = true)}
@@ -624,7 +663,11 @@
   </PhaseWorkToolbar>
 
     {#if data.lifecycle.requestSystem}
-      <OverlaySheet bind:open={showRequestsSheet} title="Requests" labelledById="personal-requests-sheet">
+      <OverlaySheet
+        bind:open={showRequestsSheet}
+        title={viewerReviewsRequests ? 'Requests' : 'Your requests'}
+        labelledById="personal-requests-sheet"
+      >
       <section class="card-rail-section">
         <p class="field-help">{data.lifecycle.requestSystem.settings.summary}</p>
 
@@ -829,7 +872,12 @@
           <h3>Activity</h3>
           <p>
             {#if usesCalendar}
-              {futureOpenSlotCount} open slot{futureOpenSlotCount === 1 ? '' : 's'} · {acceptedRequestCount} accepted request{acceptedRequestCount === 1 ? '' : 's'}
+              {futureOpenSlotCount} open slot{futureOpenSlotCount === 1 ? '' : 's'} ·
+              {#if viewerReviewsRequests}
+                {acceptedRequestCount} accepted request{acceptedRequestCount === 1 ? '' : 's'}
+              {:else}
+                {futureTakenSlotCount} taken{#if bookedSlotIds.size > 0}{' '}({bookedSlotIds.size} yours){/if}
+              {/if}
             {:else}
               {data.lifecycle.phaseFive.activities.length} future activit{data.lifecycle.phaseFive.activities.length === 1 ? 'y' : 'ies'}
             {/if}
@@ -1241,6 +1289,18 @@
     .number-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  .owner-note {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .owner-note a {
+    color: var(--brand-strong);
+    font-weight: 700;
   }
 
   .requests-off-banner {

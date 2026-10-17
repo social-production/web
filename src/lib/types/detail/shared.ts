@@ -1326,6 +1326,8 @@ export interface PersonalServiceAvailabilitySlot {
   scheduledAt: string;
   held: boolean;
   bookings: Array<{ requestId: string; requesterUsername: string; title: string }>;
+  /** The viewer's own accepted request covers this slot. */
+  viewerBooked?: boolean;
   statusTone: 'red' | 'yellow' | 'green' | 'muted';
 }
 
