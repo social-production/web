@@ -71,6 +71,10 @@
     return `${startDate}, ${startTime} – ${endDate}, ${endTime}${suffix}`;
   }
 
+  $: agendaZone = activity.startAt?.trim()
+    ? formatLocalTimezoneAbbreviation(new Date(activity.startAt), getDisplayTimezone())
+    : '';
+
   function clockTime(value: string | null | undefined) {
     const date = value?.trim() ? new Date(value) : null;
     if (!date || Number.isNaN(date.getTime())) return '';
@@ -271,7 +275,7 @@
         {/if}
         <span>{clockTime(activity.startAt)}</span>
         {#if !historyMode}
-          <span class="agenda-end">{clockTime(activity.endAt)}</span>
+          <span class="agenda-end">{clockTime(activity.endAt)}{agendaZone ? ` ${agendaZone}` : ''}</span>
         {/if}
       </span>
       <span class="agenda-main">
@@ -291,7 +295,9 @@
           {resolvedBadgeLabel}
         </span>
       {:else}
-        <span class={`agenda-chip ${fillChipTone}`}>{fillChipLabel}</span>
+        <span class={`agenda-chip ${activity.agendaChip?.tone ?? fillChipTone}`}>
+          {activity.agendaChip?.label ?? fillChipLabel}
+        </span>
       {/if}
     </button>
   {:else}

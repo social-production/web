@@ -476,16 +476,6 @@
   $: selfPlannedHistory = data.lifecycle.phaseFive.history.filter(
     (item) => item.source === 'self-planned'
   );
-  // Slots are the provider's own; others request them from the calendar, so the list is read-only
-  // for them, and a slot someone has booked says so.
-  $: heldSlotIds = new Set(
-    (data.lifecycle.personalService?.availabilitySlots ?? [])
-      .filter((slot) => slot.held)
-      .map((slot) => slot.id)
-  );
-  $: agendaActivities = data.lifecycle.phaseFive.activities.map((activity) =>
-    heldSlotIds.has(activity.id) ? { ...activity, title: `${activity.title} (taken)` } : activity
-  );
   $: calendarActivities = (data.lifecycle.personalService?.availabilitySlots ?? []).map((slot) => ({
     id: slot.id,
     title: slot.held
@@ -508,6 +498,26 @@
     note: slot.bookings.map((booking) => `@${booking.requesterUsername}`).join(', '),
     isActive: !slot.held
   }));
+  // The provider manages their slot activities; everyone else sees every upcoming slot
+  // (one-off and weekly), matching the calendar and the "open slots" count, marked Open or Taken.
+  $: agendaActivities = data.lifecycle.phaseFive.viewerCanCreateActivities
+    ? data.lifecycle.phaseFive.activities
+    : calendarActivities
+        .filter((slot) => new Date(slot.endAt).getTime() > Date.now())
+        .map((slot) => {
+          const held = heldSlotIds.has(slot.id);
+          return {
+            ...slot,
+            agendaChip: held
+              ? { label: 'Taken', tone: 'full' as const }
+              : { label: 'Open', tone: 'open' as const }
+          };
+        });
+  $: heldSlotIds = new Set(
+    (data.lifecycle.personalService?.availabilitySlots ?? [])
+      .filter((slot) => slot.held)
+      .map((slot) => slot.id)
+  );
   $: requestsOff = Boolean(data.lifecycle.requestSystem) && !data.lifecycle.requestSystem?.enabled;
   $: viewerReviewsRequests = data.lifecycle.requestSystem?.viewerCanReviewRequests ?? false;
   $: futureOpenSlotCount = (data.lifecycle.personalService?.availabilitySlots ?? []).filter(
@@ -926,7 +936,7 @@
         </div>
       {/if}
 
-      {#if data.lifecycle.phaseFive.activities.length === 0}
+      {#if agendaActivities.length === 0}
         {#if !usesCalendar}
           <div class="empty-card">This service is currently running without listed activity slots.</div>
         {:else if futureOpenSlotCount + acceptedRequestCount === 0}

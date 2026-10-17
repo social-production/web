@@ -465,6 +465,8 @@ export interface ProjectActivityItem {
   viewerAssignedRoleLabel: string | null;
   linkedPlanPhaseLabel: string | null;
   statusTone: 'red' | 'yellow' | 'green';
+  /** Replaces the sign-up chip on agenda rows (e.g. a service slot's "Open" / "Taken"). */
+  agendaChip?: { label: string; tone: 'open' | 'full' | 'need' | 'locked' } | null;
   roles: ProjectActivityRole[];
   note: string;
   isActive: boolean;
