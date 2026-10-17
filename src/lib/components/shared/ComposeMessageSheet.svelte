@@ -46,6 +46,9 @@
       !selectedGroupMembers.includes(contact.username) &&
       (normalizedGroupQuery ? contact.username.toLowerCase().includes(normalizedGroupQuery) : true)
   );
+  // Picture for a chosen username, when it came from the contact suggestions.
+  $: imageFor = (username: string) =>
+    contactSuggestions.find((contact) => contact.username === username)?.profileImageUrl ?? null;
   $: directSuggestionItems = directSuggestions.map((contact) => ({
     key: contact.username,
     label: contact.username,
@@ -263,7 +266,7 @@
         {#if selectedDirectRecipient}
           <div class="selected-row" aria-label="Selected person">
             <button class="selected-chip" type="button" on:click={clearDirectRecipient}>
-              <AvatarBadge size="sm" username={selectedDirectRecipient} />
+              <AvatarBadge size="sm" username={selectedDirectRecipient} imageUrl={imageFor(selectedDirectRecipient)} />
               <span>{selectedDirectRecipient}</span>
               <span class="chip-remove" aria-hidden="true">×</span>
             </button>
@@ -306,7 +309,7 @@
           <div class="selected-row" aria-label="Selected members">
             {#each selectedGroupMembers as member}
               <button class="selected-chip" type="button" on:click={() => removeComposerMember(member)}>
-                <AvatarBadge size="sm" username={member} />
+                <AvatarBadge size="sm" username={member} imageUrl={imageFor(member)} />
                 <span>{member}</span>
                 <span class="chip-remove" aria-hidden="true">×</span>
               </button>

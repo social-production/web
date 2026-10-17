@@ -128,7 +128,13 @@
     : [
         {
           emptyCopy: 'No one has joined this event yet.',
-          members: data.members.map((member) => ({
+          // `members` leaves out the creator and organizers, who belong to the event too.
+          members: [
+            ...data.eventEditors.filter((editor) =>
+              data.members.every((member) => member.id !== editor.id)
+            ),
+            ...data.members,
+          ].map((member) => ({
             id: member.id,
             username: member.username,
             profileImageUrl: member.profileImageUrl ?? null,
