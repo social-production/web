@@ -499,7 +499,8 @@ export interface AppAdapter {
     requestId: string,
     vote: ProjectApprovalVote | null
   ): Promise<{ passed?: boolean; targetPhaseId?: string | null } | void>;
-  requestProjectUpdate(projectSlug: string, body: string): Promise<void>;
+  /** `applied` when it took effect straight away instead of opening a vote. */
+  requestProjectUpdate(projectSlug: string, body: string): Promise<{ applied: boolean } | void>;
   setProjectUpdateVote(
     projectSlug: string,
     requestId: string,
@@ -516,7 +517,7 @@ export interface AppAdapter {
     title: string,
     description: string,
     location?: import('$lib/types/detail').ProjectLocationEdit | null
-  ): Promise<void>;
+  ): Promise<{ applied: boolean } | void>;
   setProjectEditVote(
     projectSlug: string,
     requestId: string,
@@ -638,13 +639,17 @@ export interface AppAdapter {
     requestId: string,
     vote: ProjectApprovalVote | null
   ): Promise<{ passed?: boolean; targetPhaseId?: string | null } | void>;
-  requestEventUpdate(eventSlug: string, body: string): Promise<void>;
+  requestEventUpdate(eventSlug: string, body: string): Promise<{ applied: boolean } | void>;
   setEventUpdateVote(
     eventSlug: string,
     requestId: string,
     vote: ProjectApprovalVote | null
   ): Promise<void>;
-  requestEventEdit(eventSlug: string, title: string, description: string): Promise<void>;
+  requestEventEdit(
+    eventSlug: string,
+    title: string,
+    description: string
+  ): Promise<{ applied: boolean } | void>;
   setEventEditVote(
     eventSlug: string,
     requestId: string,

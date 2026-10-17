@@ -1,3 +1,4 @@
+import { showToast } from '$lib/stores/toast';
 import { currentAdapter } from '$lib/services/adapters';
 import { confirmed } from '$lib/services/commands/confirm';
 import { invalidateFeedEngagementCache } from '$lib/utils/feedSignals';
@@ -149,10 +150,14 @@ export function setEventPhaseChangeVote(
 }
 
 export function requestEventUpdate(eventSlug: string, body: string) {
-  return currentAdapter.requestEventUpdate(eventSlug, body).then(async (result) => {
-    void invalidateFeedEngagementCache();
-    return result;
-  });
+  return confirmed(
+    currentAdapter.requestEventUpdate(eventSlug, body).then(async (result) => {
+      void invalidateFeedEngagementCache();
+      showToast(result?.applied ? 'Update posted' : 'Vote started on your update');
+      return result;
+    }),
+    null
+  );
 }
 
 export function setEventUpdateVote(
@@ -173,9 +178,10 @@ export function requestEventEdit(eventSlug: string, title: string, description: 
   return confirmed(
     currentAdapter.requestEventEdit(eventSlug, title, description).then(async (result) => {
       void invalidateFeedEngagementCache();
+      showToast(result?.applied ? 'Edit applied' : 'Vote started on your edit');
       return result;
     }),
-    'Edit proposed'
+    null
   );
 }
 
@@ -229,11 +235,11 @@ export function createEventManualLinkSeverRequest(
 }
 
 export function grantEventEditAccess(eventSlug: string, userId: string) {
-  return currentAdapter.grantEventEditAccess(eventSlug, userId);
+  return confirmed(currentAdapter.grantEventEditAccess(eventSlug, userId), 'Made an organizer');
 }
 
 export function revokeEventEditAccess(eventSlug: string, userId: string) {
-  return currentAdapter.revokeEventEditAccess(eventSlug, userId);
+  return confirmed(currentAdapter.revokeEventEditAccess(eventSlug, userId), 'Organizer removed');
 }
 
 export function shareEventWithUser(eventSlug: string, username: string) {

@@ -21,6 +21,12 @@ import { eventPlanScheduleInZone } from '$lib/utils/eventSchedule';
 // Membership cache for toggle direction (populated from getEvent viewerIsMember)
 const membershipCache = new Map<string, boolean>();
 
+type RequestCreated = { executed?: boolean; request?: { status?: string } };
+
+/** Whether a new update or edit request took effect straight away (no vote needed). */
+function requestApplied(res: RequestCreated | null | undefined) {
+  return { applied: Boolean(res?.executed || res?.request?.status === 'approved') };
+}
 // -- Read -------------------------------------------------------------------
 
 export async function fetchEvent(slug: string): Promise<EventPageData | null> {
@@ -340,8 +346,13 @@ export async function fetchSetEventPhaseChangeVote(
 
 // -- Updates and edits -------------------------------------------------------
 
-export async function fetchRequestEventUpdate(eventSlug: string, body: string): Promise<void> {
-  await apiClient.post(`/events/${eventSlug}/update-requests`, { body });
+export async function fetchRequestEventUpdate(
+  eventSlug: string,
+  body: string
+): Promise<{ applied: boolean }> {
+  return requestApplied(
+    await apiClient.post<RequestCreated>(`/events/${eventSlug}/update-requests`, { body })
+  );
 }
 
 export async function fetchSetEventUpdateVote(
@@ -356,8 +367,10 @@ export async function fetchRequestEventEdit(
   eventSlug: string,
   title: string,
   description: string
-): Promise<void> {
-  await apiClient.post(`/events/${eventSlug}/edit-requests`, { title, description });
+): Promise<{ applied: boolean }> {
+  return requestApplied(
+    await apiClient.post<RequestCreated>(`/events/${eventSlug}/edit-requests`, { title, description })
+  );
 }
 
 export async function fetchSetEventEditVote(

@@ -623,8 +623,20 @@ export async function fetchRevertProjectPhase(
 
 // -- Updates and edits -------------------------------------------------------
 
-export async function fetchRequestProjectUpdate(projectSlug: string, body: string): Promise<void> {
-  await apiClient.post(`/projects/${projectSlug}/update-requests`, { body });
+type RequestCreated = { executed?: boolean; request?: { status?: string } };
+
+/** Whether a new update or edit request took effect straight away (no vote needed). */
+function requestApplied(res: RequestCreated | null | undefined) {
+  return { applied: Boolean(res?.executed || res?.request?.status === 'approved') };
+}
+
+export async function fetchRequestProjectUpdate(
+  projectSlug: string,
+  body: string
+): Promise<{ applied: boolean }> {
+  return requestApplied(
+    await apiClient.post<RequestCreated>(`/projects/${projectSlug}/update-requests`, { body })
+  );
 }
 
 export async function fetchSetProjectUpdateVote(
@@ -663,12 +675,14 @@ export async function fetchRequestProjectEdit(
   title: string,
   description: string,
   location?: ProjectLocationEdit | null
-): Promise<void> {
-  await apiClient.post(`/projects/${projectSlug}/edit-requests`, {
-    title,
-    description,
-    ...locationEditPayload(location)
-  });
+): Promise<{ applied: boolean }> {
+  return requestApplied(
+    await apiClient.post<RequestCreated>(`/projects/${projectSlug}/edit-requests`, {
+      title,
+      description,
+      ...locationEditPayload(location)
+    })
+  );
 }
 
 export async function fetchSetProjectEditVote(

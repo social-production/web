@@ -1,3 +1,4 @@
+import { showToast } from '$lib/stores/toast';
 import { currentAdapter } from '$lib/services/adapters';
 import { confirmed } from '$lib/services/commands/confirm';
 import { invalidateFeedEngagementCache } from '$lib/utils/feedSignals';
@@ -326,10 +327,14 @@ export function setProjectPhaseChangeVote(
 }
 
 export function requestProjectUpdate(projectSlug: string, body: string) {
-  return currentAdapter.requestProjectUpdate(projectSlug, body).then(async (result) => {
-    void invalidateFeedEngagementCache();
-    return result;
-  });
+  return confirmed(
+    currentAdapter.requestProjectUpdate(projectSlug, body).then(async (result) => {
+      void invalidateFeedEngagementCache();
+      showToast(result?.applied ? 'Update posted' : 'Vote started on your update');
+      return result;
+    }),
+    null
+  );
 }
 
 export function setProjectUpdateVote(
@@ -372,9 +377,10 @@ export function requestProjectEdit(
   return confirmed(
     currentAdapter.requestProjectEdit(projectSlug, title, description, location).then(async (result) => {
       void invalidateFeedEngagementCache();
+      showToast(result?.applied ? 'Edit applied' : 'Vote started on your edit');
       return result;
     }),
-    'Edit proposed'
+    null
   );
 }
 
