@@ -3,6 +3,7 @@
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import ScopeAvatar from './ScopeAvatar.svelte';
   import { scopeSettingsApi } from '$lib/services/commands/scopes';
+  import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import { showToast } from '$lib/stores/toast';
   import { validateHandle } from '$lib/utils/handles';
   import { askConfirm } from '$lib/stores/confirmDialog';
@@ -46,6 +47,8 @@
       settings = await action();
       const opened = settings.proposals.length > before;
       showToast(opened ? 'Vote started' : done);
+      // The left rail reads names and pictures from bootstrap, which invalidateAll doesn't refetch.
+      await refreshBootstrap();
       await invalidateAll();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Something went wrong', 'error');

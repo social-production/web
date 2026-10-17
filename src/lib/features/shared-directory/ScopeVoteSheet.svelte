@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { refreshBootstrap } from '$lib/services/queries/bootstrap';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
   import ScopeAvatar from './ScopeAvatar.svelte';
   import { scopeSettingsApi } from '$lib/services/commands/scopes';
@@ -63,6 +64,7 @@
           votable.findIndex((p) => p.id === remaining[0].id)
         );
       }
+      await refreshBootstrap();
       await invalidateAll();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Could not record that vote.', 'error');

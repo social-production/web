@@ -338,5 +338,10 @@
       align-items: stretch;
       flex-direction: column;
     }
+
+    /* Stacked, the 180px flex-basis would become the input's height. */
+    .invite-actions input {
+      flex: 0 0 auto;
+    }
   }
 </style>

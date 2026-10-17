@@ -28,17 +28,20 @@
     const gap = 4;
     const viewportPadding = 8;
 
+    // Place it by the width it will have once min-width applies (capped to the screen).
+    const effectiveMinWidth = Math.min(minWidth, window.innerWidth - viewportPadding * 2);
+    const width = Math.max(menuRect.width, effectiveMinWidth);
     let top = triggerRect.bottom + gap;
-    let left = triggerRect.right - menuRect.width;
+    let left = triggerRect.right - width;
 
     if (top + menuRect.height > window.innerHeight - viewportPadding) {
       top = triggerRect.top - menuRect.height - gap;
     }
 
-    left = Math.max(viewportPadding, Math.min(left, window.innerWidth - menuRect.width - viewportPadding));
+    left = Math.max(viewportPadding, Math.min(left, window.innerWidth - width - viewportPadding));
     top = Math.max(viewportPadding, Math.min(top, window.innerHeight - menuRect.height - viewportPadding));
 
-    menuStyle = `top: ${top}px; left: ${left}px; min-width: ${minWidth}px;`;
+    menuStyle = `top: ${top}px; left: ${left}px; min-width: ${effectiveMinWidth}px;`;
   }
 
   async function toggle() {
@@ -183,6 +186,11 @@
   .icon-popover-menu {
     position: fixed;
     z-index: 80;
+    /* Never wider or taller than the screen; long panels scroll inside. */
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 4px;
     display: grid;
     gap: 2px;
