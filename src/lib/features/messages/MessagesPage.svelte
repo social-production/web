@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from '$lib/services/errors';
   import { browser } from '$app/environment';
   import { goto, invalidate } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
@@ -1086,12 +1087,16 @@
 
       await loadConversationMessages(activeConversationId, { silent: true });
     } catch (err) {
-      composerError = err instanceof Error ? err.message : 'Could not update the pin';
+      composerError = errorMessage(err, 'Could not update the pin');
       pinError = composerError;
     }
   }
 
-  async function submitLinkedChatMessage(body: string, files?: File[]) {
+  async function submitLinkedChatMessage(
+    body: string,
+    files?: File[],
+    options?: { replyToId?: string | null }
+  ) {
     if (!activeLinkedChat) {
       return;
     }
@@ -1108,7 +1113,7 @@
           type: linkedChatEntityType(activeLinkedChat.kind),
         },
         body,
-        undefined,
+        options?.replyToId ?? undefined,
         files
       );
     } catch {
@@ -1328,7 +1333,7 @@
       await editMessage(activeConversationId, messageId, body);
       await loadConversationMessages(activeConversationId, { silent: true });
     } catch (err) {
-      composerError = err instanceof Error ? err.message : 'Could not edit message';
+      composerError = errorMessage(err, 'Could not edit message');
       throw err;
     }
   }
@@ -1342,7 +1347,7 @@
       await deleteMessage(activeConversationId, messageId);
       await loadConversationMessages(activeConversationId, { silent: true });
     } catch (err) {
-      composerError = err instanceof Error ? err.message : 'Could not delete message';
+      composerError = errorMessage(err, 'Could not delete message');
       throw err;
     }
   }

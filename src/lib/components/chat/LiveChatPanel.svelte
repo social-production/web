@@ -1063,6 +1063,15 @@
                 </div>
               {/if}
             </div>
+            {#if onSubmitMessage}
+              <button
+                class="hover-reply"
+                type="button"
+                aria-label="Reply"
+                title="Reply"
+                on:click|stopPropagation={() => beginReply(message)}
+              >↩</button>
+            {/if}
           </article>
           {/if}
         {/each}
@@ -1374,6 +1383,43 @@
     background: transparent;
     outline: none;
     box-shadow: none;
+  }
+
+  /* Desktop: a Reply shortcut shows on hover; tapping a message opens the full menu. */
+  .chat-message {
+    position: relative;
+  }
+
+  .hover-reply {
+    display: none;
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    width: 28px;
+    height: 28px;
+    transform: translateY(-50%);
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--text-soft);
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .chat-message.own .hover-reply {
+    right: auto;
+    left: 4px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .chat-message:hover .hover-reply {
+      display: grid;
+      place-items: center;
+    }
+  }
+
+  .hover-reply:hover {
+    color: var(--brand-strong);
   }
 
   .chat-message.flash .message-copy {
