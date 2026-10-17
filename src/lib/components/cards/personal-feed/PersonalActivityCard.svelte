@@ -85,6 +85,20 @@
   }
 </script>
 
+{#snippet reportControl()}
+  <ReportControl
+    hasActiveReport={item.hasActiveReport}
+    isUnderReview={item.isUnderReview}
+    itemLabel={item.subjectKind}
+    moderationState={item.moderationState}
+    ownerUsername={item.author.username}
+    report={item.report ?? null}
+    subjectId={item.subjectId}
+    targetId={item.subjectId}
+    targetType={toVoteTargetType(item.subjectKind)}
+  />
+{/snippet}
+
 <FeedSurface
   contentRestricted={item.moderationState === 'hidden'}
   href={item.href}
@@ -92,28 +106,32 @@
   accent={surfaceTypeAccent(item.subjectKind, item.subjectProjectMode ?? 'productive')}
 >
   <div class="card-header">
-    <FeedCardTop {stage} tags={orderedTags}>
-      <ReportControl
-        hasActiveReport={item.hasActiveReport}
-        isUnderReview={item.isUnderReview}
-        itemLabel={item.subjectKind}
-        moderationState={item.moderationState}
-        ownerUsername={item.author.username}
-        report={item.report ?? null}
-        subjectId={item.subjectId}
-        targetId={item.subjectId}
-        targetType={toVoteTargetType(item.subjectKind)}
-      />
-    </FeedCardTop>
-    <div class="header-row">
-      <PersonalFeedIdentity
-        username={item.author.username}
-        profileImageUrl={item.author.profileImageUrl ?? null}
-      />
-      {#if item.isPrivate}
-        <PrivateMark />
+    {#if item.isPrivate}
+      <!-- Private items: no stage; the top row is the author with the private mark and menu. -->
+      <div class="header-row">
+        <PersonalFeedIdentity
+          username={item.author.username}
+          profileImageUrl={item.author.profileImageUrl ?? null}
+        />
+        <div class="header-end">
+          <PrivateMark />
+          {@render reportControl()}
+        </div>
+      </div>
+      {#if orderedTags.length > 0}
+        <FeedCardTop tags={orderedTags} />
       {/if}
-    </div>
+    {:else}
+      <FeedCardTop {stage} tags={orderedTags}>
+        {@render reportControl()}
+      </FeedCardTop>
+      <div class="header-row">
+        <PersonalFeedIdentity
+          username={item.author.username}
+          profileImageUrl={item.author.profileImageUrl ?? null}
+        />
+      </div>
+    {/if}
   </div>
 
   <a class="title" data-sveltekit-preload-data="hover" href={item.href}>{item.title}</a>
@@ -183,6 +201,13 @@
     justify-content: space-between;
     flex-wrap: nowrap;
     align-items: center;
+  }
+
+  .header-end {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 2px;
   }
 
   .footer {
