@@ -13,6 +13,8 @@
   import { requireViewer } from '$lib/utils/requireViewer';
   import ContentMetaRow from '$lib/components/shared/ContentMetaRow.svelte';
   import PersonalFeedIdentity from '$lib/components/cards/personal-feed/PersonalFeedIdentity.svelte';
+  import { isImplementedScheduleLabel } from '$lib/utils/scheduleMeta';
+  import { formatLocalDateTime } from '$lib/utils/time';
 
   let { item }: { item: PersonalActivityItem } = $props();
 
@@ -38,6 +40,19 @@
     }
     const value = item.meta.trim();
     return value && !/\d{1,2}:\d{2}/.test(value) ? value : '';
+  });
+  // Same time · place line the public event card shows.
+  const scheduleLine = $derived.by(() => {
+    if (item.subjectKind !== 'event') return '';
+    const time = item.scheduledAt
+      ? formatLocalDateTime(item.scheduledAt)
+      : isImplementedScheduleLabel(item.timeLabel ?? '')
+        ? (item.timeLabel ?? '').trim()
+        : '';
+    const place = isImplementedScheduleLabel(item.locationLabel ?? '')
+      ? (item.locationLabel ?? '').trim()
+      : '';
+    return [time, place].filter(Boolean).join(' · ');
   });
   const commentHref = $derived(buildCommentHref(item.href, item.subjectKind));
   const usesSignals = $derived(item.subjectKind === 'project' || item.subjectKind === 'event');
@@ -76,7 +91,7 @@
   accent={surfaceTypeAccent(item.subjectKind, item.subjectProjectMode ?? 'productive')}
 >
   <div class="card-header">
-    <FeedCardTop {stage} tags={orderedTags}>
+    <FeedCardTop {stage} tags={orderedTags} isPrivate={Boolean(item.isPrivate)}>
       <ReportControl
         hasActiveReport={item.hasActiveReport}
         isUnderReview={item.isUnderReview}
@@ -99,6 +114,12 @@
 
   <a class="title" data-sveltekit-preload-data="hover" href={item.href}>{item.title}</a>
   <p class="body">{item.body}</p>
+  {#if item.latestUpdateBody}
+    <p class="latest-summary">Latest: {item.latestUpdateBody}</p>
+  {/if}
+  {#if scheduleLine}
+    <p class="schedule">{scheduleLine}</p>
+  {/if}
 
   {#if item.subjectKind === 'project' && item.subjectFundProgress}
     <div class="fund-progress-card">
@@ -179,6 +200,26 @@
   .title {
     display: inline-block;
     font-weight: 800;
+  }
+
+  .latest-summary,
+  .schedule {
+    margin: 6px 0 0;
+    line-height: 1.4;
+  }
+
+  .latest-summary {
+    display: -webkit-box;
+    overflow: hidden;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    color: var(--text-main);
+    opacity: 0.84;
+  }
+
+  .schedule {
+    color: var(--text-soft);
   }
 
   .fund-progress-card {

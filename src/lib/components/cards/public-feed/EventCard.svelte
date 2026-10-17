@@ -43,7 +43,7 @@
   tone="public"
   accent={surfaceTypeAccent('event')}
 >
-  <FeedCardTop stage={item.stage ?? ''} tags={orderedTags}>
+  <FeedCardTop stage={item.stage ?? ''} tags={orderedTags} isPrivate={item.isPrivate}>
     <ReportControl
       hasActiveReport={item.hasActiveReport}
       isUnderReview={item.isUnderReview}
