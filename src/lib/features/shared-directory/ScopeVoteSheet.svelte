@@ -49,16 +49,20 @@
     if (!api || busy) return;
     busy = true;
     try {
-      settings = await api.vote(item.id, vote);
-      showToast('Vote recorded');
-      const remaining = settings.proposals.filter((p) => p.viewerCanVote && !p.viewerVote);
-      if (remaining.length === 0) {
-        open = false;
+      const next = await api.vote(item.id, vote);
+      settings = next;
+      // Work from the fresh list: the reactive `votable` hasn't caught up yet.
+      const fresh = next.proposals.filter((p) => p.viewerCanVote);
+      const stillOpen = fresh.findIndex((p) => p.id === item.id);
+      showToast(stillOpen >= 0 ? 'Vote recorded' : 'Vote recorded. That decision is now settled.');
+      if (stillOpen >= 0) index = stillOpen;
+      // Leave the filled choice and "You voted…" on screen for a moment before moving on.
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const nextUnvoted = fresh.findIndex((p) => !p.viewerVote);
+      if (nextUnvoted >= 0) {
+        index = nextUnvoted;
       } else {
-        index = Math.max(
-          0,
-          votable.findIndex((p) => p.id === remaining[0].id)
-        );
+        open = false;
       }
       await refreshBootstrap();
       await invalidateAll();
@@ -87,8 +91,9 @@
         {current.yes} yes · {current.no} no · {current.votesRequired} votes needed
       </p>
       <p class="meta">
-        {#if current.createdAt}Proposed {formatWhen(current.createdAt)} · {/if}Closes
-        {formatWhen(current.closesAt)}
+        {[current.createdAt ? `Proposed ${formatWhen(current.createdAt)}` : '', `Closes ${formatWhen(current.closesAt)}`]
+          .filter(Boolean)
+          .join(' · ')}
       </p>
       {#if current.viewerVote}
         <p class="voted">You voted {current.viewerVote === 'yes' ? 'Yes' : 'No'}. Tap the other to change it.</p>
@@ -122,7 +127,7 @@
     {:else if !settings}
       <p class="meta">Loading…</p>
     {:else}
-      <p class="meta">No open votes.</p>
+      <p class="meta">No open votes. You're all caught up.</p>
     {/if}
   </div>
 </OverlaySheet>

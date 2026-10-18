@@ -1596,7 +1596,7 @@
         {data}
         activePhaseId={lifecycleContentPhaseId}
         {activityForm}
-        {serviceRequestForm}
+        bind:serviceRequestForm
         bind:showPersonalActivityComposer
         bind:showPersonalServiceRequestComposer
         bind:activityComposerElement

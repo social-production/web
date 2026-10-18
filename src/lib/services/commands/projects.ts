@@ -38,7 +38,7 @@ export function setProjectSignal(projectSlug: string, signal: GovernanceSignalTy
 }
 
 export function addProjectValue(projectSlug: string, label: string) {
-  return currentAdapter.addProjectValue(projectSlug, label);
+  return confirmed(currentAdapter.addProjectValue(projectSlug, label), 'Value added');
 }
 
 export function setProjectValueImportance(

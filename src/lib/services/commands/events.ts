@@ -33,7 +33,7 @@ export function setEventSignal(eventSlug: string, signal: GovernanceSignalType) 
 }
 
 export function addEventValue(eventSlug: string, label: string) {
-  return currentAdapter.addEventValue(eventSlug, label);
+  return confirmed(currentAdapter.addEventValue(eventSlug, label), 'Value added');
 }
 
 export function setEventValueImportance(

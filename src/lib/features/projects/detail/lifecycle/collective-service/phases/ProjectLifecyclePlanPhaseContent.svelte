@@ -112,7 +112,7 @@
     }
 
     if (data.lifecycle.currentPhaseId !== phaseId) {
-      return planId === winningPlanId ? 'Selected' : null;
+      return planId === winningPlanId ? 'Approved' : null;
     }
 
     if (plan.leaderStatus === 'leading') {

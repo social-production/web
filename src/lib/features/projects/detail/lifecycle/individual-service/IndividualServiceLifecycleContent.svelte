@@ -98,7 +98,7 @@
     {openPersonalActivityComposer}
     {openPersonalServiceRequestComposer}
     {openPersonalServiceRequestComposerForDay}
-    {serviceRequestForm}
+    bind:serviceRequestForm
     {submitActivity}
     {submitServiceRequest}
     {updateRequestStatus}

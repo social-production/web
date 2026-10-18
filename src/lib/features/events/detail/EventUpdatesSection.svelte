@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from '$lib/services/errors';
   import AddUpdateSheet from '$lib/components/shared/AddUpdateSheet.svelte';
   import DetailUpdateCard from '$lib/components/cards/details/DetailUpdateCard.svelte';
   import RoundPlusButton from '$lib/components/shared/RoundPlusButton.svelte';
@@ -37,12 +38,14 @@
       draftUpdateBody = '';
       showUpdateComposer = false;
       void invalidateEventDetail(data.slug);
-    } catch {
-      updateMessage = 'This update request could not be submitted. Reload and try again.';
+    } catch (err) {
+      updateMessage = errorMessage(err, 'This update request could not be submitted. Reload and try again.');
     } finally {
       updatePending = false;
     }
   }
+
+  $: if (!showUpdateComposer) updateMessage = '';
 </script>
 
 <section class="updates-shell overview-updates" id="updates">

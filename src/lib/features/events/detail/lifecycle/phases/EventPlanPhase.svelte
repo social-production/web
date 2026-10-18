@@ -45,7 +45,7 @@
     }
 
     if (data.lifecycle.currentPhaseId !== 'event-plan') {
-      return planId === data.lifecycle.phaseTwo.winningPlanId ? 'Selected' : null;
+      return planId === data.lifecycle.phaseTwo.winningPlanId ? 'Approved' : null;
     }
 
     if (plan.leaderStatus === 'leading') {

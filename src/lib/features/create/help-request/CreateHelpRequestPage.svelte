@@ -18,6 +18,8 @@
     readScopePrefillFromSearchParams
   } from '$lib/utils/createScopePrefill';
   import { navigateAfterCreate } from '$lib/utils/navigateAfterCreate';
+  import { localDateTimeInputToIso } from '$lib/utils/eventSchedule';
+  import { getDisplayTimezone } from '$lib/stores/timezoneStore';
 
   type RoleDraft = {
     roleLabel: string;
@@ -38,6 +40,7 @@
   let body = '';
   let locationIntent: 'physical' | 'online' | 'later' = 'physical';
   let locationValue: LocationPickerValue = emptyLocationPickerValue();
+  const timeZone = getDisplayTimezone();
   let neededAt = defaultNeededAt();
   let endsAt = defaultEndsAt(neededAt);
   let roles: RoleDraft[] = [{ roleLabel: '', description: '', slots: 1 }];
@@ -427,8 +430,9 @@
         body: body.trim(),
         locationLabel: resolvedLocationLabel,
         locationId: resolvedLocationId,
-        neededAt,
-        endsAt,
+        // Typed as wall time in the viewer's display time zone; stored as UTC.
+        neededAt: localDateTimeInputToIso(neededAt, timeZone),
+        endsAt: localDateTimeInputToIso(endsAt, timeZone),
         channelTags: previewChannelTags,
         communityTags: previewCommunityTags,
         roles: roles
@@ -535,6 +539,7 @@
                   />
                 </div>
               </div>
+              <p class="zone-note">Times are in {timeZone}, your display time zone. Everyone sees them in their own.</p>
             </div>
           {:else if currentStep?.id === 'scope'}
             <div class="form-stack">
@@ -765,5 +770,10 @@
 
   .status-message-list {
     padding-left: 18px;
+  }
+  .zone-note {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 13px;
   }
 </style>

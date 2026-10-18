@@ -27,7 +27,9 @@
 <OverlaySheet bind:open title={sheetTitle} {labelledById}>
   <p slot="subtitle" class="sheet-lead">
     Change the title, description{location ? ', or location' : ''}.
-    {appliesDirectly ? 'It applies as soon as you save.' : 'Members vote on it before it applies.'}
+    {appliesDirectly
+      ? 'It applies as soon as you save.'
+      : 'Members vote on it, and your proposal counts as your Yes. While few members are active, your Yes alone can be enough, and then it applies straight away.'}
   </p>
   <form id={labelledById + '-form'} class="edit-form" on:submit|preventDefault={handleSubmit}>
     {#if message}

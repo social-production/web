@@ -363,30 +363,21 @@ export async function fetchInviteUserToCommunity(
 }
 
 export async function fetchVolunteerForBoard(): Promise<boolean> {
-  try {
-    await apiClient.post('/board/volunteer');
-    return true;
-  } catch {
-    return false;
-  }
+  // Throws with the server's reason (e.g. the new-account warm-up) so it can be shown.
+  await apiClient.post('/board/volunteer');
+  return true;
 }
 
 export async function fetchRemoveVolunteer(): Promise<boolean> {
-  try {
-    await apiClient.delete('/board/volunteer');
-    return true;
-  } catch {
-    return false;
-  }
+  // Throws with the server's reason (e.g. the new-account warm-up) so it can be shown.
+  await apiClient.delete('/board/volunteer');
+  return true;
 }
 
 export async function fetchCastModeratorVote(targetUserId: string, vote: string): Promise<boolean> {
-  try {
-    await apiClient.post('/board/votes', { target_user_id: targetUserId, vote });
-    return true;
-  } catch {
-    return false;
-  }
+  // Throws with the server's reason (e.g. the new-account warm-up) so it can be shown.
+  await apiClient.post('/board/votes', { target_user_id: targetUserId, vote });
+  return true;
 }
 
 export async function fetchCreateChannel(input: CreateChannelInput): Promise<CreateResult> {

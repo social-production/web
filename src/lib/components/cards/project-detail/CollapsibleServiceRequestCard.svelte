@@ -16,7 +16,8 @@
   function statusLabel(status: ProjectServiceRequestStatus) {
     switch (status) {
       case 'accepted':
-        return 'Accepted';
+        // A booking whose time has passed is done; rate it from the service's history.
+        return request.endsAt && new Date(request.endsAt).getTime() < Date.now() ? 'Done' : 'Accepted';
       case 'declined':
         return 'Declined';
       case 'cancelled':

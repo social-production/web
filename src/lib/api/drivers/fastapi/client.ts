@@ -2,6 +2,7 @@ import { error as kitError } from '@sveltejs/kit';
 import {
   clearAuthenticatedSession,
   getCsrfToken,
+  hasAuthenticatedSession,
   markAuthenticatedSession,
   shouldAttemptSessionRefresh
 } from './auth';
@@ -136,6 +137,24 @@ async function keepSessionFresh(): Promise<void> {
   }
 }
 
+const SIGN_IN_DETAIL = 'Sign up or log in to do that.';
+
+/**
+ * A signed-out visitor pressed something that needs an account (Sign up for a role, Support,
+ * Join...). Take them to sign up, and back to this page afterwards, instead of showing the
+ * server's "CSRF validation failed" or "Not authenticated".
+ */
+function sendToSignIn() {
+  const here = `${window.location.pathname}${window.location.search}`;
+  if (window.location.pathname.startsWith('/onboarding')) return;
+  void import('$lib/stores/toast').then(({ showToast }) => showToast(SIGN_IN_DETAIL, 'info'));
+  void import('$app/navigation').then(({ goto }) =>
+    goto(
+      `/onboarding?mode=${shouldAttemptSessionRefresh() ? 'login' : 'signup'}&next=${encodeURIComponent(here)}`
+    )
+  );
+}
+
 function isCsrfFailure(body: unknown) {
   if (!body || typeof body !== 'object') return false;
   return (body as { detail?: unknown }).detail === 'CSRF validation failed';
@@ -191,13 +210,22 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown, allo
       clearBootstrapCache();
       throw { status: 403, body: { detail: 'Your session expired. Log in again.' } };
     }
+    if (isCsrfFailure(failureBody) && !shouldAttemptSessionRefresh() && !path.startsWith('/auth/')) {
+      sendToSignIn();
+      throw { status: 401, body: { detail: SIGN_IN_DETAIL } };
+    }
     throw { status: 403, body: failureBody };
   }
 
   if (!response.ok) {
     if (response.status === 401 && isBrowser) {
+      const wasSignedIn = hasAuthenticatedSession();
       clearAuthenticatedSession();
       clearBootstrapCache();
+      if (!wasSignedIn && method !== 'GET' && !path.startsWith('/auth/')) {
+        sendToSignIn();
+        throw { status: 401, body: { detail: SIGN_IN_DETAIL } };
+      }
     }
 
     throw {
@@ -283,6 +311,10 @@ async function requestForm<T>(path: string, form: FormData, allowRefresh = true)
       clearAuthenticatedSession();
       clearBootstrapCache();
       throw { status: 403, body: { detail: 'Your session expired. Log in again.' } };
+    }
+    if (isCsrfFailure(failureBody) && !shouldAttemptSessionRefresh() && !path.startsWith('/auth/')) {
+      sendToSignIn();
+      throw { status: 401, body: { detail: SIGN_IN_DETAIL } };
     }
     throw { status: 403, body: failureBody };
   }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from '$lib/services/errors';
   import {
     emptyLocationPickerValue,
     onlineLocationPickerValue,
@@ -210,10 +211,13 @@
       draftUpdateBody = '';
       showUpdateComposer = false;
       void invalidateProjectDetail(data.slug);
-    } catch {
-      updateMessage = isPersonalServiceProject(data.projectMode)
+    } catch (err) {
+      updateMessage = errorMessage(
+        err,
+        isPersonalServiceProject(data.projectMode)
         ? 'This update could not be posted. Reload and try again.'
-        : 'This update request could not be submitted. Reload and try again.';
+        : 'This update request could not be submitted. Reload and try again.'
+      );
     } finally {
       updatePending = false;
     }
@@ -246,14 +250,25 @@
 
       showEditComposer = false;
       void invalidateProjectDetail(data.slug);
-    } catch {
-      editMessage = isPersonalServiceProject(data.projectMode)
+    } catch (err) {
+      editMessage = errorMessage(
+        err,
+        isPersonalServiceProject(data.projectMode)
         ? 'These project details could not be saved. Reload and try again.'
-        : 'This edit request could not be submitted. Reload and try again.';
+        : 'This edit request could not be submitted. Reload and try again.'
+      );
     } finally {
       editPending = false;
     }
   }
+
+  $effect(() => {
+    if (!showEditComposer) editMessage = '';
+  });
+
+  $effect(() => {
+    if (!showUpdateComposer) updateMessage = '';
+  });
 </script>
 
 <div class="context-panel">
@@ -285,7 +300,7 @@
           <p class="requests-off-note">Not taking requests.</p>
         {/if}
         {#if latestUpdate}
-          <p class="overview-update">Update: {latestUpdate.body}</p>
+          <p class="overview-update">Update: {latestUpdate.body.replace(/^\s*update:\s*/i, "")}</p>
         {/if}
       </div>
     </div>

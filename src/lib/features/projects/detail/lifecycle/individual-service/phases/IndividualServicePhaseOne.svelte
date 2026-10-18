@@ -229,8 +229,13 @@
 
   /** Signed-out visitors go to sign in (and come back here) instead of a form they can't send. */
   function needsSignIn() {
-    if (viewerSignedIn || data.lifecycle.phaseFive.viewerCanCreateActivities) return false;
-    showToast('Sign in to request a time.');
+    if (data.lifecycle.phaseFive.viewerCanCreateActivities) return false;
+    if (requestsOff) {
+      showToast('This service is not taking requests right now.', 'info');
+      return true;
+    }
+    if (viewerSignedIn) return false;
+    showToast('Sign in to request a time.', 'info');
     void goto(signInHref);
     return true;
   }
@@ -289,7 +294,8 @@
     prefillRequestFromSlot(slot);
 
     activeTab = 'live';
-    await openPersonalServiceRequestComposer();
+    // The ForDay opener keeps the slot's times; the plain one clears them in "slots and messages" mode.
+    await openPersonalServiceRequestComposerForDay(slot.startAt.slice(0, 10));
   }
 
   // Non-providers tap a slot in the list to request it, as on the calendar.
@@ -552,7 +558,7 @@
       .map((slot) => slot.id)
   );
   $: viewerSignedIn = Boolean($page.data.bootstrap?.viewer);
-  $: signInHref = `/onboarding?next=${encodeURIComponent($page.url.pathname)}`;
+  $: signInHref = `/onboarding?next=${encodeURIComponent(`${$page.url.pathname}?tab=participation`)}`;
   $: requestsOff = Boolean(data.lifecycle.requestSystem) && !data.lifecycle.requestSystem?.enabled;
   $: viewerReviewsRequests = data.lifecycle.requestSystem?.viewerCanReviewRequests ?? false;
   $: futureOpenSlotCount = (data.lifecycle.personalService?.availabilitySlots ?? []).filter(

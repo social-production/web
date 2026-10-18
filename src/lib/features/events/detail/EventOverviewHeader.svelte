@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from '$lib/services/errors';
   import { goto } from '$app/navigation';
   import {
     confirmEventMembershipToggle,
@@ -206,8 +207,8 @@
       draftUpdateBody = '';
       showUpdateComposer = false;
       void invalidateEventDetail(data.slug);
-    } catch {
-      updateMessage = 'This update request could not be submitted. Reload and try again.';
+    } catch (err) {
+      updateMessage = errorMessage(err, 'This update request could not be submitted. Reload and try again.');
     } finally {
       updatePending = false;
     }
@@ -226,12 +227,20 @@
       await requestEventEdit(data.slug, draftEditTitle, draftEditDescription);
       showEditComposer = false;
       void invalidateEventDetail(data.slug);
-    } catch {
-      editMessage = 'This edit request could not be submitted. Reload and try again.';
+    } catch (err) {
+      editMessage = errorMessage(err, 'This edit request could not be submitted. Reload and try again.');
     } finally {
       editPending = false;
     }
   }
+
+  $effect(() => {
+    if (!showEditComposer) editMessage = '';
+  });
+
+  $effect(() => {
+    if (!showUpdateComposer) updateMessage = '';
+  });
 </script>
 
 <div class="context-panel">
@@ -263,7 +272,7 @@
         {/if}
         <p class="overview-copy">{data.description}</p>
         {#if latestUpdate}
-          <p class="overview-update">Update: {latestUpdate.body}</p>
+          <p class="overview-update">Update: {latestUpdate.body.replace(/^\s*update:\s*/i, "")}</p>
         {/if}
       </div>
     </div>

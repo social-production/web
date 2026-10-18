@@ -5,6 +5,7 @@
   import type { DetailMember, ShareTargetResult } from '$lib/types/detail';
   import { canUseNativeShare, shareLink, shareTargets } from '$lib/utils/share';
   import { onMount } from 'svelte';
+  import { showToast } from '$lib/stores/toast';
 
   let nativeShare = false;
   onMount(() => {
@@ -18,7 +19,7 @@
   export let buttonLabel = 'Share +';
   export let menuTitle = 'Share';
   export let placeholder = 'Type a username';
-  export let submitLabel = 'Share';
+  export let submitLabel = 'Send';
   export let createPostLabel = 'Create post';
   export let createPost: (() => void | Promise<void>) | null = null;
   export let copyLinkUrl: string | null = null;
@@ -42,6 +43,7 @@
   let searchRequestId = 0;
 
   $: searchNeedle = query.trim().toLowerCase();
+  $: selectedNames = new Set(selected.map((person) => person.username));
   $: sourceContacts = liveContacts.length > 0 ? liveContacts : contacts;
   $: filteredContacts = searchNeedle
     ? sourceContacts
@@ -77,10 +79,6 @@
     selected = [...selected, contact];
   }
 
-  function isSelected(username: string) {
-    return selected.some((person) => person.username === username);
-  }
-
   async function handleSubmit() {
     if (selected.length === 0 || pending) {
       return;
@@ -96,6 +94,9 @@
           return;
         }
       }
+      showToast(
+        selected.length === 1 ? `Sent to ${selected[0].username}` : `Sent to ${selected.length} people`
+      );
       query = '';
       liveContacts = [];
       selected = [];
@@ -155,42 +156,74 @@
 
   <OverlaySheet {open} labelledById="share-sheet-title" title={menuTitle} on:close={handleClose}>
     <svelte:fragment slot="toolbar">
-    {#if copyLinkUrl}
+      {#if copyLinkUrl}
         <section class="share-out" aria-label="Share outside the app">
-          <span class="share-out-label">Share outside the app</span>
+          {#if outsideTitle()}
+            <p class="share-subject">{outsideTitle()}</p>
+          {/if}
+          <div class="link-field">
+            <span class="link-text" title={copyLinkUrl}>{copyLinkUrl.replace(/^https?:\/\//, '')}</span>
+            <button
+              class="link-copy"
+              class:copied={copyLabel === 'Copied'}
+              type="button"
+              on:click={() => void handleCopyLink()}
+            >
+              {copyLabel}
+            </button>
+          </div>
           <div class="share-out-row">
             {#if nativeShare}
               <button
-                class="share-out-target primary"
+                class="share-tile"
                 type="button"
                 on:click={() => void shareLink({ url: copyLinkUrl ?? '', title: outsideTitle() })}
               >
-                Share…
+                <span class="tile-icon more" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                </span>
+                <span class="tile-label">More</span>
               </button>
             {/if}
             {#each shareTargets({ url: copyLinkUrl, title: outsideTitle() }) as target (target.id)}
-              <a class="share-out-target" href={target.href} target="_blank" rel="noopener noreferrer">
-                {target.label}
+              <a class="share-tile" href={target.href} target="_blank" rel="noopener noreferrer">
+                <span class={`tile-icon ${target.id}`} aria-hidden="true">
+                  {#if target.id === 'whatsapp'}
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7L4 20z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /><path d="M9 9.5c.3 2 2 3.8 4.2 4.4l1-1.1 1.8.8c-.2 1-1 1.6-2 1.5A6 6 0 0 1 8.4 10c-.1-1 .5-1.8 1.5-2l.8 1.8-1 .9" fill="currentColor" /></svg>
+                  {:else if target.id === 'telegram'}
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M21 4L3 11l6 2 2 6 3-4 5 4 2-15zM9 13l9-6-7 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+                  {:else if target.id === 'email'}
+                    <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M3 7l9 6 9-6" fill="none" stroke="currentColor" stroke-width="2" /></svg>
+                  {:else if target.id === 'x'}
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 4l14 16M19 4L5 20" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" /></svg>
+                  {:else}
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8z" fill="currentColor" /></svg>
+                  {/if}
+                </span>
+                <span class="tile-label">{target.label}</span>
               </a>
             {/each}
           </div>
         </section>
       {/if}
-      <span class="share-out-label people-label">Send to someone on Social Production</span>
       <div class="share-search">
-        <label class="sr-only" for="share-people-search">{menuTitle}</label>
-        <input
-          id="share-people-search"
-          bind:value={query}
-          maxlength="64"
-          placeholder={placeholder}
-          type="search"
-          on:input={handleQueryInput}
-          on:keydown={handleKeydown}
-        />
+        <span class="share-out-label">Send to people here</span>
+        <label class="search-box" for="share-people-search">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" /><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          <span class="sr-only">{menuTitle}</span>
+          <input
+            id="share-people-search"
+            bind:value={query}
+            maxlength="64"
+            placeholder={placeholder}
+            type="search"
+            autocomplete="off"
+            on:input={handleQueryInput}
+            on:keydown={handleKeydown}
+          />
+        </label>
       </div>
     </svelte:fragment>
-
 
     {#if selected.length > 0}
       <div class="selected-row" aria-label="Selected recipients">
@@ -198,7 +231,7 @@
           <button class="selected-chip" type="button" on:click={() => toggleRecipient(person)}>
             <AvatarBadge size="sm" username={person.username} imageUrl={person.profileImageUrl ?? null} />
             <span>{person.username}</span>
-            <span class="chip-remove" aria-hidden="true">×</span>
+            <span class="chip-remove" aria-label={`Remove ${person.username}`}>×</span>
           </button>
         {/each}
       </div>
@@ -208,21 +241,26 @@
       <div class="contact-list">
         {#each filteredContacts as contact}
           <button
-            class:selected={isSelected(contact.username)}
+            class:selected={selectedNames.has(contact.username)}
             class="contact-row"
             type="button"
+            aria-pressed={selectedNames.has(contact.username)}
             on:click={() => toggleRecipient(contact)}
           >
             <AvatarBadge size="sm" username={contact.username} imageUrl={contact.profileImageUrl ?? null} />
-            <span>{contact.username}</span>
-            {#if isSelected(contact.username)}
-              <span class="selected-mark">Selected</span>
-            {/if}
+            <span class="contact-name">{contact.username}</span>
+            <span class="check" aria-hidden="true">
+              {#if selectedNames.has(contact.username)}
+                <svg viewBox="0 0 24 24" width="14" height="14"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              {/if}
+            </span>
           </button>
         {/each}
       </div>
     {:else if searchNeedle}
-      <p class="empty-row">No matches.</p>
+      <p class="empty-row">No one matches “{query.trim()}”.</p>
+    {:else if selected.length === 0}
+      <p class="empty-row">Search for people by username. They get it as a message and a notification.</p>
     {/if}
 
     {#if feedback}
@@ -230,19 +268,19 @@
     {/if}
 
     <svelte:fragment slot="footer">
-      <div class="sheet-actions">
-        {#if copyLinkUrl}
-          <button class="sheet-cancel" type="button" on:click={() => void handleCopyLink()}>
-            {copyLabel}
-          </button>
-        {/if}
+      <div class="share-actions">
         {#if createPost}
-          <button class="sheet-cancel" type="button" on:click={() => void createPost?.()}>
+          <button class="share-secondary" type="button" on:click={() => void createPost?.()}>
             {createPostLabel}
           </button>
         {/if}
-        <button class="sheet-submit" disabled={selected.length === 0 || pending} type="button" on:click={handleSubmit}>
-          {pending ? 'Sending...' : selected.length > 1 ? `Share with ${selected.length}` : submitLabel}
+        <button
+          class="share-primary"
+          disabled={selected.length === 0 || pending}
+          type="button"
+          on:click={handleSubmit}
+        >
+          {pending ? 'Sending…' : selected.length > 1 ? `${submitLabel} to ${selected.length}` : submitLabel}
         </button>
       </div>
     </svelte:fragment>
@@ -252,13 +290,58 @@
 <style>
   .share-out {
     display: grid;
-    gap: 8px;
-    padding: 4px 16px 14px;
+    gap: 12px;
+    padding: 4px 16px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
   }
 
-  .people-label {
-    display: block;
-    padding: 0 16px 6px;
+  .share-subject {
+    margin: 0;
+    overflow: hidden;
+    color: var(--text-main);
+    font-size: 15px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .link-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 4px 4px 4px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+  }
+
+  .link-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-soft);
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .link-copy {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: calc(var(--radius-sm) - 2px);
+    background: var(--brand);
+    color: var(--on-brand, #fff);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .link-copy.copied {
+    background: var(--brand-strong);
   }
 
   .share-out-label {
@@ -270,37 +353,70 @@
   }
 
   .share-out-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 4px;
   }
 
-  .share-out-target {
-    display: inline-flex;
-    align-items: center;
-    min-height: 34px;
-    padding: 0 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: 999px;
-    background: var(--panel-strong);
+  .share-tile {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 6px 2px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
     color: var(--text-main);
     font: inherit;
-    font-size: 13px;
-    font-weight: 700;
     text-decoration: none;
     cursor: pointer;
   }
 
-  .share-out-target.primary {
-    border-color: var(--brand);
-    background: var(--brand);
-    color: var(--on-brand, #fff);
+  .share-tile:hover,
+  .share-tile:focus-visible {
+    background: var(--brand-soft);
   }
 
-  .share-out-target:hover:not(.primary),
-  .share-out-target:focus-visible {
-    border-color: var(--brand);
+  .tile-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--panel-strong);
+    color: var(--text-main);
+  }
+
+  .tile-icon.whatsapp {
+    background: #25d366;
+    color: #fff;
+  }
+
+  .tile-icon.telegram {
+    background: #2aabee;
+    color: #fff;
+  }
+
+  .tile-icon.x {
+    background: #111;
+    color: #fff;
+  }
+
+  .tile-icon.facebook {
+    background: #1877f2;
+    color: #fff;
+  }
+
+  .tile-icon.email,
+  .tile-icon.more {
     background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .tile-label {
+    font-size: 12px;
+    font-weight: 700;
   }
 
   .share-shell {
@@ -330,23 +446,40 @@
   }
 
   .share-search {
-    padding: 10px 16px 8px;
-    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px 10px;
   }
 
-  .share-search input {
-    width: 100%;
-    min-height: 40px;
+  .search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
     padding: 0 12px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-soft);
+    color: var(--text-soft);
+  }
+
+  .search-box:focus-within {
+    border-color: var(--brand);
+  }
+
+  .search-box input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
     color: var(--text-main);
+    font: inherit;
   }
 
   .contact-list {
     display: grid;
-    gap: 0;
+    padding: 0 8px;
   }
 
   .contact-row {
@@ -355,9 +488,9 @@
     gap: 10px;
     width: 100%;
     min-height: 48px;
-    padding: 8px 16px;
+    padding: 6px 8px;
     border: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent);
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-main);
     font: inherit;
@@ -367,30 +500,52 @@
     cursor: pointer;
   }
 
+  .contact-row:hover {
+    background: var(--panel-strong);
+  }
+
   .contact-row.selected {
     background: color-mix(in srgb, var(--brand-soft) 70%, transparent);
   }
 
-  .selected-mark {
-    margin-left: auto;
-    color: var(--brand-strong);
-    font-size: 12px;
-    font-weight: 700;
+  .contact-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .check {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--panel-border);
+    border-radius: 50%;
+    color: #fff;
+  }
+
+  .contact-row.selected .check {
+    border-color: var(--brand);
+    background: var(--brand);
   }
 
   .selected-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    padding: 10px 16px;
-    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+    gap: 6px;
+    padding: 0 16px 10px;
   }
 
   .selected-chip {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 8px 4px 4px;
+    gap: 6px;
+    max-width: 100%;
+    padding: 3px 10px 3px 3px;
     border: 1px solid var(--brand);
     border-radius: 999px;
     background: var(--brand-soft);
@@ -407,18 +562,57 @@
     line-height: 1;
   }
 
-  .contact-row span {
+  .empty-row,
+  .feedback {
+    margin: 0;
+    padding: 4px 16px 16px;
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .feedback {
+    color: var(--danger, #c0392b);
+  }
+
+  .share-actions {
+    display: flex;
+    flex: 1 1 auto;
+    gap: 10px;
+    min-width: 0;
+    padding: 12px 16px;
+  }
+
+  .share-secondary,
+  .share-primary {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .share-secondary {
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    color: var(--text-main);
+  }
+
+  .share-primary {
     overflow: hidden;
+    border: 0;
+    background: var(--brand);
+    color: var(--on-brand, #fff);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .empty-row,
-  .feedback {
-    margin: 0;
-    padding: 16px;
-    color: var(--text-soft);
-    font-size: 13px;
+  .share-primary:disabled {
+    opacity: 0.45;
+    cursor: default;
   }
 
   .sr-only {

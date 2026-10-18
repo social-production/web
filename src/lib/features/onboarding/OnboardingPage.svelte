@@ -105,9 +105,15 @@
       }
 
       await invalidateAll();
-      // New accounts get a short welcome first, unless they were heading somewhere.
+      // New accounts get a short welcome first, then carry on to where they were heading.
       const heading = returnPath();
-      await goto(activeModeValue === 'signup' && heading === '/' ? '/welcome' : heading);
+      await goto(
+        activeModeValue === 'signup'
+          ? heading === '/'
+            ? '/welcome'
+            : `/welcome?next=${encodeURIComponent(heading)}`
+          : heading
+      );
     } finally {
       isSubmitting = false;
     }

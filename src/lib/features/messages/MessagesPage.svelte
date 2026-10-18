@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { showToast } from '$lib/stores/toast';
+  import { askConfirm } from '$lib/stores/confirmDialog';
   import { errorMessage } from '$lib/services/errors';
   import { browser } from '$app/environment';
   import { goto, invalidate } from '$app/navigation';
@@ -39,6 +41,7 @@
     deleteMessage,
     editMessage,
     pinMessage,
+    leaveGroupConversation,
     removeGroupConversationMember,
     renameGroupConversation,
     sendMessage,
@@ -1318,6 +1321,27 @@
     await hydrateLinkedChats({ force: true });
   }
 
+  async function leaveGroupFromMenu() {
+    const menu = chatMenu;
+    closeChatMenu();
+    if (!menu || menu.kind !== 'conversation') return;
+    const ok = await askConfirm({
+      title: 'Leave this group?',
+      body: "You'll stop getting its messages. Someone in the group can add you back.",
+      confirmLabel: 'Leave',
+      danger: true
+    });
+    if (!ok) return;
+    const result = await leaveGroupConversation(menu.id);
+    if (!result.ok) {
+      showToast(result.error ?? 'Could not leave the group.', 'error');
+      return;
+    }
+    showToast('You left the group');
+    if (activeConversationId === menu.id) closeActiveChat();
+    await refreshMessagesInbox({ force: true });
+  }
+
   async function openChatInfoFromMenu() {
     const menu = chatMenu;
     closeChatMenu();
@@ -1972,6 +1996,7 @@
         </button>
         {#if menuConversation?.kind === 'group'}
           <button type="button" role="menuitem" on:click={openChatInfoFromMenu}>Chat info</button>
+          <button type="button" role="menuitem" on:click={leaveGroupFromMenu}>Leave group</button>
         {/if}
         <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ hidden: true })}>
           Delete

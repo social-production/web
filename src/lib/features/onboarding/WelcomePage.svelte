@@ -96,11 +96,17 @@
     }
   }
 
+  /** Where they were heading before signing up (a private event, a service...), or Home. */
+  $: nextPath = (() => {
+    const next = $page.url.searchParams.get('next') ?? '';
+    return /^\/(?![\/\\])/.test(next) ? next : '/';
+  })();
+
   async function finish() {
     busy = true;
     await refreshBootstrap();
     busy = false;
-    await goto('/');
+    await goto(nextPath);
   }
 </script>
 
@@ -188,7 +194,9 @@
     </ul>
     <div class="actions">
       <button class="secondary" type="button" on:click={() => (step = 1)}>Back</button>
-      <button class="primary" type="button" disabled={busy} on:click={finish}>Go to my feed</button>
+      <button class="primary" type="button" disabled={busy} on:click={finish}>
+        {nextPath === '/' ? 'Go to my feed' : 'Continue where I was'}
+      </button>
     </div>
   {/if}
 </section>

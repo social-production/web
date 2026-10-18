@@ -12,6 +12,8 @@
   } from '$lib/types/detail';
   import { allCriteriaRated } from '$lib/utils/planRubric';
   import { formatEventPlanSchedule, formatRelativeTime } from '$lib/utils/time';
+  import { page } from '$app/stores';
+  import { GOVERNANCE_APPROVAL_THRESHOLD_PERCENT } from '$lib/services/governance/rules';
 
   export let plan: ProjectProductionPlan | ProjectDistributionPlan | EventPlan;
   export let expanded = false;
@@ -440,6 +442,16 @@
         </span>
       </div>
       <p class="assess-helper">Rate each criterion from 1 (strongly oppose) to 5 (strongly support). Community averages stay visible while you rate.</p>
+      {#if !canVote}
+        <p class="assess-blocked">
+          {#if !$page.data.bootstrap?.viewer}
+            Sign in and join to rate this plan.
+          {:else}
+            Only members can rate this plan. Join to take part; new accounts can rate after their
+            warm-up.
+          {/if}
+        </p>
+      {/if}
 
       {#if criteria.length > 0}
         <div class="criterion-stack">
@@ -461,6 +473,7 @@
         <div class="criterion-copy">
           <span class="meta-label">Final approval</span>
           <strong>Does this plan meet the need?</strong>
+          <span class="threshold-note">Needs {GOVERNANCE_APPROVAL_THRESHOLD_PERCENT}% yes to pass.</span>
         </div>
         <div class="overall-actions">
           <button
@@ -739,6 +752,19 @@
   .note-card p,
   .stage-copy p,
   .rating-progress,
+  .assess-blocked,
+  .threshold-note {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 12px;
+  }
+
+  .assess-blocked {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--panel-strong);
+  }
+
   .assess-helper {
     margin: 0;
     white-space: pre-line;

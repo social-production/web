@@ -710,4 +710,6 @@ export interface AppAdapter {
     conversationId: string,
     username: string
   ): Promise<MessageConversationResult>;
+  /** Leave a group chat; undefined on drivers without it. */
+  leaveGroupConversation?(conversationId: string): Promise<MessageConversationResult>;
 }

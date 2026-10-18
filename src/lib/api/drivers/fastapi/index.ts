@@ -107,6 +107,7 @@ import {
   fetchRenameGroupConversation,
   fetchAddGroupConversationMember,
   fetchRemoveGroupConversationMember,
+  fetchLeaveGroupConversation,
   fetchMarkConversationRead,
   fetchLogCall,
   fetchMarkLinkedChatRead,
@@ -717,6 +718,10 @@ export function createFastApiDriver(): AppAdapter {
 
     async removeGroupConversationMember(id, username) {
       return fetchRemoveGroupConversationMember(id, username);
+    },
+
+    async leaveGroupConversation(id) {
+      return fetchLeaveGroupConversation(id);
     },
 
     async markConversationRead(id) {

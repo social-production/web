@@ -326,13 +326,10 @@
     if (!member.confidenceTargetId) {
       throw new Error('missing_target');
     }
-    const ok =
-      vote === 0
-        ? await castModeratorVote(member.confidenceTargetId, 'neutral')
-        : await castModeratorVote(member.confidenceTargetId, vote === 1 ? 'yes' : 'no');
-    if (!ok) {
-      throw new Error('vote_rejected');
-    }
+    await castModeratorVote(
+      member.confidenceTargetId,
+      vote === 0 ? 'neutral' : vote === 1 ? 'yes' : 'no'
+    );
     await invalidateAll();
   }
 

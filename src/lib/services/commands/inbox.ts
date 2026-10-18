@@ -145,3 +145,10 @@ export function addGroupConversationMember(conversationId: string, username: str
 export function removeGroupConversationMember(conversationId: string, username: string) {
   return currentAdapter.removeGroupConversationMember(conversationId, username);
 }
+
+export async function leaveGroupConversation(conversationId: string) {
+  if (!currentAdapter.leaveGroupConversation) {
+    return { ok: false, error: 'Leaving groups is not available here.' };
+  }
+  return currentAdapter.leaveGroupConversation(conversationId);
+}

@@ -452,6 +452,17 @@ export async function fetchAddGroupConversationMember(
   }
 }
 
+export async function fetchLeaveGroupConversation(
+  conversationId: string
+): Promise<MessageConversationResult> {
+  try {
+    await apiClient.post(`/messages/conversations/${conversationId}/leave`);
+    return { ok: true, conversationId };
+  } catch (err) {
+    return { ok: false, error: extractErrorMessage(err, 'Could not leave the group') };
+  }
+}
+
 export async function fetchRemoveGroupConversationMember(
   conversationId: string,
   username: string

@@ -11,30 +11,50 @@
   function goHome() {
     window.location.href = '/';
   }
+
+  // Missing or private pages aren't a crash: say so plainly, and offer sign-in when signed out.
+  $: unavailable = $page.status === 404 || $page.status === 403;
+  $: signedOut = !$page.data?.bootstrap?.viewer;
+  $: signInHref = `/onboarding?mode=login&next=${encodeURIComponent($page.url.pathname)}`;
 </script>
 
 <main class="error-page">
   <section class="error-card">
-    <p class="eyebrow">Something went wrong</p>
-    <h1>
-      {#if $page.status}
-        {$page.status}
-      {:else}
-        Error
-      {/if}
-    </h1>
-    <p class="message">
-      {#if $page.error?.message}
-        {$page.error.message}
-      {:else}
-        The app hit an unexpected problem. Try reloading, or return home and open the page again.
-      {/if}
-    </p>
+    {#if unavailable}
+      <p class="eyebrow">Not available</p>
+      <h1>This page isn't available</h1>
+      <p class="message">
+        {$page.error?.message ||
+          "It may be private, or it may have been removed. If someone invited you, open it from your Invites."}
+      </p>
+      <div class="actions">
+        {#if signedOut}
+          <a class="primary" href={signInHref}>Sign in</a>
+        {/if}
+        <button type="button" class={signedOut ? 'secondary' : 'primary'} on:click={goHome}>Go home</button>
+      </div>
+    {:else}
+      <p class="eyebrow">Something went wrong</p>
+      <h1>
+        {#if $page.status}
+          {$page.status}
+        {:else}
+          Error
+        {/if}
+      </h1>
+      <p class="message">
+        {#if $page.error?.message}
+          {$page.error.message}
+        {:else}
+          The app hit an unexpected problem. Try reloading, or return home and open the page again.
+        {/if}
+      </p>
 
-    <div class="actions">
-      <button type="button" class="primary" on:click={reloadPage}>Reload</button>
-      <button type="button" class="secondary" on:click={goHome}>Go home</button>
-    </div>
+      <div class="actions">
+        <button type="button" class="primary" on:click={reloadPage}>Reload</button>
+        <button type="button" class="secondary" on:click={goHome}>Go home</button>
+      </div>
+    {/if}
 
     {#if dev && $page.error}
       <button type="button" class="details-toggle" on:click={() => (showDetails = !showDetails)}>
@@ -93,10 +113,12 @@
     gap: 10px;
   }
 
-  button {
+  button,
+  a.primary {
     border-radius: 10px;
     padding: 10px 14px;
     font: inherit;
+    text-decoration: none;
     cursor: pointer;
   }
 

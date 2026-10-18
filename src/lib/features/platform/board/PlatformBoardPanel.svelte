@@ -8,6 +8,7 @@
   import PlatformBoardMemberSection from './PlatformBoardMemberSection.svelte';
   import PlatformExecutionFramesPanel from './PlatformExecutionFramesPanel.svelte';
   import { volunteerForBoard, removeVolunteer } from '$lib/services/commands/scopes';
+  import { errorMessage } from '$lib/services/errors';
 
   export let open = false;
   export let pageData: ScopePageData;
@@ -50,20 +51,20 @@
     voteMessage = '';
     try {
       await onVote(member, vote);
-    } catch {
-      voteMessage = 'Could not record that standing vote. Try again.';
+    } catch (err) {
+      voteMessage = errorMessage(err, 'Could not record that standing vote. Try again.');
     }
   }
 
   async function handleVolunteer() {
     volunteering = true;
     volunteerMessage = '';
-    const ok = await volunteerForBoard();
-    if (ok) {
+    try {
+      await volunteerForBoard();
       volunteerMessage = 'You are now seeking a moderator role.';
       await invalidateAll();
-    } else {
-      volunteerMessage = 'Could not submit volunteer request. You may already be a candidate.';
+    } catch (err) {
+      volunteerMessage = errorMessage(err, 'Could not submit volunteer request. You may already be a candidate.');
     }
     volunteering = false;
   }
@@ -78,12 +79,12 @@
     volunteering = true;
     showWithdrawConfirm = false;
     volunteerMessage = '';
-    const ok = await removeVolunteer();
-    if (ok) {
+    try {
+      await removeVolunteer();
       volunteerMessage = 'Your candidacy has been withdrawn.';
       await invalidateAll();
-    } else {
-      volunteerMessage = 'Could not withdraw candidacy.';
+    } catch (err) {
+      volunteerMessage = errorMessage(err, 'Could not withdraw candidacy.');
     }
     volunteering = false;
   }
@@ -98,12 +99,12 @@
     volunteering = true;
     showStepDownConfirm = false;
     volunteerMessage = '';
-    const ok = await removeVolunteer();
-    if (ok) {
+    try {
+      await removeVolunteer();
       volunteerMessage = 'You have stepped down as moderator.';
       await invalidateAll();
-    } else {
-      volunteerMessage = 'Could not step down.';
+    } catch (err) {
+      volunteerMessage = errorMessage(err, 'Could not step down.');
     }
     volunteering = false;
   }

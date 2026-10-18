@@ -20,7 +20,7 @@
       title="Dismiss"
       on:click={() => dismissToast(toast.id)}
     >
-      <span class="toast-icon" aria-hidden="true">{toast.tone === 'error' ? '!' : '✓'}</span>
+      <span class="toast-icon" aria-hidden="true">{toast.tone === 'error' ? '!' : toast.tone === 'info' ? 'i' : '✓'}</span>
       <span>{toast.message}</span>
     </button>
   {/each}
