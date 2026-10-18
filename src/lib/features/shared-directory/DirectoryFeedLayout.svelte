@@ -336,6 +336,11 @@
   async function handleMembershipToggle() {
     const leaving = pageData.membership.viewerIsMember;
     const privateScope = pageData.membership.joinPolicy === 'invite_only';
+    if (!$page.data.bootstrap?.viewer) {
+      showToast('Sign up or log in to join.', 'info');
+      await goto(`/onboarding?mode=signup&next=${encodeURIComponent($page.url.pathname)}`);
+      return;
+    }
     if (leaving) {
       const ok = await askConfirm({
         title: `Leave ${pageData.title}?`,
@@ -350,10 +355,12 @@
 
     membershipPending = true;
     let left = false;
+    let joined = false;
 
     try {
       await toggleScopeMembership(pageData.kind, pageData.slug, pageData.membership.viewerIsMember);
       left = leaving;
+      joined = !leaving;
     } catch (err) {
       console.error('Failed to toggle membership:', err);
       showToast('Could not update your membership.', 'error');
@@ -366,6 +373,7 @@
         await goto('/');
       } else {
         if (left) showToast(`You left ${pageData.title}`);
+        else if (joined) showToast(`You joined ${pageData.title}`);
         await invalidateAll();
       }
     }

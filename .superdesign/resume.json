@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "/": {
+      "targetKind": "existing-ui",
+      "projectId": "d87ecc7a-e18e-410d-992a-ea5d60135989",
+      "baselineDraftId": "d353e851-1817-4a27-95e9-f77fcb5754a2",
+      "activeDraftId": "08782ad7-7eb7-4d07-bb0a-87244a170dfb",
+      "designSystemPath": ".superdesign/design-system.md",
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        ".superdesign/init/theme.md:1:80",
+        "src/lib/components/cards/shared/FeedSurface.svelte",
+        "src/lib/components/cards/public-feed/ProjectCard.svelte",
+        "src/lib/components/cards/public-feed/ThreadCard.svelte",
+        "src/lib/components/cards/public-feed/EventCard.svelte",
+        "src/lib/components/cards/public-feed/HelpRequestCard.svelte",
+        "src/lib/components/cards/shared/SurfaceTypeLabel.svelte",
+        "src/lib/components/cards/shared/TagList.svelte",
+        "src/lib/components/cards/shared/ScopeChip.svelte",
+        "src/lib/components/shared/ContentMetaRow.svelte",
+        "src/lib/components/cards/shared/CountPill.svelte",
+        "src/lib/components/cards/shared/VoteStrip.svelte",
+        "src/lib/components/cards/shared/SurfaceIcon.svelte"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "35c151045d42ed6bb622561ab79cab9f10cb74b7fd8771d064c4e2c937a93ad6",
+        ".superdesign/init/theme.md": "bc2a075020e83e1a9cc69ad24d19006c17ebfa2c962540bd89d7d54921555d2a",
+        "src/lib/components/cards/shared/FeedSurface.svelte": "0085bbeac2e940d0f245c74be9ae59af600028f7bff64bb3af955206c9370a1f",
+        "src/lib/components/cards/public-feed/ProjectCard.svelte": "6fcd11a25c94b32b3cb041dbde3aa73be5fe6a993e3911e69570713238ffaac5",
+        "src/lib/components/cards/public-feed/ThreadCard.svelte": "f5f2da01fc0a57ebe8e27766f17c6b3c6cf1e88b9785f6a532df06b76147bee9",
+        "src/lib/components/cards/public-feed/EventCard.svelte": "0a3ad5d0cbb54950021afb92b6f2cc3716191b1455d798d2b4447e8a559297a2",
+        "src/lib/components/cards/public-feed/HelpRequestCard.svelte": "44f10bc3acc07e7e78e17aa332d91d8409af3e668e3d8bdc443c152852527ba9",
+        "src/lib/components/cards/shared/SurfaceTypeLabel.svelte": "f0686c52cf10b25ac54a3912b06d71aa853d23dd15e8b79f859920947a61fec2",
+        "src/lib/components/cards/shared/TagList.svelte": "5b033a86e3001f170ea477dd58d149489c7c1f8a49f269a6ea94f5698580d868",
+        "src/lib/components/cards/shared/ScopeChip.svelte": "aaeb08b1afb6ce646cbb59e434bd4d99e3c8db0f7c05a844ad162341c4828f04",
+        "src/lib/components/shared/ContentMetaRow.svelte": "a2c12acfa4a9929a5a1eae50c6e18b0bd2f81ea8762dceeb38278799ebe23f18",
+        "src/lib/components/cards/shared/CountPill.svelte": "40059ea9281d8f7573c88127908d255d7937c4fca264bfb26ae0779d2986fa1e",
+        "src/lib/components/cards/shared/VoteStrip.svelte": "e1fae86d06f712c66311ec280dd22930a0b83cff2d47dccacbc9f175cba0f8f2",
+        "src/lib/components/cards/shared/SurfaceIcon.svelte": "8d0b7dd00d95233c78324260f3dd8764266e68eb18ac5c638dc86c8b6fc1fb63"
+      },
+      "drafts": {
+        "d353e851-1817-4a27-95e9-f77fcb5754a2": {
+          "title": "Current home feed cards",
+          "visualDirection": "baseline reproduction"
+        },
+        "08782ad7-7eb7-4d07-bb0a-87244a170dfb": {
+          "title": "Feed Column - Rhythm & Hierarchy Polish",
+          "visualDirection": "rhythm & hierarchy",
+          "parentDraftId": "d353e851-1817-4a27-95e9-f77fcb5754a2"
+        },
+        "2e0f558a-49f5-4205-a0d4-fbac1452f782": {
+          "title": "Soft Surface Rows",
+          "visualDirection": "soft surface rows",
+          "parentDraftId": "d353e851-1817-4a27-95e9-f77fcb5754a2"
+        }
+      },
+      "updatedAt": "2026-09-12T01:25:55.827062+00:00"
+    },
+    "/settings": {
+      "targetKind": "existing-ui",
+      "projectId": "d87ecc7a-e18e-410d-992a-ea5d60135989",
+      "baselineDraftId": "b7774941-3b46-4ade-aefa-8a6a0c8359d7",
+      "activeDraftId": "a3775d5c-c3ad-48d7-b2d0-4cce8437dc9d",
+      "designSystemPath": ".superdesign/design-system.md",
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        ".superdesign/init/theme.md:1:80",
+        "src/lib/features/settings/SettingsPage.svelte:397:815",
+        "src/app.css:1:80"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "35c151045d42ed6bb622561ab79cab9f10cb74b7fd8771d064c4e2c937a93ad6",
+        ".superdesign/init/theme.md": "bc2a075020e83e1a9cc69ad24d19006c17ebfa2c962540bd89d7d54921555d2a",
+        "src/lib/features/settings/SettingsPage.svelte": "63926c7b5209122b237491c2c3f54b91499ad9cf807bdfd31aa2bb92cf1bc1b4",
+        "src/app.css": "46551addb533a76527ca14de69e072b7bfd754e63ff08337ad986ae7f708f461"
+      },
+      "drafts": {
+        "b7774941-3b46-4ade-aefa-8a6a0c8359d7": {
+          "title": "Current settings page",
+          "visualDirection": "baseline reproduction"
+        },
+        "a3775d5c-c3ad-48d7-b2d0-4cce8437dc9d": {
+          "title": "Settings desktop nav + switches",
+          "visualDirection": "section nav + compact switches",
+          "parentDraftId": "b7774941-3b46-4ade-aefa-8a6a0c8359d7"
+        }
+      },
+      "updatedAt": "2026-09-12T01:25:55.827062+00:00"
+    },
+    "/messages": {
+      "targetKind": "existing-ui",
+      "projectId": "d87ecc7a-e18e-410d-992a-ea5d60135989",
+      "baselineDraftId": "e7dc8b8b-5772-4350-821b-8d302ae92924",
+      "activeDraftId": "e7dc8b8b-5772-4350-821b-8d302ae92924",
+      "designSystemPath": ".superdesign/design-system.md",
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        ".superdesign/init/theme.md:1:80",
+        "src/lib/features/messages/MessagesPage.svelte:1219:1238",
+        "src/lib/features/messages/MessagesPage.svelte:1450:1713",
+        "src/lib/features/messages/MessagesPage.svelte:1715:2100"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "35c151045d42ed6bb622561ab79cab9f10cb74b7fd8771d064c4e2c937a93ad6",
+        ".superdesign/init/theme.md": "bc2a075020e83e1a9cc69ad24d19006c17ebfa2c962540bd89d7d54921555d2a",
+        "src/lib/features/messages/MessagesPage.svelte": "3734e039d110cfa159d3aded5a61e47f3e0dd906feaf3cfa232847bd94641c26"
+      },
+      "drafts": {
+        "e7dc8b8b-5772-4350-821b-8d302ae92924": {
+          "title": "Current messages list",
+          "visualDirection": "baseline reproduction"
+        },
+        "implemented-without-credits": {
+          "title": "Messages polish (code)",
+          "visualDirection": "same rhythm language + simpler composer + mobile unread fix"
+        }
+      },
+      "updatedAt": "2026-09-12T01:25:55.827062+00:00"
+    }
+  }
+}

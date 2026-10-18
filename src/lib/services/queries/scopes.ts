@@ -1,4 +1,5 @@
 import { currentAdapter } from '$lib/services/adapters';
+import type { ScopeKind, ScopeMemberEntry } from '$lib/types/scope';
 
 export function getChannel(slug: string) {
   return currentAdapter.getChannel(slug);
@@ -10,6 +11,10 @@ export function getCommunity(slug: string) {
 
 export function getPlatform() {
   return currentAdapter.getPlatform();
+}
+
+export async function getScopeMembers(kind: ScopeKind, slug: string): Promise<ScopeMemberEntry[]> {
+  return (await currentAdapter.getScopeMembers?.(kind, slug)) ?? [];
 }
 
 export function getDiscoverScopes(kind: 'channel' | 'community', query = '') {

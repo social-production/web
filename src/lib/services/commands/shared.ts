@@ -7,6 +7,7 @@ import { requireViewer } from '$lib/utils/requireViewer';
 import { applyVoteTarget, invalidateFeedEngagementCache } from '$lib/utils/feedSignals';
 import type { VoteEngagement } from '$lib/utils/feedSignals';
 import { measureAsync } from '$lib/utils/performanceDebug';
+import { confirmed } from '$lib/services/commands/confirm';
 
 export async function deleteOwnComment(commentId: string) {
   await currentAdapter.deleteComment?.(commentId);
@@ -18,7 +19,8 @@ export function addComment(
   parentId?: string,
   file?: File | File[] | null
 ) {
-  return currentAdapter.addComment(subject, body, parentId, file);
+  // A refused comment (paused account, locked thread…) says why instead of vanishing.
+  return confirmed(currentAdapter.addComment(subject, body, parentId, file), null, false);
 }
 
 export function submitReport(

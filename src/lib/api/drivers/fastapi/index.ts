@@ -68,6 +68,7 @@ import {
   fetchCommunity,
   fetchPlatform,
   fetchToggleScopeMembership,
+  fetchScopeMembers,
   fetchRedeemScopeInvite,
   fetchCreateScopeInvite,
   fetchInviteUserToCommunity,
@@ -357,6 +358,10 @@ export function createFastApiDriver(): AppAdapter {
 
     async toggleScopeMembership(kind, slug, viewerIsMember) {
       return fetchToggleScopeMembership(kind, slug, viewerIsMember);
+    },
+
+    getScopeMembers(kind, slug) {
+      return fetchScopeMembers(kind, slug);
     },
 
     async redeemScopeInvite(kind, slug, inviteValue) {

@@ -76,7 +76,7 @@ import type {
 } from '$lib/types/governance';
 import type { FeedPageResult } from '$lib/types/pagination';
 import type { SearchEntityType, SearchPageData } from '$lib/types/search';
-import type { ScopeKind, ScopePageData } from '$lib/types/scope';
+import type { ScopeKind, ScopeMemberEntry, ScopePageData } from '$lib/types/scope';
 import type { LocationPrecision, LocationRecord } from '$lib/types/location';
 import type {
   CreateFeedbackInput,
@@ -554,6 +554,7 @@ export interface AppAdapter {
     reason: string
   ): Promise<void>;
   toggleScopeMembership(kind: ScopeKind, slug: string, viewerIsMember: boolean): Promise<void>;
+  getScopeMembers?(kind: ScopeKind, slug: string): Promise<ScopeMemberEntry[]>;
   redeemScopeInvite(
     kind: ScopeKind,
     slug: string,

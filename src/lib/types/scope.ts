@@ -2,6 +2,16 @@ import type { PublicFeedItem, VoteDirection } from '$lib/types/feed';
 
 export type ScopeKind = 'channel' | 'community' | 'platform';
 
+export interface ScopeMemberEntry {
+  id: string;
+  username: string;
+  profileImageUrl: string | null;
+  /** 'manager' for organizers, 'member' otherwise. */
+  role: string;
+  joinedAt: string;
+  standing: 'new' | 'warm' | 'full' | 'paused';
+}
+
 export type ConfidenceStandingState = 'active' | 'grace' | 'below-threshold' | 'qualifying';
 
 export interface ScopeMemberSummary {

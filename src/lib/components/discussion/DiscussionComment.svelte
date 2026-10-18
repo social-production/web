@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PausedBadge from '$lib/components/shared/PausedBadge.svelte';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import VoteStrip from '$lib/components/cards/shared/VoteStrip.svelte';
@@ -74,7 +75,11 @@
       return;
     }
 
-    await addComment({ id: subjectId, type: subjectType }, draftReply, comment.id);
+    try {
+      await addComment({ id: subjectId, type: subjectType }, draftReply, comment.id);
+    } catch {
+      return; // addComment already toasted the reason; keep the draft.
+    }
     draftReply = '';
     replyOpen = false;
     await replyComposer?.resetHeight();
@@ -134,6 +139,7 @@
   <div bind:this={commentSelfElement} class:highlighted={isHighlighted} class="comment-self">
   <div class="topline">
     <a class="author-link" href={`/profile/${comment.authorUsername}`}>{comment.authorUsername}</a>
+    <PausedBadge username={comment.authorUsername} />
     <span class="comment-time">{formatRelativeTimeCompact(comment.createdAt)}</span>
     <button
       aria-expanded={!chainCollapsed}

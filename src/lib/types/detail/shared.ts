@@ -471,6 +471,8 @@ export interface ProjectActivityItem {
   note: string;
   isActive: boolean;
   rolesLocked?: boolean;
+  /** Set on a personal-service booking made from an accepted request. */
+  linkedRequestId?: string | null;
 }
 
 export interface ActivityRatingEntry {

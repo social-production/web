@@ -96,6 +96,8 @@ export interface BootstrapPayload {
   unreadCounts: UnreadCounts;
   directory: ScopeDirectory;
   suggestedContacts: ViewerSummary[];
+  /** Accounts a bot review found to be bots; their posts and comments show "Paused". */
+  pausedUsernames?: string[];
   activityRail: RightRailActivityItem[];
   activityRailHistory: RightRailActivityItem[];
 }

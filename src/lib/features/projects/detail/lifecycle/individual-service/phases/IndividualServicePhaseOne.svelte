@@ -532,8 +532,18 @@
   }));
   // The provider manages their slot activities; everyone else sees every upcoming slot
   // (one-off and weekly), matching the calendar and the "open slots" count, marked Open or Taken.
+  // Open windows read "Open" (or "Closed" while requests are off), not "Need 1".
   $: agendaActivities = data.lifecycle.phaseFive.viewerCanCreateActivities
-    ? data.lifecycle.phaseFive.activities
+    ? data.lifecycle.phaseFive.activities.map((activity) =>
+        activity.linkedRequestId
+          ? { ...activity, agendaChip: { label: 'Booked', tone: 'full' as const } }
+          : {
+              ...activity,
+              agendaChip: requestsOff
+                ? { label: 'Closed', tone: 'locked' as const }
+                : { label: 'Open', tone: 'open' as const }
+            }
+      )
     : calendarActivities
         .filter((slot) => new Date(slot.endAt).getTime() > Date.now())
         .map((slot) => {
@@ -544,7 +554,9 @@
               ? { label: 'Yours', tone: 'open' as const }
               : held
                 ? { label: 'Taken', tone: 'full' as const }
-                : { label: 'Open', tone: 'open' as const }
+                : requestsOff
+                  ? { label: 'Closed', tone: 'locked' as const }
+                  : { label: 'Open', tone: 'open' as const }
           };
         });
   $: heldSlotIds = new Set(
@@ -800,8 +812,8 @@
             bind:value={serviceRequestForm.body}
             rows="3"
             placeholder={showRequestScheduleFields
-              ? 'What do you need help with?'
-              : 'What do you need, and what should the creator expect?'}
+              ? 'What do you need help with? (required)'
+              : 'What do you need, and what should the creator expect? (required)'}
           ></textarea>
           </div>
         <svelte:fragment slot="footer">
@@ -877,7 +889,14 @@
         <div class="section-copy">
           <h3>Activity</h3>
           <p>
-            {#if usesCalendar}
+            {#if usesCalendar && requestsOff}
+              Not taking requests ·
+              {#if viewerReviewsRequests}
+                {acceptedRequestCount} accepted request{acceptedRequestCount === 1 ? '' : 's'}
+              {:else}
+                {futureTakenSlotCount} taken
+              {/if}
+            {:else if usesCalendar}
               {futureOpenSlotCount} open slot{futureOpenSlotCount === 1 ? '' : 's'} ·
               {#if viewerReviewsRequests}
                 {acceptedRequestCount} accepted request{acceptedRequestCount === 1 ? '' : 's'}

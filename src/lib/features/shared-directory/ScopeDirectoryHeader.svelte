@@ -1,5 +1,8 @@
 <script lang="ts">
+  import { page } from '$app/stores';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import MembershipSplitButton from '$lib/components/shared/MembershipSplitButton.svelte';
+  import ScopeMembersSheet from '$lib/features/shared-directory/ScopeMembersSheet.svelte';
   import IconPopoverMenu from '$lib/components/shared/IconPopoverMenu.svelte';
   import CommunityInvitePanel from '$lib/features/communities/CommunityInvitePanel.svelte';
   import ScopeAvatar from '$lib/features/shared-directory/ScopeAvatar.svelte';
@@ -28,8 +31,12 @@
   let showVotes = false;
   $: isInviteOnly = pageData.membership.joinPolicy === 'invite_only';
   $: isMember = pageData.membership.viewerIsMember;
+  $: signedIn = Boolean($page.data.bootstrap?.viewer);
+  // Signed out, the join button stays live and sends people to sign up.
   $: membershipDisabled =
-    !isInviteOnly && (!pageData.membership.viewerCanToggleMembership || membershipPending);
+    membershipPending || (signedIn && !pageData.membership.viewerCanToggleMembership);
+  $: membersLabel = `${pageData.membership.memberCount} ${pageData.membership.memberCount === 1 ? 'member' : 'members'}: see who's here`;
+  let showMembers = false;
 </script>
 
 <section class="scope-header">
@@ -82,17 +89,18 @@
             />
           </IconPopoverMenu>
         {:else}
-          <button
-            aria-label={`Leave ${pageData.title}, ${pageData.membership.memberCount} members`} title={`Leave ${pageData.title}, ${pageData.membership.memberCount} members`}
-            class="member-chip"
-            class:menu-active={isMember}
+          <MembershipSplitButton
+            joined
+            count={pageData.membership.memberCount}
+            canToggle
+            canOpenMembers
+            membersOpen={showMembers}
             disabled={membershipPending}
-            type="button"
-            on:click={onLeave}
-          >
-            <FeedToolbarIcon name="person-check" />
-            <span>{pageData.membership.memberCount}</span>
-          </button>
+            joinAriaLabel={`Leave ${pageData.title}`}
+            membersAriaLabel={membersLabel}
+            onToggleJoin={onLeave}
+            onOpenMembers={() => (showMembers = true)}
+          />
 
           <IconPopoverMenu
             bind:open={showInvitePanel}
@@ -115,21 +123,18 @@
           </IconPopoverMenu>
         {/if}
       {:else}
-        <button
-          aria-label={isMember
-            ? `Leave ${pageData.title}, ${pageData.membership.memberCount} members`
-            : `Join ${pageData.title}, ${pageData.membership.memberCount} members`} title={isMember
-            ? `Leave ${pageData.title}, ${pageData.membership.memberCount} members`
-            : `Join ${pageData.title}, ${pageData.membership.memberCount} members`}
-          class="member-chip"
-          class:menu-active={isMember}
+        <MembershipSplitButton
+          joined={isMember}
+          count={pageData.membership.memberCount}
+          canToggle
+          canOpenMembers
+          membersOpen={showMembers}
           disabled={membershipDisabled}
-          type="button"
-          on:click={onMembershipAction}
-        >
-          <FeedToolbarIcon name={isMember ? 'person-check' : 'person-plus'} />
-          <span>{pageData.membership.memberCount}</span>
-        </button>
+          joinAriaLabel={isMember ? `Leave ${pageData.title}` : `Join ${pageData.title}`}
+          membersAriaLabel={membersLabel}
+          onToggleJoin={onMembershipAction}
+          onOpenMembers={() => (showMembers = true)}
+        />
       {/if}
 
       <button
@@ -168,6 +173,12 @@
   </div>
 </section>
 
+<ScopeMembersSheet
+  bind:open={showMembers}
+  kind={pageData.kind}
+  slug={settingsSlug}
+  title={pageData.title}
+/>
 <ScopeSettingsSheet bind:open={showSettings} kind={settingsKind} slug={settingsSlug} />
 <ScopeVoteSheet bind:open={showVotes} kind={settingsKind} slug={settingsSlug} />
 

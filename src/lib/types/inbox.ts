@@ -49,7 +49,7 @@ export interface DirectMessage {
   replyPreview?: string | null;
   replyToId?: string | null;
   /** "call" rows are finished voice calls, shown as a centred line in the chat. */
-  kind?: 'text' | 'call';
+  kind?: 'text' | 'call' | 'system';
   callOutcome?: 'completed' | 'missed' | 'declined' | null;
   callDurationSeconds?: number | null;
 }
@@ -83,6 +83,8 @@ export interface MessageConversation {
   id: string;
   kind: 'direct' | 'group';
   title: string;
+  /** Who manages a group chat (its creator, or whoever took over). */
+  createdBy?: string | null;
   participants: ViewerSummary[];
   preview: string;
   lastMessageAt: string;

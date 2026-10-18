@@ -2,7 +2,7 @@ import { apiAssetUrl, apiClient, extractErrorMessage } from '../client';
 import { fetchScopeFeed } from './feeds';
 import { parseInviteToken } from '$lib/utils/invite-token';
 import { validateHandle } from '$lib/utils/handles';
-import type { ScopeKind, ScopePageData } from '$lib/types/scope';
+import type { ScopeKind, ScopeMemberEntry, ScopePageData } from '$lib/types/scope';
 import type { DiscoverScopeItem, ScopeDirectoryItem } from '$lib/types/bootstrap';
 import type { CreateChannelInput, CreateCommunityInput, CreateResult } from '$lib/types/feed';
 import type {
@@ -302,6 +302,31 @@ export async function fetchPlatform(): Promise<ScopePageData | null> {
     if ((err as { status?: number }).status === 404) return null;
     throw err;
   }
+}
+
+export async function fetchScopeMembers(
+  kind: ScopeKind,
+  slug: string,
+): Promise<ScopeMemberEntry[]> {
+  const kindPlural = (kind === 'channel' || kind === 'platform') ? 'channels' : 'communities';
+  const res = await apiClient.get<{
+    items: Array<{
+      id: string;
+      username: string;
+      profile_image_url: string | null;
+      role: string;
+      joined_at: string;
+      standing?: ScopeMemberEntry['standing'];
+    }>;
+  }>(`/scopes/${kindPlural}/${slug}/members`);
+  return res.items.map((item) => ({
+    id: item.id,
+    username: item.username,
+    profileImageUrl: item.profile_image_url ? apiAssetUrl(item.profile_image_url) : null,
+    role: item.role,
+    joinedAt: item.joined_at,
+    standing: item.standing ?? 'new',
+  }));
 }
 
 export async function fetchToggleScopeMembership(

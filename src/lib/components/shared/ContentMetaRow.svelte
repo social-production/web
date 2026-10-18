@@ -1,6 +1,7 @@
 <script lang="ts">
   import GroupsIcon from '$lib/components/shared/GroupsIcon.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
+  import PausedBadge from '$lib/components/shared/PausedBadge.svelte';
   import { displayUsername } from '$lib/utils/displayUsername';
   import {
     activityStampInstant,
@@ -33,6 +34,9 @@
     <a class="inline-link" href={resolvedAuthorHref} title={authorUsername}>{displayUsername(authorUsername)}</a>
   {:else if !timeOnly && authorUsername}
     <span class="inline-link" title={authorUsername}>{displayUsername(authorUsername)}</span>
+  {/if}
+  {#if !timeOnly}
+    <PausedBadge username={authorUsername} />
   {/if}
 
   {#if memberCount != null}

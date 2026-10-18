@@ -145,6 +145,7 @@ function mapConversation(c: BackendConversation, viewerId?: string) {
   return {
     id: c.id,
     kind: c.kind as 'direct' | 'group',
+    createdBy: c.created_by ?? null,
     title:
       c.kind === 'direct'
         ? (directPartner?.username ?? c.participants.map((p) => p.username).join(', '))
@@ -201,7 +202,7 @@ function mapMessage(
     replyAuthor: message.reply_author ?? null,
     replyPreview: message.reply_preview ?? null,
     replyToId: message.reply_to_id ?? null,
-    kind: message.kind === 'call' ? 'call' : 'text',
+    kind: message.kind === 'call' || message.kind === 'system' ? message.kind : 'text',
     callOutcome:
       message.call_outcome === 'completed' ||
       message.call_outcome === 'missed' ||

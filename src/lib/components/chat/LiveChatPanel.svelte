@@ -38,7 +38,7 @@
     replyAuthor?: string | null;
     replyPreview?: string | null;
     replyToId?: string | null;
-    kind?: 'text' | 'call';
+    kind?: 'text' | 'call' | 'system';
     callOutcome?: 'completed' | 'missed' | 'declined' | null;
     callDurationSeconds?: number | null;
   };
@@ -962,6 +962,11 @@
             <div id={`comment-${message.id}`} class="call-line" class:missed={message.callOutcome !== 'completed'}>
               <span aria-hidden="true">📞</span>
               <span>{callLineText(message)}</span>
+              <span class="message-time">{formatMessageTime(message.createdAt)}</span>
+            </div>
+          {:else if message.kind === 'system'}
+            <div id={`comment-${message.id}`} class="call-line system-line">
+              <span>{message.body}</span>
               <span class="message-time">{formatMessageTime(message.createdAt)}</span>
             </div>
           {:else}

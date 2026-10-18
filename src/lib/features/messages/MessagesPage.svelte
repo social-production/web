@@ -1325,9 +1325,13 @@
     const menu = chatMenu;
     closeChatMenu();
     if (!menu || menu.kind !== 'conversation') return;
+    const conversation = conversations.find((item) => item.id === menu.id);
+    const viewerStarted = conversation?.createdBy === data.viewer.id;
     const ok = await askConfirm({
       title: 'Leave this group?',
-      body: "You'll stop getting its messages. Someone in the group can add you back.",
+      body: viewerStarted
+        ? "You'll stop getting its messages. You started it, so the longest-standing member takes over managing it. Someone in the group can add you back."
+        : "You'll stop getting its messages. Someone in the group can add you back.",
       confirmLabel: 'Leave',
       danger: true
     });
@@ -1641,8 +1645,10 @@
           <div class="composer-field">
             <span>Members</span>
             <div class="member-links">
-              {#each removableGroupMembers as member}
-                <a class="member-link" href={`/profile/${member.username}`}>{member.username}</a>
+              {#each activeConversation?.participants ?? [] as member}
+                <a class="member-link" href={`/profile/${member.username}`}
+                  >{member.username}{member.id === data.viewer.id ? ' (you)' : ''}</a
+                >
               {/each}
             </div>
           </div>
@@ -1996,17 +2002,31 @@
         </button>
         {#if menuConversation?.kind === 'group'}
           <button type="button" role="menuitem" on:click={openChatInfoFromMenu}>Chat info</button>
-          <button type="button" role="menuitem" on:click={leaveGroupFromMenu}>Leave group</button>
         {/if}
         <button type="button" role="menuitem" on:click={() => applyChatMenuPreference({ hidden: true })}>
           Delete
         </button>
+        {#if menuConversation?.kind === 'group'}
+          <!-- Kept apart from Delete: leaving can't be undone by you. -->
+          <hr class="menu-divider" />
+          <button class="menu-danger" type="button" role="menuitem" on:click={leaveGroupFromMenu}>Leave group</button>
+        {/if}
       {/if}
     </div>
   {/if}
 </section>
 
 <style>
+  .menu-divider {
+    margin: 4px 0;
+    border: 0;
+    border-top: 1px solid var(--panel-border);
+  }
+
+  .menu-danger {
+    color: var(--danger, #c0392b) !important;
+  }
+
   .page {
     display: grid;
     gap: 12px;

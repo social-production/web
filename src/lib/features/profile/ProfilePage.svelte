@@ -338,12 +338,29 @@
   let reviewPending = false;
   let reviewMessage = '';
 
+  // Shows your vote and the moved tally at once, until the reloaded profile catches up.
+  let reviewVoteOverride: { vote: 'bot' | 'real'; realVotes: number; botVotes: number } | null =
+    null;
+  let lastTrustRef: unknown = null;
+  $: if (data.trust !== lastTrustRef) {
+    lastTrustRef = data.trust;
+    reviewVoteOverride = null;
+  }
+
   async function castBotReviewVote(vote: 'bot' | 'real') {
+    const review = data.trust?.botReview;
+    if (!review || review.viewerVote === vote) return;
     reviewPending = true;
     reviewMessage = '';
     try {
       await voteBotReview(data.username, vote);
-      showToast(vote === 'bot' ? 'Voted: bot' : 'Voted: real person');
+      const previous = review.viewerVote;
+      reviewVoteOverride = {
+        vote,
+        realVotes: review.realVotes + (vote === 'real' ? 1 : 0) - (previous === 'real' ? 1 : 0),
+        botVotes: review.botVotes + (vote === 'bot' ? 1 : 0) - (previous === 'bot' ? 1 : 0)
+      };
+      showToast(vote === 'bot' ? 'Vote recorded: bot' : 'Vote recorded: real person');
       await invalidateAll();
     } catch (err) {
       reviewMessage = errorMessage(err, 'Could not record that vote.');
@@ -373,15 +390,20 @@
     stancePending = true;
     stanceMessage = '';
     try {
+      const reviewWasOpen = data.trust?.botReview?.status === 'open';
       await setAccountStance(data.username, stance);
+      await invalidateAll();
+      const reviewOpened =
+        stance === 'bot' && !reviewWasOpen && data.trust?.botReview?.status === 'open';
       showToast(
         stance === 'vouch'
           ? `You vouched for ${data.username}`
-          : stance === 'bot'
-            ? `Marked ${data.username} as a possible bot`
-            : 'Mark cleared'
+          : reviewOpened
+            ? `Marked ${data.username}. That made three marks, so a public bot review is now open.`
+            : stance === 'bot'
+              ? `Marked ${data.username} as a possible bot`
+              : 'Mark cleared'
       );
-      await invalidateAll();
     } catch (err) {
       stanceMessage = errorMessage(err, 'Could not update that stance.');
     } finally {
@@ -598,26 +620,33 @@
               : 'Full members are voting on whether this account belongs to a real person.'}
           </p>
           <p class="bot-review-tally">
-            {review.realVotes} real · {review.botVotes} bot · {review.votesRequired} votes needed
+            {reviewVoteOverride?.realVotes ?? review.realVotes} real · {reviewVoteOverride?.botVotes ?? review.botVotes} bot ·
+            needs {review.votesRequired} votes, 66% bot to pass
             {#if review.closesAt}
               · closes {new Date(review.closesAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
             {/if}
           </p>
         </div>
         {#if review.viewerCanVote}
+          {@const chosenVote = reviewVoteOverride?.vote ?? review.viewerVote}
+          {#if chosenVote}
+            <p class="bot-review-tally">
+              You voted {chosenVote === 'bot' ? 'Bot' : 'Real person'}. Tap the other to change it.
+            </p>
+          {/if}
           <div class="bot-review-actions">
             <button
               type="button"
-              class:chosen={review.viewerVote === 'real'}
-              aria-pressed={review.viewerVote === 'real'}
+              class:chosen={chosenVote === 'real'}
+              aria-pressed={chosenVote === 'real'}
               disabled={reviewPending}
               on:click={() => castBotReviewVote('real')}>Real person</button
             >
             <button
               type="button"
               class="bot"
-              class:chosen={review.viewerVote === 'bot'}
-              aria-pressed={review.viewerVote === 'bot'}
+              class:chosen={chosenVote === 'bot'}
+              aria-pressed={chosenVote === 'bot'}
               disabled={reviewPending}
               on:click={() => castBotReviewVote('bot')}>Bot</button
             >

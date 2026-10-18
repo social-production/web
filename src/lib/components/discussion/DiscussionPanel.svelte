@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidate } from '$app/navigation';
+  import { page } from '$app/stores';
   import DiscussionComment from '$lib/components/discussion/DiscussionComment.svelte';
   import CommentComposer from '$lib/components/shared/CommentComposer.svelte';
   import { addComment } from '$lib/services/commands/shared';
@@ -17,6 +18,8 @@
   export let sortMode: CommentSort = 'oldest';
 
   type CommentSort = 'oldest' | 'newest' | 'top';
+
+  $: viewerPaused = $page.data.bootstrap?.viewer?.standing === 'paused';
 
   let draftComment = '';
   let composer: CommentComposer;
@@ -50,7 +53,11 @@
       return;
     }
 
-    await addComment({ id: data.id, type: subjectType }, draftComment);
+    try {
+      await addComment({ id: data.id, type: subjectType }, draftComment);
+    } catch {
+      return; // addComment already toasted the reason; keep the draft.
+    }
     draftComment = '';
     await composer?.resetHeight();
     const dependency =
@@ -77,6 +84,11 @@
 </script>
 
 <section class:embedded class="discussion-shell" id="comments">
+  {#if viewerPaused}
+    <p class="composer-paused" role="status">
+      A community review found this account is a bot, so it can read but not comment.
+    </p>
+  {:else}
   <div class="composer-card">
     <CommentComposer
       bind:this={composer}
@@ -86,6 +98,7 @@
       on:submit={submitComment}
     />
   </div>
+  {/if}
 
   <div class="stack">
     {#each sortedDiscussion as comment (comment.id)}
@@ -102,6 +115,15 @@
 </section>
 
 <style>
+  .composer-paused {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-soft);
+    font-size: 13px;
+  }
+
   .discussion-shell,
   .stack,
   .composer-card {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { showToast } from '$lib/stores/toast';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
@@ -1023,6 +1024,7 @@
 
     if (!serviceRequestForm.title.trim() || !serviceRequestForm.body.trim()) {
       serviceRequestFeedback = 'Add a title and message for your request.';
+      showToast(serviceRequestFeedback, 'error');
       return;
     }
 
@@ -1033,6 +1035,7 @@
         new Date(endsAtValue).getTime() <= new Date(scheduledAtValue).getTime())
     ) {
       serviceRequestFeedback = 'Choose a valid start and end time for your request.';
+      showToast(serviceRequestFeedback, 'error');
       return;
     }
 
