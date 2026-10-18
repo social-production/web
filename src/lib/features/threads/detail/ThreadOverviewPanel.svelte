@@ -101,6 +101,11 @@
       <span class="comment-link">
         <CountPill label={`${data.commentCount} ${data.commentCount === 1 ? 'comment' : 'comments'}`} />
       </span>
+    </div>
+    <div class="footer-meta">
+      <ContentMetaRow fullName authorUsername={data.authorUsername} createdAt={data.lastActivityAt} />
+    </div>
+    <div class="detail-tools">
       {#if $page.data.bootstrap?.viewer}
         <span class="detail-tool">
           <ShareUserMenu
@@ -124,9 +129,6 @@
           <FeedToolbarIcon name="sort" />
         </IconMenuButton>
       </span>
-    </div>
-    <div class="footer-meta">
-      <ContentMetaRow fullName authorUsername={data.authorUsername} createdAt={data.lastActivityAt} />
     </div>
   </div>
 </section>

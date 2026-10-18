@@ -311,17 +311,19 @@
     border-bottom: 1px solid var(--panel-border);
   }
 
-  /* Detail pages: the byline stays bottom right and is never cut; if it can't fit beside the
-     buttons it moves to its own line, still right-aligned. */
+  /* Thread and post pages: author · time on a line of its own above the buttons, right-aligned
+     and never cut; then votes and comments on the left and Share and Sort on the right. */
   .content :global(.footer.no-truncate:has(.feed-corner-actions)) {
     flex-wrap: wrap;
-    row-gap: 6px;
+    row-gap: 4px;
   }
 
   .content :global(.footer.no-truncate:has(.feed-corner-actions) .footer-meta) {
-    flex: 1 0 auto;
+    order: -1;
+    flex: 1 1 100%;
+    justify-content: flex-end;
     overflow: visible;
-    padding-right: var(--surface-pad-x);
+    padding: 0 0 0 var(--surface-pad-x);
   }
 
   .content :global(.footer.no-truncate .content-meta-row),
@@ -329,6 +331,52 @@
     overflow: visible;
     text-overflow: clip;
     min-width: auto;
+  }
+
+  .content :global(.footer.no-truncate .detail-tools) {
+    display: flex;
+    align-items: stretch;
+    height: 36px;
+    margin-left: auto;
+    margin-right: calc(-1 * var(--surface-pad-x));
+    border-top: 1px solid var(--panel-border);
+    background: var(--panel-strong);
+  }
+
+  .content :global(.footer.no-truncate .detail-tools .detail-tool) {
+    display: flex;
+    flex: 0 0 40px;
+    align-items: stretch;
+    width: 40px;
+    height: 36px;
+    overflow: hidden;
+    border-left: 1px solid var(--panel-border);
+  }
+
+  .content :global(.footer.no-truncate .detail-tools .detail-tool .icon-menu-shell),
+  .content :global(.footer.no-truncate .detail-tools .detail-tool .share-shell),
+  .content :global(.footer.no-truncate .detail-tools .detail-tool .icon-menu-trigger),
+  .content :global(.footer.no-truncate .detail-tools .detail-tool .share-button) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    min-width: 40px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .content :global(.footer.no-truncate .detail-tools .detail-tool .icon-menu-trigger:hover),
+  .content :global(.footer.no-truncate .detail-tools .detail-tool .icon-menu-trigger.menu-open),
+  .content :global(.footer.no-truncate .detail-tools .detail-tool .share-button:hover),
+  .content :global(.footer.no-truncate .detail-tools .detail-tool .share-button.active-toggle) {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
   }
 
   .content :global(.feed-corner-actions:has(.detail-tool)) {
