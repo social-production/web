@@ -7,7 +7,6 @@
   import PersonalFeedCard from '$lib/components/cards/personal-feed/PersonalFeedCard.svelte';
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import FeedToolbarIcon from '$lib/components/shared/FeedToolbarIcon.svelte';
-  import MembershipSplitButton from '$lib/components/shared/MembershipSplitButton.svelte';
   import IconMenuButton from '$lib/components/shared/IconMenuButton.svelte';
   import InfiniteFeedSentinel from '$lib/components/shared/InfiniteFeedSentinel.svelte';
   import PeopleSheet from '$lib/components/shared/PeopleSheet.svelte';
@@ -481,135 +480,104 @@
             <AvatarBadge size="md" username={data.username} imageUrl={null} />
           {/if}
           <div class="hero-copy">
-            <h1>{data.username}</h1>
+            <div class="name-row">
+              <h1>{data.username}</h1>
+              {#if data.trust}
+                <button
+                  aria-expanded={trustOpen}
+                  aria-label={`Standing: ${standingLabel(data.trust.standing)}`}
+                  class="standing-chip"
+                  class:paused={data.trust.standing === 'paused'}
+                  title={standingHint(data.trust.standing)}
+                  type="button"
+                  on:click={toggleTrustSheet}
+                >
+                  {standingLabel(data.trust.standing)}
+                </button>
+              {/if}
+            </div>
             {#if displayBio}
               <p class="profile-bio">{displayBio}</p>
             {/if}
+            <!-- Counts read as text links, like most profile pages. -->
+            <div class="count-row">
+              <button
+                class:active={activePeopleList === 'followers'}
+                type="button"
+                on:click={() => togglePeopleList('followers')}
+              >
+                <strong>{data.followersCount}</strong>
+                {data.followersCount === 1 ? 'follower' : 'followers'}
+              </button>
+              <button
+                class:active={activePeopleList === 'following'}
+                type="button"
+                on:click={() => togglePeopleList('following')}
+              >
+                <strong>{data.followingCount}</strong> following
+              </button>
+            </div>
           </div>
         </div>
-        <div class="profile-actions">
-              <div class="stats-row">
-            {#if data.isOwnProfile}
-              <a class="edit-profile" href="/settings#settings-profile">Edit profile</a>
-              <MembershipSplitButton
-                count={data.followersCount}
-                canOpenMembers={true}
-                membersOpen={activePeopleList === 'followers'}
-                membersAriaLabel={`${data.followersCount} followers`}
-                countNoun={data.followersCount === 1 ? 'follower' : 'followers'}
-                onOpenMembers={() => togglePeopleList('followers')}
-              />
-            {:else}
-              <MembershipSplitButton
-                joined={viewerIsFollowing}
-                pending={viewerFollowStatus === 'pending'}
-                count={data.followersCount}
-                canToggle={true}
-                canOpenMembers={true}
-                disabled={followPending}
-                membersOpen={activePeopleList === 'followers'}
-                joinAriaLabel={followAriaLabel}
-                joinLabel="Follow"
-                joinedLabel="Following"
-                membersAriaLabel={`${data.followersCount} followers`}
-                countNoun={data.followersCount === 1 ? 'follower' : 'followers'}
-                onToggleJoin={toggleFollow}
-                onOpenMembers={() => togglePeopleList('followers')}
-              />
-            {/if}
 
+        {#if !data.isOwnProfile && $page.data.bootstrap?.viewer}
+          <!-- One row of equal buttons that fits a phone: Follow, Message, Vouch, Bot. -->
+          <div class="action-row">
             <button
-              aria-label={`${data.followingCount} following`}
-              class:active={activePeopleList === 'following'}
-              class="stat-chip"
+              aria-label={followAriaLabel}
+              class="action primary"
+              class:on={viewerIsFollowing || viewerFollowStatus === 'pending'}
+              disabled={followPending}
               type="button"
-              on:click={() => togglePeopleList('following')}
+              on:click={toggleFollow}
             >
-              <span>{data.followingCount} following</span>
+              {viewerFollowStatus === 'pending' ? 'Requested' : viewerIsFollowing ? 'Following' : 'Follow'}
             </button>
-
-            {#if !data.isOwnProfile && $page.data.bootstrap?.viewer && $page.data.bootstrap.viewer.standing !== 'paused'}
-              <button
-                aria-label={`Message ${data.username}`}
-                class="icon-action"
-                type="button"
-                on:click={() => (composeOpen = true)}
-              >
-                <FeedToolbarIcon name="message" />
-              </button>
+            {#if !viewerPaused}
+              <button class="action" type="button" on:click={() => (composeOpen = true)}>Message</button>
             {/if}
-              </div>
-              {#if data.trust}
-                <div class="trust-corner">
-          <div
-            class="trust-split"
-            class:rating-only={data.isOwnProfile || viewerPaused}
-            class:vouched={!data.isOwnProfile && data.trust.viewerStance === 'vouch'}
-            class:marked={!data.isOwnProfile && data.trust.viewerStance === 'bot'}
-            class:open={trustOpen}
-          >
-            {#if !data.isOwnProfile && !viewerPaused}
+            {#if data.trust && !viewerPaused}
               <button
                 aria-label={data.trust.viewerStance === 'vouch'
                   ? `Clear vouch for ${data.username}`
-                  : data.trust.viewerStance === 'bot'
-                    ? `Switch to vouch for ${data.username}`
-                    : `Vouch for ${data.username}`}
+                  : `Vouch for ${data.username}`}
                 aria-pressed={data.trust.viewerStance === 'vouch'}
-                class="trust-vouch"
+                class="action vouch"
+                class:on={data.trust.viewerStance === 'vouch'}
                 disabled={stancePending ||
                   (data.trust.viewerStance !== 'vouch' && !data.trust.viewerCanVouch)}
-                title={data.trust.viewerStance === 'bot' && data.trust.viewerCanVouch
-                  ? 'Switch to vouch'
-                  : data.trust.viewerStance === 'vouch'
-                    ? 'Clear vouch'
-                    : data.trust.viewerCanVouch
-                      ? 'Vouch'
-                      : 'Vouching opens once your own votes count fully.'}
+                title={data.trust.viewerStance === 'vouch'
+                  ? 'Clear vouch'
+                  : data.trust.viewerCanVouch
+                    ? 'Vouch'
+                    : 'Vouching opens once your own votes count fully.'}
                 type="button"
                 on:click={() => trustAction('vouch')}
               >
-                Vouch
+                {data.trust.viewerStance === 'vouch' ? 'Vouched' : 'Vouch'}
               </button>
-            {/if}
-            <button
-              aria-expanded={trustOpen}
-              aria-label={`Standing: ${standingLabel(data.trust.standing)}`}
-              class="trust-rating"
-              title={standingHint(data.trust.standing)}
-              type="button"
-              on:click={toggleTrustSheet}
-            >
-              {standingLabel(data.trust.standing)}
-            </button>
-            {#if !data.isOwnProfile && !viewerPaused}
               <button
                 aria-label={data.trust.viewerStance === 'bot'
                   ? `Clear bot mark for ${data.username}`
-                  : data.trust.viewerStance === 'vouch'
-                    ? `Switch to bot mark for ${data.username}`
-                    : `Mark ${data.username} as a bot`}
+                  : `Mark ${data.username} as a bot`}
                 aria-pressed={data.trust.viewerStance === 'bot'}
-                class="trust-bot"
+                class="action bot"
+                class:on={data.trust.viewerStance === 'bot'}
                 disabled={stancePending ||
                   (data.trust.viewerStance !== 'bot' && !data.trust.viewerCanMarkBot)}
-                title={data.trust.viewerStance === 'vouch' && data.trust.viewerCanMarkBot
-                  ? 'Switch to bot'
-                  : data.trust.viewerStance === 'bot'
-                    ? 'Clear bot mark'
-                    : data.trust.viewerCanMarkBot
-                      ? 'Mark as bot'
-                      : 'Marking as a bot opens once your own votes count fully.'}
+                title={data.trust.viewerStance === 'bot'
+                  ? 'Clear bot mark'
+                  : data.trust.viewerCanMarkBot
+                    ? 'Mark as bot'
+                    : 'Marking as a bot opens once your own votes count fully.'}
                 type="button"
                 on:click={() => trustAction('bot')}
               >
-                Bot
+                {data.trust.viewerStance === 'bot' ? 'Marked' : 'Bot'}
               </button>
             {/if}
           </div>
-                </div>
-              {/if}
-        </div>
+        {/if}
       </div>
     </div>
 
@@ -833,23 +801,125 @@
 </section>
 
 <style>
-  .edit-profile {
-    display: inline-flex;
+  .name-row {
+    display: flex;
     align-items: center;
-    min-height: 40px;
-    padding: 0 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    color: var(--text-main);
-    font-size: 13px;
-    font-weight: 700;
-    text-decoration: none;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    min-width: 0;
   }
 
+  .name-row h1 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .standing-chip {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel-soft);
+    color: var(--text-soft);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .standing-chip.paused {
+    border-color: transparent;
+    background: color-mix(in srgb, #d97706 16%, transparent);
+    color: #b45309;
+  }
+
+  .count-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin-top: 6px;
+  }
+
+  .count-row button {
+    padding: 4px 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-soft);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .count-row button strong {
+    color: var(--text-main);
+  }
+
+  .count-row button.active {
+    color: var(--brand-strong);
+  }
+
+  .action-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    grid-auto-flow: column;
+    gap: 8px;
+    margin-top: 12px;
+    width: 100%;
+    max-width: 520px;
+  }
+
+  .action {
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 8px;
+    overflow: hidden;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .action:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .action.primary {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: var(--page-bg);
+  }
+
+  .action.primary.on {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .action.vouch.on {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .action.bot.on {
+    border-color: color-mix(in srgb, #b91c1c 50%, var(--panel-border));
+    background: color-mix(in srgb, #b91c1c 12%, var(--panel));
+    color: #b91c1c;
+  }
+
+
+  /* Inset by the page gutter like the header above, so its border isn't cut at the screen edge. */
   .bot-review-card {
     display: grid;
     gap: 10px;
-    margin: 0 0 12px;
+    min-width: 0;
+    margin: 12px var(--page-gutter);
     padding: 14px 16px;
     border: 1px solid color-mix(in srgb, var(--status-yellow) 55%, var(--panel-border));
     border-radius: var(--radius-sm, 10px);
@@ -1058,126 +1128,6 @@
     white-space: normal;
   }
 
-  .profile-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 4px;
-    flex-wrap: nowrap;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .profile-actions :global(.membership-split) {
-    min-height: 30px;
-  }
-
-  .profile-actions :global(.membership-join) {
-    width: 30px;
-  }
-
-  .profile-actions :global(.membership-count) {
-    min-width: 22px;
-    padding: 0 6px;
-    font-size: 11px;
-  }
-
-  .trust-corner {
-    display: flex;
-    justify-content: flex-end;
-    flex: 0 0 auto;
-    margin-left: auto;
-  }
-
-  .trust-split {
-    display: inline-flex;
-    align-items: stretch;
-    min-height: 30px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-border);
-    overflow: hidden;
-    gap: 1px;
-  }
-
-  /* Only the pressed action is coloured; the standing in the middle stays a neutral label. */
-
-  .trust-split.open {
-    border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
-  }
-
-  .trust-vouch,
-  .trust-rating,
-  .trust-bot {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
-    border: 0;
-    background: var(--panel);
-    color: var(--text-soft);
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .trust-vouch,
-  .trust-bot {
-    width: auto;
-    padding: 0 7px;
-    flex: 0 0 auto;
-    font-size: 11px;
-  }
-
-  .trust-rating {
-    min-width: 0;
-    padding: 0 6px;
-    color: var(--text-main);
-    font-size: 11px;
-  }
-
-  .trust-split.vouched .trust-vouch {
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .trust-split.marked .trust-bot {
-    background: color-mix(in srgb, #b91c1c 14%, var(--panel));
-    color: #b91c1c;
-  }
-
-  .trust-rating {
-    font-style: normal;
-    background: var(--panel-soft) !important;
-    color: var(--text-soft) !important;
-  }
-
-  .trust-vouch:hover:not(:disabled),
-  .trust-rating:hover,
-  .trust-bot:hover:not(:disabled),
-  .trust-vouch:focus-visible,
-  .trust-rating:focus-visible,
-  .trust-bot:focus-visible {
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-  }
-
-  .trust-vouch:disabled,
-  .trust-bot:disabled {
-    opacity: 0.55;
-    cursor: default;
-  }
-
-  .stats-row {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-    flex: 1 1 auto;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    min-width: 0;
-  }
-
   .profile-bio {
     min-width: 0;
     margin: 0;
@@ -1189,76 +1139,6 @@
     line-height: 1.45;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-  }
-
-  .stat-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    min-height: 30px;
-    min-width: 0;
-    padding: 0 6px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-soft);
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-    flex: 0 0 auto;
-    transition:
-      background-color 120ms ease,
-      color 120ms ease,
-      border-color 120ms ease;
-  }
-
-  .stat-chip :global(.toolbar-icon) {
-    width: 18px;
-    height: 18px;
-  }
-
-  .stat-chip span {
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1;
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .stat-chip:hover,
-  .stat-chip:focus-visible,
-  .icon-action:hover,
-  .icon-action:focus-visible {
-    background: var(--brand-soft);
-    border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
-    color: var(--brand-strong);
-  }
-
-  .stat-chip.active {
-    border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
-    color: var(--brand-strong);
-  }
-
-  .icon-action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    color: var(--text-soft);
-    flex: 0 0 auto;
-    cursor: pointer;
-    transition:
-      background-color 120ms ease,
-      color 120ms ease,
-      border-color 120ms ease;
   }
 
   .requests-card h2 {

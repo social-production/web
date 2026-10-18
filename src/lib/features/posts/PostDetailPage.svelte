@@ -88,6 +88,7 @@
           <AvatarBadge size="sm" username={data.authorUsername} imageUrl={data.authorProfileImageUrl ?? null} />
           <a class="name header-name" href={`/profile/${data.authorUsername}`} title={data.authorUsername}>{data.authorUsername}</a>
           <PausedBadge username={data.authorUsername} />
+          <ContentMetaRow timeOnly createdAt={data.createdAt} />
         </div>
         <ReportControl
       copyUrl={buildShareUrl(`/posts/${data.id}`)}
@@ -119,6 +120,7 @@
             <ShareUserMenu
               copyLinkUrl={buildShareUrl(`/posts/${data.id}`)}
               menuTitle="Share post"
+              compact
               shareTitle={`${data.authorUsername}'s post`}
               searchContacts={searchShareContacts}
               submitShare={handlePostShare}
@@ -130,9 +132,6 @@
             <FeedToolbarIcon name="sort" />
           </IconMenuButton>
         </span>
-      </div>
-      <div class="footer-meta">
-        <ContentMetaRow timeOnly createdAt={data.createdAt} />
       </div>
     </div>
 

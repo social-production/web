@@ -10,10 +10,12 @@
   const tabs: Array<{
     id: DetailTabId;
     label: string;
+    /** Shorter name for phone tabs, where five labels share the width. */
+    short?: string;
     icon: 'list' | 'people' | 'message' | 'link' | 'clock';
   }> = [
     { id: 'context', label: 'Details', icon: 'list' },
-    { id: 'participation', label: 'Participation', icon: 'people' },
+    { id: 'participation', label: 'Participation', short: 'Take part', icon: 'people' },
     { id: 'chat', label: 'Chat', icon: 'message' },
     { id: 'links', label: 'Links', icon: 'link' },
     { id: 'history', label: 'History', icon: 'clock' }
@@ -38,6 +40,7 @@
         <FeedToolbarIcon name={tab.icon} />
       </span>
       <span class="tab-label">{tab.label}</span>
+      {#if tab.short}<span class="tab-label-short">{tab.short}</span>{/if}
     </button>
   {/each}
 </div>
@@ -69,6 +72,10 @@
     border-radius: calc(var(--radius-sm) - 2px);
     font-size: 13px;
     font-weight: 700;
+  }
+
+  .tab-label-short {
+    display: none;
   }
 
   .tab-icon {
@@ -134,6 +141,11 @@
       justify-content: center;
     }
 
+    .top-tab:has(.tab-label-short) .tab-label {
+      display: none;
+    }
+
+    .tab-label-short,
     .tab-label {
       display: block;
       max-width: 100%;

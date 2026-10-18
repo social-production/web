@@ -119,6 +119,7 @@
         <ShareUserMenu
           copyLinkUrl={buildShareUrl(`/help-requests/${data.id}`)}
           menuTitle="Share help request"
+          compact
           shareTitle={data.title}
           searchContacts={searchShareContacts}
           submitShare={handleHelpShare}

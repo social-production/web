@@ -459,8 +459,16 @@
       justify-content: center;
     }
 
+    /* Two tabs have room for their names; the active one is underlined like other detail tabs. */
     .tab-label {
-      display: none;
+      display: inline;
+    }
+
+    .top-tab.active-tab {
+      border-color: transparent;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: inset 0 -2px 0 var(--brand);
     }
   }
 </style>

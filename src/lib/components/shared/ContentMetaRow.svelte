@@ -63,11 +63,12 @@
     color: var(--text-soft);
   }
 
+  /* One line: the name shrinks with an ellipsis, the time never drops to a second row. */
   .content-meta-row {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     min-width: 0;
     max-width: 100%;
     color: var(--text-soft);
@@ -81,7 +82,7 @@
   /* The name keeps at least ~10 characters and ends with an ellipsis; badges shrink first. */
   .inline-link {
     flex: 0 1 auto;
-    min-width: min(10ch, 100%);
+    min-width: 4ch;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -112,6 +113,7 @@
   }
 
   .activity-stamp {
+    flex: 0 0 auto;
     white-space: nowrap;
   }
 

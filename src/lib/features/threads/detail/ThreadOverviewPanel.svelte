@@ -92,10 +92,13 @@
 
   <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
     <h1>{data.title}</h1>
+    <div class="byline">
+      <ContentMetaRow fullName authorUsername={data.authorUsername} createdAt={data.lastActivityAt} />
+    </div>
     <p class="overview-copy">{data.body}</p>
   </ModerationRestrictionNotice>
 
-  <div class="footer detail-footer byline-first">
+  <div class="footer detail-footer">
     <div class="engagement-row feed-corner-actions">
       <VoteStrip corner activeVote={localActiveVote} count={localVoteCount} syncKey={data.id} onvote={handleVote} />
       <span class="comment-link">
@@ -106,6 +109,7 @@
           <ShareUserMenu
             copyLinkUrl={buildShareUrl(`/threads/${data.slug}`)}
             menuTitle="Share thread"
+            compact
             shareTitle={data.title}
             searchContacts={searchShareContacts}
             submitShare={handleThreadShare}
@@ -124,13 +128,21 @@
         </IconMenuButton>
       </span>
     </div>
-    <div class="footer-meta">
-      <ContentMetaRow fullName authorUsername={data.authorUsername} createdAt={data.lastActivityAt} />
-    </div>
   </div>
 </section>
 
 <style>
+  /* Author and time on one line, right under the title. */
+  .byline {
+    margin: 2px 0 6px;
+    min-width: 0;
+    font-size: 13px;
+  }
+
+  .byline :global(.content-meta-row) {
+    font-size: 13px;
+  }
+
   .overview-shell {
     display: grid;
     gap: 4px;

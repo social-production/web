@@ -293,6 +293,14 @@
         <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
           <h1>{data.title}</h1>
         </ModerationRestrictionNotice>
+        <div class="byline">
+          <ContentMetaRow
+            fullName
+            authorUsername={data.authorUsername}
+            authorHref={`/profile/${data.authorUsername}?from=${encodeURIComponent($page.url.pathname)}`}
+            createdAt={data.createdAt}
+          />
+        </div>
         {#if liveFact}
           <p class="live-fact">{liveFact}</p>
         {/if}
@@ -307,13 +315,6 @@
     </div>
   </div>
 
-  <div class="context-meta">
-    <ContentMetaRow
-      authorUsername={data.authorUsername}
-      authorHref={`/profile/${data.authorUsername}?from=${encodeURIComponent($page.url.pathname)}`}
-      createdAt={data.createdAt}
-    />
-  </div>
 </div>
 
 <DetailActionDock active={actionsActive}>
@@ -437,6 +438,17 @@
 />
 
 <style>
+  /* Author and time on one line, right under the title. */
+  .byline {
+    margin: 2px 0 6px;
+    min-width: 0;
+    font-size: 13px;
+  }
+
+  .byline :global(.content-meta-row) {
+    font-size: 13px;
+  }
+
   .context-panel {
     display: flex;
     flex: 1 1 auto;
@@ -627,19 +639,7 @@
     font-size: 13px;
   }
 
-  .context-meta {
-    display: flex;
-    justify-content: flex-end;
-    width: 100%;
-    min-width: 0;
-    margin-top: auto;
-    padding-top: 12px;
-  }
 
-  .context-meta :global(.content-meta-row) {
-    margin-left: auto;
-    max-width: 100%;
-  }
 
   .signal-row {
     display: flex;

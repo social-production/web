@@ -17,6 +17,8 @@
   }
 
   export let buttonLabel = 'Share +';
+  /** Icon only, for tight action strips; the label stays as the accessible name. */
+  export let compact = false;
   export let menuTitle = 'Share';
   export let placeholder = 'Type a username';
   export let submitLabel = 'Send';
@@ -165,7 +167,7 @@
     on:click={() => (open ? handleClose() : (open = true))}
   >
     <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-    <span class="share-button-label">Share</span>
+    {#if !compact}<span class="share-button-label">Share</span>{/if}
   </button>
 
   <OverlaySheet {open} labelledById="share-sheet-title" title={menuTitle} on:close={handleClose}>
