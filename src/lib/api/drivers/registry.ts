@@ -5,7 +5,7 @@
  * New backends plug in by implementing those three seams and registering here.
  */
 
-export type BackendDriverName = 'fastapi' | 'supabase' | 'holochain' | 'mock' | 'template';
+export type BackendDriverName = 'fastapi' | 'holochain' | 'mock' | 'template';
 
 export type ProviderStatus = 'ready' | 'unimplemented' | 'experimental';
 
@@ -193,31 +193,6 @@ export const PROVIDER_REGISTRY: Record<BackendDriverName, ProviderMetadata> = {
     status: 'ready',
     backendWorkspace: 'web-backend',
     notes: 'Production beta provider. Implements AppAdapter + session/error transports.',
-    requiredDomains: PROVIDER_REQUIRED_DOMAINS,
-    capabilities: {
-      ...CENTRALIZED_DEFAULTS,
-      sessionTransport: 'supported',
-      errorTransport: 'supported',
-      bootstrap: 'supported',
-      feeds: 'supported',
-      governanceVotes: 'supported',
-      governanceComments: 'supported',
-      governanceReports: 'supported',
-      messaging: 'supported',
-      notifications: 'supported',
-      search: 'supported',
-      locations: 'supported',
-      scopes: 'supported',
-      moderation: 'supported'
-    }
-  },
-  supabase: {
-    name: 'supabase',
-    label: 'Supabase',
-    status: 'ready',
-    backendWorkspace: 'web-supabase',
-    notes:
-      'Local-ready alternate via Auth + Postgres + Edge Function gateway. Strict parity pass: lifecycle votes, region clip, board standing, report thresholds. Messaging remains intentional plaintext at rest. Beginner guides: web-supabase/docs/LOCAL_DEV.md, HOSTED.md, SIGNOFF.md. See PARITY_AUDIT.md.',
     requiredDomains: PROVIDER_REQUIRED_DOMAINS,
     capabilities: {
       ...CENTRALIZED_DEFAULTS,

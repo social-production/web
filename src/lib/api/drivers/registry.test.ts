@@ -104,18 +104,14 @@ describe('provider registry', () => {
     expect(fastapi.backendWorkspace).toBe('web-backend');
   });
 
-  it('exposes supabase as a ready alternate and keeps holochain unimplemented', () => {
-    expect(getProviderMetadata('supabase').status).toBe('ready');
-    expect(getProviderMetadata('supabase').backendWorkspace).toBe('web-supabase');
-    expect(providerSupports('supabase', 'bootstrap')).toBe(true);
-    expect(providerSupports('supabase', 'governanceVotes')).toBe(true);
+  it('keeps holochain unimplemented', () => {
     expect(getProviderMetadata('holochain').status).toBe('unimplemented');
     expect(getProviderMetadata('holochain').backendWorkspace).toBe('web-holochain');
   });
 
   it('parses known VITE_BACKEND values', () => {
     expect(parseBackendDriverName('fastapi')).toBe('fastapi');
-    expect(parseBackendDriverName('SUPABASE')).toBe('supabase');
+    expect(parseBackendDriverName('FASTAPI')).toBe('fastapi');
     expect(parseBackendDriverName('holochain')).toBe('holochain');
   });
 
@@ -124,7 +120,7 @@ describe('provider registry', () => {
   });
 
   it('fails clearly for unimplemented providers', () => {
-    expect(() => assertProviderReady('supabase')).not.toThrow();
+    expect(() => assertProviderReady('fastapi')).not.toThrow();
     expect(() => assertProviderReady('holochain')).toThrow(/web-holochain/);
   });
 
@@ -173,8 +169,8 @@ describe('provider capability model', () => {
 
 describe('template driver contract', () => {
   it('throws a loud not-implemented error for any AppAdapter method', async () => {
-    const driver = createTemplateDriver('supabase');
-    await expect(driver.getBootstrap()).rejects.toThrow(/supabase driver: getBootstrap/);
+    const driver = createTemplateDriver('template');
+    await expect(driver.getBootstrap()).rejects.toThrow(/template driver: getBootstrap/);
     await expect(driver.signIn({ username: 'x', password: 'y' })).rejects.toThrow(
       /not implemented/
     );
@@ -187,8 +183,8 @@ describe('template driver contract', () => {
   });
 
   it('exposes SessionTransport and ErrorTransport scaffolds', () => {
-    const session = createTemplateSessionTransport('supabase');
-    const errors = createTemplateErrorTransport('supabase');
+    const session = createTemplateSessionTransport('template');
+    const errors = createTemplateErrorTransport('template');
     for (const method of SESSION_TRANSPORT_METHODS) {
       expect(typeof session[method]).toBe('function');
     }
@@ -198,19 +194,12 @@ describe('template driver contract', () => {
   });
 });
 
-describe('supabase and holochain drivers', () => {
+describe('holochain driver', () => {
   it(
-    'assembles AppAdapter methods; holochain still fails loudly as scaffold',
+    'still fails loudly as a scaffold',
     async () => {
-      const { createSupabaseDriver } = await import('$lib/api/drivers/supabase');
       const { createHolochainDriver } = await import('$lib/api/drivers/holochain');
-
-      const supabase = createSupabaseDriver();
       const holochain = createHolochainDriver();
-
-      for (const method of APP_ADAPTER_CONTRACT_METHODS) {
-        expect(typeof supabase[method]).toBe('function');
-      }
 
       await expect(holochain.getBootstrap()).rejects.toThrow(/holochain driver: getBootstrap/);
       await expect(holochain.addComment({ id: 'p1', type: 'post' }, 'hi')).rejects.toThrow(
@@ -221,11 +210,8 @@ describe('supabase and holochain drivers', () => {
   );
 
   it('exposes split session and error transports', async () => {
-    const supabase = await import('$lib/api/drivers/supabase');
     const holochain = await import('$lib/api/drivers/holochain');
 
-    expect(typeof supabase.createSupabaseSessionTransport().refreshSession).toBe('function');
-    expect(typeof supabase.createSupabaseErrorTransport().extractErrorMessage).toBe('function');
     expect(typeof holochain.createHolochainSessionTransport().refreshSession).toBe('function');
     expect(typeof holochain.createHolochainErrorTransport().extractErrorMessage).toBe('function');
   });

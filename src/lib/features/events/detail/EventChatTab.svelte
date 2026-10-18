@@ -8,7 +8,6 @@
   import LinkedChatReadMarker from '$lib/components/chat/LinkedChatReadMarker.svelte';
   import LiveChatPanel from '$lib/components/chat/LiveChatPanel.svelte';
   import { addComment } from '$lib/services/commands/shared';
-  import { subscribeToSubjectComments } from '$lib/api/drivers/supabase/realtime';
   import { registerEntityType } from '$lib/services/governanceEntityRegistry';
   import type { DetailComment, EventPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
@@ -62,13 +61,9 @@
       idleMs: 45_000,
       isActive: () => active,
     });
-    const stopRealtime = subscribeToSubjectComments('event', data.id, () => {
-      void refreshDiscussion();
-    });
     void refreshDiscussion();
     stopChatLive = () => {
       stopPolling();
-      stopRealtime();
     };
   }
 

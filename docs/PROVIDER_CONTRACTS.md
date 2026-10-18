@@ -1,6 +1,6 @@
 # Provider Contracts
 
-Stable contracts that any backend provider (FastAPI today, Supabase later, Holochain much later) must satisfy. Product UI depends on these shapes through `AppAdapter`, not on transport details.
+Stable contracts that any backend provider (FastAPI today) must satisfy. Product UI depends on these shapes through `AppAdapter`, not on transport details.
 
 ## Layers
 
@@ -96,4 +96,4 @@ A second provider is ready for smoke use when it can:
 
 Current FastAPI OpenAPI / router Pydantic models are the live wire format. Drivers translate snake_case HTTP fields into camelCase product types. Do not treat raw SQLAlchemy column names or internal service dict keys as the public contract.
 
-See also: [ADAPTERS.md](./ADAPTERS.md), [PROVIDER_IMPLEMENTATION_CHECKLIST.md](./PROVIDER_IMPLEMENTATION_CHECKLIST.md), [WEB_BACKEND_CONTRACT.md](./WEB_BACKEND_CONTRACT.md).
+See also: [ADAPTERS.md](./ADAPTERS.md), [WEB_BACKEND_CONTRACT.md](./WEB_BACKEND_CONTRACT.md).

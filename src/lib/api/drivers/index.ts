@@ -10,7 +10,6 @@ import {
   type BackendDriverName,
   type ProviderMetadata
 } from './registry';
-import { createSupabaseDriver, createSupabaseErrorTransport, createSupabaseSessionTransport } from './supabase';
 import {
   createTemplateDriver,
   createTemplateErrorTransport,
@@ -36,10 +35,6 @@ function configureDriverTransports(name: BackendDriverName): void {
     case 'fastapi':
       setSessionTransport(createFastApiSessionTransport());
       setErrorTransport(createFastApiErrorTransport());
-      break;
-    case 'supabase':
-      setSessionTransport(createSupabaseSessionTransport());
-      setErrorTransport(createSupabaseErrorTransport());
       break;
     case 'holochain':
       setSessionTransport(createHolochainSessionTransport());
@@ -69,8 +64,6 @@ export function createApiDriver() {
   switch (name) {
     case 'fastapi':
       return createFastApiDriver();
-    case 'supabase':
-      return createSupabaseDriver();
     case 'holochain':
       return createHolochainDriver();
     case 'template':

@@ -1,7 +1,7 @@
 # web (SvelteKit, Svelte 5 in legacy `export let` mode)
 
 ## Layout
-- Data flow: `src/lib/services/{queries,commands}` → `currentAdapter` → `src/lib/api/drivers/fastapi/domains/*` (supabase/holochain drivers are stubs; keep the adapter boundary, `scripts/check-route-boundary.sh` enforces it).
+- Data flow: `src/lib/services/{queries,commands}` → `currentAdapter` → `src/lib/api/drivers/fastapi/domains/*` (holochain/template drivers are stubs; keep the adapter boundary, `scripts/check-route-boundary.sh` enforces it).
 - Shell: `src/lib/app/shell/AppShell.svelte` (rails, map panel, bottom nav `MobileBottomNav.svelte`, `CallHost`, `ToastHost`).
 - Project/event detail: `src/lib/features/projects/ProjectDetailPage.svelte`, lifecycle phases under `features/projects/detail/lifecycle/**`, events under `features/events/detail/**`.
 - Bottom action bar: `components/shared/PhaseWorkToolbar.svelte` packs buttons into one row; phase moves live in `components/shared/PhaseMenu.svelte` (one button → sheet of options).

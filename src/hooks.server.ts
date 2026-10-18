@@ -76,13 +76,9 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   // Permissive baseline CSP for SvelteKit; tighten iteratively as inline usage is reduced.
-  // Local Supabase is same-origin via the Vite proxy in DEV; keep explicit :54321 hosts as fallback
-  // when VITE_SUPABASE_SAME_ORIGIN=false. Port wildcards are unreliable in some browsers.
   const connectSrc = [
     "'self'",
     'https:',
-    'http://127.0.0.1:54321',
-    'http://localhost:54321',
     'http://127.0.0.1:5173',
     'http://localhost:5173',
     'ws://127.0.0.1:5173',

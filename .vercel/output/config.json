@@ -1,0 +1,139 @@
+{
+	"version": 3,
+	"routes": [
+		{
+			"src": "/_app/immutable/.+",
+			"headers": {
+				"cache-control": "public, immutable, max-age=31536000"
+			}
+		},
+		{
+			"handle": "filesystem"
+		},
+		{
+			"src": "^/?(?:/__data.json)?$",
+			"dest": "/"
+		},
+		{
+			"src": "^/about/?(?:/__data.json)?$",
+			"dest": "/about"
+		},
+		{
+			"src": "^/channels/([^/]+?)/?(?:/__data.json)?$",
+			"dest": "/channels/[slug]"
+		},
+		{
+			"src": "^/communities/([^/]+?)/?(?:/__data.json)?$",
+			"dest": "/communities/[slug]"
+		},
+		{
+			"src": "^/create/channel/?(?:/__data.json)?$",
+			"dest": "/create/channel"
+		},
+		{
+			"src": "^/create/community/?(?:/__data.json)?$",
+			"dest": "/create/community"
+		},
+		{
+			"src": "^/create/event/?(?:/__data.json)?$",
+			"dest": "/create/event"
+		},
+		{
+			"src": "^/create/help-request/?(?:/__data.json)?$",
+			"dest": "/create/help-request"
+		},
+		{
+			"src": "^/create/post/?(?:/__data.json)?$",
+			"dest": "/create/post"
+		},
+		{
+			"src": "^/create/project/?(?:/__data.json)?$",
+			"dest": "/create/project"
+		},
+		{
+			"src": "^/create/thread/?(?:/__data.json)?$",
+			"dest": "/create/thread"
+		},
+		{
+			"src": "^/events/([^/]+?)/?(?:/__data.json)?$",
+			"dest": "/events/[slug]"
+		},
+		{
+			"src": "^/feedback/?(?:/__data.json)?$",
+			"dest": "/feedback"
+		},
+		{
+			"src": "^/help-requests/([^/]+?)/?(?:/__data.json)?$",
+			"dest": "/help-requests/[id]"
+		},
+		{
+			"src": "^/map/?(?:/__data.json)?$",
+			"dest": "/map"
+		},
+		{
+			"src": "^/messages/?(?:/__data.json)?$",
+			"dest": "/messages"
+		},
+		{
+			"src": "^/notifications/?(?:/__data.json)?$",
+			"dest": "/notifications"
+		},
+		{
+			"src": "^/onboarding/?(?:/__data.json)?$",
+			"dest": "/onboarding"
+		},
+		{
+			"src": "^/personal/?(?:/__data.json)?$",
+			"dest": "/personal"
+		},
+		{
+			"src": "^/platform/?(?:/__data.json)?$",
+			"dest": "/platform"
+		},
+		{
+			"src": "^/platform/assets/?(?:/__data.json)?$",
+			"dest": "/platform/assets"
+		},
+		{
+			"src": "^/platform/assets/([^/]+?)/?(?:/__data.json)?$",
+			"dest": "/platform/assets/[assetSlug]"
+		},
+		{
+			"src": "^/platform/assets/([^/]+?)/attached/([^/]+?)/?(?:/__data.json)?$",
+			"dest": "/platform/assets/[assetSlug]/attached/[attachedAssetSlug]"
+		},
+		{
+			"src": "^/posts/([^/]+?)/?(?:/__data.json)?$",
+			"dest": "/posts/[id]"
+		},
+		{
+			"src": "^/profile/([^/]+?)/?(?:/__data.json)?$",
+			"dest": "/profile/[username]"
+		},
+		{
+			"src": "^/projects/([^/]+?)/?(?:/__data.json)?$",
+			"dest": "/projects/[slug]"
+		},
+		{
+			"src": "^/scopes/invites/redeem/?(?:/__data.json)?$",
+			"dest": "/scopes/invites/redeem"
+		},
+		{
+			"src": "^/search/?(?:/__data.json)?$",
+			"dest": "/search"
+		},
+		{
+			"src": "^/settings/?(?:/__data.json)?$",
+			"dest": "/settings"
+		},
+		{
+			"src": "^/threads/([^/]+?)/?(?:/__data.json)?$",
+			"dest": "/threads/[slug]"
+		},
+		{
+			"src": "/.*",
+			"dest": "/![-]/catchall"
+		}
+	],
+	"overrides": {}
+}

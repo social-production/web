@@ -6,7 +6,7 @@
  */
 
 export type HolochainClientConfig = {
-  /** Public API URL or Supabase project URL / Holochain conductor URL. */
+  /** Holochain conductor URL. */
   url?: string;
   /** Provider anon/public key when applicable. */
   anonKey?: string;

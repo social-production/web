@@ -25,7 +25,7 @@ Also implement at the driver package root:
 - `errorTransport.ts` — `ErrorTransport`
 - `client.ts` — HTTP/SDK transport (provider-specific)
 
-`supabase/` and `holochain/` already contain this beginner layout with throw stubs.
+`holochain/` already contains this beginner layout with throw stubs.
 Shared assembly helper: `../scaffold.ts`.
 
 Register in `src/lib/api/drivers/index.ts` and flip `status` to `ready` in `registry.ts` only when implemented.

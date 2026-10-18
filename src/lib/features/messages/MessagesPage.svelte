@@ -60,7 +60,6 @@
   import { tick } from 'svelte';
   import { formatRelativeTimeCompact } from '$lib/utils/time';
   import { startVisibilityPoll } from '$lib/utils/visibilityPoll';
-  import { isInboxRealtimeEnabled, subscribeToViewerInbox } from '$lib/api/drivers/supabase/realtime';
 
   export let data: MessagesPageData;
   export let openConversationId: string | null = null;
@@ -451,27 +450,21 @@
     } else {
       window.setTimeout(hydrateLinked, 0);
     }
-    const realtimeEnabled = isInboxRealtimeEnabled();
-
-    const stopThreadPolling = realtimeEnabled
-      ? () => {}
-      : startVisibilityPoll(refreshActiveThread, {
-          activeMs: THREAD_POLL_MS,
-          idleMs: 60_000,
-        });
-    const stopInboxPolling = realtimeEnabled
-      ? () => {}
-      : startVisibilityPoll(
-          async () => {
-            await refreshMessagesInbox({ force: true });
-            await hydrateLinkedChats({ force: true });
-          },
-          {
-            activeMs: INBOX_REFRESH_MS,
-            idleMs: INBOX_REFRESH_MS * 3,
-          }
-        );
-    // Project, event and help-request chats aren't on the inbox realtime feed, so poll the open one.
+    const stopThreadPolling = startVisibilityPoll(refreshActiveThread, {
+      activeMs: THREAD_POLL_MS,
+      idleMs: 60_000,
+    });
+    const stopInboxPolling = startVisibilityPoll(
+      async () => {
+        await refreshMessagesInbox({ force: true });
+        await hydrateLinkedChats({ force: true });
+      },
+      {
+        activeMs: INBOX_REFRESH_MS,
+        idleMs: INBOX_REFRESH_MS * 3,
+      }
+    );
+    // Poll the open project, event or help-request chat.
     const stopLinkedChatPolling = startVisibilityPoll(
       async () => {
         if (activeLinkedChatId && activeLinkedChat) {
@@ -480,11 +473,6 @@
       },
       { activeMs: 5_000, idleMs: 45_000 }
     );
-    const stopRealtime = subscribeToViewerInbox(() => {
-      void refreshActiveThread();
-      void refreshMessagesInbox({ force: true });
-      void hydrateLinkedChats({ force: true });
-    });
 
     window.addEventListener('focus', handleVisibilityOrFocus);
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
@@ -517,7 +505,6 @@
       stopThreadPolling();
       stopLinkedChatPolling();
       stopInboxPolling();
-      stopRealtime();
 
       if (shellHeightFrame !== null) {
         window.cancelAnimationFrame(shellHeightFrame);

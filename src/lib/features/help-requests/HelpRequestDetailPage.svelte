@@ -13,7 +13,6 @@
   import HelpRequestOverviewHeader from '$lib/features/help-requests/detail/HelpRequestOverviewHeader.svelte';
   import HelpRequestRolesSection from '$lib/features/help-requests/detail/HelpRequestRolesSection.svelte';
   import { addComment } from '$lib/services/commands/shared';
-  import { subscribeToSubjectComments } from '$lib/api/drivers/supabase/realtime';
   import { registerEntityType } from '$lib/services/governanceEntityRegistry';
   import type { DetailComment, HelpRequestPageData } from '$lib/types/detail';
   import { refreshSubjectDiscussion } from '$lib/utils/detailChat';
@@ -76,15 +75,11 @@
       idleMs: 45_000,
       isActive: () => activeTab === 'chat',
     });
-    const stopRealtime = subscribeToSubjectComments('help_request', data.id, () => {
-      if (activeTab === 'chat') void refreshDiscussion();
-    });
     if (activeTab === 'chat') void refreshDiscussion();
 
     return () => {
       media.removeEventListener('change', syncCompact);
       stopPolling();
-      stopRealtime();
     };
   });
 

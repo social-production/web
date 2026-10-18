@@ -6,7 +6,7 @@ This is a **long-horizon redesign track**, not a transport-only swap.
 
 ## Layout
 
-Same shape as Supabase/FastAPI:
+Same shape as FastAPI:
 
 - `client.ts`
 - `sessionTransport.ts` / `errorTransport.ts`
