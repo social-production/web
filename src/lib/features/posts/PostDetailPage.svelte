@@ -88,7 +88,6 @@
           <AvatarBadge size="sm" username={data.authorUsername} imageUrl={data.authorProfileImageUrl ?? null} />
           <a class="name header-name" href={`/profile/${data.authorUsername}`} title={data.authorUsername}>{data.authorUsername}</a>
           <PausedBadge username={data.authorUsername} />
-          <ContentMetaRow timeOnly createdAt={data.createdAt} />
         </div>
         <ReportControl
       copyUrl={buildShareUrl(`/posts/${data.id}`)}
@@ -109,7 +108,7 @@
       <LinkedPostBody body={data.body} links={data.linkedSubjects ?? []} variant="detail" />
     </ModerationRestrictionNotice>
 
-    <div class="footer detail-footer">
+    <div class="footer detail-footer no-truncate">
       <div class="engagement-row feed-corner-actions">
         <VoteStrip corner activeVote={localActiveVote} count={localVoteCount} syncKey={data.id} onvote={handleVote} />
         <span class="comment-link">
@@ -132,6 +131,9 @@
             <FeedToolbarIcon name="sort" />
           </IconMenuButton>
         </span>
+      </div>
+      <div class="footer-meta">
+        <ContentMetaRow timeOnly createdAt={data.createdAt} />
       </div>
     </div>
 

@@ -525,16 +525,29 @@
           <div class="action-row">
             <button
               aria-label={followAriaLabel}
+              title={followAriaLabel}
               class="action primary"
               class:on={viewerIsFollowing || viewerFollowStatus === 'pending'}
               disabled={followPending}
               type="button"
               on:click={toggleFollow}
             >
-              {viewerFollowStatus === 'pending' ? 'Requested' : viewerIsFollowing ? 'Following' : 'Follow'}
+              <FeedToolbarIcon name={viewerIsFollowing ? 'person-check' : 'person-plus'} />
+              <span class="action-text"
+                >{viewerFollowStatus === 'pending' ? 'Requested' : viewerIsFollowing ? 'Following' : 'Follow'}</span
+              >
             </button>
             {#if !viewerPaused}
-              <button class="action" type="button" on:click={() => (composeOpen = true)}>Message</button>
+              <button
+                aria-label={`Message ${data.username}`}
+                class="action"
+                title="Message"
+                type="button"
+                on:click={() => (composeOpen = true)}
+              >
+                <FeedToolbarIcon name="message" />
+                <span class="action-text">Message</span>
+              </button>
             {/if}
             {#if data.trust && !viewerPaused}
               <button
@@ -554,7 +567,10 @@
                 type="button"
                 on:click={() => trustAction('vouch')}
               >
-                {data.trust.viewerStance === 'vouch' ? 'Vouched' : 'Vouch'}
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"
+                  ><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" /><path d="M8.5 12l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg
+                >
+                <span class="action-text">{data.trust.viewerStance === 'vouch' ? 'Vouched' : 'Vouch'}</span>
               </button>
               <button
                 aria-label={data.trust.viewerStance === 'bot'
@@ -573,7 +589,10 @@
                 type="button"
                 on:click={() => trustAction('bot')}
               >
-                {data.trust.viewerStance === 'bot' ? 'Marked' : 'Bot'}
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"
+                  ><rect x="5" y="8" width="14" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.8" /><path d="M12 4v4M9.5 13h.01M14.5 13h.01M10 16.5h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /><circle cx="12" cy="3.5" r="1" fill="currentColor" /></svg
+                >
+                <span class="action-text">{data.trust.viewerStance === 'bot' ? 'Marked bot' : 'Bot'}</span>
               </button>
             {/if}
           </div>
@@ -854,6 +873,12 @@
     color: var(--text-main);
   }
 
+  .count-row button:hover {
+    color: var(--brand-strong);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
   .count-row button.active {
     color: var(--brand-strong);
   }
@@ -869,6 +894,10 @@
   }
 
   .action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     min-width: 0;
     min-height: 40px;
     padding: 0 8px;
@@ -883,6 +912,35 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
+  }
+
+  .action :global(.toolbar-icon) {
+    width: 18px;
+    height: 18px;
+  }
+
+  .action:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
+  .action.primary:hover:not(:disabled) {
+    background: var(--brand-strong);
+    color: var(--page-bg);
+  }
+
+  .action.bot:hover:not(:disabled) {
+    border-color: color-mix(in srgb, #b91c1c 45%, var(--panel-border));
+    background: color-mix(in srgb, #b91c1c 10%, var(--panel));
+    color: #b91c1c;
+  }
+
+  /* Phones: symbols only; each button keeps its name as its label and tooltip. */
+  @media (max-width: 600px) {
+    .action-text {
+      display: none;
+    }
   }
 
   .action:disabled {

@@ -86,7 +86,8 @@
         ? 'opposition'
         : null
   );
-  const showMembershipButton = $derived(!isPersonalServiceProject(data.projectMode));
+  // Every project, personal services included, lets you open its member list.
+  const showMembershipButton = true;
   const requestSystem = $derived(
     data.projectMode !== 'productive' ? (data.lifecycle.requestSystem ?? null) : null
   );
@@ -438,6 +439,14 @@
 />
 
 <style>
+  /* The member count and "Joined" respond to hover like every other button in the bar. */
+  .control-actions :global(.membership-count:hover:not(.static)),
+  .control-actions :global(.membership-join.joined:hover:not(:disabled)) {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    cursor: pointer;
+  }
+
   /* Author and time on one line, right under the title. */
   .byline {
     margin: 2px 0 6px;

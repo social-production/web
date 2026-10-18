@@ -311,6 +311,26 @@
     border-bottom: 1px solid var(--panel-border);
   }
 
+  /* Detail pages: the byline stays bottom right and is never cut; if it can't fit beside the
+     buttons it moves to its own line, still right-aligned. */
+  .content :global(.footer.no-truncate:has(.feed-corner-actions)) {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .content :global(.footer.no-truncate:has(.feed-corner-actions) .footer-meta) {
+    flex: 1 0 auto;
+    overflow: visible;
+    padding-right: var(--surface-pad-x);
+  }
+
+  .content :global(.footer.no-truncate .content-meta-row),
+  .content :global(.footer.no-truncate .content-meta-row .inline-link) {
+    overflow: visible;
+    text-overflow: clip;
+    min-width: auto;
+  }
+
   .content :global(.feed-corner-actions:has(.detail-tool)) {
     flex-basis: 204px;
     width: 204px;

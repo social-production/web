@@ -309,10 +309,6 @@
   }
 
   async function handleMembersPanelOpen() {
-    if (isPersonalServiceProject(data.projectMode)) {
-      return;
-    }
-
     showMembersPanel = !showMembersPanel;
   }
 
@@ -408,10 +404,6 @@
     void import('$lib/components/shared/PlanAssessmentWizard.svelte').then((module) => {
       Wizard = module.default;
     });
-  }
-
-  $: if (isPersonalServiceProject(data.projectMode) && showMembersPanel) {
-    showMembersPanel = false;
   }
 
   $: dockVotes = collectProjectPendingVotes(pageData);
@@ -643,7 +635,7 @@
               joined={pageData.viewerIsMember}
               count={pageData.memberCount}
               canToggle={pageData.viewerCanToggleMembership}
-              canOpenMembers={!isPersonalServiceProject(pageData.projectMode)}
+              canOpenMembers
               membersOpen={showMembersPanel}
               joinAriaLabel="Join project"
               membersAriaLabel={`${pageData.memberCount} members`}
@@ -739,13 +731,11 @@
     {/if}
   </section>
 
-  {#if !isPersonalServiceProject(pageData.projectMode)}
-    <ProjectMembersPanel
-      data={pageData}
-      open={showMembersPanel}
-      on:close={() => (showMembersPanel = false)}
-    />
-  {/if}
+  <ProjectMembersPanel
+    data={pageData}
+    open={showMembersPanel}
+    on:close={() => (showMembersPanel = false)}
+  />
 
   {#if assessmentPlanSnapshot && Wizard && pendingAssessmentOpen}
     <svelte:component

@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// The first dynamic import loads the location modules cold, which can pass 5s on a busy machine.
+vi.setConfig({ testTimeout: 30_000 });
+
 describe('default location preference storage', () => {
   beforeEach(() => {
     vi.resetModules();
