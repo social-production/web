@@ -25,6 +25,11 @@
               themeMeta.setAttribute('content', theme === 'light' ? '#ffffff' : '#181a1b');
             }
           }
+          // Accent and font too, so the first paint isn't green Inter for everyone.
+          var accent = localStorage.getItem('sp_accent');
+          var font = localStorage.getItem('sp_font');
+          if (accent) document.documentElement.dataset.accent = accent;
+          if (font) document.documentElement.dataset.font = font;
         } catch (e) {}
       })();
     </script>

@@ -104,7 +104,8 @@
     $page.url.pathname === '/signup';
   $: isMessagesRoute = $page.url.pathname.startsWith('/messages');
   $: immersiveChat = isCompact && $chatImmersive;
-  $: combineFeeds = Boolean($page.data.settings?.combineFeeds);
+  // One Home feed unless someone chose separate Public and Personal feeds.
+  $: combineFeeds = $page.data.settings?.combineFeeds ?? true;
   $: mapSurfaceActive = mapPanelOpen || dedicatedMapPage;
   $: if (!feedChromeActive || mapSurfaceActive || moreSheetOpen || searchExpanded) {
     feedChromeHidden = false;

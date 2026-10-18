@@ -428,11 +428,21 @@
       border-radius: 0;
     }
 
+    /* Same as project and event tabs: attached under the top bar, and when the bar hides on
+       scroll the tabs slide up and take its place. */
     .tab-row {
       position: sticky;
       top: var(--topbar-height, 56px);
       z-index: var(--z-detail-tabs);
       padding: 8px 12px;
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.22s ease;
+      will-change: transform;
+    }
+
+    :global(.feed-chrome-collapsed) .tab-row {
+      padding-top: calc(8px + var(--shell-safe-top, 0px));
+      transform: translate3d(0, calc(-1 * var(--topbar-height, 0px)), 0);
     }
 
     .tab-label-full {

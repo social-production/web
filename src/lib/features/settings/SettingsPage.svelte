@@ -1,4 +1,14 @@
 <script lang="ts">
+  import { ACCENT_COLORS } from '$lib/types/account';
+  // Light-mode brand colour per accent, for the swatches.
+  const ACCENT_SWATCHES: Record<string, string> = {
+    green: '#2f8a57',
+    blue: '#2563eb',
+    purple: '#7c3aed',
+    orange: '#c2410c',
+    pink: '#be185d',
+    teal: '#0f766e'
+  };
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
@@ -17,6 +27,8 @@
   import { patchBootstrapCacheSettings } from '$lib/services/bootstrapCache';
   import type {
     AppearanceThemeMode,
+    FontFamily,
+    AccentColor,
     NotificationCategory,
     PreferredLanguage,
     SettingsPageData,
@@ -176,6 +188,14 @@
     } finally {
       pendingKey = '';
     }
+  }
+
+  /** Show the new accent or font straight away, then save it. */
+  function previewAndSave(kind: 'accent' | 'font', value: string) {
+    document.documentElement.dataset[kind] = value;
+    const patch: SettingsUpdateInput =
+      kind === 'accent' ? { accentColor: value as AccentColor } : { fontFamily: value as FontFamily };
+    void applySettings(kind, patch).catch(() => undefined);
   }
 
   function setTheme(theme: AppearanceThemeMode) {
@@ -666,20 +686,20 @@
       </div>
       <div class="setting-item">
         <div>
-          <strong>One Home feed</strong>
-          <p>Mix public and personal items on Home, and show one Home tab instead of Public and Personal.</p>
+          <strong>Separate Public and Personal feeds</strong>
+          <p>Off: one Home feed with everything. On: separate Public and Personal tabs.</p>
         </div>
         <button
-          aria-checked={data.combineFeeds}
+          aria-checked={!data.combineFeeds}
           class="switch"
-          class:on={data.combineFeeds}
+          class:on={!data.combineFeeds}
           disabled={pendingKey === 'combine-feeds'}
           role="switch"
           type="button"
           on:click={() => applySettings('combine-feeds', { combineFeeds: !data.combineFeeds })}
         >
           <span class="switch-thumb"></span>
-          <span class="sr-only">{data.combineFeeds ? 'On' : 'Off'}</span>
+          <span class="sr-only">{data.combineFeeds ? 'Off' : 'On'}</span>
         </button>
       </div>
       <div class="setting-item">
@@ -696,6 +716,48 @@
               disabled={pendingKey === 'theme'}
               type="button"
               on:click={() => setTheme(option.value as AppearanceThemeMode).catch(() => undefined)}
+            >
+              {option.label}
+            </button>
+          {/each}
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <strong>Accent colour</strong>
+          <p>Buttons, links and highlights. Each one stays readable in light and dark.</p>
+        </div>
+        <div class="accent-choice" role="radiogroup" aria-label="Accent colour">
+          {#each ACCENT_COLORS as accent (accent)}
+            <button
+              role="radio"
+              aria-checked={(data.accentColor ?? 'green') === accent}
+              aria-label={accent[0].toUpperCase() + accent.slice(1)}
+              title={accent[0].toUpperCase() + accent.slice(1)}
+              class="swatch"
+              class:chosen={(data.accentColor ?? 'green') === accent}
+              style={`--swatch: ${ACCENT_SWATCHES[accent]}`}
+              disabled={pendingKey === 'accent'}
+              type="button"
+              on:click={() => previewAndSave('accent', accent)}
+            ></button>
+          {/each}
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <strong>Font</strong>
+          <p>Readable is Atkinson Hyperlegible, designed for low vision.</p>
+        </div>
+        <div class="theme-choice" role="radiogroup" aria-label="Font">
+          {#each [{ value: 'inter', label: 'Inter' }, { value: 'system', label: 'System' }, { value: 'readable', label: 'Readable' }] as option (option.value)}
+            <button
+              role="radio"
+              aria-checked={(data.fontFamily ?? 'inter') === option.value}
+              class:chosen={(data.fontFamily ?? 'inter') === option.value}
+              disabled={pendingKey === 'font'}
+              type="button"
+              on:click={() => previewAndSave('font', option.value)}
             >
               {option.label}
             </button>
@@ -979,17 +1041,52 @@
 </section>
 
 <style>
+  .accent-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .swatch {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 2px solid var(--panel);
+    border-radius: 50%;
+    background: var(--swatch);
+    box-shadow: 0 0 0 1px var(--panel-border);
+    cursor: pointer;
+  }
+
+  .swatch:hover:not(:disabled) {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--swatch) 55%, var(--panel-border));
+  }
+
+  .swatch.chosen {
+    box-shadow: 0 0 0 3px var(--swatch);
+  }
+
+  /* Three equal segments, so "System" isn't wider than the others. */
   .theme-choice {
-    display: inline-flex;
+    display: inline-grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 240px;
+    max-width: 100%;
     flex: 0 0 auto;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     overflow: hidden;
   }
 
+  @media (max-width: 760px) {
+    .theme-choice {
+      width: 100%;
+    }
+  }
+
   .theme-choice button {
     min-height: 40px;
-    padding: 0 14px;
+    padding: 0 6px;
     border: 0;
     border-right: 1px solid var(--panel-border);
     border-radius: 0;

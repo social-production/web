@@ -93,6 +93,11 @@ export interface ProfilePageData {
 }
 
 export type AppearanceThemeMode = 'dark' | 'light' | 'system';
+/** Settings → Appearance accent; app.css maps each to light and dark brand colours. */
+export const ACCENT_COLORS = ['green', 'blue', 'purple', 'orange', 'pink', 'teal'] as const;
+export type AccentColor = (typeof ACCENT_COLORS)[number];
+export type FontFamily = 'inter' | 'system' | 'readable';
+
 export type TextSize = 'small' | 'medium' | 'large';
 export type PreferredLanguage = 'en' | 'nl';
 export type DefaultFeedMode = 'public' | 'personal';
@@ -174,6 +179,8 @@ export interface SettingsPageData {
   displayTimezone: string | null;
   combineFeeds: boolean;
   textSize: TextSize;
+  accentColor: AccentColor;
+  fontFamily: FontFamily;
   defaultLocationId: string | null;
   notificationCategories: NotificationCategory[];
 }
@@ -193,6 +200,8 @@ export interface SettingsUpdateInput {
   displayTimezone?: string | null;
   combineFeeds?: boolean;
   textSize?: TextSize;
+  accentColor?: AccentColor;
+  fontFamily?: FontFamily;
   defaultLocationId?: string | null;
   notificationCategories?: NotificationCategory[];
 }

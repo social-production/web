@@ -1,3 +1,4 @@
+import { ACCENT_COLORS, type AccentColor } from '$lib/types/account';
 import { apiClient, extractErrorMessage } from '../client';
 import { hasRememberedAuthCookie } from '../auth';
 import { mapPersonalItem, registerFeedEntity } from './feeds';
@@ -44,6 +45,8 @@ interface BackendSettings {
   display_timezone?: string | null;
   combine_feeds?: boolean;
   text_size?: string;
+  accent_color?: string;
+  font_family?: string;
   default_location_id?: string | null;
   notification_categories?: string[] | null;
 }
@@ -206,8 +209,13 @@ function mapSettings(user: BackendUser, s: BackendSettings): SettingsPageData {
       ? 'nl'
       : 'en') as SettingsPageData['preferredLanguage'],
     displayTimezone: s.display_timezone ?? null,
-    combineFeeds: Boolean(s.combine_feeds),
+    combineFeeds: s.combine_feeds ?? true,
     textSize: s.text_size === 'small' || s.text_size === 'large' ? s.text_size : 'medium',
+    accentColor: (ACCENT_COLORS as readonly string[]).includes(s.accent_color ?? '')
+      ? (s.accent_color as AccentColor)
+      : 'green',
+    fontFamily:
+      s.font_family === 'system' || s.font_family === 'readable' ? s.font_family : 'inter',
     defaultLocationId: s.default_location_id ?? null,
     notificationCategories: normalizeNotificationCategories(s.notification_categories),
   };
@@ -258,6 +266,8 @@ export async function fetchUpdateSettings(input: SettingsUpdateInput): Promise<v
   if (input.displayTimezone !== undefined) body.display_timezone = input.displayTimezone;
   if (input.combineFeeds !== undefined) body.combine_feeds = input.combineFeeds;
   if (input.textSize !== undefined) body.text_size = input.textSize;
+  if (input.accentColor !== undefined) body.accent_color = input.accentColor;
+  if (input.fontFamily !== undefined) body.font_family = input.fontFamily;
   if (input.defaultLocationId !== undefined) body.default_location_id = input.defaultLocationId;
   if (input.notificationCategories !== undefined)
     body.notification_categories = input.notificationCategories;

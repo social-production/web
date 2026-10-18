@@ -38,6 +38,10 @@
     const textSize = data.settings?.textSize ?? 'medium';
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.textSize = textSize;
+    const accent = data.settings?.accentColor ?? 'green';
+    const font = data.settings?.fontFamily ?? 'inter';
+    document.documentElement.dataset.accent = accent;
+    document.documentElement.dataset.font = font;
     document.body.dataset.theme = theme;
     document.body.dataset.shellMode = detectShellMode();
     document.documentElement.lang = data.locale;
@@ -48,6 +52,8 @@
 
     try {
       localStorage.setItem('sp_theme', mode);
+      localStorage.setItem('sp_accent', accent);
+      localStorage.setItem('sp_font', font);
     } catch {
       // ignore storage failures
     }

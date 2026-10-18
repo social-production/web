@@ -223,7 +223,7 @@
     applyPreferences(settings.publicFeedPreferences);
   }
 
-  $: combineFeeds = Boolean($page.data.settings?.combineFeeds);
+  $: combineFeeds = $page.data.settings?.combineFeeds ?? true;
 
   const homeAudienceOptions = [
     { value: 'following', label: 'Following only' },

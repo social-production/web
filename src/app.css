@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap');
 
 :root {
   color-scheme: light dark;
@@ -268,7 +268,7 @@ html[data-text-size='large'] {
 body {
   overflow-x: clip;
   overflow-y: clip;
-  font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-family: var(--font-body, 'Inter', 'Segoe UI', sans-serif);
   font-size: var(--body-font-size);
   line-height: 1.45;
   -webkit-tap-highlight-color: color-mix(in srgb, var(--brand) 24%, transparent);
@@ -760,4 +760,97 @@ html.participation-highlight-under-overlay #participation-signals [data-particip
 #pending-votes-panel,
 .participation-scroll-target {
   scroll-margin-top: 120px;
+}
+
+/* Accent colours (Settings → Appearance). Green is the default and needs no rules. Each light
+   brand keeps white text at 4.5:1 or better; each dark brand takes dark text. */
+
+html[data-accent='blue'],
+html[data-accent='blue'] body {
+  --brand: #2563eb;
+  --brand-strong: #1d4ed8;
+  --brand-soft: #e8f0fe;
+  --brand-badge: #d6e4fc;
+}
+
+html[data-theme='dark'][data-accent='blue'],
+html[data-theme='dark'][data-accent='blue'] body {
+  --brand: #6ea8ff;
+  --brand-strong: #9cc3ff;
+  --brand-soft: #1e2b45;
+  --brand-badge: #273a5c;
+}
+
+html[data-accent='purple'],
+html[data-accent='purple'] body {
+  --brand: #7c3aed;
+  --brand-strong: #6d28d9;
+  --brand-soft: #f1eafe;
+  --brand-badge: #e3d5fc;
+}
+
+html[data-theme='dark'][data-accent='purple'],
+html[data-theme='dark'][data-accent='purple'] body {
+  --brand: #b794f6;
+  --brand-strong: #d0b8fa;
+  --brand-soft: #2e2442;
+  --brand-badge: #3b2d57;
+}
+
+html[data-accent='orange'],
+html[data-accent='orange'] body {
+  --brand: #c2410c;
+  --brand-strong: #9a3412;
+  --brand-soft: #fdeee6;
+  --brand-badge: #fbdccc;
+}
+
+html[data-theme='dark'][data-accent='orange'],
+html[data-theme='dark'][data-accent='orange'] body {
+  --brand: #fb923c;
+  --brand-strong: #fdba74;
+  --brand-soft: #3a2618;
+  --brand-badge: #4d3020;
+}
+
+html[data-accent='pink'],
+html[data-accent='pink'] body {
+  --brand: #be185d;
+  --brand-strong: #9d174d;
+  --brand-soft: #fce8f1;
+  --brand-badge: #f9d2e4;
+}
+
+html[data-theme='dark'][data-accent='pink'],
+html[data-theme='dark'][data-accent='pink'] body {
+  --brand: #f472b6;
+  --brand-strong: #f9a8d4;
+  --brand-soft: #3d1f2e;
+  --brand-badge: #52283d;
+}
+
+html[data-accent='teal'],
+html[data-accent='teal'] body {
+  --brand: #0f766e;
+  --brand-strong: #115e59;
+  --brand-soft: #e6f4f2;
+  --brand-badge: #cde9e5;
+}
+
+html[data-theme='dark'][data-accent='teal'],
+html[data-theme='dark'][data-accent='teal'] body {
+  --brand: #2dd4bf;
+  --brand-strong: #7ee8d9;
+  --brand-soft: #173533;
+  --brand-badge: #1f4542;
+}
+
+
+/* Fonts (Settings → Appearance). */
+html[data-font='system'] {
+  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html[data-font='readable'] {
+  --font-body: 'Atkinson Hyperlegible', 'Inter', sans-serif;
 }
