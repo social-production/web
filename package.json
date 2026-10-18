@@ -36,7 +36,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^29.1.1",
     "playwright": "^1.62.1",
-    "prettier": "^3.5.3",
+    "prettier": "^3.9.10",
     "prettier-plugin-svelte": "^3.3.3",
     "svelte": "^5.56.5",
     "svelte-check": "^4.7.6",
