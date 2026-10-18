@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { buildShareUrl } from '$lib/utils/sharePrefill';
   import CountPill from '$lib/components/cards/shared/CountPill.svelte';
   import FeedCardTop from '$lib/components/cards/shared/FeedCardTop.svelte';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
@@ -36,6 +37,7 @@
 >
   <FeedCardTop tags={orderedTags}>
     <ReportControl
+      copyUrl={buildShareUrl(item.href)}
       hasActiveReport={item.hasActiveReport}
       isUnderReview={item.isUnderReview}
       itemLabel="thread"

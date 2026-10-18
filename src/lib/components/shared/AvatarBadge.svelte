@@ -4,12 +4,19 @@
   export let imageUrl: string | null = null;
 
   $: initials = username.replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase() || 'SP';
-  $: hasImage = !!imageUrl && imageUrl.trim().length > 0;
+  // A picture that fails to load falls back to initials instead of clipped alt text.
+  let failedUrl: string | null = null;
+  $: hasImage = !!imageUrl && imageUrl.trim().length > 0 && failedUrl !== imageUrl;
 </script>
 
 <span class:size-sm={size === 'sm'} class:size-md={size === 'md'} class="avatar-badge">
   {#if hasImage}
-    <img alt={`${username} profile`} class="avatar-image" src={imageUrl ?? ''} />
+    <img
+      alt=""
+      class="avatar-image"
+      src={imageUrl ?? ''}
+      on:error={() => (failedUrl = imageUrl)}
+    />
   {:else}
     {initials}
   {/if}

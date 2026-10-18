@@ -96,7 +96,7 @@
   );
   const canProposeEdit = $derived(data.viewerCanRequestEdit);
   const canProposeUpdate = $derived(data.viewerCanRequestUpdate);
-  const updateActionLabel = $derived(isPersonalServiceProject(data.projectMode) ? 'Post' : 'Propose');
+  const updateActionLabel = 'Post update';
   const editActionLabel = $derived(isPersonalServiceProject(data.projectMode) ? 'Save details' : 'Propose Edit');
   const latestUpdate = $derived(data.updates[0] ?? null);
 
@@ -274,6 +274,7 @@
 <div class="context-panel">
   <FeedCardTop stage={data.stage} tags={combinedTags}>
     <ReportControl
+      copyUrl={buildShareUrl(`/projects/${data.slug}`)}
       hasActiveReport={Boolean(data.report)}
       isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
       itemLabel="project"

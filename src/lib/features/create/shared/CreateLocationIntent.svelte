@@ -9,6 +9,8 @@
   export let intent: 'physical' | 'online' | 'later' = 'later';
   export let locationValue: LocationPickerValue = emptyLocationPickerValue();
   export let allowOnline = true;
+  /** Help requests need a place, so they leave out "Decide later". */
+  export let allowLater = true;
   export let helperText =
     'A physical location helps people discover this on the map. You can change it later.';
 
@@ -41,13 +43,15 @@
         </span>
       </label>
     {/if}
-    <label class="intent-option">
-      <input type="radio" name="location-intent" value="later" bind:group={intent} />
-      <span>
-        <strong>Decide later</strong>
-        <span class="hint">Create now, add a place later. Not map-discoverable yet.</span>
-      </span>
-    </label>
+    {#if allowLater}
+      <label class="intent-option">
+        <input type="radio" name="location-intent" value="later" bind:group={intent} />
+        <span>
+          <strong>Decide later</strong>
+          <span class="hint">Create now, add a place later. Not map-discoverable yet.</span>
+        </span>
+      </label>
+    {/if}
   </div>
 
   {#if intent === 'physical'}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { buildShareUrl } from '$lib/utils/sharePrefill';
   import FeedCardTop from '$lib/components/cards/shared/FeedCardTop.svelte';
   import ReportControl from '$lib/components/shared/ReportControl.svelte';
   import ModerationRestrictionNotice from '$lib/components/shared/ModerationRestrictionNotice.svelte';
@@ -22,6 +23,7 @@
 <div class="context-panel">
   <FeedCardTop tags={combinedTags}>
     <ReportControl
+      copyUrl={buildShareUrl(`/help-requests/${data.id}`)}
       hasActiveReport={Boolean(data.report)}
       isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
       itemLabel="help request"

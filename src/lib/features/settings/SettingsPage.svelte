@@ -294,10 +294,6 @@
     await handleLocationChange(new CustomEvent('change', { detail: locationValue }));
   }
 
-  function toggleTheme() {
-    return setTheme(data.appearanceThemeMode === 'dark' ? 'light' : 'dark').catch(() => undefined);
-  }
-
   function setLanguage(language: PreferredLanguage) {
     if (!I18N_ENABLED) {
       return;
@@ -617,19 +613,11 @@
       {/if}
       {#if bioError}
         <p class="profile-image-error">{bioError}</p>
-      {:else if bioSavedFlash}
-        <p class="bio-saved">Bio saved.</p>
       {/if}
 
       <div class="actions">
         <button class="button-primary" disabled={pendingKey === 'bio'} type="button" on:click={() => void saveBio()}>{m.settings_save_bio()}</button>
-        <button class="button-danger" disabled={pendingKey === 'sign-out'} type="button" on:click={handleSignOut}>
-          {pendingKey === 'sign-out' ? m.settings_signing_out() : m.settings_sign_out()}
-        </button>
       </div>
-      {#if signOutError}
-        <p class="profile-image-error">{signOutError}</p>
-      {/if}
     </div>
   </section>
 
@@ -697,11 +685,22 @@
       <div class="setting-item">
         <div>
           <strong>Theme</strong>
-          <p>{data.appearanceThemeMode === 'dark' ? m.settings_theme_dark() : m.settings_theme_light()}</p>
+          <p>System follows your device's light or dark setting.</p>
         </div>
-        <button class="button-secondary" disabled={pendingKey === 'theme'} type="button" on:click={toggleTheme}>
-          Switch to {data.appearanceThemeMode === 'dark' ? m.settings_theme_light() : m.settings_theme_dark()}
-        </button>
+        <div class="theme-choice" role="radiogroup" aria-label="Theme">
+          {#each [{ value: 'light', label: m.settings_theme_light() }, { value: 'dark', label: m.settings_theme_dark() }, { value: 'system', label: 'System' }] as option (option.value)}
+            <button
+              role="radio"
+              aria-checked={(data.appearanceThemeMode ?? 'light') === option.value}
+              class:chosen={(data.appearanceThemeMode ?? 'light') === option.value}
+              disabled={pendingKey === 'theme'}
+              type="button"
+              on:click={() => setTheme(option.value as AppearanceThemeMode).catch(() => undefined)}
+            >
+              {option.label}
+            </button>
+          {/each}
+        </div>
       </div>
       <div class="setting-item">
         <div>
@@ -944,6 +943,20 @@
         </button>
       </form>
 
+      <!-- Sign out sits with the other account actions, away from Save bio. -->
+      <div class="setting-item">
+        <div>
+          <strong>Sign out</strong>
+          <p>Sign out on this device.</p>
+        </div>
+        <button class="button-secondary" disabled={pendingKey === 'sign-out'} type="button" on:click={handleSignOut}>
+          {pendingKey === 'sign-out' ? m.settings_signing_out() : m.settings_sign_out()}
+        </button>
+      </div>
+      {#if signOutError}
+        <p class="profile-image-error">{signOutError}</p>
+      {/if}
+
       <form class="setting-item account-form" on:submit|preventDefault={handleDeactivate}>
         <div>
           <strong>Deactivate account</strong>
@@ -966,6 +979,37 @@
 </section>
 
 <style>
+  .theme-choice {
+    display: inline-flex;
+    flex: 0 0 auto;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .theme-choice button {
+    min-height: 40px;
+    padding: 0 14px;
+    border: 0;
+    border-right: 1px solid var(--panel-border);
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .theme-choice button:last-child {
+    border-right: 0;
+  }
+
+  .theme-choice button.chosen {
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+  }
+
   .settings-layout {
     display: grid;
     gap: 24px;

@@ -1,4 +1,4 @@
-import { localizeInstants } from '$lib/utils/linkifyMessageBody';
+import { withoutRawPaths } from '$lib/utils/linkifyMessageBody';
 import { apiAssetUrl, apiClient, extractErrorMessage } from '../client';
 import { registerEntityType } from '../typeRegistry';
 import type {
@@ -153,7 +153,7 @@ function mapConversation(c: BackendConversation, viewerId?: string) {
         ? (directPartner?.username ?? c.participants.map((p) => p.username).join(', '))
         : (c.title ?? c.participants.map((p) => p.username).join(', ')),
     participants,
-    preview: localizeInstants(c.preview ?? ''),
+    preview: withoutRawPaths(c.preview ?? ''),
     lastMessageAt: c.last_message_at ?? c.created_at,
     unreadCount: c.unread_count ?? 0,
     pinned: Boolean(c.list_pinned),
@@ -262,7 +262,7 @@ export async function fetchLinkedChats(): Promise<MessageLinkedChat[]> {
           : `${chat.comment_count} ${chat.comment_count === 1 ? 'comment' : 'comments'}`,
       memberCount: chat.member_count ?? 0,
       members: chat.members ?? [],
-      preview: localizeInstants(chat.preview ?? ''),
+      preview: withoutRawPaths(chat.preview ?? ''),
       lastMessageAt: chat.last_message_at,
       unreadCount: chat.unread_count ?? 0,
       pinned: Boolean(chat.list_pinned),

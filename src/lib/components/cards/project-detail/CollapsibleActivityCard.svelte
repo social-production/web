@@ -120,12 +120,12 @@
     return [placeLabel(), dateLine()].filter(Boolean).join(' · ');
   }
 
+  // Same words as the card chip: "0 of 2 filled · 1 more needed".
   function roleCapacity(role: ProjectActivityRole) {
-    const span =
-      role.maximumCount != null && role.maximumCount !== role.requiredCount
-        ? `${role.requiredCount}–${role.maximumCount}`
-        : `${role.requiredCount}`;
-    return `${role.filledCount} of ${span}`;
+    const capacity = role.maximumCount ?? role.requiredCount;
+    const short = Math.max(0, role.requiredCount - role.filledCount);
+    const filled = `${role.filledCount} of ${capacity} filled`;
+    return short > 0 ? `${filled} · ${short} more needed` : filled;
   }
 
   function placeLabel() {
@@ -226,7 +226,7 @@
   $: fillChipLabel = activity.rolesLocked
     ? 'Ended'
     : neededParticipants > 0
-      ? `Need ${neededParticipants}`
+      ? `${neededParticipants} more needed`
       : spotsLeft === 0
         ? 'Full'
         : spotsLeft != null

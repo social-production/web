@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { writable } from 'svelte/store';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
+  import { askConfirm } from '$lib/stores/confirmDialog';
   import { createReturnHref } from '$lib/stores/createReturnState';
   import {
     CREATE_SHEET_CHROME,
@@ -26,8 +27,27 @@
   const chrome = writable<CreateSheetChrome | null>(null);
 
   let open = true;
+  let fieldsElement: HTMLDivElement | null = null;
 
-  function handleClose() {
+  function hasTypedText() {
+    const fields = fieldsElement?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+      'textarea, input:not([type]), input[type="text"], input[type="search"], input[type="url"]'
+    );
+    return [...(fields ?? [])].some((field) => field.value.trim().length > 0);
+  }
+
+  async function handleClose() {
+    // Don't throw away what someone typed without asking.
+    if (hasTypedText()) {
+      open = true;
+      const discard = await askConfirm({
+        title: 'Discard this draft?',
+        body: "What you've written here will be lost.",
+        confirmLabel: 'Discard',
+        danger: true
+      });
+      if (!discard) return;
+    }
     open = false;
     void goto(createReturnHref(closeFallbackHref));
   }
@@ -63,7 +83,7 @@
   </svelte:fragment>
 
   <div class="sheet-form">
-    <div class="sheet-fields">
+    <div class="sheet-fields" bind:this={fieldsElement}>
       <slot name="primary" />
     </div>
   </div>

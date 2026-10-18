@@ -3,6 +3,8 @@
 :root {
   color-scheme: light dark;
   --page-background: #181a1b;
+  /* Text on brand-green fills: the page colour, dark on dark mode's light green. */
+  --page-bg: var(--page-background);
   --panel: #1e1f22;
   --panel-strong: #2d3035;
   --panel-hover: #2d3035;
@@ -127,6 +129,7 @@ html[data-theme='light'],
 body[data-theme='light'] {
   color-scheme: light;
   --page-background: #ffffff;
+  --page-bg: var(--page-background);
   --panel: #ffffff;
   --panel-strong: #ffffff;
   --panel-hover: #f4f4f5;

@@ -311,6 +311,20 @@
     border-bottom: 1px solid var(--panel-border);
   }
 
+  /* Detail pages: the author and time get their own line, so the name isn't squeezed. */
+  .content :global(.footer.detail-footer.byline-first:has(.feed-corner-actions)) {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .content :global(.footer.detail-footer.byline-first:has(.feed-corner-actions) .footer-meta) {
+    order: -1;
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    padding: 0 var(--surface-pad-x);
+    overflow: visible;
+  }
+
   .content :global(.feed-corner-actions:has(.detail-tool)) {
     flex-basis: 204px;
     width: 204px;

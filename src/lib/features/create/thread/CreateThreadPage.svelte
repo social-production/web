@@ -320,7 +320,7 @@
         {canContinue}
         {canSubmit}
         {isSubmitting}
-        submitLabel="Create Thread"
+        submitLabel="Publish thread"
         on:submit={handleCreate}
       >
         <svelte:fragment slot="step" let:currentStep>

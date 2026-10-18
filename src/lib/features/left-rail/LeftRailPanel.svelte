@@ -249,7 +249,7 @@
   .discover-button {
     border: 1px solid color-mix(in srgb, var(--brand) 74%, transparent);
     background: var(--brand);
-    color: white;
+    color: var(--on-brand);
   }
 
   .discover-button:hover {

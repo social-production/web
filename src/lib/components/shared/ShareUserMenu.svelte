@@ -1,7 +1,6 @@
 <script lang="ts">
   import AvatarBadge from '$lib/components/shared/AvatarBadge.svelte';
   import OverlaySheet from '$lib/components/shared/OverlaySheet.svelte';
-  import PlatformMark from '$lib/components/shared/PlatformMark.svelte';
   import type { DetailMember, ShareTargetResult } from '$lib/types/detail';
   import { canUseNativeShare, shareLink, shareTargets } from '$lib/utils/share';
   import { onMount } from 'svelte';
@@ -46,6 +45,7 @@
   let selected: DetailMember[] = [];
   let liveContacts: DetailMember[] = [];
   let searchRequestId = 0;
+  let searching = false;
 
   $: searchNeedle = query.trim().toLowerCase();
   // Before anyone types, offer people you already know: this page's contacts, else your usual ones.
@@ -69,6 +69,7 @@
 
     const requestId = ++searchRequestId;
     const nextQuery = query.trim();
+    searching = true;
     try {
       const results = await searchContacts(nextQuery);
       if (requestId === searchRequestId) {
@@ -78,6 +79,8 @@
       if (requestId === searchRequestId) {
         liveContacts = [];
       }
+    } finally {
+      if (requestId === searchRequestId) searching = false;
     }
   }
 
@@ -161,7 +164,8 @@
     type="button"
     on:click={() => (open ? handleClose() : (open = true))}
   >
-    <PlatformMark size={32} />
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+    <span class="share-button-label">Share</span>
   </button>
 
   <OverlaySheet {open} labelledById="share-sheet-title" title={menuTitle} on:close={handleClose}>
@@ -277,6 +281,8 @@
           </button>
         {/each}
       </div>
+    {:else if searchNeedle && searching}
+      <p class="empty-row">Searching…</p>
     {:else if searchNeedle}
       <p class="empty-row">No one matches “{query.trim()}”.</p>
     {:else if selected.length === 0}
@@ -452,14 +458,19 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     width: 100%;
     min-width: 44px;
     min-height: 44px;
-    padding: 0;
+    padding: 0 12px;
     border: 0;
     border-radius: 0;
     background: transparent;
     color: var(--text-main);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
     cursor: pointer;
   }
 

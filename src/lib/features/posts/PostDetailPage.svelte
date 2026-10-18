@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PausedBadge from '$lib/components/shared/PausedBadge.svelte';
   import { page } from '$app/stores';
   import FeedSurface from '$lib/components/cards/shared/FeedSurface.svelte';
   import DiscussionPanel from '$lib/components/discussion/DiscussionPanel.svelte';
@@ -16,7 +17,6 @@
   import { getMessageContacts } from '$lib/services/queries/inbox';
   import { setVote } from '$lib/services/commands/shared';
   import type { DetailMember } from '$lib/types/detail';
-  import { displayUsername } from '$lib/utils/displayUsername';
   import { buildShareUrl } from '$lib/utils/sharePrefill';
   import type { PostPageData } from '$lib/types/detail';
   import type { VoteDirection } from '$lib/types/feed';
@@ -86,9 +86,11 @@
       <div class="header-row">
         <div class="identity-row">
           <AvatarBadge size="sm" username={data.authorUsername} imageUrl={data.authorProfileImageUrl ?? null} />
-          <a class="name header-name" href={`/profile/${data.authorUsername}`} title={data.authorUsername}>{displayUsername(data.authorUsername)}</a>
+          <a class="name header-name" href={`/profile/${data.authorUsername}`} title={data.authorUsername}>{data.authorUsername}</a>
+          <PausedBadge username={data.authorUsername} />
         </div>
         <ReportControl
+      copyUrl={buildShareUrl(`/posts/${data.id}`)}
           hasActiveReport={Boolean(data.report)}
           isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
           itemLabel="post"
@@ -117,6 +119,7 @@
             <ShareUserMenu
               copyLinkUrl={buildShareUrl(`/posts/${data.id}`)}
               menuTitle="Share post"
+              shareTitle={`${data.authorUsername}'s post`}
               searchContacts={searchShareContacts}
               submitShare={handlePostShare}
             />

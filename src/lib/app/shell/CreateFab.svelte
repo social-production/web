@@ -141,7 +141,7 @@
     border: none;
     border-radius: 999px;
     background: var(--brand);
-    color: #fff;
+    color: var(--on-brand);
     box-shadow: 0 8px 24px color-mix(in srgb, var(--brand) 35%, transparent);
     cursor: pointer;
     transition: transform 0.16s ease, background-color 0.16s ease;
@@ -320,7 +320,7 @@
   @media (min-width: 1081px) {
     .create-fab-shell {
       right: calc(var(--right-width, 0px) + 20px);
-      bottom: calc(var(--detail-action-dock-height, 0px) + 20px);
+      bottom: calc(var(--detail-action-dock-height, 0px) + var(--install-banner-offset, 0px) + 20px);
     }
   }
 </style>

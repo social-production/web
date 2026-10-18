@@ -19,6 +19,8 @@
   export let hasActiveReport = false;
   /** When false, show status only (used on feed cards without report actions). */
   export let interactive = true;
+  /** Page link for the menu's "Copy link"; leave empty where there's nothing to copy. */
+  export let copyUrl = '';
 
   let modalOpen = false;
   let pending = false;
@@ -160,6 +162,7 @@
 <div class="report-control">
   {#key `${targetId}:${menuEpoch}:${activeReport?.id ?? 'none'}`}
     <ReportMenu
+      {copyUrl}
       blockedMessage={blockedMessage}
       hasActiveReport={activeHasReport}
       {interactive}

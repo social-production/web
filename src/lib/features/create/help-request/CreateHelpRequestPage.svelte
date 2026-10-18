@@ -506,10 +506,11 @@
               <CreateLocationIntent
                 bind:intent={locationIntent}
                 bind:locationValue
+                allowLater={false}
                 helperText="Help requests need a physical or online location so people know where to show up."
               />
               {#if locationIntent === 'later'}
-                <p class="status-message">Choose physical or online before publishing. Decide later is not available for help requests.</p>
+                <p class="status-message">Choose physical or online.</p>
               {/if}
             </div>
           {:else if currentStep?.id === 'timing'}

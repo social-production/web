@@ -23,8 +23,18 @@
 
   export let data: LayoutData;
 
+  // "system" follows the device, and keeps following it when the device switches.
+  let prefersDark = browser && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  onMount(() => {
+    const query = window.matchMedia('(prefers-color-scheme: dark)');
+    const sync = () => (prefersDark = query.matches);
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  });
+
   $: if (browser) {
-    const theme = data.settings?.appearanceThemeMode ?? 'light';
+    const mode = data.settings?.appearanceThemeMode ?? 'light';
+    const theme = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode;
     const textSize = data.settings?.textSize ?? 'medium';
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.textSize = textSize;
@@ -37,7 +47,7 @@
     );
 
     try {
-      localStorage.setItem('sp_theme', theme);
+      localStorage.setItem('sp_theme', mode);
     } catch {
       // ignore storage failures
     }
@@ -99,6 +109,8 @@
   }
 
   onMount(() => {
+    // The app is on screen now; drop the placeholder shell from app.html.
+    document.getElementById('boot-shell')?.remove();
     void syncServiceWorker();
 
     if (data.servedFromCache) {

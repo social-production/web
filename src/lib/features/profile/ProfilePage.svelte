@@ -490,11 +490,13 @@
         <div class="profile-actions">
               <div class="stats-row">
             {#if data.isOwnProfile}
+              <a class="edit-profile" href="/settings#settings-profile">Edit profile</a>
               <MembershipSplitButton
                 count={data.followersCount}
                 canOpenMembers={true}
                 membersOpen={activePeopleList === 'followers'}
                 membersAriaLabel={`${data.followersCount} followers`}
+                countNoun={data.followersCount === 1 ? 'follower' : 'followers'}
                 onOpenMembers={() => togglePeopleList('followers')}
               />
             {:else}
@@ -507,7 +509,10 @@
                 disabled={followPending}
                 membersOpen={activePeopleList === 'followers'}
                 joinAriaLabel={followAriaLabel}
+                joinLabel="Follow"
+                joinedLabel="Following"
                 membersAriaLabel={`${data.followersCount} followers`}
+                countNoun={data.followersCount === 1 ? 'follower' : 'followers'}
                 onToggleJoin={toggleFollow}
                 onOpenMembers={() => togglePeopleList('followers')}
               />
@@ -520,8 +525,7 @@
               type="button"
               on:click={() => togglePeopleList('following')}
             >
-              <FeedToolbarIcon name="people" />
-              <span>{data.followingCount}</span>
+              <span>{data.followingCount} following</span>
             </button>
 
             {#if !data.isOwnProfile && $page.data.bootstrap?.viewer && $page.data.bootstrap.viewer.standing !== 'paused'}
@@ -829,6 +833,19 @@
 </section>
 
 <style>
+  .edit-profile {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
   .bot-review-card {
     display: grid;
     gap: 10px;
@@ -1083,15 +1100,7 @@
     gap: 1px;
   }
 
-  .trust-split.vouched {
-    border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand) 55%, var(--panel-border));
-  }
-
-  .trust-split.marked {
-    border-color: color-mix(in srgb, #b91c1c 55%, var(--panel-border));
-    background: color-mix(in srgb, #b91c1c 35%, var(--panel-border));
-  }
+  /* Only the pressed action is coloured; the standing in the middle stays a neutral label. */
 
   .trust-split.open {
     border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
@@ -1127,14 +1136,20 @@
     font-size: 11px;
   }
 
-  .trust-split.vouched .trust-vouch,
-  .trust-split.vouched .trust-rating {
+  .trust-split.vouched .trust-vouch {
+    background: var(--brand-soft);
     color: var(--brand-strong);
   }
 
-  .trust-split.marked .trust-bot,
-  .trust-split.marked .trust-rating {
+  .trust-split.marked .trust-bot {
+    background: color-mix(in srgb, #b91c1c 14%, var(--panel));
     color: #b91c1c;
+  }
+
+  .trust-rating {
+    font-style: normal;
+    background: var(--panel-soft) !important;
+    color: var(--text-soft) !important;
   }
 
   .trust-vouch:hover:not(:disabled),

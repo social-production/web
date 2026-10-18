@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copyLink } from '$lib/utils/share';
   import { page } from '$app/stores';
   import { createEventDispatcher, tick } from 'svelte';
   import { requireViewer } from '$lib/utils/requireViewer';
@@ -17,6 +18,8 @@
   export let interactive = true;
   export let extraActionLabel = '';
   export let onExtraAction: (() => void) | null = null;
+  /** Adds "Copy link" to the menu, so ⋮ is a real menu and not a shortcut to reporting. */
+  export let copyUrl = '';
 
   const dispatch = createEventDispatcher<{
     compose: void;
@@ -70,8 +73,8 @@
       return;
     }
 
-    // A new report has nothing else in the menu, so open the form directly.
-    if (!report && !extraActionLabel) {
+    // With nothing else in the menu, open the form directly.
+    if (!report && !extraActionLabel && !copyUrl) {
       if (blockedMessage.trim()) {
         menuOpen = true;
         showingBlockedMessage = true;
@@ -208,10 +211,24 @@
     >
       <header class="menu-header">
         <h2 class="menu-title" id="report-menu-title">
-          {report ? resolutionLabel(report.resolution) : `Report ${itemLabel}`}
+          {report ? resolutionLabel(report.resolution) : copyUrl ? 'Options' : `Report ${itemLabel}`}
         </h2>
       </header>
       <div class="menu-body">
+      {#if copyUrl && !report}
+        <button
+          class="menu-item"
+          role="menuitem"
+          type="button"
+          on:click={() => {
+            void copyLink(copyUrl);
+            closeMenu();
+          }}
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+          <span>Copy link</span>
+        </button>
+      {/if}
       {#if extraActionLabel}
         <button class="menu-item" type="button" on:click={runExtraAction}>
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>

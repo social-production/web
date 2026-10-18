@@ -1,6 +1,10 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { dev } from '$app/environment';
+  import { onMount } from 'svelte';
+
+  // A failed first load can land here without the root layout; drop the placeholder shell.
+  onMount(() => document.getElementById('boot-shell')?.remove());
 
   let showDetails = false;
 

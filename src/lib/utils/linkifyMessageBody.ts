@@ -70,6 +70,20 @@ function linkMentions(value: string) {
     .join('');
 }
 
+const INTERNAL_PATH = /\/(?:projects|events|threads|messages|posts|profile|help-requests|communities|channels|invites)\/?\S*/;
+
+/**
+ * Plain text for previews and notices: "View request: /projects/x?…" becomes "View request",
+ * and a stray "Open /events/x" loses the path. Links stay clickable where the full message shows.
+ */
+export function withoutRawPaths(text: string): string {
+  return localizeInstants(text)
+    .replace(LABELLED_INTERNAL_LINE, (_line, label: string) => label)
+    .replace(new RegExp(`\\s*\\bOpen ${INTERNAL_PATH.source}`, 'g'), '')
+    .replace(new RegExp(`\\s*${INTERNAL_PATH.source}`, 'g'), '')
+    .trim();
+}
+
 /** Request messages carry times as ISO instants; show them in the viewer's own zone. */
 export function localizeInstants(text: string): string {
   return text.replace(ISO_INSTANT, (instant) => formatLocalDateTime(instant) || instant);

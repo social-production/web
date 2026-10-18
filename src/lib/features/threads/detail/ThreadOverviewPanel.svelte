@@ -77,6 +77,7 @@
 <section class="overview-shell">
   <FeedCardTop tags={combinedTags}>
     <ReportControl
+      copyUrl={buildShareUrl(`/threads/${data.slug}`)}
       hasActiveReport={Boolean(data.report)}
       isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
       itemLabel="thread"
@@ -94,7 +95,7 @@
     <p class="overview-copy">{data.body}</p>
   </ModerationRestrictionNotice>
 
-  <div class="footer detail-footer">
+  <div class="footer detail-footer byline-first">
     <div class="engagement-row feed-corner-actions">
       <VoteStrip corner activeVote={localActiveVote} count={localVoteCount} syncKey={data.id} onvote={handleVote} />
       <span class="comment-link">
@@ -105,6 +106,7 @@
           <ShareUserMenu
             copyLinkUrl={buildShareUrl(`/threads/${data.slug}`)}
             menuTitle="Share thread"
+            shareTitle={data.title}
             searchContacts={searchShareContacts}
             submitShare={handleThreadShare}
           />
@@ -123,7 +125,7 @@
       </span>
     </div>
     <div class="footer-meta">
-      <ContentMetaRow authorUsername={data.authorUsername} createdAt={data.lastActivityAt} />
+      <ContentMetaRow fullName authorUsername={data.authorUsername} createdAt={data.lastActivityAt} />
     </div>
   </div>
 </section>

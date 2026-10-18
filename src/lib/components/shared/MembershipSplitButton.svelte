@@ -10,6 +10,12 @@
   export let disabled = false;
   export let joinAriaLabel = 'Join';
   export let membersAriaLabel = 'Members';
+  /** Visible words on the join half, so it isn't an unlabelled icon. */
+  export let joinLabel = 'Join';
+  export let joinedLabel = 'Joined';
+  export let pendingLabel = 'Requested';
+  /** Optional word after the count, e.g. "followers". */
+  export let countNoun = '';
   export let onToggleJoin: () => void | Promise<void> = () => {};
   export let onOpenMembers: () => void = () => {};
 </script>
@@ -30,6 +36,7 @@
         on:click={() => onToggleJoin()}
       >
         <FeedToolbarIcon name={joined ? 'person-check' : 'person-plus'} />
+        <span class="join-text">{pending ? pendingLabel : joined ? joinedLabel : joinLabel}</span>
       </button>
     {/if}
 
@@ -42,10 +49,10 @@
         type="button"
         on:click={onOpenMembers}
       >
-        {count}
+        {count}{#if countNoun}&nbsp;{countNoun}{/if}
       </button>
     {:else}
-      <span class="membership-count static">{count}</span>
+      <span class="membership-count static">{count}{#if countNoun}&nbsp;{countNoun}{/if}</span>
     {/if}
   </div>
 {:else}
@@ -56,7 +63,7 @@
   .membership-split {
     display: inline-flex;
     align-items: stretch;
-    min-height: 36px;
+    min-height: 40px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     background: var(--panel-border);
@@ -95,9 +102,13 @@
   }
 
   .membership-join {
-    width: 36px;
-    padding: 0;
+    gap: 6px;
+    min-width: 40px;
+    padding: 0 12px 0 10px;
     color: var(--text-main);
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
   }
 
   .membership-join :global(.toolbar-icon) {

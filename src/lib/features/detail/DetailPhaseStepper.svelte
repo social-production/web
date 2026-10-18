@@ -95,7 +95,7 @@
 
   .segment.current {
     background: var(--brand);
-    color: white;
+    color: var(--on-brand);
   }
 
   .segment.future,

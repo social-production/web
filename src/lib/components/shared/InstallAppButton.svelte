@@ -10,6 +10,7 @@
   };
 
   const DISMISS_KEY = 'sp_install_dismissed';
+  const VISITS_KEY = 'sp_visits';
 
   let promptEvent: BeforeInstallPromptEvent | null = null;
   let dismissed = false;
@@ -22,15 +23,18 @@
   function dismiss() {
     dismissed = true;
     try {
-      sessionStorage.setItem(DISMISS_KEY, '1');
+      localStorage.setItem(DISMISS_KEY, '1');
     } catch {
       // Private mode: the dismissal still holds for this page view.
     }
   }
 
   onMount(() => {
+    // "Not now" holds for good, and a first visit is left alone: the offer starts on visit two.
     try {
-      dismissed = sessionStorage.getItem(DISMISS_KEY) === '1';
+      const visits = Number(localStorage.getItem(VISITS_KEY) ?? '0') + 1;
+      localStorage.setItem(VISITS_KEY, String(visits));
+      dismissed = localStorage.getItem(DISMISS_KEY) === '1' || visits < 2;
     } catch {
       dismissed = false;
     }

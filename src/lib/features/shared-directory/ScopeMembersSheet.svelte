@@ -16,7 +16,7 @@
     full: 'Full member',
     warm: 'Warming up',
     new: 'New',
-    paused: 'Paused · bot',
+    paused: 'Paused',
   };
 
   let members: ScopeMemberEntry[] = [];

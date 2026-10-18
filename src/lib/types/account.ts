@@ -92,7 +92,7 @@ export interface ProfilePageData {
   trust?: AccountTrust;
 }
 
-export type AppearanceThemeMode = 'dark' | 'light';
+export type AppearanceThemeMode = 'dark' | 'light' | 'system';
 export type TextSize = 'small' | 'medium' | 'large';
 export type PreferredLanguage = 'en' | 'nl';
 export type DefaultFeedMode = 'public' | 'personal';

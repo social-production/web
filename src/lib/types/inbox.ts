@@ -7,6 +7,8 @@ export interface NotificationItem {
   kind: 'reply' | 'mention' | 'message' | 'project' | 'event' | 'follow-request' | 'follow-accepted' | 'new-follower' | 'help-request';
   surface: 'public' | 'personal';
   subjectKind: SubjectKind;
+  /** Plain kicker for the card: "Community", "Project", "Account"… */
+  subjectLabel?: string;
   projectMode?: ProjectMode;
   actorUsername?: string;
   actorProfileImageUrl?: string | null;

@@ -189,6 +189,10 @@
                       on:click={() => castVote(item.id, 'no')}>No</button
                     >
                   </div>
+                {:else if !settings.viewerIsMember}
+                  <p class="vote-note">Members vote on this. Join to take part.</p>
+                {:else if !item.viewerVote}
+                  <p class="vote-note">New accounts can vote after their warm-up.</p>
                 {/if}
               </article>
             {/each}
@@ -546,6 +550,12 @@
 
   .decision-card.rejected {
     border-left-color: #e03131;
+  }
+
+  .vote-note {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 12px;
   }
 
   .decision-row {

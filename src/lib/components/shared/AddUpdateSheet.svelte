@@ -6,7 +6,7 @@
   export let message = '';
   export let pending = false;
   export let sheetTitle = 'Post an update';
-  export let submitLabel = 'Propose';
+  export let submitLabel = 'Post update';
   export let placeholder = 'Share what changed...';
   export let labelledById = 'add-update-sheet';
   export let onSubmit: () => void | Promise<void> = () => {};

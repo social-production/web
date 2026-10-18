@@ -1,4 +1,5 @@
 import type { NotificationItem } from '$lib/types/inbox';
+import { withoutRawPaths } from '$lib/utils/linkifyMessageBody';
 import * as m from '$lib/paraglide/messages';
 
 const replyCommentPrefix = 'reply-comment\n';
@@ -66,7 +67,7 @@ export function localizedNotificationBody(item: NotificationItem): string {
     return m.notification_reply_generic();
   }
 
-  return item.body;
+  return withoutRawPaths(item.body);
 }
 
 export function localizedApiError(detail: string | undefined, fallback = m.error_generic()): string {

@@ -246,6 +246,7 @@
 <div class="context-panel">
   <FeedCardTop stage={stageLabel} tags={combinedTags}>
     <ReportControl
+      copyUrl={buildShareUrl(`/events/${data.slug}`)}
       hasActiveReport={Boolean(data.report)}
       isUnderReview={data.moderationState === 'under_review' || data.report?.resolution === 'under_review' || data.report?.resolution === 'open'}
       itemLabel="event"
@@ -331,8 +332,8 @@
           buttonLabel={data.isPrivate ? 'Invite +' : 'Share +'}
           contacts={liveShareContacts.length > 0 ? liveShareContacts : data.shareContacts}
           menuTitle={data.isPrivate ? 'Invite to event' : 'Share event'}
-          placeholder="Search people"
-          submitLabel={data.isPrivate ? 'Invite' : 'Share'}
+          placeholder="Type a username"
+          submitLabel={data.isPrivate ? 'Invite' : 'Send'}
           recipientHint={data.isPrivate
             ? "It's a private event, so they get an invite to accept under Invites."
             : 'They get it as a message and a notification.'}
@@ -393,7 +394,7 @@
   message={updateMessage}
   pending={updatePending}
   sheetTitle="Post an update"
-  submitLabel={data.governance === 'organizer_controlled' ? 'Post' : 'Propose'}
+  submitLabel="Post update"
   placeholder="Share what changed for this event..."
   labelledById="event-add-update-sheet"
   onSubmit={submitUpdate}

@@ -139,6 +139,17 @@ async function keepSessionFresh(): Promise<void> {
 
 const SIGN_IN_DETAIL = 'Sign up or log in to do that.';
 
+let signedOutAnnounced = false;
+
+/** Say so once when a signed-in session really ends, instead of the page quietly going guest. */
+function announceSignedOut() {
+  if (signedOutAnnounced) return;
+  signedOutAnnounced = true;
+  void import('$lib/stores/toast').then(({ showToast }) =>
+    showToast('You were signed out. Log in again to continue.', 'info')
+  );
+}
+
 /**
  * A signed-out visitor pressed something that needs an account (Sign up for a role, Support,
  * Join...). Take them to sign up, and back to this page afterwards, instead of showing the
@@ -222,6 +233,7 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown, allo
       const wasSignedIn = hasAuthenticatedSession();
       clearAuthenticatedSession();
       clearBootstrapCache();
+      if (wasSignedIn) announceSignedOut();
       if (!wasSignedIn && method !== 'GET' && !path.startsWith('/auth/')) {
         sendToSignIn();
         throw { status: 401, body: { detail: SIGN_IN_DETAIL } };
@@ -263,6 +275,8 @@ export function createFastApiClient() {
 export const apiClient = createFastApiClient();
 
 export function apiAssetUrl(path: string): string {
+  // Inline pictures (data:/blob:) and full URLs are already usable as they are.
+  if (/^(?:data:|blob:|https?:\/\/)/i.test(path)) return path;
   const base = getBaseUrl().replace(/\/$/, '');
   return `${base}${path.startsWith('/') ? path : `/${path}`}`;
 }

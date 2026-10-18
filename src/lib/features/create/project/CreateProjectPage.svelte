@@ -377,7 +377,7 @@
         {canSubmit}
         {isSubmitting}
         missing={missingFields}
-        submitLabel="Create Project"
+        submitLabel="Publish project"
         on:submit={handleCreate}
       >
         <svelte:fragment slot="step" let:currentStep>

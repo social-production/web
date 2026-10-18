@@ -57,6 +57,22 @@ function mapKind(k: string): NotificationsPageData['items'][number]['kind'] {
   return 'project';
 }
 
+const SUBJECT_LABELS: Record<string, string> = {
+  project: 'Project',
+  event: 'Event',
+  thread: 'Thread',
+  post: 'Post',
+  community: 'Community',
+  channel: 'Channel',
+  account: 'Account',
+  user: 'People',
+  'help-request': 'Help request',
+  help_request: 'Help request',
+  'phase-change': 'Project',
+  'pull-request': 'Project',
+  'event-plan': 'Event'
+};
+
 function mapSubjectKind(s: string): SubjectKind {
   const map: Record<string, SubjectKind> = {
     project: 'project',
@@ -94,6 +110,7 @@ export async function fetchNotifications(): Promise<NotificationsPageData | null
         kind: mapKind(n.kind),
         surface: (n.surface as 'public' | 'personal') ?? 'public',
         subjectKind: mapSubjectKind(n.subject_type),
+        subjectLabel: SUBJECT_LABELS[n.subject_type],
         actorUsername: n.actor_username ?? undefined,
         actorProfileImageUrl: n.actor_profile_image_url ?? null,
         title: n.title,

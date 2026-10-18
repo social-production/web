@@ -7,7 +7,6 @@
     type CreateSheetChromeStore,
     type CreateSheetFooterStore
   } from './createSheetContext';
-  import { requireFields } from '$lib/stores/toast';
 
   export let steps: Array<{ id: string; title: string }> = [];
   export let stepIndex = 0;
@@ -16,7 +15,7 @@
   export let isSubmitting = false;
   export let submitLabel = 'Create';
   export let submittingLabel = 'Creating...';
-  /** Empty required fields on this step. When set, the button names them instead of staying disabled. */
+  /** Empty required fields on this step. The button waits, and a line under the step names them. */
   export let missing: string[] = [];
 
   const dispatch = createEventDispatcher<{
@@ -59,11 +58,8 @@
   $: footer?.set({
     leftLabel: safeIndex === 0 ? 'Cancel' : 'Back',
     rightLabel: isOverview ? (isSubmitting ? submittingLabel : submitLabel) : 'Continue',
-    rightDisabled: missing.length
-      ? isSubmitting
-      : isOverview
-        ? !canSubmit || isSubmitting
-        : !canContinue,
+    rightDisabled:
+      missing.length > 0 || (isOverview ? !canSubmit || isSubmitting : !canContinue),
     onLeft: () => {
       if (safeIndex === 0) {
         closeSheet?.();
@@ -72,9 +68,7 @@
       back();
     },
     onRight: () => {
-      if (missing.length && !requireFields(Object.fromEntries(missing.map((label) => [label, ''])))) {
-        return;
-      }
+      if (missing.length) return;
       if (isOverview) {
         dispatch('submit');
         return;
@@ -99,9 +93,18 @@
   <div class="step-body">
     <slot name="step" {safeIndex} {currentStep} {isOverview} />
   </div>
+  {#if missing.length}
+    <p class="missing-note" role="status">Still needed: {missing.join(', ')}.</p>
+  {/if}
 </div>
 
 <style>
+  .missing-note {
+    margin: 12px 0 0;
+    color: var(--text-soft);
+    font-size: 13px;
+  }
+
   .wizard,
   .step-body {
     min-width: 0;

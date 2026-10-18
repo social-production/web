@@ -73,7 +73,11 @@
         {#if item.isUnread}
           <span class="unread-dot"></span>
         {/if}
-        <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
+        {#if item.subjectLabel}
+          <span class="subject-label">{item.subjectLabel}</span>
+        {:else}
+          <SurfaceTypeLabel kind={item.subjectKind} projectMode={item.projectMode ?? 'productive'} />
+        {/if}
         {#if item.actionLabel}
           <span class="action">{item.actionLabel}</span>
         {/if}
@@ -176,6 +180,15 @@
 
   .identity-row {
     gap: 0.6rem;
+  }
+
+  .subject-label {
+    color: color-mix(in srgb, var(--text-soft) 78%, transparent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.2;
   }
 
   .kicker {

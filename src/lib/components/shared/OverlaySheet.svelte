@@ -14,6 +14,7 @@
   const dispatch = createEventDispatcher<{ close: void }>();
   let footerEl: HTMLElement | null = null;
   let inlineClose = false;
+  let closeOnly = false;
   let showClose = !hideClose;
   let footerObserver: MutationObserver | null = null;
 
@@ -23,7 +24,8 @@
 
   function syncClosePlacement() {
     if (!footerEl) {
-      inlineClose = false;
+      inlineClose = !hideClose;
+      closeOnly = !hideClose;
       showClose = !hideClose;
       return;
     }
@@ -38,8 +40,10 @@
       }
     }
 
+    // Every sheet closes from the same place: × at the left of the footer bar.
     const count = controls.filter((element) => !element.classList.contains('sheet-dismiss-duplicate')).length;
-    inlineClose = showClose && count > 0 && count < 3;
+    inlineClose = showClose;
+    closeOnly = showClose && count === 0;
   }
 
   function watchFooter(node: HTMLElement) {
@@ -141,10 +145,13 @@
         class="overlay-footer"
         class:has-actions={Boolean($$slots.footer)}
         class:inline-close={inlineClose}
+        class:close-only={closeOnly}
         use:watchFooter
       >
         {#if showClose}
-          <button aria-label="Close" class="overlay-close sheet-close" type="button" on:click={close}>×</button>
+          <button aria-label="Close" class="overlay-close sheet-close" type="button" on:click={close}
+            >×{#if closeOnly}<span class="close-label">Close</span>{/if}</button
+          >
         {/if}
         <slot name="footer" />
       </footer>
@@ -158,8 +165,9 @@
     inset: 0;
     z-index: var(--z-sheet);
     display: grid;
-    place-items: center;
-    padding: 24px;
+    /* Anchored near the top, so a sheet doesn't jump when its content grows or shrinks. */
+    place-items: start center;
+    padding: clamp(24px, 8vh, 72px) 24px 24px;
     pointer-events: auto;
   }
 
@@ -191,7 +199,7 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     width: min(520px, 100%);
-    max-height: min(720px, calc(100dvh - 48px));
+    max-height: min(720px, calc(100dvh - clamp(24px, 8vh, 72px) - 24px));
     overflow: hidden;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-md);
@@ -303,9 +311,20 @@
     background: var(--panel);
   }
 
-  .overlay-footer:not(.has-actions),
-  .overlay-footer:not(:has(:not(.sheet-close))) {
+  .overlay-footer:not(.inline-close):not(.has-actions) {
     display: none;
+  }
+
+  .overlay-footer.inline-close.close-only .sheet-close {
+    flex: 1 1 auto;
+    width: auto;
+    gap: 8px;
+    border-right: 0;
+    font-weight: 800;
+  }
+
+  .close-label {
+    font-size: 15px;
   }
 
   .sheet-close {
@@ -457,8 +476,7 @@
       padding-bottom: 0;
     }
 
-    .overlay-footer:not(.has-actions),
-    .overlay-footer:not(.inline-close):not(:has(:not(.sheet-close))) {
+    .overlay-footer:not(.inline-close):not(.has-actions) {
       display: none;
     }
 

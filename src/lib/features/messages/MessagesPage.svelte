@@ -2238,7 +2238,7 @@
     border: none;
     border-radius: 999px;
     background: var(--brand);
-    color: #fff;
+    color: var(--on-brand);
     box-shadow: 0 8px 24px color-mix(in srgb, var(--brand) 35%, transparent);
     cursor: pointer;
   }

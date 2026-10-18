@@ -19,6 +19,8 @@
   export let timeOnly = false;
   /** Words before the author, e.g. "Created by". */
   export let authorPrefix = '';
+  /** Show the whole name (detail pages, where the byline has its own line). */
+  export let fullName = false;
 
   $: activityLabel = createdAt ? describeUpdateTime(createdAt, updatedAt) : '';
   $: activityInstant = createdAt ? activityStampInstant(createdAt, updatedAt) : '';
@@ -31,9 +33,9 @@
     <span class="author-prefix">{authorPrefix}</span>
   {/if}
   {#if !timeOnly && authorUsername && resolvedAuthorHref}
-    <a class="inline-link" href={resolvedAuthorHref} title={authorUsername}>{displayUsername(authorUsername)}</a>
+    <a class="inline-link" href={resolvedAuthorHref} title={authorUsername}>{fullName ? authorUsername : displayUsername(authorUsername)}</a>
   {:else if !timeOnly && authorUsername}
-    <span class="inline-link" title={authorUsername}>{displayUsername(authorUsername)}</span>
+    <span class="inline-link" title={authorUsername}>{fullName ? authorUsername : displayUsername(authorUsername)}</span>
   {/if}
   {#if !timeOnly}
     <PausedBadge username={authorUsername} />
@@ -76,10 +78,13 @@
     gap: 4px;
   }
 
+  /* The name keeps at least ~10 characters and ends with an ellipsis; badges shrink first. */
   .inline-link {
-    min-width: 0;
-    overflow-wrap: anywhere;
-    white-space: normal;
+    flex: 0 1 auto;
+    min-width: min(10ch, 100%);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--text-main);
     font-weight: 700;
   }
@@ -121,7 +126,7 @@
     }
 
     .inline-link {
-      flex: 1 1 auto;
+      flex: 0 1 auto;
     }
 
     .meta-chip {

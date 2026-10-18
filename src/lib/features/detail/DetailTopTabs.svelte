@@ -112,10 +112,20 @@
       transform: translate3d(0, calc(-1 * var(--topbar-height, 0px)), 0);
     }
 
+    /* Phone: icon with its name underneath; the active tab gets an underline, not a filled disc. */
     .top-tab {
+      flex-direction: column;
+      gap: 2px;
       min-width: 0;
-      padding: 10px 6px;
-      font-size: 12px;
+      padding: 6px 2px 5px;
+      font-size: 11px;
+    }
+
+    .top-tab.active-tab {
+      border-color: transparent;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: inset 0 -2px 0 var(--brand);
     }
 
     .tab-icon {
@@ -125,7 +135,11 @@
     }
 
     .tab-label {
-      display: none;
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 </style>

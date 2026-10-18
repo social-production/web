@@ -19,7 +19,7 @@
   $: showGovernanceVotes = !isPersonalServiceProject(data.projectMode);
   $: canProposeUpdate =
     data.viewerCanRequestUpdate && (!showGovernanceVotes || data.updateRequests.length === 0);
-  $: updateActionLabel = isPersonalServiceProject(data.projectMode) ? 'Post' : 'Propose';
+  const updateActionLabel = 'Post update';
 
   function toggleUpdateComposer() {
     showUpdateComposer = !showUpdateComposer;

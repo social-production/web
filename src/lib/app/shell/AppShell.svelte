@@ -5,6 +5,7 @@
   import CountBadge from '$lib/components/shared/CountBadge.svelte';
   import AuthActionNotice from '$lib/components/shared/AuthActionNotice.svelte';
   import ToastHost from '$lib/components/shared/ToastHost.svelte';
+  import SignedOutIntro from '$lib/app/shell/SignedOutIntro.svelte';
   import ConfirmHost from '$lib/components/shared/ConfirmHost.svelte';
   import LeftRailPanel from '$lib/features/left-rail/LeftRailPanel.svelte';
   import RightRailPanel from '$lib/features/right-rail/RightRailPanel.svelte';
@@ -1060,9 +1061,13 @@
       bind:this={mainContentElement}
       class="main-content"
       class:main-content-compact={isCompact}
+      class:main-content-navigating={showNavProgress && !showDetailSkeleton}
       on:scroll={handleFeedChromeScroll}
     >
       <div class="main-frame">
+        {#if !bootstrap.viewer && !isAuthSurface && /^\/($|channels\/|communities\/)/.test($page.url.pathname)}
+          <SignedOutIntro />
+        {/if}
         <slot />
         {#if showDetailSkeleton}
           <section class="detail-open-skeleton" aria-busy="true" aria-live="polite">
@@ -1161,12 +1166,19 @@
     transition: transform 0.22s ease, visibility 0s linear 0.22s;
   }
 
+  /* A tapped link fades the old page a little until the new one is ready. */
+  .main-content-navigating .main-frame {
+    opacity: 0.55;
+    transition: opacity 160ms ease 120ms;
+    pointer-events: none;
+  }
+
   .nav-progress {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: -2px;
-    height: 2px;
+    bottom: -3px;
+    height: 3px;
     overflow: hidden;
     z-index: 61;
     pointer-events: none;

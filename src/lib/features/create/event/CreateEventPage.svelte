@@ -545,7 +545,7 @@
 
 <CreateFlowLayout
   title="Create event"
-  description="An event gathers people for a planned occasion. Public events start as proposals. Private events can open straight into activity when an organizer sets the plan."
+  description="An event gathers people for a planned occasion. A public event starts as a proposal, and its dates are set when members approve its plan. A private event can get its dates now."
   wizard
 >
   <svelte:fragment slot="primary">
@@ -557,7 +557,7 @@
         {canSubmit}
         {isSubmitting}
         missing={missingFields}
-        submitLabel="Create Event"
+        submitLabel="Publish event"
         on:submit={handleCreate}
       >
         <svelte:fragment slot="step" let:currentStep>
@@ -782,7 +782,13 @@
               </button>
               <button class="overview-row" type="button" on:click={() => (stepIndex = overviewStepIndex('audience'))}>
                 <strong>Audience</strong>
-                <span>{audience.replace('_', ' ')}</span>
+                <span
+                  >{audience === 'public'
+                    ? 'Public'
+                    : audience === 'private_community'
+                      ? 'Private community'
+                      : 'Invite only'}</span
+                >
               </button>
               <button class="overview-row" type="button" on:click={() => (stepIndex = overviewStepIndex('scope'))}>
                 <strong>{audience === 'public' ? 'Tags' : 'Who'}</strong>
@@ -814,10 +820,19 @@
                       : 'Decide later'}
                 </span>
               </button>
+              {#if !requiresUpfrontPlan}
+                <div class="overview-row static">
+                  <strong>Dates</strong>
+                  <span>Set when members approve the event's plan</span>
+                </div>
+              {/if}
               {#if requiresUpfrontPlan}
                 <button class="overview-row" type="button" on:click={() => (stepIndex = overviewStepIndex('plan'))}>
                   <strong>Plan</strong>
-                  <span>{planForm.title.trim() || 'Untitled plan'} · {planForm.planPhases.length} stages</span>
+                  <span
+                    >{planForm.title.trim() || 'Untitled plan'} · {planForm.planPhases.length}
+                    {planForm.planPhases.length === 1 ? 'stage' : 'stages'}</span
+                  >
                 </button>
               {/if}
               {#if statusMessage}

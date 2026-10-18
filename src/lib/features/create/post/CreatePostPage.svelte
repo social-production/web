@@ -47,7 +47,7 @@
 <CreateFlowLayout
   title="New post"
   description="A post is a short public note on your personal feed."
-  submitLabel="Post"
+  submitLabel="Publish post"
   submittingLabel="Posting..."
   {canSubmit}
   {isSubmitting}

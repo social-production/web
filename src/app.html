@@ -14,6 +14,9 @@
       (function () {
         try {
           var theme = localStorage.getItem('sp_theme');
+          if (theme === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
           if (theme === 'dark' || theme === 'light') {
             document.documentElement.dataset.theme = theme;
             document.body && (document.body.dataset.theme = theme);
@@ -25,9 +28,38 @@
         } catch (e) {}
       })();
     </script>
+    <style>
+      /* Shown before the app has loaded, so a cold start isn't a blank white page. */
+      #boot-shell { position: fixed; inset: 0; z-index: 1; background: #ffffff; font-family: Inter, system-ui, sans-serif; }
+      [data-theme='dark'] #boot-shell { background: #181a1b; }
+      #boot-shell .bs-top { height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid #e4e4e7; }
+      [data-theme='dark'] #boot-shell .bs-top { border-color: #33363c; }
+      #boot-shell .bs-mark { width: 32px; height: 32px; border-radius: 8px; background: #2f8a57; }
+      [data-theme='dark'] #boot-shell .bs-mark { background: #5dd691; }
+      #boot-shell .bs-name { font-weight: 800; font-size: 15px; color: #18181b; }
+      [data-theme='dark'] #boot-shell .bs-name { color: #f3f4f6; }
+      #boot-shell .bs-body { display: flex; height: calc(100% - 57px); }
+      #boot-shell .bs-rail { width: 262px; border-right: 1px solid #e4e4e7; padding: 16px; box-sizing: border-box; }
+      [data-theme='dark'] #boot-shell .bs-rail { border-color: #33363c; }
+      #boot-shell .bs-main { flex: 1; padding: 16px; max-width: 760px; box-sizing: border-box; }
+      #boot-shell .bs-line, #boot-shell .bs-card { background: #f0f0f2; border-radius: 6px; animation: bs-pulse 1.4s ease-in-out infinite; }
+      [data-theme='dark'] #boot-shell .bs-line, [data-theme='dark'] #boot-shell .bs-card { background: #25282d; }
+      #boot-shell .bs-line { height: 12px; margin: 0 0 14px; }
+      #boot-shell .bs-card { height: 112px; margin: 0 0 12px; }
+      @keyframes bs-pulse { 50% { opacity: 0.55; } }
+      @media (max-width: 760px) { #boot-shell .bs-rail { display: none; } }
+      @media (prefers-reduced-motion: reduce) { #boot-shell .bs-line, #boot-shell .bs-card { animation: none; } }
+    </style>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover" data-theme="light">
+    <div id="boot-shell" aria-hidden="true">
+      <div class="bs-top"><span class="bs-mark"></span><span class="bs-name">Social Production</span></div>
+      <div class="bs-body">
+        <div class="bs-rail"><div class="bs-line" style="width: 60%"></div><div class="bs-line" style="width: 80%"></div><div class="bs-line" style="width: 50%"></div></div>
+        <div class="bs-main"><div class="bs-line" style="width: 40%"></div><div class="bs-card"></div><div class="bs-card"></div><div class="bs-card"></div></div>
+      </div>
+    </div>
     <div style="display: contents">%sveltekit.body%</div>
   </body>
 </html>

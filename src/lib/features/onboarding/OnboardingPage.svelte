@@ -32,6 +32,17 @@
   let password = '';
   let captchaToken = '';
   let statusMessage = '';
+  // Field hints wait until you leave the field, so they don't flash on the first keystroke.
+  let usernameTouched = false;
+  let passwordTouched = false;
+  $: passwordShort = activeModeValue === 'signup' && password.length < 8;
+  $: username, password, (statusMessage = '');
+
+  /** The API's validation wording, in plain words. */
+  function friendlyAuthError(message: string) {
+    if (/at least 8 characters/i.test(message)) return 'Passwords need at least 8 characters.';
+    return message;
+  }
   let isSubmitting = false;
 
   $: viewer = $page.data.bootstrap?.viewer ?? null;
@@ -100,7 +111,7 @@
             });
 
       if (!result.ok) {
-        statusMessage = result.error ?? 'This auth request could not be completed.';
+        statusMessage = friendlyAuthError(result.error ?? 'This auth request could not be completed.');
         return;
       }
 
@@ -160,12 +171,12 @@
     <form class="stack" on:submit|preventDefault={handleSubmit}>
       <label>
         <span class="field-label">Username</span>
-        <input bind:value={username} autocomplete="username" />
+        <input bind:value={username} autocomplete="username" on:blur={() => (usernameTouched = true)} />
       </label>
       {#if activeModeValue === 'signup'}
         <!-- One reserved line, so typing a name doesn't push the password field down. -->
         <div class="handle-line">
-          {#if username.trim() && handleCheck && !handleCheck.ok}
+          {#if username.trim() && handleCheck && !handleCheck.ok && (usernameTouched || username.trim().length >= 3)}
             <p class="status-note">{handleCheck.error}</p>
           {:else if username.trim() && canonicalPreview}
             <p class="helper-text">Profile URL: <code>{canonicalPreview}</code></p>
@@ -175,8 +186,18 @@
 
       <label>
         <span class="field-label">Password</span>
-        <input bind:value={password} type="password" autocomplete={activeModeValue === 'signup' ? 'new-password' : 'current-password'} />
+        <input
+          bind:value={password}
+          type="password"
+          autocomplete={activeModeValue === 'signup' ? 'new-password' : 'current-password'}
+          on:blur={() => (passwordTouched = true)}
+        />
       </label>
+      {#if activeModeValue === 'signup'}
+        <p class:status-note={passwordTouched && passwordShort} class:helper-text={!(passwordTouched && passwordShort)}>
+          At least 8 characters.
+        </p>
+      {/if}
 
       {#if captchaRequired}
         <TurnstileWidget bind:token={captchaToken} />
@@ -187,6 +208,7 @@
           class="button-primary"
           disabled={isSubmitting ||
             (activeModeValue === 'signup' && Boolean(handleCheck && !handleCheck.ok)) ||
+            passwordShort ||
             (captchaRequired && !captchaToken)}
           type="submit"
         >
