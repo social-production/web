@@ -5,6 +5,7 @@
   import type { DetailMember, ShareTargetResult } from '$lib/types/detail';
   import { canUseNativeShare, shareLink, shareTargets } from '$lib/utils/share';
   import { onMount } from 'svelte';
+  import { page } from '$app/stores';
   import { showToast } from '$lib/stores/toast';
 
   let nativeShare = false;
@@ -47,13 +48,18 @@
   let searchRequestId = 0;
 
   $: searchNeedle = query.trim().toLowerCase();
+  // Before anyone types, offer people you already know: this page's contacts, else your usual ones.
+  $: suggestions =
+    contacts.length > 0
+      ? contacts
+      : (($page.data.bootstrap?.suggestedContacts ?? []) as DetailMember[]);
   $: selectedNames = new Set(selected.map((person) => person.username));
   $: sourceContacts = liveContacts.length > 0 ? liveContacts : contacts;
   $: filteredContacts = searchNeedle
     ? sourceContacts
         .filter((contact) => contact.username.toLowerCase().includes(searchNeedle))
         .slice(0, 8)
-    : [];
+    : suggestions.slice(0, 5);
 
   async function handleQueryInput() {
     if (!searchContacts || !query.trim()) {
@@ -165,32 +171,39 @@
           {#if outsideTitle()}
             <p class="share-subject">{outsideTitle()}</p>
           {/if}
-          <div class="link-field">
-            <span class="link-text" title={copyLinkUrl}>{copyLinkUrl.replace(/^https?:\/\//, '')}</span>
-            <button
-              class="link-copy"
-              class:copied={copyLabel === 'Copied'}
-              type="button"
-              on:click={() => void handleCopyLink()}
-            >
-              {copyLabel}
-            </button>
-          </div>
-          <div class="share-out-row">
+          <div class="out-actions">
             {#if nativeShare}
               <button
-                class="share-tile"
+                class="out-button primary"
                 type="button"
                 on:click={() => void shareLink({ url: copyLinkUrl ?? '', title: outsideTitle() })}
               >
-                <span class="tile-icon more" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-                </span>
-                <span class="tile-label">More</span>
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                Share via…
               </button>
             {/if}
+            <button
+              class="out-button"
+              class:copied={copyLabel === 'Copied'}
+              type="button"
+              title={copyLinkUrl}
+              on:click={() => void handleCopyLink()}
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+              {copyLabel}
+            </button>
+          </div>
+          {#if !nativeShare}
+          <div class="share-out-row">
             {#each shareTargets({ url: copyLinkUrl, title: outsideTitle() }) as target (target.id)}
-              <a class="share-tile" href={target.href} target="_blank" rel="noopener noreferrer">
+              <a
+                class="share-tile"
+                href={target.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Share on ${target.label}`}
+                aria-label={`Share on ${target.label}`}
+              >
                 <span class={`tile-icon ${target.id}`} aria-hidden="true">
                   {#if target.id === 'whatsapp'}
                     <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7L4 20z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /><path d="M9 9.5c.3 2 2 3.8 4.2 4.4l1-1.1 1.8.8c-.2 1-1 1.6-2 1.5A6 6 0 0 1 8.4 10c-.1-1 .5-1.8 1.5-2l.8 1.8-1 .9" fill="currentColor" /></svg>
@@ -204,10 +217,10 @@
                     <svg viewBox="0 0 24 24" width="20" height="20"><path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8z" fill="currentColor" /></svg>
                   {/if}
                 </span>
-                <span class="tile-label">{target.label}</span>
               </a>
             {/each}
           </div>
+          {/if}
         </section>
       {/if}
       <div class="share-search">
@@ -241,7 +254,10 @@
       </div>
     {/if}
 
-    {#if searchNeedle && filteredContacts.length > 0}
+    {#if filteredContacts.length > 0}
+      {#if !searchNeedle}
+        <p class="list-label">Suggested</p>
+      {/if}
       <div class="contact-list">
         {#each filteredContacts as contact}
           <button
@@ -309,44 +325,9 @@
     white-space: nowrap;
   }
 
-  .link-field {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    padding: 4px 4px 4px 12px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
-  }
 
-  .link-text {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--text-soft);
-    font-size: 13px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 
-  .link-copy {
-    flex: 0 0 auto;
-    min-height: 34px;
-    padding: 0 14px;
-    border: 0;
-    border-radius: calc(var(--radius-sm) - 2px);
-    background: var(--brand);
-    color: var(--on-brand, #fff);
-    font: inherit;
-    font-size: 13px;
-    font-weight: 800;
-    cursor: pointer;
-  }
 
-  .link-copy.copied {
-    background: var(--brand-strong);
-  }
 
   .share-out-label {
     color: var(--text-soft);
@@ -356,19 +337,63 @@
     text-transform: uppercase;
   }
 
+  .out-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .out-button {
+    display: inline-flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .out-button:hover {
+    border-color: color-mix(in srgb, var(--brand) 45%, var(--panel-border));
+  }
+
+  .out-button.primary {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: var(--on-brand, #fff);
+  }
+
+  .out-button.copied {
+    border-color: var(--brand);
+    color: var(--brand-strong);
+  }
+
+  .list-label {
+    margin: 4px 16px 0;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
   .share-out-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-    gap: 4px;
+    display: flex;
+    justify-content: center;
+    gap: 14px;
   }
 
   .share-tile {
     display: grid;
-    justify-items: center;
-    gap: 6px;
-    padding: 6px 2px;
+    place-items: center;
+    padding: 2px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: 50%;
     background: transparent;
     color: var(--text-main);
     font: inherit;
@@ -385,8 +410,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: var(--panel-strong);
     color: var(--text-main);
@@ -412,16 +437,11 @@
     color: #fff;
   }
 
-  .tile-icon.email,
-  .tile-icon.more {
+  .tile-icon.email {
     background: var(--brand-soft);
     color: var(--brand-strong);
   }
 
-  .tile-label {
-    font-size: 12px;
-    font-weight: 700;
-  }
 
   .share-shell {
     display: flex;

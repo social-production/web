@@ -367,7 +367,6 @@
           contacts={data.shareContacts}
           menuTitle="Share project"
           placeholder="Type a username"
-          submitLabel="Share"
           submitShare={handleProjectShare}
           searchContacts={searchShareContacts}
           createPost={handleCreatePostFromProject}
