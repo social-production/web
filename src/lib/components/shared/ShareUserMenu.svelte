@@ -288,14 +288,14 @@
     {/if}
 
     <svelte:fragment slot="footer">
-      <div class="share-actions">
+      <div class="sheet-actions">
         {#if createPost}
-          <button class="share-secondary" type="button" on:click={() => void createPost?.()}>
+          <button class="sheet-cancel" type="button" on:click={() => void createPost?.()}>
             {createPostLabel}
           </button>
         {/if}
         <button
-          class="share-primary"
+          class="sheet-submit"
           disabled={selected.length === 0 || pending}
           type="button"
           on:click={handleSubmit}
@@ -351,7 +351,7 @@
     min-height: 40px;
     padding: 0 14px;
     border: 1px solid var(--panel-border);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: var(--panel);
     color: var(--text-main);
     font: inherit;
@@ -599,45 +599,10 @@
     color: var(--danger, #c0392b);
   }
 
-  .share-actions {
-    display: flex;
-    flex: 1 1 auto;
-    gap: 10px;
-    min-width: 0;
-    padding: 12px 16px;
-  }
 
-  .share-secondary,
-  .share-primary {
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 44px;
-    padding: 0 16px;
-    border-radius: 999px;
-    font: inherit;
-    font-weight: 800;
-    cursor: pointer;
-  }
 
-  .share-secondary {
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    color: var(--text-main);
-  }
 
-  .share-primary {
-    overflow: hidden;
-    border: 0;
-    background: var(--brand);
-    color: var(--on-brand, #fff);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 
-  .share-primary:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
 
   .sr-only {
     position: absolute;
