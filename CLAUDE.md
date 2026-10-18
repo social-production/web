@@ -10,6 +10,11 @@
 - Calls: `src/lib/calls/{session.ts,media.ts,CallHost.svelte,tones.ts}`.
 - Map: `features/map/MapPanel.svelte`; `stores/mapFocus.ts` `openPlaceOnMap()` opens it on a place.
 - Toasts: `stores/toast.ts` `showToast`; mutations wrapped with `services/commands/confirm.ts`.
+- Popups: build on `components/shared/OverlaySheet.svelte`. Close is always the footer × (a "Close" bar when the footer has no actions); put actions in `<div class="sheet-actions">` with `sheet-cancel` / `sheet-submit` buttons. Confirms use `askConfirm` from `stores/confirmDialog.ts`.
+- Text on brand-green fills uses `var(--page-bg)` (or `--on-brand`); never hard-code `#fff`.
+- Author lines: `components/shared/ContentMetaRow.svelte` (`fullName` on detail pages); paused accounts get `PausedBadge.svelte` (reads `bootstrap.pausedUsernames`).
+- Join/follow buttons: `components/shared/MembershipSplitButton.svelte` (labels + count; count opens a members sheet). Community/channel members: `features/shared-directory/ScopeMembersSheet.svelte`.
+- `src/app.html` has a static boot shell (`#boot-shell`) removed on mount in `routes/+layout.svelte` and `routes/+error.svelte`.
 
 ## Gotcha
 In these legacy components a template call to a function with no arguments (`{label()}`) does not re-run when the state it reads changes. Pass the state as arguments or compute it in a `$:` statement.
