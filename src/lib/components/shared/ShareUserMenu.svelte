@@ -20,6 +20,10 @@
   export let menuTitle = 'Share';
   export let placeholder = 'Type a username';
   export let submitLabel = 'Send';
+  /** What the people you pick receive, shown under the search box. */
+  export let recipientHint = 'They get it as a message and a notification.';
+  /** First word of the confirmation toast ("Sent to 2 people", "Invited 2 people"). */
+  export let sentVerb = 'Sent to';
   export let createPostLabel = 'Create post';
   export let createPost: (() => void | Promise<void>) | null = null;
   export let copyLinkUrl: string | null = null;
@@ -95,7 +99,7 @@
         }
       }
       showToast(
-        selected.length === 1 ? `Sent to ${selected[0].username}` : `Sent to ${selected.length} people`
+        selected.length === 1 ? `${sentVerb} ${selected[0].username}` : `${sentVerb} ${selected.length} people`
       );
       query = '';
       liveContacts = [];
@@ -260,7 +264,7 @@
     {:else if searchNeedle}
       <p class="empty-row">No one matches “{query.trim()}”.</p>
     {:else if selected.length === 0}
-      <p class="empty-row">Search for people by username. They get it as a message and a notification.</p>
+      <p class="empty-row">Search for people by username. {recipientHint}</p>
     {/if}
 
     {#if feedback}

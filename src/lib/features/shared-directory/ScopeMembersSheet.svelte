@@ -16,7 +16,7 @@
     full: 'Full member',
     warm: 'Warming up',
     new: 'New',
-    paused: 'Paused',
+    paused: 'Paused · bot',
   };
 
   let members: ScopeMemberEntry[] = [];
@@ -67,22 +67,35 @@
   $: full = members.filter((member) => member.standing === 'full');
   $: warming = members.filter((member) => member.standing === 'new' || member.standing === 'warm');
   $: paused = members.filter((member) => member.standing === 'paused');
-  $: sections = [
-    { title: 'All', emptyCopy, members: members.map(toPerson) },
-    ...(organizers.length
-      ? [{ title: 'Organizers', emptyCopy: 'No organizers.', members: organizers.map(toPerson) }]
-      : []),
-    { title: 'Full', emptyCopy: 'No full members yet.', members: full.map(toPerson) },
-    { title: 'New', emptyCopy: 'No one is warming up.', members: warming.map(toPerson) },
-    ...(paused.length
-      ? [{ title: 'Paused', emptyCopy: 'No paused accounts.', members: paused.map(toPerson) }]
-      : []),
-  ] satisfies PeopleSheetSection[];
+  // Until the first load lands, show one plain list rather than tabs that all read 0.
+  $: sections = (
+    loading && members.length === 0
+      ? [{ emptyCopy, members: [] }]
+      : [
+          { title: 'All', emptyCopy, members: members.map(toPerson) },
+          ...(organizers.length
+            ? [
+                {
+                  title: 'Organizers',
+                  emptyCopy: 'No organizers.',
+                  members: organizers.map(toPerson),
+                },
+              ]
+            : []),
+          { title: 'Full', emptyCopy: 'No full members yet.', members: full.map(toPerson) },
+          { title: 'New', emptyCopy: 'No one is warming up.', members: warming.map(toPerson) },
+          ...(paused.length
+            ? [{ title: 'Paused', emptyCopy: 'No paused accounts.', members: paused.map(toPerson) }]
+            : []),
+        ]
+  ) satisfies PeopleSheetSection[];
 </script>
 
 <PeopleSheet
   bind:open
-  title={`${members.length || ''} ${members.length === 1 ? 'member' : 'members'}`.trim()}
+  title={members.length
+    ? `${members.length} ${members.length === 1 ? 'member' : 'members'}`
+    : 'Members'}
   description={`People in ${title}. Full members' votes count fully; new accounts warm up first.`}
   {sections}
   sectionLayout="tabs"

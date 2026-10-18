@@ -24,6 +24,7 @@
   export let onVote: ((vote: VoteDirection) => void) | null = null;
 
   let draftReply = '';
+  $: viewerPaused = $page.data.bootstrap?.viewer?.standing === 'paused';
   let replyOpen = false;
   let replyComposer: CommentComposer;
   let reportModalOpen = false;
@@ -179,6 +180,7 @@
 
   <div class="actions-row">
     <VoteStrip activeVote={comment.activeVote} count={comment.voteCount} syncKey={comment.id} onvote={handleVote} />
+    {#if !viewerPaused}
     <button
       class="reply-button"
       type="button"
@@ -207,6 +209,7 @@
         </svg>
       {/if}
     </button>
+    {/if}
     <ReportMenu
       blockedMessage={viewerUsername === comment.authorUsername ? "You can't report yourself" : ''}
       hasActiveReport={Boolean(comment.report)}

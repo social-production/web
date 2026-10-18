@@ -86,7 +86,7 @@
 <section class:embedded class="discussion-shell" id="comments">
   {#if viewerPaused}
     <p class="composer-paused" role="status">
-      A community review found this account is a bot, so it can read but not comment.
+      This account is read-only: a community review found it's a bot.
     </p>
   {:else}
   <div class="composer-card">

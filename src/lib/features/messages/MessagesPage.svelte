@@ -1647,7 +1647,10 @@
             <div class="member-links">
               {#each activeConversation?.participants ?? [] as member}
                 <a class="member-link" href={`/profile/${member.username}`}
-                  >{member.username}{member.id === data.viewer.id ? ' (you)' : ''}</a
+                  >{member.username}{member.id === data.viewer.id ? ' (you)' : ''}{member.id ===
+                  activeConversation?.createdBy
+                    ? ' · manages the group'
+                    : ''}</a
                 >
               {/each}
             </div>

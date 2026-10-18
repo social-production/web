@@ -333,6 +333,10 @@
           menuTitle={data.isPrivate ? 'Invite to event' : 'Share event'}
           placeholder="Search people"
           submitLabel={data.isPrivate ? 'Invite' : 'Share'}
+          recipientHint={data.isPrivate
+            ? "It's a private event, so they get an invite to accept under Invites."
+            : 'They get it as a message and a notification.'}
+          sentVerb={data.isPrivate ? 'Invited' : 'Sent to'}
           submitShare={handleEventShare}
           searchContacts={searchShareContacts}
           createPost={data.isPrivate ? null : handleCreatePostFromEvent}

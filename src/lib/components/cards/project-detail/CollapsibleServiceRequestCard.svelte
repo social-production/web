@@ -75,6 +75,9 @@
   {#if open}
     <div class="request-body">
       <p>{request.body}</p>
+      {#if statusLabel(request.status) === 'Done'}
+        <p class="decline-reason">It's over. Mark it done and rate it under Past activity, lower on this page.</p>
+      {/if}
       {#if request.status === 'declined' && request.declineReason}
         <p class="decline-reason">Reason: {request.declineReason}</p>
       {/if}

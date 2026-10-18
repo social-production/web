@@ -360,8 +360,17 @@
         realVotes: review.realVotes + (vote === 'real' ? 1 : 0) - (previous === 'real' ? 1 : 0),
         botVotes: review.botVotes + (vote === 'bot' ? 1 : 0) - (previous === 'bot' ? 1 : 0)
       };
-      showToast(vote === 'bot' ? 'Vote recorded: bot' : 'Vote recorded: real person');
       await invalidateAll();
+      const outcome = data.trust?.botReview?.status;
+      showToast(
+        outcome === 'upheld'
+          ? `Vote recorded. That decided it: ${data.username} is now read-only.`
+          : outcome !== 'open'
+            ? `Vote recorded. That decided it: ${data.username} was cleared.`
+            : vote === 'bot'
+              ? 'Vote recorded: bot'
+              : 'Vote recorded: real person'
+      );
     } catch (err) {
       reviewMessage = errorMessage(err, 'Could not record that vote.');
     } finally {

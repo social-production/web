@@ -70,7 +70,12 @@ function linkMentions(value: string) {
     .join('');
 }
 
+/** Request messages carry times as ISO instants; show them in the viewer's own zone. */
+export function localizeInstants(text: string): string {
+  return text.replace(ISO_INSTANT, (instant) => formatLocalDateTime(instant) || instant);
+}
+
 export function linkifyMessageBody(body: string): string {
-  const withTimes = body.replace(ISO_INSTANT, (instant) => formatLocalDateTime(instant) || instant);
+  const withTimes = localizeInstants(body);
   return linkMentions(linkUrls(linkLabelledLines(escapeHtml(withTimes))));
 }
