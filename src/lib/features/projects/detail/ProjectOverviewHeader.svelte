@@ -294,14 +294,6 @@
         <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
           <h1>{data.title}</h1>
         </ModerationRestrictionNotice>
-        <div class="byline">
-          <ContentMetaRow
-            fullName
-            authorUsername={data.authorUsername}
-            authorHref={`/profile/${data.authorUsername}?from=${encodeURIComponent($page.url.pathname)}`}
-            createdAt={data.createdAt}
-          />
-        </div>
         {#if liveFact}
           <p class="live-fact">{liveFact}</p>
         {/if}
@@ -315,7 +307,14 @@
       </div>
     </div>
   </div>
-
+  <div class="context-meta">
+    <ContentMetaRow
+      fullName
+      authorUsername={data.authorUsername}
+      authorHref={`/profile/${data.authorUsername}?from=${encodeURIComponent($page.url.pathname)}`}
+      createdAt={data.createdAt}
+    />
+  </div>
 </div>
 
 <DetailActionDock active={actionsActive}>
@@ -439,6 +438,27 @@
 />
 
 <style>
+  /* Author · time: bottom right of the details, above the buttons, on one line and never cut. */
+  .context-meta {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+    min-width: 0;
+    margin-top: auto;
+    padding-top: 12px;
+  }
+
+  .context-meta :global(.content-meta-row) {
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .context-meta :global(.content-meta-row .inline-link) {
+    min-width: auto;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
   /* The member count and "Joined" respond to hover like every other button in the bar. */
   .control-actions :global(.membership-count:hover:not(.static)),
   .control-actions :global(.membership-join.joined:hover:not(:disabled)) {
@@ -447,16 +467,6 @@
     cursor: pointer;
   }
 
-  /* Author and time on one line, right under the title. */
-  .byline {
-    margin: 2px 0 6px;
-    min-width: 0;
-    font-size: 13px;
-  }
-
-  .byline :global(.content-meta-row) {
-    font-size: 13px;
-  }
 
   .context-panel {
     display: flex;

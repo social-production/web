@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The first dynamic import loads the location modules cold, which can pass 5s on a busy machine.
-vi.setConfig({ testTimeout: 30_000 });
+const COLD_IMPORT = { timeout: 30_000 };
 
-describe('default location preference storage', () => {
+describe('default location preference storage', COLD_IMPORT, () => {
   beforeEach(() => {
     vi.resetModules();
     localStorage.clear();
@@ -38,7 +38,7 @@ describe('default location preference storage', () => {
   });
 });
 
-describe('hydrateDefaultLocationFromServer preference', () => {
+describe('hydrateDefaultLocationFromServer preference', COLD_IMPORT, () => {
   beforeEach(() => {
     vi.resetModules();
     localStorage.clear();

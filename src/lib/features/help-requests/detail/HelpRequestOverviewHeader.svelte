@@ -41,14 +41,6 @@
       <ModerationRestrictionNotice active={data.moderationState === 'hidden' || data.report?.resolution === 'hidden'}>
         <h1>{data.title}</h1>
       </ModerationRestrictionNotice>
-      <div class="byline">
-        <ContentMetaRow
-          fullName
-          authorUsername={data.authorUsername}
-          authorHref={`/profile/${data.authorUsername}?from=${encodeURIComponent($page.url.pathname)}`}
-          createdAt={data.createdAt}
-        />
-      </div>
       {#if timeLabel}
         <p class="live-fact">{timeLabel}</p>
       {/if}
@@ -58,20 +50,38 @@
       <p class="overview-copy">{data.body}</p>
     </div>
   </div>
-
+  <div class="context-meta">
+    <ContentMetaRow
+      fullName
+      authorUsername={data.authorUsername}
+      authorHref={`/profile/${data.authorUsername}?from=${encodeURIComponent($page.url.pathname)}`}
+      createdAt={data.createdAt}
+    />
+  </div>
 </div>
 
 <style>
-  /* Author and time on one line, right under the title. */
-  .byline {
-    margin: 2px 0 6px;
+  /* Author · time: bottom right of the details, above the buttons, on one line and never cut. */
+  .context-meta {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
     min-width: 0;
-    font-size: 13px;
+    margin-top: auto;
+    padding-top: 12px;
   }
 
-  .byline :global(.content-meta-row) {
+  .context-meta :global(.content-meta-row) {
     font-size: 13px;
+    white-space: nowrap;
   }
+
+  .context-meta :global(.content-meta-row .inline-link) {
+    min-width: auto;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
 
   .context-panel {
     display: flex;

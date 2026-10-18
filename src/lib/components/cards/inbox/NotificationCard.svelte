@@ -104,53 +104,43 @@
         {/if}
       </div>
 
-      {#if !showFollowRequestActions && !item.isUnread}
-        <div class="footer-meta">
-          {#if isSocialFollowNotice}
-            <ContentMetaRow timeOnly createdAt={item.createdAt} />
-          {:else}
-            <ContentMetaRow authorUsername={item.actorUsername ?? null} createdAt={item.createdAt} />
-          {/if}
-        </div>
-      {/if}
     </div>
 
-    {#if showFollowRequestActions || item.isUnread}
-      <div class="meta-row">
-        <div class="meta-actions">
-          {#if showFollowRequestActions && item.actorUsername}
-            <button
-              class="accept-button"
-              disabled={followRequestPending === item.actorUsername}
-              type="button"
-              on:click={() => onAcceptFollowRequest?.(item.actorUsername!)}
-            >
-              {m.notification_accept_follower()}
-            </button>
-            <button
-              class="decline-button"
-              disabled={followRequestPending === item.actorUsername}
-              type="button"
-              on:click={() => onRejectFollowRequest?.(item.actorUsername!)}
-            >
-              {m.notification_decline_follower()}
-            </button>
-          {/if}
+    <!-- Bottom row on every card: actions (if any) left, name · time right, never squeezed. -->
+    <div class="meta-row">
+      <div class="meta-actions">
+        {#if showFollowRequestActions && item.actorUsername}
+          <button
+            class="accept-button"
+            disabled={followRequestPending === item.actorUsername}
+            type="button"
+            on:click={() => onAcceptFollowRequest?.(item.actorUsername!)}
+          >
+            {m.notification_accept_follower()}
+          </button>
+          <button
+            class="decline-button"
+            disabled={followRequestPending === item.actorUsername}
+            type="button"
+            on:click={() => onRejectFollowRequest?.(item.actorUsername!)}
+          >
+            {m.notification_decline_follower()}
+          </button>
+        {/if}
 
-          {#if item.isUnread}
-            <button class="mark-read" type="button" on:click={() => dispatch('read')}>{m.notification_mark_read()}</button>
-          {/if}
-        </div>
-
-        <div class="footer-meta">
-          {#if isSocialFollowNotice}
-            <ContentMetaRow timeOnly createdAt={item.createdAt} />
-          {:else}
-            <ContentMetaRow authorUsername={item.actorUsername ?? null} createdAt={item.createdAt} />
-          {/if}
-        </div>
+        {#if item.isUnread}
+          <button class="mark-read" type="button" on:click={() => dispatch('read')}>{m.notification_mark_read()}</button>
+        {/if}
       </div>
-    {/if}
+
+      <div class="footer-meta">
+        {#if isSocialFollowNotice}
+          <ContentMetaRow timeOnly createdAt={item.createdAt} />
+        {:else}
+          <ContentMetaRow fullName authorUsername={item.actorUsername ?? null} createdAt={item.createdAt} />
+        {/if}
+      </div>
+    </div>
   </div>
 </FeedSurface>
 
@@ -259,11 +249,16 @@
 
   .footer-meta {
     margin-left: auto;
-    flex: 0 1 auto;
-    min-width: 0;
-    overflow: hidden;
+    flex: 0 0 auto;
     text-align: right;
     white-space: nowrap;
+  }
+
+  .footer-meta :global(.content-meta-row),
+  .footer-meta :global(.content-meta-row .inline-link) {
+    min-width: auto;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   .mark-read {
